@@ -1,0 +1,12 @@
+{
+    "AudioFelay": 0.0,
+    "AutoPlayNext": false,
+    "DefaultVolume": 100,
+    "EnableSubtitles": false,
+    "PlaybackSpeed": 1.0,
+    "RepeatList": false,
+    "RepeatVideo": false,
+    "SelectedResolution": "bestvideo+bestaudio/best",
+    "selectedAudio": "bestaudio/best",
+    "selectedFormat": "bestvideo"
+}

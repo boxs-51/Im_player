@@ -1,0 +1,91 @@
+-- script_manager.lua
+-- Quản lý scripts loaded, gửi thông tin về C++
+
+local mp = require 'mp'
+local utils = require 'mp.utils'
+
+-- Danh sách scripts đang load
+local loaded_scripts = {}
+
+-- Hàm gửi thông tin về C++ thông qua script-message
+local function send_script_event(event_name, script_name)
+    mp.command_native({
+        "script-message",
+        "script_manager_event", event_name, script_name 
+    })
+end
+
+-- Hàm load script
+local function load_script(path)
+    local success, err = pcall(function()
+        mp.commandv("load-script", path)
+    end)
+    if success then
+        loaded_scripts[path] = true
+        send_script_event("script-loaded", path)
+        mp.osd_message("Loaded script: " .. path)
+    else
+        mp.osd_message("Failed to load: " .. path .. "\n" .. tostring(err))
+    end
+end
+
+-- Hàm unload script
+local function unload_script(path)
+    if loaded_scripts[path] then
+        mp.commandv("unload-script", path)
+        loaded_scripts[path] = nil
+        send_script_event("script-unloaded", path)
+        mp.osd_message("Unloaded script: " .. path)
+    end
+end
+
+-- Hàm list all scripts
+local function list_scripts()
+    local list = {}
+    for k,_ in pairs(loaded_scripts) do
+        table.insert(list, k)
+    end
+    return list
+end
+
+-- ==== Register custom commands ====
+mp.register_script_message("load_script", function(path)
+    load_script(path)
+end)
+
+mp.register_script_message("unload_script", function(path)
+    unload_script(path)
+end)
+
+mp.register_script_message("list_scripts", function()
+    local all = list_scripts()
+    send_script_event("script-list", table.concat(all, ","))
+end)
+
+-- ==== Auto load scripts from --scripts option ====
+local scripts_opt = mp.get_property_native("options/scripts") or {}
+for _, path in ipairs(scripts_opt) do
+    load_script(path)
+end
+
+-- ==== Observe --scripts changes dynamically ====
+mp.observe_property("options/scripts", "native", function(_, new_scripts)
+    if not new_scripts then return end
+    local old = loaded_scripts
+    loaded_scripts = {}
+
+    for _, path in ipairs(new_scripts) do
+        if not old[path] then
+            load_script(path)
+        else
+            loaded_scripts[path] = true
+        end
+    end
+
+    -- Unload scripts that were removed
+    for path,_ in pairs(old) do
+        if not loaded_scripts[path] then
+            unload_script(path)
+        end
+    end
+end)

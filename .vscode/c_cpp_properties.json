@@ -1,0 +1,44 @@
+{
+    "configurations": [
+        {
+            "name": "Win32",
+            "includePath": [
+                "${workspaceFolder}/native/src",
+                "${workspaceFolder}/native/include",
+                "${workspaceFolder}/native/src/reusable_popup",
+                "${workspaceFolder}/native/include/mpv",
+                "${workspaceFolder}/native/include/GL",
+                "${workspaceFolder}/native/include/KHR",
+                "${workspaceFolder}/native/include/cpr",
+                "${workspaceFolder}/native/include/curl",
+                "${workspaceFolder}/native/include/nlohmann",
+                "${workspaceFolder}/native/imgui",
+                "${workspaceFolder}/native/imgui/backends",
+                "${workspaceFolder}/native/include/SDL2"
+            ],
+            "defines": [
+                "UNICODE",
+                "_UNICODE",
+                "SDL_MAIN_HANDLED"
+            ],
+            "compilerPath": "",
+            "cStandard": "c11",
+            "cppStandard": "c++17",
+            "intelliSenseMode": "windows-gcc-x64"
+        },
+        {
+            "name": "UI",
+            "includePath": [
+                "${default}"
+            ],
+            "defines": [
+                "_DEBUG",
+                "UNICODE",
+                "_UNICODE"
+            ],
+            "cStandard": "c17",
+            "intelliSenseMode": "windows-gcc-x64"
+        }
+    ],
+    "version": 4
+}

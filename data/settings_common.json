@@ -1,0 +1,27 @@
+{
+    "Family": "Noto Sans CJK JP",
+    "Style": "Regular",
+    "fontColor": [
+        0.0,
+        0.0,
+        0.0,
+        0.0
+    ],
+    "fontIndex": 0,
+    "fontName": "",
+    "fontScale": 1.0,
+    "lineSpacing": 1.0,
+    "opacity": 0.0,
+    "option1": false,
+    "option2": false,
+    "theme": 0,
+    "windowPos": [
+        0.0,
+        0.0
+    ],
+    "windowSize": [
+        0.0,
+        0.0
+    ],
+    "wrapWidth": 500.0
+}

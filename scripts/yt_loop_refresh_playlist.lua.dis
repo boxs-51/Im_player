@@ -1,0 +1,141 @@
+-- youtube_reload.lua
+-- Tự động reload YouTube URL khi lỗi, token hết hạn hoặc loop vô hạn
+-- Giữ nguyên trạng thái playback (time-pos, pause, speed, volume, track...)
+
+local yt_urls = {}          -- lưu URL gốc theo entry-id
+local retry_count = {}      -- lưu số lần reload
+local MAX_RETRY = 3         -- số lần retry tối đa
+local reload_handler = nil  -- callback reload an toàn
+
+-- Kiểm tra YouTube link
+local function is_youtube_url(url)
+    return url and (url:find("youtube.com") or url:find("youtu.be"))
+end
+
+-- Kiểm tra token hết hạn
+local function token_expired()
+    local stream = mp.get_property("stream-path")
+    if not stream then return false end
+    local expire = stream:match("expire=(%d+)")
+    if expire then
+        local now = os.time()
+        if tonumber(expire) and tonumber(expire) <= now then
+            return true
+        end
+    end
+    -- fallback: check http status trong file-local-options
+    local opts = mp.get_property("file-local-options") or ""
+    if opts:find("403") or opts:find("410") then
+        return true
+    end
+    return false
+end
+
+-- Lấy entry-id ổn định thay vì playlist-pos
+local function get_entry_id()
+    local eid = mp.get_property_number("playlist-entry-id")
+    if not eid then
+        eid = mp.get_property_number("playlist-pos") -- fallback
+    end
+    return eid
+end
+
+-- Lưu trạng thái playback
+local function save_state()
+    return {
+        pos         = mp.get_property_number("time-pos", 0),
+        paused      = mp.get_property_bool("pause", false),
+        speed       = mp.get_property_number("speed", 1.0),
+        volume      = mp.get_property_number("volume", 100),
+        aid         = mp.get_property("aid"),
+        sid         = mp.get_property("sid"),
+        vid         = mp.get_property("vid"),
+        sub_delay   = mp.get_property_number("sub-delay", 0),
+        audio_delay = mp.get_property_number("audio-delay", 0),
+    }
+end
+
+-- Khôi phục trạng thái playback
+local function restore_state(state)
+    if not state then return end
+    if state.pos > 0 then mp.set_property_number("time-pos", state.pos) end
+    mp.set_property_bool("pause", state.paused)
+    mp.set_property_number("speed", state.speed)
+    mp.set_property_number("volume", state.volume)
+    if state.aid then mp.set_property("aid", state.aid) end
+    if state.sid then mp.set_property("sid", state.sid) end
+    if state.vid then mp.set_property("vid", state.vid) end
+    mp.set_property_number("sub-delay", state.sub_delay)
+    mp.set_property_number("audio-delay", state.audio_delay)
+end
+
+-- Reload URL gốc, giữ trạng thái playback
+local function reload_orig(eid)
+    if not eid then return end
+    local url = yt_urls[eid]
+    if not url then return end
+    local state = save_state()
+
+    mp.msg.info("Reloading original URL for entry-id " .. eid)
+    mp.osd_message("Reloading YouTube link...", 2)
+    mp.commandv("loadfile", url, "replace", "playlist-current")
+
+    -- cleanup callback cũ nếu có
+    if reload_handler then
+        mp.unregister_event(reload_handler)
+    end
+    reload_handler = function()
+        reload_handler = nil
+        restore_state(state)
+        retry_count[eid] = 0
+    end
+    mp.register_event("file-loaded", reload_handler)
+end
+
+-- Retry với delay + backoff
+local function retry_with_delay(eid, attempt)
+    local delay = math.min(5, attempt)
+    mp.osd_message("Retrying reload in " .. delay .. "s (attempt " .. attempt .. ")", delay)
+    mp.add_timeout(delay, function()
+        reload_orig(eid)
+    end)
+end
+
+-- Khi file load mới: lưu URL gốc
+mp.register_event("file-loaded", function()
+    local eid = get_entry_id()
+    local path = mp.get_property("path")
+    if is_youtube_url(path) then
+        yt_urls[eid] = path
+        retry_count[eid] = 0
+        mp.msg.verbose("Stored YouTube URL for entry-id " .. eid)
+    else
+        yt_urls[eid] = nil
+    end
+end)
+
+-- Khi video kết thúc hoặc lỗi
+mp.register_event("end-file", function(event)
+    
+    local eid = get_entry_id()
+    if not eid then return end
+    local path = mp.get_property("path")
+    if not is_youtube_url(path) then return end
+
+    local loop_mode = mp.get_property("loop-file")
+
+    if event.reason == "error" or event.reason == "redirect" or event.reason == "unknown-format" then
+        mp.msg.info("Video error detected, reloading original URL...")
+        reload_orig(eid)
+
+    elseif token_expired() or (event.reason == "eof" and loop_mode == "inf") then
+        retry_count[eid] = (retry_count[eid] or 0) + 1
+        if retry_count[eid] <= MAX_RETRY then
+            mp.msg.info("Token expired or loop inf: reload attempt " .. retry_count[eid])
+            retry_with_delay(eid, retry_count[eid])
+        else
+            mp.osd_message("Max retry reached for this video", 3)
+            mp.msg.warn("Max retry reached for entry-id " .. eid)
+        end
+    end
+end)

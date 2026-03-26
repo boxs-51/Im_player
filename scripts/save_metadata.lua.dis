@@ -1,0 +1,40 @@
+-- bridge_metadata.lua
+-- Cầu nối Lua → C++: gửi metadata, ytdl-formats khi có dữ liệu
+
+local utils = require 'mp.utils'
+
+local function send_to_cpp(name, value)
+    if value then
+        local json = utils.format_json(value)
+        mp.commandv("script-message-to", "cpp_bridge", name, json)
+    end
+end
+
+-- ① Quan sát realtime khi MPV cập nhật các property này
+mp.observe_property("metadata", "native", function(_, value)
+    if value then send_to_cpp("metadata", value) end
+end)
+
+mp.observe_property("ytdl-metadata", "native", function(_, value)
+    if value then send_to_cpp("ytdl-metadata", value) end
+end)
+
+mp.observe_property("ytdl-formats", "native", function(_, value)
+    if value then send_to_cpp("ytdl-formats", value) end
+end)
+
+-- ② Khi file vừa load xong, push lại toàn bộ một lần nữa (đảm bảo không sót)
+mp.register_event("file-loaded", function()
+    local ytdl_metadata = mp.get_property_native("ytdl-metadata")
+    local ytdl_formats  = mp.get_property_native("ytdl-formats")
+    local metadata      = mp.get_property_native("metadata")
+
+    if ytdl_metadata then send_to_cpp("ytdl-metadata", ytdl_metadata) end
+    if ytdl_formats then send_to_cpp("ytdl-formats", ytdl_formats) end
+    if metadata then send_to_cpp("metadata", metadata) end
+end)
+
+-- ③ (Tuỳ chọn) Nếu muốn log lại khi gửi để debug
+local function log_send(name, data)
+    mp.msg.info(string.format("[bridge_metadata] Sent %s (%s bytes)", name, tostring(#utils.format_json(data))))
+end

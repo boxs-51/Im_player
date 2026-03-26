@@ -1,0 +1,170 @@
+{
+  "tham": {
+    "count": 111,
+    "mention_count": 111,
+    "last_seen": 1762165602.5244808,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "lung": {
+    "count": 103,
+    "mention_count": 103,
+    "last_seen": 1762165602.5401084,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "danh": {
+    "count": 103,
+    "mention_count": 103,
+    "last_seen": 1762165602.5401084,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "long": {
+    "count": 66,
+    "mention_count": 66,
+    "last_seen": 1762165602.5401084,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "tieng": {
+    "count": 75,
+    "mention_count": 75,
+    "last_seen": 1762165602.5401084,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "hien": {
+    "count": 52,
+    "mention_count": 52,
+    "last_seen": 1767449530.910017,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "nhat": {
+    "count": 120,
+    "mention_count": 120,
+    "last_seen": 1767449530.9080205,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "nhac": {
+    "count": 394,
+    "mention_count": 394,
+    "last_seen": 1767611713.4080172,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "chill": {
+    "count": 44,
+    "mention_count": 44,
+    "last_seen": 1758430284.0683022,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "tiktok": {
+    "count": 96,
+    "mention_count": 96,
+    "last_seen": 1767449530.9151702,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "ban": {
+    "count": 83,
+    "mention_count": 83,
+    "last_seen": 1761275025.007993,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "lofi": {
+    "count": 39,
+    "mention_count": 39,
+    "last_seen": 1758430284.054971,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "hot": {
+    "count": 32,
+    "mention_count": 32,
+    "last_seen": 1761059273.3452783,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "nay": {
+    "count": 48,
+    "mention_count": 48,
+    "last_seen": 1767449530.9120204,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "tap": {
+    "count": 79,
+    "mention_count": 79,
+    "last_seen": 1762165602.5401084,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "cua": {
+    "count": 34,
+    "mention_count": 34,
+    "last_seen": 1760992322.0441663,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "bxh": {
+    "count": 46,
+    "mention_count": 46,
+    "last_seen": 1767449530.9010224,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "trieu": {
+    "count": 36,
+    "mention_count": 36,
+    "last_seen": 1767449530.8990226,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "view": {
+    "count": 35,
+    "mention_count": 35,
+    "last_seen": 1767449530.9000225,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "remix": {
+    "count": 109,
+    "mention_count": 109,
+    "last_seen": 1767449530.904019,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "tre": {
+    "count": 49,
+    "mention_count": 49,
+    "last_seen": 1767449530.9030206,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "hay": {
+    "count": 110,
+    "mention_count": 110,
+    "last_seen": 1767449530.9162383,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "top": {
+    "count": 36,
+    "mention_count": 36,
+    "last_seen": 1767449530.9130175,
+    "expire_seconds": null,
+    "is_representative": true
+  },
+  "2025": {
+    "count": 76,
+    "mention_count": 76,
+    "last_seen": 1767449530.9171634,
+    "expire_seconds": null,
+    "is_representative": true
+  }
+}

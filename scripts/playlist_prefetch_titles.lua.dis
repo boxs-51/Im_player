@@ -1,0 +1,80 @@
+-- youtube_titles.lua
+-- Tự động fetch title cho các URL YouTube trong playlist MPV
+-- Hoạt động cả khi mở file đầu tiên và khi append nhiều item liên tiếp
+-- Có debounce để tránh gọi yt-dlp quá nhiều lần
+
+local utils = require "mp.utils"
+local msg   = require "mp.msg"
+
+-- Nhận diện YouTube URL
+local function is_youtube_url(url)
+    if not url then return false end
+    return url:match("youtube%.com/watch") or url:match("youtu%.be/")
+end
+
+-- Gọi yt-dlp để lấy title
+local function fetch_title(url)
+    local res = utils.subprocess({
+        args = {"yt-dlp", "--no-warnings", "--get-title", url},
+        cancellable = false
+    })
+    if res.status == 0 and res.stdout and res.stdout ~= "" then
+        return res.stdout:gsub("%s+$", "") -- xoá newline cuối
+    else
+        msg.error("yt-dlp failed for URL: " .. url)
+        return nil
+    end
+end
+
+-- Cập nhật title cho playlist
+local function update_playlist_titles()
+    local plist = mp.get_property_native("playlist")
+    if not plist or #plist == 0 then
+        return
+    end
+
+    msg.info("Updating playlist titles for " .. tostring(#plist) .. " entries")
+
+    for i, entry in ipairs(plist) do
+        if entry.filename and is_youtube_url(entry.filename) then
+            if not entry.title or entry.title == "" or entry.title == entry.filename then
+                msg.info("Fetching title for entry " .. i .. ": " .. entry.filename)
+                local title = fetch_title(entry.filename)
+                if title then
+                    mp.set_property_native("playlist/" .. (i-1) .. "/title", title)
+                    msg.info(" -> updated: " .. title)
+                else
+                    msg.warn(" -> failed for " .. entry.filename)
+                end
+            end
+        end
+    end
+end
+
+-- Debounce logic
+local pending_timer = nil
+local function schedule_update(delay)
+    if pending_timer then
+        pending_timer:kill()
+        pending_timer = nil
+    end
+    pending_timer = mp.add_timeout(delay, function()
+        update_playlist_titles()
+        pending_timer = nil
+    end)
+end
+
+-- Trigger khi mở file đầu tiên
+mp.register_event("file-loaded", function()
+    schedule_update(1)
+end)
+
+-- Trigger khi playlist thay đổi (append, remove, shuffle, …)
+mp.register_event("playlist-changed", function()
+    schedule_update(2) -- đợi 2 giây sau khi thay đổi để gộp nhiều sự kiện
+end)
+
+-- Cho phép gọi thủ công qua command
+mp.register_script_message("prefetch_youtube_titles", function()
+    update_playlist_titles()
+end)

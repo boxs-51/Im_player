@@ -1,0 +1,20 @@
+local utils = require("mp.utils")
+
+local function get_tools_ytdlp()
+    -- Lấy thư mục script
+    local script_dir = debug.getinfo(1, "S").source:sub(2):match("(.*[\\/])")
+
+    -- Ghép đường dẫn tools\yt-dlp.exe
+    local tools_path = utils.join_path(script_dir, "tools/yt-dlp.exe")
+
+    -- Kiểm tra tồn tại
+    local f = io.open(tools_path, "r")
+    if f then
+        f:close()
+        return tools_path
+    else
+        return "yt-dlp" -- fallback
+    end
+end
+
+mp.set_property("ytdl_path", get_tools_ytdlp())

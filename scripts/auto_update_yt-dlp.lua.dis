@@ -1,0 +1,246 @@
+-- auto_update_yt-dlp.lua
+-- Tự động kiểm tra & cập nhật yt-dlp cho mpv
+-- Ưu tiên self-update (-U), fallback pip/python/py
+-- Có log ra file + thông báo OSD
+
+local utils = require 'mp.utils'
+local opt = require 'mp.options'
+local ran_once = false
+
+-- Gửi trạng thái dưới dạng node JSON qua client-message
+local function send_status_node(status, current, latest, extra)
+    local node = {
+        status = status,             -- "latest", "updated", "outdated", "error"
+        current_version = current,   -- phiên bản hiện tại
+        latest_version = latest,     -- phiên bản mới nhất
+        extra_info = extra or ""     -- thông tin thêm (method update, lỗi,...)
+    }
+    local json_str = utils.format_json(node)
+    mp.command_native({
+        "script-message",
+        "yt-dlp-status-node", json_str
+    })
+end
+-- === Options ===
+local options = {
+    auto_update = true, -- tự động update
+    log_file = "log/yt-dlp-update.log", -- tên file log
+    max_log_size = 1024 * 1024 * 5 -- 1MB rotate log
+}
+opt.read_options(options, "auto_update_yt-dlp")
+
+-- === Logging setup ===
+-- Luôn log trong thư mục script (cố định)
+local script_dir = mp.get_script_directory()
+if not script_dir or script_dir == "" then
+    -- fallback: chính thư mục bạn hardcode trong C++ LoadAllScripts
+    script_dir = "D:/MPVPLAYER/imgui_player/scriptS"
+end
+local log_path = script_dir .. "/" .. options.log_file
+
+local function rotate_log()
+    local f = io.open(log_path, "r")
+    if f then
+        local size = f:seek("end")
+        f:close()
+        if size and size > options.max_log_size then
+            os.remove(log_path)
+        end
+    end
+end
+-- reset log khi start mpv
+local f = io.open(log_path, "w")
+if f then
+    f:write(os.date("[%Y-%m-%d %H:%M:%S] === New Session Start ===\n"))
+    f:close()
+end
+
+local function log(msg)
+    local f = io.open(log_path, "a")
+    if f then
+        f:write(os.date("[%Y-%m-%d %H:%M:%S] ") .. msg .. "\n")
+        f:close()
+    end
+end
+
+
+local function osd(msg)
+    mp.osd_message("[yt-dlp] " .. msg, 5)
+end
+
+local function run_and_log(args)
+    log("Run: " .. table.concat(args, " "))
+    local res = utils.subprocess({ args = args, cancellable = false })
+    log(" -> status=" .. res.status ..
+        " stdout=" .. tostring(res.stdout) ..
+        " stderr=" .. tostring(res.stderr))
+    return res
+end
+
+-- === Normalize version string ===
+local function normalize_version(v)
+    return (v or ""):gsub("[^0-9%.]", "")
+end
+
+-- === Get yt-dlp paths ===
+local function get_ytdlp_candidates()
+    local prop = mp.get_property_native("ytdl_path")
+    if type(prop) == "string" then
+        if prop ~= "" then
+            return { prop }
+        end
+    elseif type(prop) == "table" then
+        return prop
+    end
+    return { "yt-dlp" } -- fallback hệ thống
+end
+
+-- === Find working yt-dlp ===
+local function find_working_ytdlp()
+    local candidates = get_ytdlp_candidates()
+    log("Candidates: " .. table.concat(candidates, ", "))
+    for _, path in ipairs(candidates) do
+        local res = run_and_log({path, "--version"})
+        if res.status == 0 and res.stdout then
+            return path, normalize_version(res.stdout)
+        end
+    end
+    return nil, nil
+end
+
+-- === Get latest version from pip or PyPI ===
+local function get_latest_version()
+    -- danh sách các phương pháp lấy version
+    local methods = {
+        {args={"yt-dlp", "--version"}, parse=function(res) return normalize_version(res.stdout:match("([%d%.]+)")) end}, -- fallback
+        {args={"pip", "index", "versions", "yt-dlp"}, parse=function(res)
+            local latest = res.stdout:match("Available versions:%s*(.-)\n")
+            if latest then return normalize_version(latest:match("([%d%.]+)$")) end
+        end},
+        {args={"python", "-m", "pip", "install", "--upgrade", "yt-dlp", "--dry-run"}, parse=function(res)
+            -- pip dry-run output có thể chứa version mới nhất
+            local v = res.stdout:match("Requirement already up-to-date: yt%-dlp in .+ %(version ([%d%.]+)%)")
+            if v then return normalize_version(v) end
+        end},
+        {args={"curl", "-s", "https://pypi.org/pypi/yt-dlp/json"}, parse=function(res)
+            if res.stdout then return normalize_version(res.stdout:match('"version"%s*:%s*"([%d%.]+)"')) end
+        end},
+        {args={"wget", "-qO-", "https://pypi.org/pypi/yt-dlp/json"}, parse=function(res)
+            if res.stdout then return normalize_version(res.stdout:match('"version"%s*:%s*"([%d%.]+)"')) end
+        end}
+    }
+
+    for _, method in ipairs(methods) do
+        local res = run_and_log(method.args)
+        if res.status == 0 then
+            local latest = method.parse(res)
+            if latest then
+                return latest
+            end
+        end
+    end
+
+    return nil -- tất cả thất bại
+end
+
+-- === Update yt-dlp ===
+local function update_yt_dlp(ytdlp)
+    -- Danh sách các phương pháp update theo ưu tiên
+    local methods = {
+        {args={ytdlp, "-U"}, name=ytdlp.." -U"},
+        {args={"cmd", "/c", "pip install --upgrade yt-dlp"}, name="pip install --upgrade yt-dlp"},
+        {args={"cmd", "/c", "python -m pip install --upgrade yt-dlp"}, name="python -m pip install --upgrade yt-dlp"},
+        {args={"cmd", "/c", "py -m pip install --upgrade yt-dlp"}, name="py -m pip install --upgrade yt-dlp"}
+    }
+
+    for _, method in ipairs(methods) do
+        local res = run_and_log(method.args)
+        if res.status == 0 then
+            return true, method.name -- chạy lệnh thành công, trả về và bỏ qua các lệnh sau
+        end
+    end
+
+    return false, "no method worked" -- tất cả thất bại
+end
+
+-- === Main check ===
+local function check_update()
+    log("=== Check update start ===")
+    local ytdlp, current = find_working_ytdlp()
+    local latest = get_latest_version()
+
+    if not ytdlp or not current then
+        send_status_node("error", current, latest, "Cannot determine yt-dlp path/version")
+        osd("Cannot determine version")
+        log("Cannot determine yt-dlp version or path")
+        log("=== Check update end ===")
+        return
+    end
+
+    if not latest then
+        send_status_node("error", current, latest, "Cannot fetch latest version")
+        osd("Cannot fetch latest version")
+        log("Cannot get latest yt-dlp version")
+        log("=== Check update end ===")
+        return
+    end
+
+    log("Found yt-dlp: " .. ytdlp .. " current=" .. current .. " latest=" .. latest)
+
+    if current == latest then
+        send_status_node("latest", current, latest)
+        osd("Already latest (" .. current .. ")")
+        log("Already latest version")
+        log("=== Check update end ===")
+        return
+    end
+
+    if options.auto_update then
+        -- Danh sách lệnh update theo ưu tiên
+        local methods = {
+            {args={ytdlp, "-U"}, name=ytdlp.." -U"},
+            {args={"cmd", "/c", "pip install --upgrade yt-dlp"}, name="pip install --upgrade yt-dlp"},
+            {args={"cmd", "/c", "python -m pip install --upgrade yt-dlp"}, name="python -m pip install --upgrade yt-dlp"},
+            {args={"cmd", "/c", "py -m pip install --upgrade yt-dlp"}, name="py -m pip install --upgrade yt-dlp"}
+        }
+
+        local updated = false
+        for _, method in ipairs(methods) do
+            local res = run_and_log(method.args)
+            if res.status == 0 then
+                updated = true
+                send_status_node("updated", current, latest, method.name)
+                osd("Updated to " .. latest)
+                log("Update success by " .. method.name)
+                break -- chỉ chạy lệnh đầu tiên thành công
+            end
+        end
+
+        if not updated then
+            send_status_node("error", current, latest, "Update failed: no method worked")
+            osd("Update failed")
+            log("Update failed: no method worked")
+        end
+    else
+        send_status_node("outdated", current, latest, "auto_update=false")
+        osd("Outdated: " .. current .. " -> " .. latest)
+        log("Outdated but auto_update=false")
+    end
+
+    log("=== Check update end ===")
+end
+
+local function check_update_once()
+    if ran_once then
+        log("check_update skipped (already ran once)")
+        return
+    end
+    ran_once = true
+    check_update() -- gọi hàm check_update gốc
+end
+
+-- === Trigger on start file ===
+check_update_once()
+
+mp.register_script_message("check_update", check_update)
+
