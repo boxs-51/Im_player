@@ -32,7 +32,9 @@ vcpkg/
 videos/
 thumbnail_cache/
 
-temp/
+temp/*
+libs/*
 
-libs/
-fonts/
+fonts/Emojis-icons/*.ttf
+fonts/*.ttf
+fonts/static
