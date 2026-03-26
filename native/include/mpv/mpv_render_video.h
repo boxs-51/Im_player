@@ -3,6 +3,9 @@
 #include <mpv/client.h>
 #include <imgui.h>
 
+#define SDL_MPV_EVENT (SDL_USEREVENT + 1)
+#define SDL_MPV_RENDER_UPDATE (SDL_USEREVENT + 2)
+
 /// Khởi tạo mpv và thiết lập các tuỳ chọn cơ bản
 bool InitMPV(mpv_handle*& mpv);
 

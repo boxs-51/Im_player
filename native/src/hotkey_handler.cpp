@@ -1,17 +1,18 @@
 #include "hotkey_handler.h"
 #include "mpv_controller.h"
 #include "popup.h"
-#include "ui_sidebar.h"
 #include "globals.h"
 #include "thread.h"
 #include "sidebar_popup.h"
-#include "borderless_state.h"
+
+#include "windows/windows_borderless_state.h"
+#include "windows/windows_borderless.h"
 
 #include <log.h>
 #include <SDL.h>
 
 // --- Playback Hotkeys --- //
-bool HandleBasicHotkeys(const SDL_Event& e, bool& render_video, bool& render_ui_video, mpv_handle* mpv, bool& isFullscreen, SDL_Window* window) {
+bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen, SDL_Window* window) {
     if (e.type != SDL_KEYDOWN)
         return false;
 
@@ -77,10 +78,8 @@ bool HandleBasicHotkeys(const SDL_Event& e, bool& render_video, bool& render_ui_
             case SDLK_SPACE:
                 if (mpv_is_paused(mpv)) {
                     mpv_command_play(mpv);
-                    render_ui_video = false;
                 } else {
                     mpv_command_pause(mpv);
-                    render_ui_video = true;
                     lastInteractionTime = SDL_GetTicks();
                 }
                 return true;
@@ -92,7 +91,6 @@ bool HandleBasicHotkeys(const SDL_Event& e, bool& render_video, bool& render_ui_
                 if (key == SDLK_LEFT) step = -step;
                 
                 mpv_command_seek_clamped(mpv, step, (float)g_playbackStatus.playbackTime, g_playbackStatus.duration);
-                render_video = render_ui_video = true;
                 return true;
             }
             case SDLK_DOWN: 
@@ -104,13 +102,11 @@ bool HandleBasicHotkeys(const SDL_Event& e, bool& render_video, bool& render_ui_
                 mpv_command_set_volume(mpv, newVol);
                 v_Settings.defaultVolume = newVol;
                 SaveSettings_Video();
-                render_video = render_ui_video = true;
                 return true;
             }
 
             case SDLK_m:
                 mpv_command_set_mute(mpv, !mpv_is_muted(mpv));
-                render_video = render_ui_video = true;
                 return true;
 
             default:
@@ -120,7 +116,8 @@ bool HandleBasicHotkeys(const SDL_Event& e, bool& render_video, bool& render_ui_
 
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
     if (key == SDLK_F11) {
-        g_RequestToggleFullscreen = true;
+        //g_RequestToggleFullscreen = true;
+        BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
         return true;
     }
 
@@ -215,9 +212,9 @@ bool HandleExtersionHotkeys(const SDL_Event& e){
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-bool HandleHotkeys(const SDL_Event& e,   bool& render_popup,bool& render_ui_video ,bool& render_video, mpv_handle* mpv, bool& isFullscreen_video, SDL_Window* window) {
+bool HandleHotkeys(const SDL_Event& e,   bool& render_popup, mpv_handle* mpv, bool& isFullscreen_video, SDL_Window* window) {
     if (Disabehotkey) return false;
-    return HandleBasicHotkeys(e, render_video, render_ui_video , mpv, isFullscreen_video, window ) ||
+    return HandleBasicHotkeys(e, mpv, isFullscreen_video, window ) ||
            HandlePopupHotkeys(e, render_popup) ||
            HandleExtersionHotkeys(e);
 }

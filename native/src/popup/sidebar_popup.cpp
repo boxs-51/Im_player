@@ -833,7 +833,8 @@ void RenderListVideoMPV()
 
             // Nếu double-click → phát video
             if (ImGui::IsMouseDoubleClicked(0)) {
-                const char* cmd[] = { "playlist-play-index", std::to_string(i).c_str(), nullptr };
+                std::string indexStr = std::to_string(i);
+                const char* cmd[] = { "playlist-play-index", indexStr.c_str(), nullptr };
                 mpv_command(mpv, cmd);
 
                 g_playbackStatus.g_PlayingIndex = i; // Cập nhật trạng thái đang phát

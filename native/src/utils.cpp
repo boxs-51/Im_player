@@ -2,7 +2,7 @@
 #include "globals.h"
 #include "utils.h"
 #include "json.hpp"
-#include "borderless.h"
+#include "windows/windows_borderless.h"
 #include "thread.h"
 #include "mpv_basic_formats.h"
 
@@ -836,7 +836,8 @@ void ProcessMPVEvents(mpv_handle* mpv) {
                     // Xử lý bình thường nếu append video mới ngoài đổi format
                     playImmediately = false;
                     int newIndex = (int)g_playbackStatus.g_playlist.size() - 1;
-                    const char* cmdPlay[] = { "playlist-play-index", std::to_string(newIndex).c_str(), nullptr };   mpv_command(mpv, cmdPlay);  RATE_LIMITED_COUT(playlist_play_index, 1,std::cout << "[DEBUG] [INFO] [Playlist] Auto-playing newly added item at index: " << newIndex << "");
+                    std::string indexStr = std::to_string(newIndex);
+                    const char* cmdPlay[] = { "playlist-play-index", indexStr.c_str(), nullptr };   mpv_command(mpv, cmdPlay);  RATE_LIMITED_COUT(playlist_play_index, 1,std::cout << "[DEBUG] [INFO] [Playlist] Auto-playing newly added item at index: " << newIndex << "");
                 }
             }
             else if (strcmp(name, "chapter-list") == 0)     UpdateChapterList((const mpv_node*)prop->data);
@@ -976,10 +977,14 @@ void ProcessMPVEvents(mpv_handle* mpv) {
         }
 
 
-        case MPV_EVENT_SEEK: g_isSeeking = true; RATE_LIMITED_COUT(mpv_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); break;
+        case MPV_EVENT_SEEK:{
+            Seekingdata.g_isSeeking = true; 
+            RATE_LIMITED_COUT(mpv_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); break;
+        }
+
         case MPV_EVENT_PLAYBACK_RESTART: 
         {
-            g_isSeeking = false; 
+            Seekingdata.g_isSeeking = false; 
             if(pendingSeekTime >= 0.0){
                 if(!is_live)mpv_command_seek_abs(mpv, pendingSeekTime , g_playbackStatus.duration);
                 RATE_LIMITED_COUT(playback_restart_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << pendingSeekTime << " seconds.");
@@ -1080,10 +1085,10 @@ PlaybackState GetPlaybackState() {
      if (g_playbackStatus.ilde)
         return PlaybackState::Idle;
 
-    if ((g_playbackStatus.eofReached) && !g_isSeeking)
+    if ((g_playbackStatus.eofReached) && !Seekingdata.g_isSeeking)
         return PlaybackState::EndOfFile;
 
-    if (g_isSeeking)
+    if (Seekingdata.g_isSeeking)
         return PlaybackState::Seeking;
 
     if (g_playbackStatus.isPaused)
@@ -1258,6 +1263,70 @@ void DrawCardWithHole(
             dl->PopClipRect();
         }
     }
+}
+
+
+
+void UpdateUIState() {
+    ImGuiIO& io = ImGui::GetIO();
+    ImVec2 mousePos = io.MousePos; 
+    Uint32 currentTime = SDL_GetTicks();
+    
+    // 1. Kiểm tra vị trí chuột
+    bool isMouseInsideVideo = (mousePos.x >= Windowlayout.videoArea.x && 
+                               mousePos.x <= (Windowlayout.videoArea.x + Windowlayout.videoArea.w) &&
+                               mousePos.y >= Windowlayout.videoArea.y && 
+                               mousePos.y <= (Windowlayout.videoArea.y + Windowlayout.videoArea.h));
+
+    // 2. Kiểm tra tương tác với UI (Hover nút, kéo slider, combo...)
+    // io.WantCaptureMouse là cách nhanh nhất để biết chuột có đang đè lên bất kỳ cửa sổ ImGui nào không
+    bool isInteractingWithUI = io.WantCaptureMouse || ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered();
+
+    // 3. XÁC ĐỊNH TIMEOUT THEO 3 TRẠNG THÁI (Ưu tiên từ cao xuống thấp)
+    Uint32 currentTimeout;
+    if (isInteractingWithUI) {
+        currentTimeout = 2000; // Đang tương tác UI: 2s
+    } else if (isMouseInsideVideo) {
+        currentTimeout = 1000; // Di chuột bình thường trong video: 1s
+    } else {
+        currentTimeout = 500;  // Đã rời khỏi video: 0.5s
+    }
+
+    // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
+    // Lưu ý: Luôn reset timer nếu chuột đang di chuyển HOẶC đang tương tác với UI
+    bool isMouseMoving = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
+    
+    if (isMouseMoving || isInteractingWithUI) {
+        lastInteractionTime = currentTime;
+        
+        // Tự động hiện lại UI nếu có hoạt động
+        if (!show_ui_video) {
+            show_ui_video = true;
+            SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+
+    // 5. LOGIC ẨN UI
+    if (show_ui_video) {
+        // Chỉ ẩn khi hết thời gian chờ
+        if (currentTime - lastInteractionTime > currentTimeout) {
+            
+            // CỰC KỲ QUAN TRỌNG: Không ẩn khi đang có Popup/Combo mở hoặc đang kéo Slider
+            if (!ImGui::IsAnyItemActive() && !IsAnyPopupOpen()) {
+                show_ui_video = false;
+                SDL_ShowCursor(SDL_DISABLE);
+            }
+        }
+    }
+}
+void NotifyActivity() {
+    // Đánh thức UI và hiện con trỏ
+    if (!show_ui_video) {
+        show_ui_video = true;
+        SDL_ShowCursor(SDL_ENABLE);
+    }
+    // Cập nhật mốc thời gian tương tác cuối cùng
+    lastInteractionTime = SDL_GetTicks();
 }
 
 

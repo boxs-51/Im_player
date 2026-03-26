@@ -17,7 +17,6 @@ add_executable(imgui_player
 
     native/src/main.cpp
     native/src/utils.cpp
-    native/src/client_backend.cpp
     native/src/FontManager.cpp
     native/src/gl3w.c
     native/src/globals.cpp
@@ -32,8 +31,8 @@ add_executable(imgui_player
 
     native/src/UIStyleManager.cpp
 
-    native/src/custom_titlebar/borderless.cpp
-    native/src/custom_titlebar/custom_titlebar.cpp
+    native/src/windows/windows_borderless.cpp
+    native/src/windows/windows_custom_titlebar.cpp
 
     native/imgui/imgui.cpp
     native/imgui/imgui_draw.cpp
@@ -46,19 +45,20 @@ add_executable(imgui_player
     native/imgui/backends/imgui_impl_sdl2.cpp
     native/imgui/backends/imgui_impl_opengl3.cpp
 
-    native/src/reusable_popup/popup_about_video.cpp
-    native/src/reusable_popup/popup_setting.cpp
-    native/src/reusable_popup/popup_url.cpp
-    native/src/reusable_popup/reusable_popup.cpp
-    native/src/reusable_popup/sidebar_popup.cpp
+    native/src/popup/popup_about_video.cpp
+    native/src/popup/popup_setting.cpp
+    native/src/popup/popup_url.cpp
+    native/src/popup/reusable_popup.cpp
+    native/src/popup/sidebar_popup.cpp
 
     native/src/service/key_manager_server.cpp
     native/src/service/resolution_service.cpp
     native/src/service/youtube_sevice.cpp
     native/src/service/services.cpp
+    native/src/service/client_backend.cpp
 
-    native/src/thread/thread_manager.cpp
-    native/src/thread/thread.cpp
+    native/src/threads/thread_manager.cpp
+    native/src/threads/thread.cpp
 
 )
 
@@ -83,6 +83,9 @@ target_include_directories(imgui_player PRIVATE
     native/include/curl
     native/include/cpr
     native/include/openssl
+    native/include/windows
+    native/include/popup
+    native/include/threads
 
     native/imgui/misc/freetype
     native/imgui/backends

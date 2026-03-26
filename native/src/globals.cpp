@@ -14,6 +14,7 @@
 bool g_consoleAttached = false;
 bool g_consoleWindowCreated = false;
 
+SeekingData Seekingdata;
 UiWindowsState uiState;
 
 const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "data","settings_common.json");
@@ -24,6 +25,7 @@ int WinX_SDL = 0;
 int WinY_SDL = 0;
 int WinW_SDL = 0;
 int WinH_SDL = 0;
+
 std::atomic<bool> g_KeyServiceStarted = false;
 std::mutex g_keyServiceMutex;
 std::condition_variable g_keyServiceCv;
@@ -60,20 +62,19 @@ bool g_hasload = false;
 bool urlConfirmed = false;
 bool loadingVideoformpopup = false;
 bool showIOCHSettings = false;
+bool hasRenderedSomething = false;  
 bool needRender = false;
-bool render_seeking = false;
 bool render_video = false;
 bool render_ui_video = false;
 bool render_popup = false;
 bool render_ilde = false;
 bool render_load = false;
 bool mpvUpdatePaused = false;
-bool g_isSeeking = false;
 bool g_isChangingVideo = false;
 bool g_wasPlayingBeforeSeek = false;
 bool g_isSeekPending = false;
 bool g_WindowVisible = true;
-bool g_RequestToggleFullscreen = false;
+//bool g_RequestToggleFullscreen = false;
 bool shouldSeekAfterResolutionChange = false;
 bool mpv_player_ready = true;
 bool rendee_ilde =false;
@@ -104,6 +105,7 @@ int maxHiddenDelay = 5000;
 double pendingSeekTime = -1.0;
 
 float g_seekTargetTime = -1.0;
+float g_seekingIconFade = 0.0f;
 
 Uint32 mpvPollDelayWhenHidden = 200; 
 Uint32 Relay_Ilde = 0;

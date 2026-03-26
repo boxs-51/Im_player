@@ -7,9 +7,11 @@
 #include <mpv/render_gl.h>
 #include "globals.h"
 
+
 #include <string>
 #include <optional>
 #include <array>
+
 
 extern mpv_render_context* render_ctx;
 extern mpv_handle* mpv;
@@ -61,10 +63,15 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
 
     // Sử dụng Lambda capture nếu cần, nhưng ở đây dùng static callback của MPV
     mpv_render_context_set_update_callback(render_ctx, [](void*) {
-        if (!g_WindowVisible) return;
-        
+    
         SDL_Event event;
-        event.type = SDL_USEREVENT;
+        event.type = SDL_MPV_RENDER_UPDATE;
+        SDL_PushEvent(&event);
+    }, nullptr);
+
+    mpv_set_wakeup_callback(mpv_ptr, [](void*) {
+        SDL_Event event;
+        event.type = SDL_MPV_EVENT;
         SDL_PushEvent(&event);
     }, nullptr);
 

@@ -302,6 +302,8 @@ void InitPlaybackStatus(mpv_handle* mpv);
 void ProcessMPVEvents(mpv_handle* mpv );
 void TerminateHandler();
 void SignalHandler(int signal);
+void UpdateUIState();
+void NotifyActivity();
 
 void DrawCardWithHole(
     ImDrawList* dl,

@@ -142,7 +142,7 @@ bool RenderToggleCombo(const char* label, bool& state) {
 void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , bool open) {
     
     static float anim = 0.0f;
-    UpdateHoverAnim(anim ,open, 2.0f);
+    UpdateHoverAnim(anim ,open, 15.0f);
     // Nếu panel gần như tắt hoàn toàn thì không cần vẽ
     if (anim < 0.01f )
         return;

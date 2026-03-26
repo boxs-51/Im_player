@@ -5,7 +5,6 @@
 #define GL_GLEXT_PROTOTYPES
 #include "mpv/mpv_ui.h"
 #include "mpv/mpv_controller.h"
-#include "ui_sidebar.h"
 #include "utils.h"
 #include "hotkey_handler.h"
 #include <mpv/render_gl.h>
@@ -19,9 +18,11 @@
 #include "resolution_service.h"
 #include "mpv/mpv_settings.h"
 #include "main.h"
-#include "custom_titlebar.h"
-#include "borderless.h"
-#include "borderless_state.h"
+
+#include "windows/windows_custom_titlebar.h"
+#include "windows/windows_borderless.h"
+
+#include "windows/windows_borderless_state.h"
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
 //#undef RATE_LIMITED_COUT
@@ -67,12 +68,8 @@ void ShowAllWindows()
     }
 }
 static PlaybackState state = GetPlaybackState();
-static int savedWindowedWidth = 1280;
-static int savedWindowedHeight = 720;
 static int frameCount = 0;
 static int currentFPS = 0;
-
-static bool hasRenderedSomething = false;   
 
 static Uint32 flags;
 
@@ -144,6 +141,7 @@ int main(int argc, char** argv) {
         
         PlaybackState state = GetPlaybackState();
 
+
         SDL_Event e;
 
         while (SDL_PollEvent(&e)) {
@@ -161,7 +159,7 @@ int main(int argc, char** argv) {
             else {
                 if(g_WindowVisible){
                     ImGui_ImplSDL2_ProcessEvent(&e);
-                    bool hotkeyHandled = HandleHotkeys(e, render_popup, render_ui_video, render_video , mpv, BW.isFullscreen_video, ctx.mainWindow);
+                    bool hotkeyHandled = HandleHotkeys(e, render_popup , mpv, BW.isFullscreen_video, ctx.mainWindow);
                     if (hotkeyHandled) continue;
                 }
                 
@@ -180,11 +178,9 @@ int main(int argc, char** argv) {
             if (hiddenDelay <= maxHiddenDelay) {
                 hiddenDelay += 1000;
             }
-            render_video = false;
             render_popup = false;
-            render_ui_video = false;
             render_ilde = false;
-            render_seeking = false;
+
             render_load = false;
             frameTime = SDL_GetTicks() - frameStart;
             if (frameDelay > frameTime) {
@@ -208,60 +204,53 @@ int main(int argc, char** argv) {
             ProcessMPVEvents(mpv);
         }
 
-        if (show_ui_video && (state == PlaybackState::Playing || state == PlaybackState::Paused || state == PlaybackState::EndOfFile)) {
-            render_ui_video = true;
-            Uint32 currentTime = SDL_GetTicks();
-            if (currentTime - lastInteractionTime > 5000) {
-                if(!IsAnyPopupOpen())SDL_ShowCursor(SDL_DISABLE); 
-                show_ui_video = false;
-                showIOCHSettings = false;
-                render_ui_video = true;
 
-            }
-        }
+
+
         if (state == PlaybackState::Loading) {
             render_load = true;
-            render_ui_video = false;
             render_video = false;
             render_ilde = false;
+            render_ui_video =false;
         
         } 
         else if (state == PlaybackState::Idle) {
             render_ilde = true;
-            render_ui_video = false;
             render_video = false;
             render_load = false;
+            render_ui_video =false;
         }
         else if (state == PlaybackState::Playing || state == PlaybackState::Paused) {
             render_video = true;
             render_load = false;
             render_ilde = false;
+            render_ui_video =true;
         }
         else if (state == PlaybackState::Seeking){
             render_video = true;
             render_load = false;
             render_ilde = false;
-            render_ui_video = true;
-            render_seeking = true;
+            render_ui_video =true;
         }
         else if (state == PlaybackState::EndOfFile){
             render_video = true;
             render_ilde = false;
-            show_ui_video = true;
+            render_ui_video =true;
+            NotifyActivity();
         }
 
         mpv_update_seek_pending( mpv  );
 
-        bool needRender = (render_video || render_ui_video || render_popup || render_ilde || render_seeking || render_load || IsAnyPopupOpen());
+        bool needRender = (render_video ||  render_popup || render_ilde || render_load || IsAnyPopupOpen());
+        
         
         if ( needRender) {
 
-            if (g_RequestToggleFullscreen)
-            {
-                bool Fullscreen = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-                BW.isFullscreen_video = Fullscreen;
-                g_RequestToggleFullscreen = false;
-            }
+            //if (g_RequestToggleFullscreen)
+            //{
+            //    BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+            //    g_RequestToggleFullscreen = false;
+            //}
             UpdateGlobalWindowLayout(ctx.mainWindow, BW);
             //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
             ImFont* cur = FontManager::Instance().GetCurrentFont();
@@ -332,7 +321,6 @@ int main(int argc, char** argv) {
                 render_video = false;
                 render_ilde = false;
                 render_load = false;
-                render_ui_video = false;
                 render_popup = false;
             }
         }
@@ -457,10 +445,17 @@ void HandleMainWindowEvent(const SDL_Event& e) {
             }
         }
 
+        if (e.type == SDL_USEREVENT) {
+            render_video = true;  
+        }
+        if (e.type == SDL_MPV_EVENT){
+            ProcessMPVEvents(mpv);
+        }
+
     }else{
         ImGui_ImplSDL2_ProcessEvent(&e);
         // 1. Xử lý phím nóng → VD: Ctrl+U mở popup, Space để pause
-        bool hotkeyHandled = HandleHotkeys(e, render_popup, render_ui_video, render_video , mpv, BW.isFullscreen_video, ctx.mainWindow);
+        bool hotkeyHandled = HandleHotkeys(e, render_popup , mpv, BW.isFullscreen_video, ctx.mainWindow);
         if (hotkeyHandled){
             return;
         }
@@ -498,15 +493,7 @@ void HandleMainWindowEvent(const SDL_Event& e) {
                 render_popup = true;
             }
         }
-        if (isMouseInteraction || isMousePressOrRelease) {
-            render_ui_video = true;
-            SDL_ShowCursor(SDL_ENABLE); 
-            lastInteractionTime = SDL_GetTicks();
-            if (!show_ui_video) {
-                show_ui_video = true;
-                SDL_ShowCursor(SDL_ENABLE);  
-            }
-        }
+        if(isMouseInteraction || isMousePressOrRelease ) NotifyActivity();
         
         if (isUITriggerKey ){
             render_popup = true;
@@ -525,8 +512,11 @@ void HandleMainWindowEvent(const SDL_Event& e) {
 
         }
 
-        if (e.type == SDL_USEREVENT) {
+        if (e.type == SDL_MPV_RENDER_UPDATE) {
             render_video = true;  
+        }
+        if (e.type == SDL_MPV_EVENT){
+            ProcessMPVEvents(mpv);
         }
 
         if (e.type == SDL_QUIT){
@@ -555,10 +545,13 @@ void Render(){
         ImGuiWindowFlags_NoFocusOnAppearing |
         ImGuiWindowFlags_NoMove
     );
+
+    UpdateUIState();
     
     RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",BW);
 
     ShowAllWindows();
+    
 
     if(render_ilde ){
         //GLuint tex_ilde = GetIcon("icon_idle");
@@ -566,35 +559,27 @@ void Render(){
         hasRenderedSomething = true;
     }
     if (render_load ) { 
-        //RenderLoadingState();
+        RenderLoading(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+                    sdl_rec_to_imvec2_size(Windowlayout.videoArea));
         render_load = false;
         hasRenderedSomething = true;
     }
-    if (render_seeking){
-        //GLuint tex_loading = GetIcon("loading");
-        //RenderCenteredRotatingIcon((ImTextureID)(intptr_t)tex_loading, 120.0f);
-        render_seeking = false;
-        hasRenderedSomething = true;
-    }
+
+    RenderSeekingOverlay(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+                        sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+                        Seekingdata);
 
     if (render_video ) {
-
         RenderMPVVideo(sdl_rec_to_imvec2_size(Windowlayout.videoArea));
         render_video = false;
         hasRenderedSomething = true;
-        
     }
-
-    if (render_ui_video ){
-        RenderPlayerControls(mpv, 
-            sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-            sdl_rec_to_imvec2_size(Windowlayout.videoArea),
-            ctx.mainWindow, 
-            BW.isFullscreen_video ,
-            show_ui_video) ;
-        hasRenderedSomething = true;
-    }
-
+    RenderPlayerControls(mpv, 
+        sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+        sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+        ctx.mainWindow, 
+        BW.isFullscreen_video ,
+        show_ui_video) ;
 
     ImGui::End();
 

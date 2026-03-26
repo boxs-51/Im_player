@@ -615,7 +615,167 @@ inline static void DrawOptionIconAnimated(
     }
 }
 
+struct LoadingIconData {
+    float angle = 0.0f;
+    float speed = 4.0f;
+    
+    // Thêm các trường này
+    ImVec2 pos = ImVec2(0, 0);  // Tọa độ góc trên bên trái (Screen Space)
+    ImVec2 size = ImVec2(0, 0); // Kích thước vùng vẽ
+};
 
+inline static void DrawLoadingIconAnimated(
+    ImDrawList* drawList,
+    ImVec2 pMin, // Sẽ được tính lại dựa trên data
+    ImVec2 pMax, // Sẽ được tính lại dựa trên data
+    ImU32 color,
+    void* user_data)
+{
+    LoadingIconData* d = (LoadingIconData*)user_data;
+    if (!d) return;
+
+    // Cập nhật Animation
+    float dt = ImGui::GetIO().DeltaTime;
+    d->angle += dt * d->speed;
+    if (d->angle > IM_PI * 2.0f) d->angle -= IM_PI * 2.0f;
+
+    // --- TÍNH TOÁN LẠI VỊ TRÍ DỰA TRÊN DATA ---
+    // Nếu d->size.x > 0, chúng ta dùng data. Nếu không, dùng pMin/pMax mặc định từ Button
+    ImVec2 finalMin = (d->size.x > 0) ? d->pos : pMin;
+    ImVec2 finalMax = (d->size.x > 0) ? (d->pos + d->size) : pMax;
+
+    ImVec2 center = ImVec2((finalMin.x + finalMax.x) * 0.5f, (finalMin.y + finalMax.y) * 0.5f);
+    float radius = (finalMax.x - finalMin.x) * 0.4f;
+    float thickness = (finalMax.x - finalMin.x) * 0.1f;
+
+    // Vẽ vòng nền mờ
+    ImU32 bgColor = (color & 0x00FFFFFF) | (0x33 << 24);
+    drawList->AddCircle(center, radius, bgColor, 30, thickness);
+
+    // Vẽ Loading arc
+    float arcLength = IM_PI * 0.5f + (sinf(d->angle) * 0.5f + 0.5f) * IM_PI;
+    
+    drawList->PathArcTo(center, radius, d->angle, d->angle + arcLength, 30);
+    drawList->PathStroke(color, false, thickness);
+}
+
+struct SeekingIconData {
+    float timer = 0.0f;
+    float alpha = 0.0f;   // Độ mờ (0..1)
+    float pulse = 0.0f;   // Hiệu ứng nẩy khi nhấn nhiều lần (0..1)
+    bool  forward = true;
+};
+
+inline float EaseOutCubic(float x) {
+    return 1.0f - powf(1.0f - x, 3.0f);
+}
+
+inline float EaseInOutSine(float x) {
+    return -(cosf(IM_PI * x) - 1.0f) * 0.5f;
+}
+
+inline static void DrawSeekingIconAnimated(
+    ImDrawList* drawList,
+    ImVec2 pMin,
+    ImVec2 pMax,
+    ImU32 color,
+    void* user_data)
+{
+    SeekingIconData* d = (SeekingIconData*)user_data;
+    if (!d || d->alpha <= 0.01f) return;
+
+    ImVec2 center = ImVec2((pMin.x + pMax.x) * 0.5f, (pMin.y + pMax.y) * 0.5f);
+    float fullW = pMax.x - pMin.x;
+    float fullH = pMax.y - pMin.y;
+
+    float dir = d->forward ? 1.0f : -1.0f;
+    float triW = fullW * 0.18f;
+    float triH = fullH * 0.45f;
+    float spacing = triW * 1.4f;
+
+    int count = 3;
+    float speed = 2.5f;
+    // t chạy từ 0.0 -> 1.0 thể hiện chu kỳ của 1 tam giác
+    float t = fmodf(d->timer * speed, 1.0f);
+
+    // ============================================================
+    // 🌟 BƯỚC 1: VẼ HIỆU ỨNG GLOW HÌNH TRÒN (Phía dưới mũi tên)
+    // ============================================================
+    
+    // Tách các thành phần màu RGB
+    ImVec4 colVec = ImGui::ColorConvertU32ToFloat4(color);
+    ImU32 baseAlpha = (color >> 24) & 0xFF;
+    
+    // Cấu hình Glow
+    // Bán kính glow lớn hơn chiều cao tam giác một chút để bao phủ
+    float maxGlowRadius = triH * 0.8f; 
+    // Số lượng vòng tròn đồng tâm để tạo gradient. Càng nhiều càng mịn nhưng tốn hiệu năng hơn.
+    int glowLayers = 10; 
+    // Độ mờ tối đa của glow ở tâm (0.0f đến 1.0f)
+    float maxGlowAlpha = 0.4f; 
+
+    for (int i = 0; i < count; i++) {
+        // Tính toán vị trí x giống hệt như khi vẽ tam giác
+        float offset = ((float)i + t) * spacing;
+        float x = center.x + (offset - (spacing * 1.5f)) * dir;
+        ImVec2 glowCenter = ImVec2(x + (dir > 0 ? triW * 0.5f : -triW * 0.5f), center.y);
+
+        // Tạo gradient radial bằng các vòng tròn đồng tâm
+        for (int layer = 0; layer < glowLayers; layer++) {
+            // Tỷ lệ từ tâm ra ngoài (0.0 -> 1.0)
+            float fraction = (float)layer / (float)glowLayers;
+            
+            // Bán kính tăng dần
+            float radius = maxGlowRadius * fraction;
+            
+            // Độ mờ giảm dần theo dạng bình phương để trông tự nhiên hơn
+            float fadeFactor = 1.0f - (fraction * fraction); 
+            
+            // Giới hạn alpha của layer
+            float layerAlpha = maxGlowAlpha * fadeFactor;
+
+            // Áp dụng alpha tổng thể của icon
+            float finalLayerAlphaFloat = layerAlpha * d->alpha * ((float)baseAlpha / 255.0f);
+            
+            // Chuyển đổi về ImU32 color
+            ImU32 glowColor = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, finalLayerAlphaFloat));
+
+            // Vẽ vòng tròn (sử dụng segment cao để mượt)
+            drawList->AddCircleFilled(glowCenter, radius, glowColor, 20);
+        }
+    }
+
+    for (int i = 0; i < count; i++) {
+        // Tính toán offset dựa trên i và thời gian t
+        // Giúp các tam giác nối đuôi nhau liên tục
+        float offset = ((float)i + t) * spacing;
+        
+        // Căn chỉnh để cụm tam giác nằm quanh tâm
+        // Trừ đi một khoảng (spacing * 1.5) để icon "chạy qua" tâm
+        float x = center.x + (offset - (spacing * 1.5f)) * dir;
+
+        // Tính Fade: Tam giác càng xa gốc (theo hướng di chuyển) càng mờ
+        // Hoặc đơn giản là fade theo i để tạo cảm giác đuôi
+        float fade = (float)(i + 1) / (float)count; 
+        
+        ImU32 baseAlpha = (color >> 24) & 0xFF;
+        ImU32 finalAlpha = (ImU32)(baseAlpha * d->alpha * fade * (1.0f - t * 0.3f));
+        ImU32 finalCol = (color & 0x00FFFFFF) | (finalAlpha << 24);
+
+        ImVec2 p1, p2, p3;
+        if (dir > 0) {
+            p1 = ImVec2(x, center.y - triH * 0.5f);
+            p2 = ImVec2(x, center.y + triH * 0.5f);
+            p3 = ImVec2(x + triW, center.y);
+        } else {
+            p1 = ImVec2(x, center.y - triH * 0.5f);
+            p2 = ImVec2(x, center.y + triH * 0.5f);
+            p3 = ImVec2(x - triW, center.y);
+        }
+
+        drawList->AddTriangleFilled(p1, p2, p3, finalCol);
+    }
+}
 struct IconButtonStyle
 {
     // Button background: Dùng Alpha thấp cho cảm giác "Glassmorphism"

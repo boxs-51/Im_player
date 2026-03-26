@@ -62,6 +62,9 @@ void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
 
+    Seekingdata.forward = (targetTime > (float)g_playbackStatus.playbackTime);
+    Seekingdata.pulse = 1.0f;
+
     Uint32 now = SDL_GetTicks();
 
     // Nếu chưa đủ delay -> chỉ cập nhật target, đánh dấu pending
@@ -96,6 +99,9 @@ void mpv_command_seek_clamped(mpv_handle* mpv, float targetTime, float playbackT
 
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
+
+    Seekingdata.forward = (targetTime > (float)g_playbackStatus.playbackTime);
+    Seekingdata.pulse = 1.0f;
 
     Uint32 now = SDL_GetTicks();
 

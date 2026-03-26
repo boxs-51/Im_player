@@ -19,4 +19,10 @@ void RenderIdleBackground(ImTextureID texID, ImVec2 videoSize) ;
 
 void CleanupIcons();
 
+void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize);
+
+void UpdateSeekingLogic(SeekingData& data);
+
+void RenderSeekingOverlay( ImVec2 VideoPos , ImVec2 VideoSize , SeekingData& g_SeekingUI) ;
+
 #endif // PLAYER_CONTROLS_H

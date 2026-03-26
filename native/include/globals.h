@@ -30,6 +30,18 @@
 #include <iostream>
 #include <condition_variable>
 
+struct SeekingData{
+    float forward = 0.0f;
+    float timer =0.0f;
+    float g_seekingIconFade =0.0f;
+    float pulse = 0.0f;
+    float alpha = 0.0f;
+
+    bool g_isSeeking = false;
+};
+
+extern SeekingData Seekingdata;
+
 struct UiWindowsState {
     bool show_demo = false;
     bool show_style = false;
@@ -115,12 +127,11 @@ extern bool render_ui_video ;
 extern bool render_popup ;
 extern bool render_load;
 extern bool render_ilde;
-extern bool render_seeking ;
 extern bool g_WindowVisible ;
-extern bool g_RequestToggleFullscreen;
+extern bool hasRenderedSomething ; 
+//extern bool g_RequestToggleFullscreen;
 extern bool g_isSeekPending ;
 extern bool g_wasPlayingBeforeSeek;
-extern bool g_isSeeking ;
 extern bool g_isChangingVideo;
 extern bool g_hasload ;
 extern bool show_ui_video;
@@ -159,7 +170,7 @@ extern int currentIndex;
 
 
 extern float g_seekTargetTime;
-
+extern float g_seekingIconFade;
 extern std::vector<std::wstring> playlist;
 
 extern ReusableWindow g_urlWindow;

@@ -5,6 +5,10 @@
 #include "mpv/mpv_settings.h"
 #include "mpv/mpv_ui.h"
 
+#include "windows/windows_borderless.h"
+
+#include "popup/sidebar_popup.h"
+
 #include "utils.h"
 #include "SDL.h"
 
@@ -32,6 +36,9 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                           bool& isFullscreen_video,bool& show_ui_video)
  {
 
+
+    if(!show_ui_video)
+        showSettings = false;
 
     static float uiAlpha = 0.0f;
     UpdateHoverAnim(uiAlpha,show_ui_video,5.0f);
@@ -346,15 +353,15 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             ImVec2 tooltipPos(mouseX - tooltipW * 0.5f, barY - tooltipH - 15.0f * scale);
 
             // Clamp X
-            if (tooltipPos.x <  4.0f) 
-                tooltipPos.x =  4.0f;
-            if (tooltipPos.x + tooltipW >  videoSize.x - 4.0f)
-                tooltipPos.x =  videoSize.x - tooltipW - 4.0f;
+            if (tooltipPos.x <  videoPos.x + 4.0f) 
+                tooltipPos.x =  videoPos.x + 4.0f;
+            if (tooltipPos.x + tooltipW >  videoPos.x + videoSize.x - 4.0f)
+                tooltipPos.x =  videoPos.x + videoSize.x - tooltipW - 4.0f;
             // Clamp Y
-            if (tooltipPos.y <  4.0f) 
-                tooltipPos.y =  4.0f;
-            if (tooltipPos.y + tooltipH > videoSize.y + videoSize.y - 4.0f)
-                tooltipPos.y =  + videoSize.y  - tooltipH - 4.0f;
+            if (tooltipPos.y <  videoPos.y + 4.0f) 
+                tooltipPos.y =  videoPos.y + 4.0f;
+            if (tooltipPos.y + tooltipH > videoPos.y + videoSize.y  - 4.0f)
+                tooltipPos.y = videoPos.y  + videoSize.y  - tooltipH - 4.0f;
 
             draw_list->AddRectFilled(
                 ImVec2(tooltipPos.x - 6, tooltipPos.y - 4),
@@ -394,7 +401,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                     mpv_command_seek_abs(mpv, hoverTime ,duration); 
                 }
 
-                //render_video = true;
             }
         }
     }
@@ -409,7 +415,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             ImGui::SetCursorPos(ImVec2(controlPos.x, controlPos.y)); i =  i + 1.0f ;
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
-                //render_video = true;
             }
         }
         // Nút PLAY/PAUSE
@@ -425,7 +430,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
             if (CustomIconButton("##next", DrawNextIcon, iconSize)) {
                 mpv_command_next_video(mpv);
-                //render_video = true;
             }
         }
 
@@ -643,6 +647,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         i = i - 1.0f;
         // --- BUTTON SETTINGS ---
         static SettingsIconData settingsData;
+
         settingsData.opened = showSettings;
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 16, controlPos.y));
         // Thay thế ImageButton bằng CustomIconButton + DrawSettingsIcon
@@ -651,7 +656,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showSettings = !showSettings;
         }
 
-        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings);
+        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings );
 
         settingsData.hovered = ImGui::IsItemHovered();
 
@@ -660,25 +665,22 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         // --- BUTTON FULLSCREEN ---
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 17, controlPos.y));
         static FullscreenIconData fsData;
-        //static bool isFullscreenActual =false;
-        /*fsData.fullscreen = overlaydata.isOverlayFullscreen ;
+        fsData.fullscreen = isFullscreen_video ;
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
-            TogglePopupFullscreen(overlaydata.hwndMpvrender);
+            BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
             //g_RequestToggleFullscreen = true; // Logic toggle của bạn
-            //isFullscreenActual  = !isFullscreenActual ; // Test toggle visual
-        }*/
+        }
         
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
-        optdata.opened  = showOptionMenu;
-
+        optdata.opened  = SidarBarPopup.IsOpen();
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 18, controlPos.y));
         if (CustomIconButton("##option", DrawOptionIconAnimated, iconSize ,&optdata)) {
-         //   if (SidarBarPopup.IsOpen()){
-         //       SidarBarPopup.Close();
-         //   }else{
-         //       OpenSidarBarPopup();
-         //   }
+            if (SidarBarPopup.IsOpen()){
+                SidarBarPopup.Close();
+            }else{
+                OpenSidarBarPopup();
+            }
             showOptionMenu = !showOptionMenu;
         }
         optdata.hovered = ImGui::IsItemHovered();
@@ -710,13 +712,28 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
             ImGui::PopStyleColor(3);
         }
+        if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
+            if(showSettings) showSettings = !showSettings;
+            else {
+                if(mpv_is_paused(mpv))
+                    mpv_command_play(mpv);
+                else 
+                    mpv_command_pause(mpv);
+            }
+
+            
+        }
+
 
     }
+
     items_action = (Volume_action || seek_bar_action);
     items_hover = (header_hoverd || volume_hover || seek_bar_hover);
 
     ImGui::EndChild ();
     ImGui::PopStyleVar();
+
+    hasRenderedSomething =true;
 }
 
 
@@ -743,6 +760,70 @@ void RenderIdleBackground(ImTextureID texID , ImVec2 videoSize) {
 }
 void CleanupIcons(){
     
+}
+void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize){
+    static LoadingIconData centralLoading;
+    centralLoading.pos = ImVec2(
+        VideoPos.x + (VideoSize.x * 0.5f) - 25, 
+        VideoPos.y + (VideoSize.y * 0.5f) - 25
+    );
+    centralLoading.size = ImVec2(50, 50); // Loading to hơn chút ở giữa màn hình
+
+    DrawLoadingIconAnimated(
+        ImGui::GetWindowDrawList(), 
+        ImVec2(0,0), ImVec2(0,0), // Không dùng pMin/Max mặc định
+        IM_COL32(255, 255, 255, 255), 
+        &centralLoading
+    );
+    hasRenderedSomething = true;
+}
+
+void UpdateSeekingLogic(SeekingData& data) {
+    float dt = ImGui::GetIO().DeltaTime;
+
+    // 1. Alpha: Hiện lên nhanh khi đang seek, biến mất từ từ khi xong
+    float targetAlpha = data.g_isSeeking ? 1.0f : 0.0f;
+    data.alpha = ImLerp(data.alpha, targetAlpha, dt * (data.g_isSeeking ? 12.0f : 4.0f));
+
+    // 2. Pulse: Luôn giảm về 0 (tạo hiệu ứng giật nhẹ khi được set lên 1)
+    data.pulse = ImLerp(data.pulse, 0.0f, dt * 6.0f);
+
+    // 3. Wave Timer: Chạy liên tục khi alpha > 0
+    if (data.alpha > 0.01f) {
+        data.timer += dt * 3.5f; 
+        if (data.timer > 1.0f) data.timer = 0.0f;
+    }
+}
+
+void RenderSeekingOverlay( ImVec2 VideoPos , ImVec2 VideoSize , SeekingData& g_SeekingUI) {
+    // 1. Cập nhật logic animation dựa trên trạng thái thực g_isSeeking
+    // g_isSeeking được cập nhật từ MPV_EVENT_PROPERTY_CHANGE
+    UpdateSeekingLogic(g_SeekingUI);
+
+    // 2. Nếu Alpha quá nhỏ thì không làm gì cả để tiết kiệm hiệu năng
+    if (g_SeekingUI.alpha <= 0.01f) return;
+
+    // 3. Lấy DrawList lớp trên cùng (Foreground) để icon hiện đè lên mọi thứ
+    ImDrawList* drawList = ImGui::GetForegroundDrawList();
+
+    // 4. Tính toán vị trí hiển thị (Ví dụ: cách biên 15% chiều rộng video)
+    float viewW = VideoSize.x;
+    float viewH = VideoSize.y;
+    float posX = VideoPos.x + (g_SeekingUI.forward ? viewW * 0.85f : viewW * 0.15f);
+    float posY = VideoPos.y + (viewH * 0.5f);
+
+    // Kích thước vùng vẽ icon (Bounding Box)
+    float iconSize = 40.0f; 
+    ImVec2 pMin(posX - iconSize, posY - iconSize);
+    ImVec2 pMax(posX + iconSize, posY + iconSize);
+
+    // 5. Màu sắc (Sử dụng màu trắng tinh khiết với Alpha động)
+    ImU32 color = IM_COL32(255, 255, 255, 255);
+
+    // 6. Thực hiện vẽ
+    DrawSeekingIconAnimated(drawList, pMin, pMax, color, &g_SeekingUI);
+    
+    hasRenderedSomething = true;
 }
 
 

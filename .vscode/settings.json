@@ -85,7 +85,7 @@
     "C_Cpp.errorSquiggles": "disabled",
     
     "cmake.configureSettings": {
-    "CMAKE_TOOLCHAIN_FILE": "D:/ProJecy2/imgui_player/vcpkg/scripts/buildsystems/vcpkg.cmake",
+    "CMAKE_TOOLCHAIN_FILE": "${workspaceFolder}/vcpkg/scripts/buildsystems/vcpkg.cmake",
 
     }
 }
