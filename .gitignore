@@ -35,6 +35,6 @@ thumbnail_cache/
 temp/*
 libs/*
 
-fonts/Emojis-icons/*.ttf
-fonts/*.ttf
-fonts/static
+data/
+
+fonts/

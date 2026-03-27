@@ -305,14 +305,19 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             else if (IsZoomed(hwnd)) {
                 // Maximize → loại bỏ viền vô hình (work area)
                 p->rgrc[0] = mi.rcWork;
-            }/*
+            }
             else {
-                // Bình thường → trừ frame + padding
-                int frameX = GetSystemMetrics(SM_CXFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
-                int frameY = GetSystemMetrics(SM_CYFRAME) + GetSystemMetrics(SM_CXPADDEDBORDER);
+                // 🔥 FIX DPI-aware border
+                UINT dpi = GetDpiForWindow(hwnd);
+
+                int frameX = GetSystemMetricsForDpi(SM_CXFRAME, dpi)
+                        + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+
+                int frameY = GetSystemMetricsForDpi(SM_CYFRAME, dpi)
+                        + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
+
                 InflateRect(&p->rgrc[0], -frameX, -frameY);
-                //p->rgrc[0] = p->rgrc[1];
-            }*/
+            }
             return 0;
         }
 
@@ -496,7 +501,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
 {
     if (!window) return;
-
+    
     // Lấy HWND
     SDL_SysWMinfo wmInfo{};
     SDL_VERSION(&wmInfo.version);

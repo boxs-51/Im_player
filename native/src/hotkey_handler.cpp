@@ -125,7 +125,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen,
 }
 
 // --- Popup Hotkeys --- //
-bool HandlePopupHotkeys(const SDL_Event& e, bool& render_popup) {
+bool HandlePopupHotkeys(const SDL_Event& e) {
     if (e.type != SDL_KEYDOWN)
         return false;
 
@@ -155,28 +155,24 @@ bool HandlePopupHotkeys(const SDL_Event& e, bool& render_popup) {
             {
                 if (Popup_Url.IsOpen()) {Popup_Url.Close();
                 } else {OpenURLPopup(Popup_Url, Url);}
-                render_popup = true;
                 return true;
             }
             case SDLK_a:
             {
                 if (videoInfoPopup.IsOpen()) {videoInfoPopup.Close();
                 } else {OpenVideoInfoPopup();}    
-                render_popup = true;
                 return true;
             }
             case SDLK_l:
             {
                 if (SidarBarPopup.IsOpen()){SidarBarPopup.Close();
                 } else {OpenSidarBarPopup();}  
-                render_popup = true;
                 return true; 
             }
             case SDLK_s:
             {
                 if (SettingPopup.IsOpen()) {SettingPopup.Close();
                 } else {OpenSettingPopup();}    
-                render_popup = true;
                 return true; 
             }
             default:
@@ -212,9 +208,9 @@ bool HandleExtersionHotkeys(const SDL_Event& e){
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-bool HandleHotkeys(const SDL_Event& e,   bool& render_popup, mpv_handle* mpv, bool& isFullscreen_video, SDL_Window* window) {
+bool HandleHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen_video, SDL_Window* window) {
     if (Disabehotkey) return false;
     return HandleBasicHotkeys(e, mpv, isFullscreen_video, window ) ||
-           HandlePopupHotkeys(e, render_popup) ||
+           HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);
 }

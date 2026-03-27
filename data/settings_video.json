@@ -1,7 +1,11 @@
 {
     "AudioFelay": 0.0,
     "AutoPlayNext": false,
+<<<<<<< HEAD
     "DefaultVolume": 38,
+=======
+    "DefaultVolume": 54,
+>>>>>>> 9000f85f169ce8e90e4c9cbe03582fb98da96288
     "EnableSubtitles": false,
     "PlaybackSpeed": 1.0,
     "RepeatList": false,

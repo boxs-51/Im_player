@@ -768,7 +768,8 @@ void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize){
         VideoPos.y + (VideoSize.y * 0.5f) - 25
     );
     centralLoading.size = ImVec2(50, 50); // Loading to hơn chút ở giữa màn hình
-
+    centralLoading.drawList = ImGui::GetForegroundDrawList();
+    
     DrawLoadingIconAnimated(
         ImGui::GetWindowDrawList(), 
         ImVec2(0,0), ImVec2(0,0), // Không dùng pMin/Max mặc định
