@@ -1,12 +1,12 @@
 {
     "AudioFelay": 0.0,
     "AutoPlayNext": false,
-    "DefaultVolume": 48,
+    "DefaultVolume": 38,
     "EnableSubtitles": false,
     "PlaybackSpeed": 1.0,
     "RepeatList": false,
     "RepeatVideo": false,
-    "SelectedResolution": "bestvideo[height<=1080][vcodec^=avc1]+bestaudio/best",
-    "selectedAudio": "bestaudio/best",
+    "SelectedResolution": "bestvideo[height<=1080][vcodec^=avc1]+bestaudio[acodec^=opus]/best",
+    "selectedAudio": "bestaudio[acodec^=opus]/best",
     "selectedFormat": "bestvideo[height<=1080][vcodec^=avc1]"
 }
