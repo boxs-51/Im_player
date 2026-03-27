@@ -32,8 +32,8 @@ vcpkg/
 videos/
 thumbnail_cache/
 
-temp/*
-libs/*
+temp/
+libs/
 
 data/
 
