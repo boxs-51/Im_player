@@ -3,26 +3,26 @@
 #define SDL_MAIN_HANDLED
 
 #define GL_GLEXT_PROTOTYPES
-#include "mpv/mpv_ui.h"
-#include "mpv/mpv_controller.h"
+#include <mpv/mpv_ui.h>
+#include <mpv/mpv_controller.h>
+#include <mpv/mpv_render_video.h>
+#include <mpv/mpv_ui_settings.h>
+#include <mpv/mpv_settings.h>
+#include <mpv/render_gl.h>
+
 #include "utils.h"
 #include "hotkey_handler.h"
-#include <mpv/render_gl.h>
-#include "mpv/mpv_render_video.h"
-#include "popup_url.h"
-#include "reusable_popup.h"
 #include "globals.h"
-#include "mpv/mpv_ui_settings.h"
+
 #include "services.h"
 #include "thread.h"
-#include "resolution_service.h"
-#include "mpv/mpv_settings.h"
+
 #include "main.h"
 
 #include "windows/windows_custom_titlebar.h"
 #include "windows/windows_borderless.h"
-
 #include "windows/windows_borderless_state.h"
+
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
 //#undef RATE_LIMITED_COUT
@@ -67,7 +67,6 @@ void ShowAllWindows()
         ImGui::End();
     }
 }
-static PlaybackState state = GetPlaybackState();
 static int frameCount = 0;
 static int currentFPS = 0;
 
@@ -79,7 +78,7 @@ std::atomic<bool> running(true);
 
 
 int main(int argc, char** argv) {
-
+    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     InitConsoleSystem();
     //OpenConsoleWindow();
     StartRuntimeServices(); 
@@ -159,7 +158,7 @@ int main(int argc, char** argv) {
             else {
                 if(g_WindowVisible){
                     ImGui_ImplSDL2_ProcessEvent(&e);
-                    bool hotkeyHandled = HandleHotkeys(e, render_popup , mpv, BW.isFullscreen_video, ctx.mainWindow);
+                    bool hotkeyHandled = HandleHotkeys(e, mpv, BW.isFullscreen_video, ctx.mainWindow);
                     if (hotkeyHandled) continue;
                 }
                 
@@ -178,10 +177,8 @@ int main(int argc, char** argv) {
             if (hiddenDelay <= maxHiddenDelay) {
                 hiddenDelay += 1000;
             }
-            render_popup = false;
-            render_ilde = false;
-
             render_load = false;
+
             frameTime = SDL_GetTicks() - frameStart;
             if (frameDelay > frameTime) {
                 SDL_Delay(frameDelay - frameTime);
@@ -204,66 +201,22 @@ int main(int argc, char** argv) {
             ProcessMPVEvents(mpv);
         }
 
-
-
-
-        if (state == PlaybackState::Loading) {
-            render_load = true;
-            render_video = false;
-            render_ilde = false;
-            render_ui_video =false;
-        
-        } 
-        else if (state == PlaybackState::Idle) {
-            render_ilde = true;
-            render_video = false;
-            render_load = false;
-            render_ui_video =false;
-        }
-        else if (state == PlaybackState::Playing || state == PlaybackState::Paused) {
-            render_video = true;
-            render_load = false;
-            render_ilde = false;
-            render_ui_video =true;
-        }
-        else if (state == PlaybackState::Seeking){
-            render_video = true;
-            render_load = false;
-            render_ilde = false;
-            render_ui_video =true;
-        }
-        else if (state == PlaybackState::EndOfFile){
-            render_video = true;
-            render_ilde = false;
-            render_ui_video =true;
-            NotifyActivity();
-        }
-
         mpv_update_seek_pending( mpv  );
 
-        bool needRender = (render_video ||  render_popup || render_ilde || render_load || IsAnyPopupOpen());
-        
-        
-        if ( needRender) {
-
-            //if (g_RequestToggleFullscreen)
-            //{
-            //    BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-            //    g_RequestToggleFullscreen = false;
-            //}
             UpdateGlobalWindowLayout(ctx.mainWindow, BW);
+
             //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
+
             ImFont* cur = FontManager::Instance().GetCurrentFont();
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
             if (cur) {
                 ImGui::PushFont(cur);
-                Render();
+                Render(state);
                 if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-                if ((render_popup || IsAnyPopupOpen()) ) {
+                if (( IsAnyPopupOpen()) ) {
                     RenderAllPopups(mpv);
-                    render_popup = false;
                     hasRenderedSomething = true;
                 }else{
                     Disabehotkey = false;
@@ -271,11 +224,10 @@ int main(int argc, char** argv) {
                 ImGui::PopFont();
             }else{
 
-                Render();
+                Render(state);
                 if( g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-                if ((render_popup || IsAnyPopupOpen()) ) {
+                if (( IsAnyPopupOpen()) ) {
                     RenderAllPopups(mpv);
-                    render_popup = false;
                     hasRenderedSomething = true;
                 } else {
                     Disabehotkey = false;
@@ -319,11 +271,8 @@ int main(int argc, char** argv) {
                 }
 
                 render_video = false;
-                render_ilde = false;
                 render_load = false;
-                render_popup = false;
             }
-        }
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) {
             SDL_Delay(frameDelay - frameTime);
@@ -428,9 +377,6 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         if (e.type == SDL_QUIT) {
             running = false;
         }
-        else if (e.type == SDL_USEREVENT) {
-            render_video = true;
-        }
         else if (e.type == SDL_WINDOWEVENT) {
 
             if (e.window.event == SDL_WINDOWEVENT_SHOWN ||
@@ -439,13 +385,10 @@ void HandleMainWindowEvent(const SDL_Event& e) {
                 e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED)
             {
                 // Cửa sổ hiển thị lại → cần render lại frame và UI
-                render_video = true;
-                render_ilde = true;
-                reset_FPS_bool = true;
             }
         }
 
-        if (e.type == SDL_USEREVENT) {
+        if (e.type == SDL_MPV_RENDER_UPDATE) {
             render_video = true;  
         }
         if (e.type == SDL_MPV_EVENT){
@@ -455,7 +398,7 @@ void HandleMainWindowEvent(const SDL_Event& e) {
     }else{
         ImGui_ImplSDL2_ProcessEvent(&e);
         // 1. Xử lý phím nóng → VD: Ctrl+U mở popup, Space để pause
-        bool hotkeyHandled = HandleHotkeys(e, render_popup , mpv, BW.isFullscreen_video, ctx.mainWindow);
+        bool hotkeyHandled = HandleHotkeys(e , mpv, BW.isFullscreen_video, ctx.mainWindow);
         if (hotkeyHandled){
             return;
         }
@@ -466,11 +409,6 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         bool isMouseInteraction =
             e.type == SDL_MOUSEMOTION ||
             e.type == SDL_MOUSEWHEEL;
-
-        
-        bool isUITriggerKey =
-            e.type == SDL_KEYDOWN &&
-            (e.key.keysym.sym == SDLK_u || e.key.keysym.sym == SDLK_a || e.key.keysym.sym == SDLK_RETURN);  // có thể mở popup
 
         bool isWindowInteraction =
             e.type == SDL_WINDOWEVENT &&
@@ -483,35 +421,8 @@ void HandleMainWindowEvent(const SDL_Event& e) {
             e.window.event == SDL_WINDOWEVENT_SHOWN ||
             e.window.event == SDL_WINDOWEVENT_MOVED  );
 
-        bool isUserInteraction = isMouseInteraction || isWindowInteraction || isMousePressOrRelease;
-
-        if (IsAnyPopupOpen()) {
-            if (e.type == SDL_KEYDOWN && e.key.keysym.sym == SDLK_ESCAPE) {
-                for (auto* popup : GetAllPopups()) {
-                    if (popup->IsOpen()) popup->Close();
-                }
-                render_popup = true;
-            }
-        }
         if(isMouseInteraction || isMousePressOrRelease ) NotifyActivity();
         
-        if (isUITriggerKey ){
-            render_popup = true;
-        }
-        
-        reset_FPS_bool = (state == PlaybackState::Loading || state == PlaybackState::Seeking || state == PlaybackState::Paused);
-        if (isUserInteraction || isUITriggerKey ){
-            render_ilde = true;
-            reset_FPS_bool = true ;
-            
-        }
-
-        if (isWindowInteraction ){
-            render_ilde = true;  
-            update_videosize = true ; 
-
-        }
-
         if (e.type == SDL_MPV_RENDER_UPDATE) {
             render_video = true;  
         }
@@ -524,7 +435,7 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         }
     }
 }
-void Render(){
+void Render( PlaybackState state ){
 
     glViewport(0, 0, (int)WinW, (int)WinH);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -553,33 +464,42 @@ void Render(){
     ShowAllWindows();
     
 
-    if(render_ilde ){
+    if(state == PlaybackState::Idle){
         //GLuint tex_ilde = GetIcon("icon_idle");
         //RenderIdleBackground((ImTextureID)(intptr_t)tex_ilde);
         hasRenderedSomething = true;
     }
-    if (render_load ) { 
-        RenderLoading(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-                    sdl_rec_to_imvec2_size(Windowlayout.videoArea));
-        render_load = false;
-        hasRenderedSomething = true;
-    }
 
-    RenderSeekingOverlay(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-                        sdl_rec_to_imvec2_size(Windowlayout.videoArea),
-                        Seekingdata);
-
-    if (render_video ) {
+    if (render_video || 
+        state == PlaybackState::Paused ||  
+        state == PlaybackState::EndOfFile ||
+        state == PlaybackState::Seeking ||
+        state == PlaybackState::Playing) {
         RenderMPVVideo(sdl_rec_to_imvec2_size(Windowlayout.videoArea));
         render_video = false;
         hasRenderedSomething = true;
     }
-    RenderPlayerControls(mpv, 
-        sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-        sdl_rec_to_imvec2_size(Windowlayout.videoArea),
-        ctx.mainWindow, 
-        BW.isFullscreen_video ,
-        show_ui_video) ;
+
+    if (state == PlaybackState::Playing || 
+        state == PlaybackState::Paused  || 
+        state == PlaybackState::EndOfFile ){
+        RenderPlayerControls(mpv, 
+            sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+            sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+            ctx.mainWindow, 
+            BW.isFullscreen_video ,
+            show_ui_video) ;
+
+
+        RenderSeekingOverlay(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+                            sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+                            Seekingdata);
+    }
+    if (state == PlaybackState::Loading ) { 
+        RenderLoading(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
+                    sdl_rec_to_imvec2_size(Windowlayout.videoArea));
+
+    }
 
     ImGui::End();
 

@@ -1082,7 +1082,7 @@ PlaybackState GetPlaybackState() {
     if (isLoadingMedia )
         return PlaybackState::Loading;
 
-     if (g_playbackStatus.ilde)
+    if (g_playbackStatus.ilde)
         return PlaybackState::Idle;
 
     if ((g_playbackStatus.eofReached) && !Seekingdata.g_isSeeking)
@@ -1280,23 +1280,23 @@ void UpdateUIState() {
 
     // 2. Kiểm tra tương tác với UI (Hover nút, kéo slider, combo...)
     // io.WantCaptureMouse là cách nhanh nhất để biết chuột có đang đè lên bất kỳ cửa sổ ImGui nào không
-    bool isInteractingWithUI = io.WantCaptureMouse || ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered();
+    bool isInteractingWithUI = io.WantCaptureMouse && (ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered());
+
+    
+    // Lưu ý: Luôn reset timer nếu chuột đang di chuyển HOẶC đang tương tác với UI
+    bool isMouseMoving = ((io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) && io.WantCaptureMouse);
 
     // 3. XÁC ĐỊNH TIMEOUT THEO 3 TRẠNG THÁI (Ưu tiên từ cao xuống thấp)
     Uint32 currentTimeout;
-    if (isInteractingWithUI) {
+    if (isInteractingWithUI ) {
         currentTimeout = 2000; // Đang tương tác UI: 2s
     } else if (isMouseInsideVideo) {
         currentTimeout = 1000; // Di chuột bình thường trong video: 1s
     } else {
         currentTimeout = 500;  // Đã rời khỏi video: 0.5s
     }
-
     // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
-    // Lưu ý: Luôn reset timer nếu chuột đang di chuyển HOẶC đang tương tác với UI
-    bool isMouseMoving = (io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f);
-    
-    if (isMouseMoving || isInteractingWithUI) {
+    if ((isMouseMoving || isInteractingWithUI) && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         
         // Tự động hiện lại UI nếu có hoạt động

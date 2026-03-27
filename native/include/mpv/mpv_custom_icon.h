@@ -533,6 +533,7 @@ struct OptionIconData {
     bool hovered;  
     bool opened;   
 
+
     // internal animation state (hàm tự xử)
     float hover_t = 0.0f;
     float open_t  = 0.0f;
@@ -616,6 +617,9 @@ inline static void DrawOptionIconAnimated(
 }
 
 struct LoadingIconData {
+
+    ImDrawList* drawList;
+
     float angle = 0.0f;
     float speed = 4.0f;
     
@@ -633,6 +637,8 @@ inline static void DrawLoadingIconAnimated(
 {
     LoadingIconData* d = (LoadingIconData*)user_data;
     if (!d) return;
+
+    if (d->drawList)ImDrawList* drawList = d->drawList;
 
     // Cập nhật Animation
     float dt = ImGui::GetIO().DeltaTime;

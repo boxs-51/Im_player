@@ -533,10 +533,9 @@ bool FontManager::LoadFontsSmartAuto(
     std::vector<std::string> dirs = {
         AutoPath<std::string>("C:/Windows/Fonts"),
         AutoPath<std::string>("%ROOT%","fonts"),
-        AutoPath<std::string>("%ROOT%","fonts","static"),
-        AutoPath<std::string>("%ROOT%","fonts","Emojis-icons"),
+
     };
-    std::vector<std::string> exts = { ".ttf", ".otf" };
+    std::vector<std::string> exts = { ".ttf", ".otf" ,"ttc"};
 
 #ifdef USE_FREETYPE
     FT_Library ft = nullptr;
