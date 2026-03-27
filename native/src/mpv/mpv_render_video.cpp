@@ -1,5 +1,9 @@
 // mpv_render_video.cpp
 #include "mpv/mpv_render_video.h"
+#include "mpv/mpv_controller.h"
+
+#include "mpv/shaders/shaders_manager.h"
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -28,7 +32,6 @@ void* GetProcAddressWrapper([[maybe_unused]] void* ctx, const char* name) {
 bool InitMPV(mpv_handle*& mpv_ptr) {
     mpv_ptr = mpv_create();
     if (!mpv_ptr) return false;
-
     ApplyStaticMPVConfig(mpv_ptr);
 
     if (mpv_initialize(mpv_ptr) < 0) {
@@ -37,6 +40,11 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
     }
 
     LoadAllScripts(mpv_ptr);
+    ShaderManager::Instance().Init(mpv_ptr);
+    ShaderManager::Instance().Register("adaptive",AutoPath<std::string>("%ROOT%","shaders","adaptive-sharpen.glsl"));
+    ShaderManager::Instance().Register("enhance",AutoPath<std::string>("%ROOT%","shaders","smart_enhance.glsl"));
+    //ShaderManager::Instance().Enable("adaptive");
+    ShaderManager::Instance().Enable("enhance");
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);
     

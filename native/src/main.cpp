@@ -1,7 +1,3 @@
-#define UNICODE
-#define _UNICODE
-#define SDL_MAIN_HANDLED
-
 #define GL_GLEXT_PROTOTYPES
 #include <mpv/mpv_ui.h>
 #include <mpv/mpv_controller.h>
@@ -78,6 +74,7 @@ std::atomic<bool> running(true);
 
 
 int main(int argc, char** argv) {
+    SDL_SetMainReady();
     SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
     InitConsoleSystem();
     //OpenConsoleWindow();
@@ -123,7 +120,7 @@ int main(int argc, char** argv) {
     }
     
     InitPlaybackStatus(mpv);
-    UpdateGlobalWindowLayout(ctx.mainWindow, BW);
+    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
     //WaitForServicesReady();
     if (argc >= 2) {
         std::string Url = argv[1];
@@ -203,11 +200,16 @@ int main(int argc, char** argv) {
 
         mpv_update_seek_pending( mpv  );
 
-            UpdateGlobalWindowLayout(ctx.mainWindow, BW);
+            UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
 
             //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
 
             ImFont* cur = FontManager::Instance().GetCurrentFont();
+
+            ImGuiIO& io = ImGui::GetIO();
+            io.DisplaySize = Windowlayout.DisplayDPI;
+            io.DisplayFramebufferScale = Windowlayout.DisplayDPI;
+
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
             ImGui::NewFrame();
@@ -235,7 +237,6 @@ int main(int argc, char** argv) {
             }
             ImGui::Render();
             ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-            ImGuiIO& io = ImGui::GetIO();
             if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
             {
                 SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
@@ -287,8 +288,9 @@ bool InitMainWindow() {
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
         BW.WinWidth, BW.WinHeight, SDL_WINDOW_OPENGL |
                                 SDL_WINDOW_RESIZABLE |
-                               SDL_WINDOW_BORDERLESS | 
-                               SDL_WINDOW_SHOWN );
+                                SDL_WINDOW_BORDERLESS | 
+                                SDL_WINDOW_SHOWN |
+                                SDL_WINDOW_ALLOW_HIGHDPI);
 
     if (!ctx.mainWindow) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
@@ -437,13 +439,13 @@ void HandleMainWindowEvent(const SDL_Event& e) {
 }
 void Render( PlaybackState state ){
 
-    glViewport(0, 0, (int)WinW, (int)WinH);
+    glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
 
-    ImGui::SetNextWindowPos(ImVec2(WinX , WinY ));
-    ImGui::SetNextWindowSize(ImVec2(WinW, WinH));
+    ImGui::SetNextWindowPos(ImVec2(Windowlayout.WinX , Windowlayout.WinY ));
+    ImGui::SetNextWindowSize(ImVec2(Windowlayout.WinW, Windowlayout.WinH));
     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
     ImGui::Begin("VideoRegion", nullptr,
         ImGuiWindowFlags_NoTitleBar |
@@ -482,6 +484,7 @@ void Render( PlaybackState state ){
 
     if (state == PlaybackState::Playing || 
         state == PlaybackState::Paused  || 
+        state == PlaybackState::Seeking ||
         state == PlaybackState::EndOfFile ){
         RenderPlayerControls(mpv, 
             sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
@@ -493,7 +496,7 @@ void Render( PlaybackState state ){
 
         RenderSeekingOverlay(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
                             sdl_rec_to_imvec2_size(Windowlayout.videoArea),
-                            Seekingdata);
+                            dataseek);
     }
     if (state == PlaybackState::Loading ) { 
         RenderLoading(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 

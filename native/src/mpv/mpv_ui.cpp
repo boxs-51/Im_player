@@ -761,70 +761,65 @@ void RenderIdleBackground(ImTextureID texID , ImVec2 videoSize) {
 void CleanupIcons(){
     
 }
-void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize){
+void RenderLoading(ImVec2 VideoPos, ImVec2 VideoSize) {
     static LoadingIconData centralLoading;
-    centralLoading.pos = ImVec2(
-        VideoPos.x + (VideoSize.x * 0.5f) - 25, 
-        VideoPos.y + (VideoSize.y * 0.5f) - 25
-    );
-    centralLoading.size = ImVec2(50, 50); // Loading to hơn chút ở giữa màn hình
-    centralLoading.drawList = ImGui::GetForegroundDrawList();
+
+    // --- LOGIC SCALE & CLAMP ---
+    // 1. Tính toán kích thước lý tưởng (ví dụ: 10% chiều rộng video)
+    float idealSize = VideoSize.x * 0.10f; 
     
+    // 2. Giới hạn Min/Max để icon không bị quá bé hoặc quá to
+    float minSize = 35.0f;
+    float maxSize = 110.0f;
+    float finalSize = ImClamp(idealSize, minSize, maxSize);
+
+    // 3. Cập nhật vị trí trung tâm dựa trên size mới
+    centralLoading.pos = ImVec2(
+        VideoPos.x + (VideoSize.x * 0.5f) - (finalSize * 0.5f), 
+        VideoPos.y + (VideoSize.y * 0.5f) - (finalSize * 0.5f)
+    );
+    centralLoading.size = ImVec2(finalSize, finalSize);
+
+    // Vẽ với DrawList của cửa sổ hiện tại
     DrawLoadingIconAnimated(
         ImGui::GetWindowDrawList(), 
-        ImVec2(0,0), ImVec2(0,0), // Không dùng pMin/Max mặc định
+        ImVec2(0,0), ImVec2(0,0),
         IM_COL32(255, 255, 255, 255), 
         &centralLoading
     );
+
     hasRenderedSomething = true;
 }
 
-void UpdateSeekingLogic(SeekingData& data) {
+void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data)  {
     float dt = ImGui::GetIO().DeltaTime;
 
-    // 1. Alpha: Hiện lên nhanh khi đang seek, biến mất từ từ khi xong
+    // 1. Alpha: Hiện nhanh (10.0f), ẩn chậm hơn (3.0f) để tạo cảm giác mượt
     float targetAlpha = data.g_isSeeking ? 1.0f : 0.0f;
-    data.alpha = ImLerp(data.alpha, targetAlpha, dt * (data.g_isSeeking ? 12.0f : 4.0f));
+    float lerpSpeed = data.g_isSeeking ? 10.0f : 3.0f;
+    data.alpha = ImLerp(data.alpha, targetAlpha, ImMin(dt * lerpSpeed, 1.0f));
 
-    // 2. Pulse: Luôn giảm về 0 (tạo hiệu ứng giật nhẹ khi được set lên 1)
-    data.pulse = ImLerp(data.pulse, 0.0f, dt * 6.0f);
+    // 2. Pulse: Giảm dần về 0. (Ví dụ: khi người dùng bấm phím mũi tên, bạn set pulse = 1.0f bên ngoài)
+    data.pulse = ImLerp(data.pulse, 0.0f, ImMin(dt * 6.0f, 1.0f));
 
-    // 3. Wave Timer: Chạy liên tục khi alpha > 0
-    if (data.alpha > 0.01f) {
-        data.timer += dt * 3.5f; 
-        if (data.timer > 1.0f) data.timer = 0.0f;
+    // 3. Timer: Update liên tục nếu icon còn hiển thị
+    if (data.alpha > 0.001f) {
+        data.timer += dt * 2.5f; // Tốc độ sóng chạy
+        if (data.timer > 1.0f) data.timer -= 1.0f; // Tránh mất frame
+        
+        data.pos  = VideoPos;
+        data.size = VideoSize;
+
+        // Gọi đúng tên hàm đã định nghĩa
+        DrawSeekingIconAnimated(
+            ImGui::GetWindowDrawList(), 
+            ImVec2(0,0), ImVec2(0,0), 
+            IM_COL32(255, 255, 255, 255), 
+            &data
+        );
+        
+        hasRenderedSomething = true;
     }
-}
-
-void RenderSeekingOverlay( ImVec2 VideoPos , ImVec2 VideoSize , SeekingData& g_SeekingUI) {
-    // 1. Cập nhật logic animation dựa trên trạng thái thực g_isSeeking
-    // g_isSeeking được cập nhật từ MPV_EVENT_PROPERTY_CHANGE
-    UpdateSeekingLogic(g_SeekingUI);
-
-    // 2. Nếu Alpha quá nhỏ thì không làm gì cả để tiết kiệm hiệu năng
-    if (g_SeekingUI.alpha <= 0.01f) return;
-
-    // 3. Lấy DrawList lớp trên cùng (Foreground) để icon hiện đè lên mọi thứ
-    ImDrawList* drawList = ImGui::GetForegroundDrawList();
-
-    // 4. Tính toán vị trí hiển thị (Ví dụ: cách biên 15% chiều rộng video)
-    float viewW = VideoSize.x;
-    float viewH = VideoSize.y;
-    float posX = VideoPos.x + (g_SeekingUI.forward ? viewW * 0.85f : viewW * 0.15f);
-    float posY = VideoPos.y + (viewH * 0.5f);
-
-    // Kích thước vùng vẽ icon (Bounding Box)
-    float iconSize = 40.0f; 
-    ImVec2 pMin(posX - iconSize, posY - iconSize);
-    ImVec2 pMax(posX + iconSize, posY + iconSize);
-
-    // 5. Màu sắc (Sử dụng màu trắng tinh khiết với Alpha động)
-    ImU32 color = IM_COL32(255, 255, 255, 255);
-
-    // 6. Thực hiện vẽ
-    DrawSeekingIconAnimated(drawList, pMin, pMax, color, &g_SeekingUI);
-    
-    hasRenderedSomething = true;
 }
 
 

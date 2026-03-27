@@ -13,7 +13,7 @@ find_package(cpr CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 # ================== EXECUTABLE ==================
-add_executable(imgui_player 
+add_executable(imgui_player WIN32
 
     native/src/main.cpp
     native/src/utils.cpp
@@ -28,6 +28,8 @@ add_executable(imgui_player
     native/src/mpv/mpv_render_video.cpp
     native/src/mpv/mpv_settings.cpp
     native/src/mpv/mpv_ui_settings.cpp
+
+    native/src/mpv/shaders/shader_manager.cpp
 
     native/src/UIStyleManager.cpp
 
@@ -64,11 +66,14 @@ add_executable(imgui_player
 
 # ================== WINDOWS DEFINES ==================
 target_compile_definitions(imgui_player PRIVATE
+
+    SDL_MAIN_HANDLED
     UNICODE
     _UNICODE
     WIN32_LEAN_AND_MEAN
     NOMINMAX
     IMGUI_IMPL_OPENGL_LOADER_GLAD
+    
 )
 # Include path
 target_include_directories(imgui_player PRIVATE
@@ -86,6 +91,7 @@ target_include_directories(imgui_player PRIVATE
     native/include/windows
     native/include/popup
     native/include/threads
+    native/src/mpv/shaders
 
     native/imgui/misc/freetype
     native/imgui/backends
@@ -120,4 +126,8 @@ if(WIN32)
     
     # Lệnh này yêu cầu vcpkg tự copy các file phụ thuộc khác
     set_target_properties(imgui_player PROPERTIES VS_USER_PROPS_CXX_DEFAULT "true")
+
+    set_target_properties(imgui_player PROPERTIES 
+        LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
+    )
 endif()

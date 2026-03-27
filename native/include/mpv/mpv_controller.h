@@ -25,3 +25,4 @@ void mpv_enable_video(mpv_handle* mpv);
 
 void mpv_command_next_video(mpv_handle* mpv);
 void mpv_command_prev_video(mpv_handle* mpv);
+void mpv_command_set_shader(mpv_handle* mpv, const std::string& path  = "");

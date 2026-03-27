@@ -1,6 +1,5 @@
 
 // globals.cpp
-#include "mpv_settings.h"
 #include "globals.h"
 #include "popup.h"
 #include <string>
@@ -11,10 +10,11 @@
 #include <condition_variable>
 #include <queue>
 
+#include "mpv/mpv_settings.h"
+
 bool g_consoleAttached = false;
 bool g_consoleWindowCreated = false;
-
-SeekingData Seekingdata;
+SeekingData dataseek;
 UiWindowsState uiState;
 
 const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "data","settings_common.json");
@@ -85,10 +85,6 @@ bool fpsInited  = false;
 bool file_local = false;
 bool is_live = false;
 
-int WinW;
-int WinH;
-int WinX;
-int WinY;
 int volume = 100;
 int targetFPS = 60;
 int pause_render_ui_video =  0  ;

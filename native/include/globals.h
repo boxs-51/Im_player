@@ -30,18 +30,6 @@
 #include <iostream>
 #include <condition_variable>
 
-struct SeekingData{
-    float forward = 0.0f;
-    float timer =0.0f;
-    float g_seekingIconFade =0.0f;
-    float pulse = 0.0f;
-    float alpha = 0.0f;
-
-    bool g_isSeeking = false;
-};
-
-extern SeekingData Seekingdata;
-
 struct UiWindowsState {
     bool show_demo = false;
     bool show_style = false;
@@ -49,6 +37,18 @@ struct UiWindowsState {
     bool show_log = false;
     bool show_settings = false;
 };
+struct SeekingData {
+    float timer = 0.0f;
+    float alpha = 0.0f;   
+    float pulse = 0.0f;   
+    bool  forward = true;
+
+    ImVec2 pos = ImVec2(0, 0);  
+    ImVec2 size = ImVec2(0, 0);
+    
+    bool g_isSeeking =false;
+};
+extern SeekingData dataseek;
 extern UiWindowsState uiState;
 extern const std::string SETTINGS_PATH_COMMOM  ;
 extern const std::string SETTINGS_PATH_VIDEO   ;
@@ -150,10 +150,6 @@ extern std::wstring resultURL;
 
 extern int selectedAudioIndex;
 extern int g_CurrentIndex;
-extern int WinW;
-extern int WinH;
-extern int WinX;
-extern int WinY;
 extern int reset_FPS_int;
 extern int volume ;
 extern int targetFPS ;

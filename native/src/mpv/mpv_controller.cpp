@@ -62,8 +62,9 @@ void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
 
-    Seekingdata.forward = (targetTime > (float)g_playbackStatus.playbackTime);
-    Seekingdata.pulse = 1.0f;
+
+    dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
+    dataseek.pulse = 1.0f;
 
     Uint32 now = SDL_GetTicks();
 
@@ -100,8 +101,8 @@ void mpv_command_seek_clamped(mpv_handle* mpv, float targetTime, float playbackT
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
 
-    Seekingdata.forward = (targetTime > (float)g_playbackStatus.playbackTime);
-    Seekingdata.pulse = 1.0f;
+    dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
+    dataseek.pulse = 1.0f;
 
     Uint32 now = SDL_GetTicks();
 
@@ -195,3 +196,12 @@ void mpv_enable_video(mpv_handle* mpv) {
     //mpv_set_property_string(mpv, "video-aspect-override", "-2");
     mpv_set_property_string(mpv, "vid", "auto");
 }
+void mpv_command_set_shader(mpv_handle* mpv, const std::string& path) {
+    if (!mpv || path.empty()) return;
+
+    // Sử dụng dấu nháy đơn xung quanh path để tránh lỗi đường dẫn có dấu cách
+    std::string cmd = "change-list glsl-shaders append '" + path + "'";
+    mpv_command_string(mpv, "change-list glsl-shaders clr ''");
+    mpv_command_string(mpv, cmd.c_str());
+}
+

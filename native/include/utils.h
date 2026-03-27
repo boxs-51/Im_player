@@ -260,8 +260,21 @@ struct BorderlessWindowState {
 };
 
 struct WindowLayout {
+
+    int WinW;
+    int WinH;
+    int WinX;
+    int WinY;
+
+    int DrawWinW;
+    int DrawWinH;
+
     SDL_Rect titleBar;   // Vùng titlebar
     SDL_Rect videoArea;  // Vùng video/content
+
+    ImVec2 DisplaySize;
+    ImVec2 DisplayDPI;
+
 };
 
 inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
@@ -296,7 +309,7 @@ void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 void ApplyDynamicMPVConfig(mpv_handle* mpv, const std::string& videoType="");
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state);
+void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state ,WindowLayout& w);
 void InitMPVObservers(mpv_handle* mpv);
 void InitPlaybackStatus(mpv_handle* mpv);
 void ProcessMPVEvents(mpv_handle* mpv );

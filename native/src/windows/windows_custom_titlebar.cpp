@@ -307,6 +307,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 p->rgrc[0] = mi.rcWork;
             }
             else {
+            /*
                 // 🔥 FIX DPI-aware border
                 UINT dpi = GetDpiForWindow(hwnd);
 
@@ -317,6 +318,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                         + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
 
                 InflateRect(&p->rgrc[0], -frameX, -frameY);
+            */
             }
             return 0;
         }
@@ -554,6 +556,7 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
     g_DragResizeState.dpiX = dpi; g_DragResizeState.dpiY = dpi;
 
     //SDL_SetWindowBordered(window,SDL_FALSE);
+
 }
 
 

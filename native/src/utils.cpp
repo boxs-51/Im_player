@@ -4,7 +4,8 @@
 #include "json.hpp"
 #include "windows/windows_borderless.h"
 #include "thread.h"
-#include "mpv_basic_formats.h"
+
+#include "mpv/mpv_basic_formats.h"
 
 #include <filesystem>
 #include <vector>
@@ -40,23 +41,29 @@ static std::mutex g_audio_mutex;
 static std::mutex g_tracks_mutex;
 static std::mutex g_metadata_mutex;
 
+static bool g_isSeeking = false;
+
 static std::atomic<int> g_current_chapter_idx{-1};
 static std::unordered_set<std::string> g_loadedScriptsSet;
 
 std::vector<std::string> g_loadedScripts;
 
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state)
+void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state , WindowLayout& w)
 {
-    if (!sdlWindow) {Windowlayout.titleBar = {0,0,0,0};Windowlayout.videoArea = {0,0,0,0};return;}
+    if (!sdlWindow) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,0,0};return;}
 
-    SDL_GetWindowSize(sdlWindow, &WinW, &WinH);
-    SDL_GetWindowPosition(sdlWindow, &WinX, &WinY);
+    SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
+    SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
+    SDL_GL_GetDrawableSize(sdlWindow ,&w.DrawWinW, &w.DrawWinH);
     // Fullscreen: video chiếm toàn bộ, title bar ẩn
-    if (state.isFullscreen_video ) {Windowlayout.titleBar = {0,0,0,0};Windowlayout.videoArea = {0,0,WinW,WinH};
+    if (state.isFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
     } else {
         // Windowed: title bar trên, video dưới
-        Windowlayout.titleBar = {WinX , WinY,WinW,(int)state.titleHeight};
-        Windowlayout.videoArea = {WinX, WinY + (int)state.titleHeight,WinW,WinH - (int)state.titleHeight};
+        w.titleBar = {w.WinX , w.WinY,w.WinW,(int)state.titleHeight};
+        w.videoArea = {w.WinX, w.WinY + (int)state.titleHeight,w.WinW,w.WinH - (int)state.titleHeight};
+
+        w.DisplayDPI  = ImVec2 ((float)w.DrawWinW / w.WinW,(float)w.DrawWinH / w.WinH);
+                                                        
     }
 
 }
@@ -919,11 +926,12 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             mpv_get_property(mpv, "playlist-pos-1", MPV_FORMAT_INT64, &index_1);
             if (index >= 0) {
                 g_playbackStatus.g_PlayingIndex = (int)index;
-                // printf("Xác nhận Index thực tế: %d\n", g_playbackStatus.g_PlayingIndex);
+                printf("Xác nhận Index thực tế: %d\n", g_playbackStatus.g_PlayingIndex);
             }
             if(index_1 >0){
                 g_playbackStatus.g_PlayingIndex_1 = (int)index_1;
             }
+
             isLoadingMedia = false;
             g_playbackStatus.hasFile = true;
             break;
@@ -978,13 +986,15 @@ void ProcessMPVEvents(mpv_handle* mpv) {
 
 
         case MPV_EVENT_SEEK:{
-            Seekingdata.g_isSeeking = true; 
+            g_isSeeking = true; 
+            dataseek.g_isSeeking = g_isSeeking;
             RATE_LIMITED_COUT(mpv_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); break;
         }
 
         case MPV_EVENT_PLAYBACK_RESTART: 
-        {
-            Seekingdata.g_isSeeking = false; 
+        {   
+            g_isSeeking = false; 
+            dataseek.g_isSeeking = g_isSeeking;
             if(pendingSeekTime >= 0.0){
                 if(!is_live)mpv_command_seek_abs(mpv, pendingSeekTime , g_playbackStatus.duration);
                 RATE_LIMITED_COUT(playback_restart_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << pendingSeekTime << " seconds.");
@@ -1085,10 +1095,10 @@ PlaybackState GetPlaybackState() {
     if (g_playbackStatus.ilde)
         return PlaybackState::Idle;
 
-    if ((g_playbackStatus.eofReached) && !Seekingdata.g_isSeeking)
+    if ((g_playbackStatus.eofReached) && !g_isSeeking)
         return PlaybackState::EndOfFile;
 
-    if (Seekingdata.g_isSeeking)
+    if (g_isSeeking)
         return PlaybackState::Seeking;
 
     if (g_playbackStatus.isPaused)
@@ -1296,7 +1306,7 @@ void UpdateUIState() {
         currentTimeout = 500;  // Đã rời khỏi video: 0.5s
     }
     // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
-    if ((isMouseMoving || isInteractingWithUI) && isMouseInsideVideo) {
+    if ((isMouseMoving ) && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         
         // Tự động hiện lại UI nếu có hoạt động
@@ -1312,7 +1322,7 @@ void UpdateUIState() {
         if (currentTime - lastInteractionTime > currentTimeout) {
             
             // CỰC KỲ QUAN TRỌNG: Không ẩn khi đang có Popup/Combo mở hoặc đang kéo Slider
-            if (!ImGui::IsAnyItemActive() && !IsAnyPopupOpen()) {
+            if (!ImGui::IsAnyItemActive() ) {
                 show_ui_video = false;
                 SDL_ShowCursor(SDL_DISABLE);
             }

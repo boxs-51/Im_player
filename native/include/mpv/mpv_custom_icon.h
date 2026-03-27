@@ -667,19 +667,15 @@ inline static void DrawLoadingIconAnimated(
 
 struct SeekingIconData {
     float timer = 0.0f;
-    float alpha = 0.0f;   // Độ mờ (0..1)
-    float pulse = 0.0f;   // Hiệu ứng nẩy khi nhấn nhiều lần (0..1)
+    float alpha = 0.0f;   
+    float pulse = 0.0f;   
     bool  forward = true;
+
+    ImVec2 pos = ImVec2(0, 0);  
+    ImVec2 size = ImVec2(0, 0);
+    
+    bool g_isSeeking =false;
 };
-
-inline float EaseOutCubic(float x) {
-    return 1.0f - powf(1.0f - x, 3.0f);
-}
-
-inline float EaseInOutSine(float x) {
-    return -(cosf(IM_PI * x) - 1.0f) * 0.5f;
-}
-
 inline static void DrawSeekingIconAnimated(
     ImDrawList* drawList,
     ImVec2 pMin,
@@ -688,96 +684,101 @@ inline static void DrawSeekingIconAnimated(
     void* user_data)
 {
     SeekingIconData* d = (SeekingIconData*)user_data;
-    if (!d || d->alpha <= 0.01f) return;
+    // Kiểm tra an toàn và ngưỡng hiển thị
+    if (!d || d->alpha <= 0.001f) return;
 
-    ImVec2 center = ImVec2((pMin.x + pMax.x) * 0.5f, (pMin.y + pMax.y) * 0.5f);
-    float fullW = pMax.x - pMin.x;
-    float fullH = pMax.y - pMin.y;
+    // 1. Xác định không gian vẽ (Item space vs Video space)
+    ImVec2 center;
+    float fullW, fullH;
+
+    if (d->size.x > 0.0f && d->size.y > 0.0f) {
+        // Ưu tiên dùng tọa độ video nếu có
+        if(d->forward)
+            center = ImVec2(d->pos.x + d->size.x * 0.75f, d->pos.y + d->size.y * 0.5f);
+        else 
+            center = ImVec2(d->pos.x + d->size.x * 0.25f, d->pos.y + d->size.y * 0.5f);
+        fullW = d->size.x;
+        fullH = d->size.y;
+    } else {
+        // Fallback về vùng của ImGui Item
+        center = ImVec2((pMin.x + pMax.x) * 0.5f, (pMin.y + pMax.y) * 0.5f);
+        fullW = pMax.x - pMin.x;
+        fullH = pMax.y - pMin.y;
+    }
 
     float dir = d->forward ? 1.0f : -1.0f;
-    float triW = fullW * 0.18f;
-    float triH = fullH * 0.45f;
-    float spacing = triW * 1.4f;
+    float triW = fullW * 0.05f; // Thu nhỏ lại một chút cho cân đối
+    float triH = fullH * 0.20f;
+    float spacing = triW * 1.0f;
 
-    int count = 3;
-    float speed = 2.5f;
-    // t chạy từ 0.0 -> 1.0 thể hiện chu kỳ của 1 tam giác
+    float speed = 1.5f;
     float t = fmodf(d->timer * speed, 1.0f);
 
-    // ============================================================
-    // 🌟 BƯỚC 1: VẼ HIỆU ỨNG GLOW HÌNH TRÒN (Phía dưới mũi tên)
-    // ============================================================
-    
-    // Tách các thành phần màu RGB
+    // Chuẩn bị màu sắc
     ImVec4 colVec = ImGui::ColorConvertU32ToFloat4(color);
-    ImU32 baseAlpha = (color >> 24) & 0xFF;
-    
-    // Cấu hình Glow
-    // Bán kính glow lớn hơn chiều cao tam giác một chút để bao phủ
-    float maxGlowRadius = triH * 0.8f; 
-    // Số lượng vòng tròn đồng tâm để tạo gradient. Càng nhiều càng mịn nhưng tốn hiệu năng hơn.
-    int glowLayers = 10; 
-    // Độ mờ tối đa của glow ở tâm (0.0f đến 1.0f)
-    float maxGlowAlpha = 0.4f; 
+    // Tạo màu trắng pha (Sáng hơn màu gốc)
+    ImVec4 brightCol = ImVec4(
+        ImMin(colVec.x + 0.3f, 1.0f), 
+        ImMin(colVec.y + 0.3f, 1.0f), 
+        ImMin(colVec.z + 0.3f, 1.0f), 
+        colVec.w * d->alpha
+    );
+    float baseAlpha = brightCol.w;
 
-    for (int i = 0; i < count; i++) {
-        // Tính toán vị trí x giống hệt như khi vẽ tam giác
+    ImU32 bgGlowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(brightCol.x, brightCol.y, brightCol.z, baseAlpha * 0.15f));
+    ImU32 transparent = ImGui::ColorConvertFloat4ToU32(ImVec4(brightCol.x, brightCol.y, brightCol.z, 0.0f));
+
+    if (d->forward) {
+        drawList->AddRectFilledMultiColor(
+            ImVec2(d->pos.x + d->size.x * 0.5f, d->pos.y), 
+            ImVec2(d->pos.x + d->size.x, d->pos.y + d->size.y),
+            transparent, bgGlowCol, bgGlowCol, transparent
+        );
+    } else {
+        drawList->AddRectFilledMultiColor(
+            ImVec2(d->pos.x, d->pos.y), 
+            ImVec2(d->pos.x + d->size.x * 0.5f, d->pos.y + d->size.y),
+            bgGlowCol, transparent, transparent, bgGlowCol
+        );
+    }
+
+    int glowLayers = 6; // Giảm xuống 6 để tối ưu hiệu năng
+    float maxGlowRadius = triH * 0.7f;
+
+    for (int i = 0; i < 3; i++) {
         float offset = ((float)i + t) * spacing;
         float x = center.x + (offset - (spacing * 1.5f)) * dir;
-        ImVec2 glowCenter = ImVec2(x + (dir > 0 ? triW * 0.5f : -triW * 0.5f), center.y);
+        ImVec2 glowPos = ImVec2(x + (dir > 0 ? triW * 0.4f : -triW * 0.4f), center.y);
 
-        // Tạo gradient radial bằng các vòng tròn đồng tâm
-        for (int layer = 0; layer < glowLayers; layer++) {
-            // Tỷ lệ từ tâm ra ngoài (0.0 -> 1.0)
+        for (int layer = 1; layer <= glowLayers; layer++) {
             float fraction = (float)layer / (float)glowLayers;
+            float r = maxGlowRadius * fraction;
+            // Độ mờ layer: giảm dần khi ra xa tâm
+            float lAlpha = (1.0f - fraction) * 0.3f * baseAlpha; 
             
-            // Bán kính tăng dần
-            float radius = maxGlowRadius * fraction;
+            if (lAlpha <= 0.0f) continue;
             
-            // Độ mờ giảm dần theo dạng bình phương để trông tự nhiên hơn
-            float fadeFactor = 1.0f - (fraction * fraction); 
-            
-            // Giới hạn alpha của layer
-            float layerAlpha = maxGlowAlpha * fadeFactor;
-
-            // Áp dụng alpha tổng thể của icon
-            float finalLayerAlphaFloat = layerAlpha * d->alpha * ((float)baseAlpha / 255.0f);
-            
-            // Chuyển đổi về ImU32 color
-            ImU32 glowColor = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, finalLayerAlphaFloat));
-
-            // Vẽ vòng tròn (sử dụng segment cao để mượt)
-            drawList->AddCircleFilled(glowCenter, radius, glowColor, 20);
+            ImU32 gCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, lAlpha));
+            drawList->AddCircleFilled(glowPos, r, gCol, 16);
         }
     }
 
-    for (int i = 0; i < count; i++) {
-        // Tính toán offset dựa trên i và thời gian t
-        // Giúp các tam giác nối đuôi nhau liên tục
+    for (int i = 0; i < 3; i++) {
         float offset = ((float)i + t) * spacing;
-        
-        // Căn chỉnh để cụm tam giác nằm quanh tâm
-        // Trừ đi một khoảng (spacing * 1.5) để icon "chạy qua" tâm
         float x = center.x + (offset - (spacing * 1.5f)) * dir;
 
-        // Tính Fade: Tam giác càng xa gốc (theo hướng di chuyển) càng mờ
-        // Hoặc đơn giản là fade theo i để tạo cảm giác đuôi
-        float fade = (float)(i + 1) / (float)count; 
+        // Tính Fade dựa trên vị trí (0.0 -> 1.0)
+        float progress = (float)(i + 1) / 3.0f;
+        float triangleAlpha = baseAlpha * progress * (1.0f - t * 0.2f);
         
-        ImU32 baseAlpha = (color >> 24) & 0xFF;
-        ImU32 finalAlpha = (ImU32)(baseAlpha * d->alpha * fade * (1.0f - t * 0.3f));
-        ImU32 finalCol = (color & 0x00FFFFFF) | (finalAlpha << 24);
+        ImU32 finalCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, triangleAlpha));
 
         ImVec2 p1, p2, p3;
-        if (dir > 0) {
-            p1 = ImVec2(x, center.y - triH * 0.5f);
-            p2 = ImVec2(x, center.y + triH * 0.5f);
-            p3 = ImVec2(x + triW, center.y);
-        } else {
-            p1 = ImVec2(x, center.y - triH * 0.5f);
-            p2 = ImVec2(x, center.y + triH * 0.5f);
-            p3 = ImVec2(x - triW, center.y);
-        }
+        float tipX = (dir > 0) ? x + triW : x - triW;
+        
+        p1 = ImVec2(x, center.y - triH * 0.5f);
+        p2 = ImVec2(x, center.y + triH * 0.5f);
+        p3 = ImVec2(tipX, center.y);
 
         drawList->AddTriangleFilled(p1, p2, p3, finalCol);
     }

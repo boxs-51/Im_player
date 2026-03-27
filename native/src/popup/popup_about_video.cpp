@@ -185,13 +185,23 @@ void ShowDuBugInFo(){
                 rcWin.right   - rcClient.right,
                 rcWin.bottom  - rcClient.bottom);
 
+
     // SDL window info
     Uint32 sdlFlags = 0;
     sdlFlags = SDL_GetWindowFlags(ctx.mainWindow);
     
-    ImGui::TextWrapped("SDL Client: %dx%d", WinW, WinH);
-    ImGui::TextWrapped("SDL Position: X:%d Y:%d", WinX, WinY);
+    ImGui::TextWrapped("SDL Client: %dx%d", Windowlayout.WinW, Windowlayout.WinH);
+    ImGui::TextWrapped("SDL Position: X:%d Y:%d", Windowlayout.WinX, Windowlayout.WinY);
+    ImGui::TextWrapped("SDL DisplayDPI: %dx%d", Windowlayout.DisplayDPI.x, Windowlayout.DisplayDPI.y);
     ImGui::TextWrapped("SDL Flags: 0x%08X", sdlFlags);
+    
+    ImVec2 Videopos = sdl_rec_to_imvec2_pos(Windowlayout.videoArea);
+    ImVec2 Videosize = sdl_rec_to_imvec2_size(Windowlayout.videoArea);
+    
+    ImGui::TextWrapped("Video Pos: %dx%d", Videopos.x,Videopos.y);
+    ImGui::TextWrapped("Video Size: %dx%d", Videosize.x, Videosize.y);
+
+ 
     ImGui::Separator();
     ImGui::TextWrapped("IsMaximized: %s", g_DragResizeState.IsMax ? "Yes" : "No");
     ImGui::TextWrapped("IsFullscreen: %s", g_DragResizeState.IsFullscreen_video ? "Yes" : "No");
