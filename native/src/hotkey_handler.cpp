@@ -12,7 +12,7 @@
 #include <SDL.h>
 
 // --- Playback Hotkeys --- //
-bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen, SDL_Window* window) {
+bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
     if (e.type != SDL_KEYDOWN)
         return false;
 
@@ -116,7 +116,6 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen,
 
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
     if (key == SDLK_F11) {
-        //g_RequestToggleFullscreen = true;
         BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
         return true;
     }
@@ -154,7 +153,7 @@ bool HandlePopupHotkeys(const SDL_Event& e) {
             case SDLK_u:
             {
                 if (Popup_Url.IsOpen()) {Popup_Url.Close();
-                } else {OpenURLPopup(Popup_Url, Url);}
+                } else {OpenURLPopup(Popup_Url);}
                 return true;
             }
             case SDLK_a:
@@ -208,9 +207,9 @@ bool HandleExtersionHotkeys(const SDL_Event& e){
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-bool HandleHotkeys(const SDL_Event& e, mpv_handle* mpv, bool& isFullscreen_video, SDL_Window* window) {
+bool HandleHotkeys(const SDL_Event& e, mpv_handle* mpv) {
     if (Disabehotkey) return false;
-    return HandleBasicHotkeys(e, mpv, isFullscreen_video, window ) ||
+    return HandleBasicHotkeys(e, mpv) ||
            HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);
 }

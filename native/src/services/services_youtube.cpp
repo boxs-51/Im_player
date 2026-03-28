@@ -1,5 +1,9 @@
-#include "youtube_sevice.h"
-#include "globals.h"
+#include "services/services_youtube.h"
+
+#include <winhttp.h>
+#include <vector>
+#include <string>
+
 bool IsYouTubeServiceRunning() {
     HINTERNET hSession = WinHttpOpen(L"YouTubeService/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
@@ -37,9 +41,9 @@ bool IsYouTubeServiceRunning() {
     WinHttpCloseHandle(hSession);
     return result;
 }
-void LaunchYouTubeService() {
+void LaunchYouTubeService(Services& services ) {
     STARTUPINFOW si = { sizeof(si) };
-    ZeroMemory(&g_YouTubeServiceProcess, sizeof(g_YouTubeServiceProcess));
+    ZeroMemory(&services.g_YouTubeServiceProcess, sizeof(services.g_YouTubeServiceProcess));
 
     std::wstring cmd = L"py native\\src\\service\\youtube_service\\app.py";
     std::vector<wchar_t> cmdBuffer(cmd.begin(), cmd.end());
@@ -51,17 +55,17 @@ void LaunchYouTubeService() {
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL, NULL,
-        &si, &g_YouTubeServiceProcess))
+        &si, &services.g_YouTubeServiceProcess))
     {
         // log lỗi GetLastError() nếu muốn
         return;
     }
 }
-void EnsureYouTubeServiceRunning() {
+void EnsureYouTubeServiceRunning(Services& services) {
     bool expected = false;
-    if (g_YouTubeServiceRunning.compare_exchange_strong(expected, true)) {
+    if (services.g_YouTubeServiceRunning.compare_exchange_strong(expected, true)) {
         if (!IsYouTubeServiceRunning()) {
-            LaunchYouTubeService();
+            LaunchYouTubeService(services);
 
             constexpr int maxWaitMs = 5000;
             constexpr int waitStepMs = 100;
@@ -75,32 +79,32 @@ void EnsureYouTubeServiceRunning() {
         }
 
         {
-            std::lock_guard<std::mutex> lock(g_youtubeServiceMutex);
-            g_YouTubeServiceStarted.store(true);
+            std::lock_guard<std::mutex> lock(services.g_youtubeServiceMutex);
+            services.g_YouTubeServiceStarted.store(true);
         }
-        g_youtubeServiceCv.notify_all();
+        services.g_youtubeServiceCv.notify_all();
     } else {
-        std::unique_lock<std::mutex> lock(g_youtubeServiceMutex);
-        g_youtubeServiceCv.wait(lock, []() { return g_YouTubeServiceStarted.load(); });
+        std::unique_lock<std::mutex> lock(services.g_youtubeServiceMutex);
+        services.g_youtubeServiceCv.wait(lock, [&services]() { return services.g_YouTubeServiceStarted.load(); });
     }
 }
 
-void StopYouTubeService() {
-    std::lock_guard<std::mutex> lock(g_youtubeServiceMutex);
+void StopYouTubeService(Services& services) {
+    std::lock_guard<std::mutex> lock(services.g_youtubeServiceMutex);
 
-    if (g_YouTubeServiceProcess.hProcess) {
+    if (services.g_YouTubeServiceProcess.hProcess) {
         // Dừng tiến trình Python service
-        TerminateProcess(g_YouTubeServiceProcess.hProcess, 0);
+        TerminateProcess(services.g_YouTubeServiceProcess.hProcess, 0);
 
-        CloseHandle(g_YouTubeServiceProcess.hProcess);
-        CloseHandle(g_YouTubeServiceProcess.hThread);
+        CloseHandle(services.g_YouTubeServiceProcess.hProcess);
+        CloseHandle(services.g_YouTubeServiceProcess.hThread);
 
-        g_YouTubeServiceProcess = {0};
+        services.g_YouTubeServiceProcess = {0};
 
         // Reset trạng thái
-        g_YouTubeServiceRunning.store(false);
-        g_YouTubeServiceStarted.store(false);
+        services.g_YouTubeServiceRunning.store(false);
+        services.g_YouTubeServiceStarted.store(false);
 
-        g_youtubeServiceCv.notify_all();
+        services.g_youtubeServiceCv.notify_all();
     }
 }

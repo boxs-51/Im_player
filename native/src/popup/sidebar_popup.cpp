@@ -4,13 +4,18 @@
 #include "mpv/mpv_settings.h"
 #include "sidebar_popup.h"
 #include "imgui_internal.h"
-#include "client_backend.h"
+
+#include "services/services_client_backend.h"
+
 #include "FontManager.h"
 
 #include <string>
 #include <iostream>
 #include <mutex>
 #include <shellapi.h>
+
+static int g_CurrentIndex = -1;
+static std::function<void(int)> g_OnVideoSelected;
 
 void OpenSidarBarPopup() {
     SidarBarPopup.Open("Sidebar", [](bool& closePopup_siderbar) {
@@ -31,7 +36,7 @@ void ShowSidarBarPopup(bool& closePopup_siderbar) {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("ListMPV")) {
-            RenderListVideoMPV();
+            RenderListVideoMPV(mpv.mpv);
             ImGui::EndTabItem();
         }
         ImGui::PopStyleColor();
@@ -782,7 +787,7 @@ void RenderVideoList()
 }
 
 
-void RenderListVideoMPV()
+void RenderListVideoMPV(mpv_handle* mpv)
 {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());

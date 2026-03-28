@@ -34,5 +34,5 @@ void ShowURLPopupContent(bool& closePopup_url,
                          std::wstring& urlInput,
                          std::vector<std::wstring>& pendingLocalFilesLocal);
 
-void OpenURLPopup(class ReusablePopup& popup, std::wstring& outResultURL);
+void OpenURLPopup(class ReusablePopup& popup );
 void RenderPopupOverlay_Url(mpv_handle* mpv) ;

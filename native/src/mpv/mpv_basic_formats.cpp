@@ -19,6 +19,21 @@ VideoAudioFormats all_formats;
 using json = nlohmann::json;
 static std::string ytdl_json_buffer;
 
+static VideoType g_videoType = VideoType::Vio;
+
+void UpdateVideoType(VideoInfoResult info) {
+    if (info.is_live)
+        g_videoType = VideoType::Live;
+    else if (info.file_local)
+        g_videoType = VideoType::File_Local;
+    else
+        g_videoType = VideoType::Vio;
+}
+
+void SetVideoTypeLocal(){
+    g_videoType = VideoType::File_Local;
+}
+
 void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup &videoGroup)
 {
     videoGroup.labels.clear();
@@ -114,11 +129,11 @@ std::string BuildCombinedFormat(const VideoAudioFormats &allFormats)
     return format;
 }
 std::string GetCurrentMPVFormat() {
-    if (!mpv) return "";
-    return mpv_get_property_string(mpv, "ytdl-format");
+    if (!mpv.mpv) return "";
+    return mpv_get_property_string(mpv.mpv, "ytdl-format");
 }
 
-void BuildAllFormats(const VideoInfoResult &info, VideoAudioFormats &allFormats)
+void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioFormats &allFormats)
 {
     BuildVideoOptions(info.video_formats, allFormats.video);
     
@@ -180,11 +195,8 @@ void BuildAllFormats(const VideoInfoResult &info, VideoAudioFormats &allFormats)
             allFormats.audio_index = -1;
         }
     }
-    std::string tpyevideo;
-    if(is_live) tpyevideo = "livestream";
-    else if(file_local) tpyevideo = "file";
-    else tpyevideo = "vod";
-    ApplyDynamicMPVConfig(mpv,tpyevideo);
+    UpdateVideoType(info);
+    ApplyDynamicMPVConfig(mpv);
     std::string combinedFormat = BuildCombinedFormat(allFormats);
     // Áp dụng cho mpv
     const char* cmd[] = { "set", "ytdl-format", combinedFormat.c_str(), nullptr };
@@ -228,6 +240,30 @@ VideoInfoResult ExtractAllFormats(const std::string& json_str) {
         if (j.contains("uploader") && j["uploader"].is_string()) result.uploader = j["uploader"].get<std::string>();
         if (j.contains("duration") && !j["duration"].is_null() && j["duration"].is_number())
             result.duration = j["duration"].get<double>();
+
+        if (j.contains("webpage_url") && j["webpage_url"].is_string()) {
+            std::string url = j["webpage_url"].get<std::string>();
+
+            if (url.rfind("file://", 0) == 0)
+                result.file_local = true;
+        }else{
+            result.file_local = false;
+        }
+
+        // direct URL fallback
+        if (!result.file_local && j.contains("url") && j["url"].is_string()) {
+            std::string url = j["url"].get<std::string>();
+
+            // Windows path (C:\...)
+            if (url.size() > 2 && std::isalpha(url[0]) && url[1] == ':' && (url[2] == '\\' || url[2] == '/'))
+                result.file_local = true;
+
+            // file protocol
+            if (url.rfind("file://", 0) == 0)
+                result.file_local = true;
+        }else{
+            result.file_local = false;
+        }
 
         // --- Live detection (top-level fields yt-dlp commonly provides) ---
         if (j.contains("is_live") && j["is_live"].is_boolean())
@@ -389,7 +425,7 @@ json VideoInfoResultToJson(const VideoInfoResult& info) {
 }
 
 // ---------------------------- MPV Event ----------------------------
-void HandleYTDLLog(const std::string& text) {
+void HandleYTDLLog(mpv_handle* mpv,const std::string& text) {
     const std::string marker = "user-data/mpv/ytdl/json-subprocess-result=";
     size_t pos = text.find(marker);
     if (pos == std::string::npos) return;
@@ -419,16 +455,26 @@ void HandleYTDLLog(const std::string& text) {
             }
 
             VideoInfoResult info = ExtractAllFormats(inner_json);
-            //json j_out = VideoInfoResultToJson(info);
-            //std::ofstream ofs("ytdl_video_info.json"); if (ofs.is_open()) ofs << j_out.dump(2);
-            is_live = info.is_live;
-            BuildAllFormats(info,all_formats);
+            json j_out = VideoInfoResultToJson(info);
+            std::ofstream ofs("log/ytdl_video_info.json"); if (ofs.is_open()) ofs << j_out.dump(2);
+            BuildAllFormats(mpv,info,all_formats);
         } catch (const std::exception& e) {
 
         }
     }
 }
 
+VideoType GetVideoType() {
+    return g_videoType;
+}
 
-
+const char* VideoTypeToString(VideoType videotype){
+     switch (videotype) 
+    {
+        case VideoType::Vio:             return "Vio";
+        case VideoType::File_Local:      return "File Local";
+        case VideoType::Live:            return "Live Stream";
+        default:                         return "Unknown";
+    }
+}
 

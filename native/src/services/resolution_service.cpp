@@ -1,5 +1,6 @@
 #include "resolution_service.h"
-#include "globals.h"
+#include <winhttp.h>
+#include <vector>
 
 bool IsResolutionServiceRunning() {
     HINTERNET hSession = WinHttpOpen(L"ResolutionCheck/1.0", 
@@ -42,7 +43,7 @@ bool IsResolutionServiceRunning() {
 
 void LaunchResolutionService() {
     STARTUPINFOW si = { sizeof(si) };
-    ZeroMemory(&g_ResolutionServiceProcess, sizeof(g_ResolutionServiceProcess));
+    ZeroMemory(&services.g_ResolutionServiceProcess, sizeof(services.g_ResolutionServiceProcess));
 
     std::wstring cmd = L"py src\\service\\resolution_service.py";
     std::vector<wchar_t> cmdBuffer(cmd.begin(), cmd.end());
@@ -54,7 +55,7 @@ void LaunchResolutionService() {
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL, NULL,
-        &si, &g_ResolutionServiceProcess))
+        &si, &services.g_ResolutionServiceProcess))
     {
         // log lỗi GetLastError() nếu muốn
         return;
@@ -67,24 +68,24 @@ void LaunchResolutionService() {
 
 
 void StopResolutionService() {
-    std::lock_guard<std::mutex> lock(g_serviceMutex);
-    if (g_ResolutionServiceProcess.hProcess) {
-        TerminateProcess(g_ResolutionServiceProcess.hProcess, 0);
-        CloseHandle(g_ResolutionServiceProcess.hProcess);
-        CloseHandle(g_ResolutionServiceProcess.hThread);
-        g_ResolutionServiceProcess = {0};
+    std::lock_guard<std::mutex> lock(services.g_serviceMutex);
+    if (services.g_ResolutionServiceProcess.hProcess) {
+        TerminateProcess(services.g_ResolutionServiceProcess.hProcess, 0);
+        CloseHandle(services.g_ResolutionServiceProcess.hProcess);
+        CloseHandle(services.g_ResolutionServiceProcess.hThread);
+        services.g_ResolutionServiceProcess = {0};
 
-        g_ResolutionServiceRunning.store(false);  // Reset trạng thái service
-        g_ServiceStarted.store(false);            // Reset trạng thái sẵn sàng
+        services.g_ResolutionServiceRunning.store(false);  // Reset trạng thái service
+        services.g_ServiceStarted.store(false);            // Reset trạng thái sẵn sàng
 
-        g_serviceCv.notify_all();
+        services.g_serviceCv.notify_all();
     }
 }
 
 
 void EnsureResolutionServiceRunning() {
     bool expected = false;
-    if (g_ResolutionServiceRunning.compare_exchange_strong(expected, true)) {
+    if (services.g_ResolutionServiceRunning.compare_exchange_strong(expected, true)) {
         // Nếu biến từ false chuyển thành true tức là ta đang chạy service lần đầu
         if (!IsResolutionServiceRunning()) {
             LaunchResolutionService();
@@ -102,13 +103,13 @@ void EnsureResolutionServiceRunning() {
             }
         }
         {
-            std::lock_guard<std::mutex> lock(g_serviceMutex);
-            g_ServiceStarted.store(true);
+            std::lock_guard<std::mutex> lock(services.g_serviceMutex);
+            services.g_ServiceStarted.store(true);
         }
-        g_serviceCv.notify_all();
+        services.g_serviceCv.notify_all();
     } else {
         // Nếu service đang chạy hoặc đã chạy rồi, chờ cho nó sẵn sàng
-        std::unique_lock<std::mutex> lock(g_serviceMutex);
-        g_serviceCv.wait(lock, []() { return g_ServiceStarted.load(); });
+        std::unique_lock<std::mutex> lock(services.g_serviceMutex);
+        services.g_serviceCv.wait(lock, []() { return services.g_ServiceStarted.load(); });
     }
 }

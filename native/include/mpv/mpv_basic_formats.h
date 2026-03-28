@@ -5,6 +5,12 @@
 #include <vector>
 #include <optional>
 
+enum class  VideoType{
+    Vio,
+    Live,
+    File_Local
+};
+
 struct FormatGroup {
     std::vector<std::string> formats; 
     std::vector<std::string> labels;  
@@ -45,6 +51,15 @@ struct VideoInfoResult {
     std::string title;
     std::string uploader;
     std::optional<double> duration;          
+
+    bool file_local =false;
 };
+
 extern VideoAudioFormats all_formats;
-void HandleYTDLLog(const std::string& text);
+void HandleYTDLLog(mpv_handle* mpv,const std::string& text);
+
+void SetVideoTypeLocal();
+
+VideoType GetVideoType();
+
+const char* VideoTypeToString(VideoType videotype);

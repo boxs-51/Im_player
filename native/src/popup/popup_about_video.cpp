@@ -2,6 +2,8 @@
 #include"globals.h"
 #include"utils.h"
 
+#include "mpv/mpv_basic_formats.h"
+
 #include"popup_about_video.h"
 
 #include"windows/windows_borderless_state.h"
@@ -129,6 +131,7 @@ void ShowTrackInfo() {
 }
 void ShowPlaybackInfo() {
     ImGui::TextWrapped("Playback status: %s", PlaybackStateToString(GetPlaybackState()));
+    ImGui::TextWrapped("Video Type: %s", VideoTypeToString(GetVideoType()));
     ImGui::TextWrapped("SubVisible: %s", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
     ImGui::TextWrapped("Idle Active: %s", g_playbackStatus.idle_active ? "Yes" : "No");
     ImGui::TextWrapped("Seekable: %s", g_playbackStatus.seekable ? "Yes" : "No");

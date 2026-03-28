@@ -1,5 +1,9 @@
-#include "globals.h"
-#include "key_manager.h"
+#include "services/services_key_manager.h"
+
+#include <winhttp.h>
+#include <vector>
+#include <iostream>
+
 bool IsKeyManagerRunning() {
     HINTERNET hSession = WinHttpOpen(L"KeyManagerCheck/1.0", 
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY, WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
@@ -35,9 +39,9 @@ bool IsKeyManagerRunning() {
     return result;
 }
 
-void LaunchKeyManagerService() {
+void LaunchKeyManagerService(Services& services) {
     STARTUPINFOW si = { sizeof(si) };
-    ZeroMemory(&g_KeyServiceProcess, sizeof(g_KeyServiceProcess));
+    ZeroMemory(&services.g_KeyServiceProcess, sizeof(services.g_KeyServiceProcess));
 
     std::wstring cmd = L"py src\\service\\key_manager_server.py"; // chỉnh đường dẫn
     std::vector<wchar_t> cmdBuffer(cmd.begin(), cmd.end());
@@ -49,29 +53,29 @@ void LaunchKeyManagerService() {
         NULL, NULL, FALSE,
         CREATE_NO_WINDOW,
         NULL, NULL,
-        &si, &g_KeyServiceProcess
+        &si, &services.g_KeyServiceProcess
     )) {
         std::cerr << "Failed to launch Key Manager process\n";
     }
 }
 
-void StopKeyManagerService() {
-    std::lock_guard<std::mutex> lock(g_keyServiceMutex);
-    if (g_KeyServiceProcess.hProcess) {
-        TerminateProcess(g_KeyServiceProcess.hProcess, 0);
-        CloseHandle(g_KeyServiceProcess.hProcess);
-        CloseHandle(g_KeyServiceProcess.hThread);
-        g_KeyServiceProcess = {0};
-        g_KeyServiceStarted.store(false);
-        g_keyServiceCv.notify_all();
+void StopKeyManagerService(Services& services) {
+    std::lock_guard<std::mutex> lock(services.g_keyServiceMutex);
+    if (services.g_KeyServiceProcess.hProcess) {
+        TerminateProcess(services.g_KeyServiceProcess.hProcess, 0);
+        CloseHandle(services.g_KeyServiceProcess.hProcess);
+        CloseHandle(services.g_KeyServiceProcess.hThread);
+        services.g_KeyServiceProcess = {0};
+        services.g_KeyServiceStarted.store(false);
+        services.g_keyServiceCv.notify_all();
     }
 }
 
-void EnsureKeyManagerServiceRunning() {
+void EnsureKeyManagerServiceRunning(Services& services) {
     bool expected = false;
-    if (g_KeyServiceStarted.compare_exchange_strong(expected, true)) {
+    if (services.g_KeyServiceStarted.compare_exchange_strong(expected, true)) {
         if (!IsKeyManagerRunning()) {
-            LaunchKeyManagerService();
+            LaunchKeyManagerService(services);
 
             constexpr int maxWaitMs = 5000;
             constexpr int waitStepMs = 100;
@@ -84,11 +88,11 @@ void EnsureKeyManagerServiceRunning() {
             }
         }
 
-        std::lock_guard<std::mutex> lock(g_keyServiceMutex);
-        g_KeyServiceStarted.store(true);
-        g_keyServiceCv.notify_all();
+        std::lock_guard<std::mutex> lock(services.g_keyServiceMutex);
+        services.g_KeyServiceStarted.store(true);
+        services.g_keyServiceCv.notify_all();
     } else {
-        std::unique_lock<std::mutex> lock(g_keyServiceMutex);
-        g_keyServiceCv.wait(lock, []() { return g_KeyServiceStarted.load(); });
+        std::unique_lock<std::mutex> lock(services.g_keyServiceMutex);
+        services.g_keyServiceCv.wait(lock, [&services]() { return services.g_KeyServiceStarted.load(); });
     }
 }

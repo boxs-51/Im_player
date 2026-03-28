@@ -171,19 +171,19 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 case APPCOMMAND_MEDIA_PLAY_PAUSE:
                 {
                     const char *c[] = {"cycle", "pause", NULL};
-                    mpv_command_async(mpv, 0, c);
+                    mpv_command_async(mpv.mpv, 0, c);
                     break;
                 }
                 case APPCOMMAND_MEDIA_NEXTTRACK:
                 {
                     const char *cmd_next[] = { "playlist-next", NULL };
-                    mpv_command_async(mpv, 0, cmd_next);
+                    mpv_command_async(mpv.mpv, 0, cmd_next);
                     break;
                 }
                 case APPCOMMAND_MEDIA_PREVIOUSTRACK:
                 {
                     const char *cmd_prev[] = { "playlist-prev", NULL };
-                    mpv_command_async(mpv, 0, cmd_prev);
+                    mpv_command_async(mpv.mpv, 0, cmd_prev);
                     break;
                 }
                 case APPCOMMAND_VOLUME_UP:{}

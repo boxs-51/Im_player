@@ -13,10 +13,12 @@
 #include <unordered_map>
 #include <unordered_set>
 #include <condition_variable>
+#include <iomanip>
+
 
 static HANDLE hConsole = nullptr;
-extern bool g_consoleAttached ;
-extern bool g_consoleWindowCreated ;
+static bool g_consoleAttached = false;
+static bool g_consoleWindowCreated = false;
 static bool g_blockConsoleClose = true;
 static bool g_enableSingleLinePerKey = false;
 

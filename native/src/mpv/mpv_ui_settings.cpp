@@ -13,13 +13,8 @@
 #include <log.h>
 #include <string>
 
-
-static std::string url_play = "";
-
-static bool file_local = false;
-
 // Vị trí lưu file cấu hình
-bool ShowAudioFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats) {
+bool ShowAudioFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats , VideoType videotype) {
     if (formats.audio.labels.empty()) return false;
 
     int current_index = formats.audio_index >= 0 ? formats.audio_index : 0;
@@ -42,7 +37,7 @@ bool ShowAudioFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats) {
                     v_Settings.selectedAudio = all_formats.audio.formats[i];
 
                     if (g_playbackStatus.hasFile) {
-                        if(is_live){
+                        if(videotype == VideoType::Live){
                             const char* cmd1[] = { "set", "ytdl-format", all_formats.audio.ids[i].c_str(), nullptr };
                             int res = mpv_command(mpv, cmd1);
                             RATE_LIMITED_COUT(mpv_audio_format_change_live, 1,std::cout << "[DEBUG] [INFO] [MPV] Audio format changed for live stream to " << all_formats.audio.ids[i] << "");
@@ -67,7 +62,7 @@ bool ShowAudioFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats) {
     return true;
 }
 
-bool ShowVideoFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats) {
+bool ShowVideoFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats ,VideoType videotype) {
     if (formats.video.labels.empty()) return false;
 
     int current_index = formats.video_index >= 0 ? formats.video_index : 0;
@@ -86,10 +81,8 @@ bool ShowVideoFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats) {
                     formats.video_index = i;
                     formats.active_video = formats.video.formats[i];
                     v_Settings.selectedFormat = formats.video.formats[i];
-                    //if (!url_play.empty()) {
                     if (g_playbackStatus.hasFile) {
-
-                        if(is_live){
+                        if(videotype == VideoType::Live){
                             const char* cmd1[] = { "set", "ytdl-format", all_formats.video.ids[i].c_str(), nullptr };
                             int res = mpv_command(mpv, cmd1);
                             RATE_LIMITED_COUT(mpv_video_format_change_live, 1,std::cout << "[DEBUG] [INFO] [MPV] Video format changed for live stream to " << all_formats.video.ids[i] << "");
@@ -137,7 +130,7 @@ bool RenderToggleCombo(const char* label, bool& state) {
     return changed;
 }
 
-void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , bool open) {
+void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , bool open , bool& show_ui_video) {
     
     static float anim = 0.0f;
     UpdateHoverAnim(anim ,open, 15.0f);
@@ -174,20 +167,21 @@ void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , boo
         if (ImGui::BeginTable("SettingsTable", 2, ImGuiTableFlags_SizingStretchProp)) {
             ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 150.0f);
             ImGui::TableSetupColumn("Control", ImGuiTableColumnFlags_WidthStretch);
+            VideoType videotype = GetVideoType();
 
             // --- Độ phân giải ---
-            if  (!file_local && all_formats.video.labels.size() >=0){
+            if  (!(videotype == VideoType::File_Local) && all_formats.video.labels.size() >=0){
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
                 ImGui::AlignTextToFramePadding();
                 ImGui::Text("Độ phân giải:");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::PushItemWidth(-1);
-                ShowVideoFormatCombo(mpv, all_formats);
+                ShowVideoFormatCombo(mpv, all_formats ,videotype);
                 ImGui::PopItemWidth();
             }
 
-            if  (!is_live && !file_local && all_formats.audio.labels.size() >= 0){
+            if  (!(videotype == VideoType::Live)  && !(videotype == VideoType::File_Local)  && all_formats.audio.labels.size() >= 0){
                 // --- Chất lượng audio ---
                 ImGui::TableNextRow();
                 ImGui::TableSetColumnIndex(0);
@@ -195,7 +189,7 @@ void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , boo
                 ImGui::Text("Chất lượng audio:");
                 ImGui::TableSetColumnIndex(1);
                 ImGui::PushItemWidth(-1);
-                ShowAudioFormatCombo(mpv, all_formats);
+                ShowAudioFormatCombo(mpv, all_formats, videotype);
                 ImGui::PopItemWidth();
             }
 
@@ -341,6 +335,8 @@ void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , boo
             ImGui::EndTable();
         }
     }
+    if(ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) NotifyActivity(show_ui_video);
+
     ImGui::End();
     ImGui::PopStyleVar(3);
     ImGui::PopStyleColor(3);
@@ -387,7 +383,7 @@ int PlayVideo(mpv_handle * mpv,
     if (!mpv)
         return -1;
     std::string chosenFormat = resolutionFormat;
-    if (!file_local)
+    if (!(GetVideoType() == VideoType::File_Local))
     {
         // Cấu hình cookie
         const char* cmdCookie[] = { "set", "ytdl-cookie", "temp/cookies.txt", nullptr };

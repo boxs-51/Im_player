@@ -9,14 +9,14 @@
 #include "imgui.h"  // Cần thiết vì dùng ImVec2
 
 // Tải và cache icon theo tên
-//GLuint GetIcon(const std::string& name);
+GLuint GetIcon(const std::string& name);
 
 // Vẽ giao diện điều khiển và xử lý tương tác
 void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos , ImVec2 videoSize, SDL_Window* window,
                           bool& isFullscreen_video,bool& show_ui_video);
 
 
-void RenderIdleBackground(ImTextureID texID, ImVec2 videoSize) ;
+void RenderIdleBackground(ImTextureID texID, ImVec2 videopos, ImVec2 videoSize) ;
 
 void CleanupIcons();
 

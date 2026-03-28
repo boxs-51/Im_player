@@ -7,6 +7,12 @@
 #include <algorithm>
 #include "globals.h"
 
+
+static bool g_isSeekPending = false;
+static float g_seekTargetTime = -1.0;
+
+static Uint32 g_lastSeekRequestTime = 0;
+
 bool mpv_is_muted(mpv_handle* mpv) {
     int muteFlag = 0;
     if (mpv_get_property(mpv, "mute", MPV_FORMAT_FLAG, &muteFlag) == 0)

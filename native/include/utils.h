@@ -303,13 +303,9 @@ extern MPVPlaybackStatus g_playbackStatus;
 extern VideoInfo g_videoInfo;
 extern BorderlessWindowState BW;
 
-
-extern int64_t g_currentPlaylistPos ;
-extern int64_t g_playlistCount ;
-
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
-void ApplyDynamicMPVConfig(mpv_handle* mpv, const std::string& videoType="");
+void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
 void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state ,WindowLayout& w);
@@ -318,8 +314,8 @@ void InitPlaybackStatus(mpv_handle* mpv);
 void ProcessMPVEvents(mpv_handle* mpv );
 void TerminateHandler();
 void SignalHandler(int signal);
-void UpdateUIState();
-void NotifyActivity();
+void UpdateUIState(bool& show_ui_video);
+void NotifyActivity(bool& show_ui_video);
 
 void DrawCardWithHole(
     ImDrawList* dl,

@@ -656,7 +656,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showSettings = !showSettings;
         }
 
-        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings );
+        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video );
 
         settingsData.hovered = ImGui::IsItemHovered();
 
@@ -668,7 +668,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         fsData.fullscreen = isFullscreen_video ;
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
             BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-            //g_RequestToggleFullscreen = true; // Logic toggle của bạn
         }
         
         // --- BUTTON OPTION ---
@@ -740,11 +739,11 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
 
 
-void RenderIdleBackground(ImTextureID texID , ImVec2 videoSize) {
+void RenderIdleBackground(ImTextureID texID , ImVec2 videopos, ImVec2 videoSize) {
     if (!texID) return;
 
     // Lấy pos + size của window hiện tại (ví dụ: VideoRegion)
-    ImVec2 winPos  = ImGui::GetWindowPos();
+    ImVec2 winPos  = videopos;
     ImVec2 winSize = videoSize;
 
     // Lấy drawlist của window này

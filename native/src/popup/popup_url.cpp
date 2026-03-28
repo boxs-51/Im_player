@@ -4,6 +4,8 @@
 #include "popup_url.h"
 #include "json.hpp"
 
+#include "mpv/mpv_basic_formats.h"
+
 #include <vector>
 #include <string>
 #include <algorithm>
@@ -15,6 +17,10 @@
 #include "thread.h"
 
 using json = nlohmann::json;
+
+static bool urlConfirmed = false;
+
+static std::wstring result;
 
 // --- Lịch sử URL ---
 PopupData LoadPopupData() {
@@ -258,6 +264,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
             outResultURL = urlInput;
             if(data.saveHistory) AddLocalToHistory(data, urlInput);
             pendingLocalFilesLocal.clear();
+            SetVideoTypeLocal();
             urlConfirmed = true;
             closePopup_url = true;
             invalidUrl = false;
@@ -288,12 +295,14 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     ImGui::PopStyleVar(2);
 }
 
-void OpenURLPopup(ReusablePopup& popup, std::wstring& outResultURL) {
+void OpenURLPopup(ReusablePopup& popup ) {
     // --- State tồn tại suốt vòng đời popup ---
     static PopupData data;
     static std::wstring urlInput;
     static std::wstring lastURLCopy;
     static std::vector<std::wstring> pendingLocalFilesLocal;
+    std::wstring& outResultURL = result;
+
 
     // Chỉ load dữ liệu khi popup chưa mở
     if(!popup.IsOpen()) {
@@ -325,11 +334,11 @@ void RenderPopupOverlay_Url(mpv_handle* mpv) {
     Popup_Url.Render();
 
     // Nếu đã xác nhận URL từ popup
-    if (urlConfirmed && !Url.empty()) {
+    if (urlConfirmed && !result.empty()) {
 
-        CallThread_URLFetch(WideToUTF8(Url),true); // Giao luôn việc cho thread
+        CallThread_URLFetch(WideToUTF8(result),true); // Giao luôn việc cho thread
         urlConfirmed = false;
-        Url.clear();
+        result.clear();
     }
 
 }

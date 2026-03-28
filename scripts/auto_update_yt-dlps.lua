@@ -3,7 +3,7 @@
 
 local utils = require 'mp.utils'
 local opt = require 'mp.options'
-
+local log_initialized = false
 -- === Cấu hình ===
 local options = {
     auto_update = true,
@@ -29,7 +29,7 @@ end
 
 local app_dir = mp.find_config_file(".") or utils.getcwd()
 local ytdlp_exe = join(app_dir, "yt-dlp.exe")
-local script_dir = mp.get_script_directory() or utils.getcwd()
+local exe_dir = mp.get_property("working-directory") or utils.getcwd()
 local log_dir = join(script_dir, "log")
 local log_path = join(log_dir, "yt-dlp-update.log")
 
@@ -70,7 +70,6 @@ local function trim_log()
 end
 
 local function log(msg)
-    -- đảm bảo folder tồn tại trước khi ghi
     if not ensure_log_dir_safe() then
         mp.msg.error("Cannot create log directory")
         return
@@ -78,7 +77,15 @@ local function log(msg)
 
     trim_log()
 
-    local f = io.open(log_path, "a")
+    -- Chỉ lần đầu thì ghi đè (reset file)
+    local mode = "a"
+    if not log_initialized then
+        mode = "w"
+        log_initialized = true
+        f:write("\n===== NEW SESSION =====\n")
+    end
+
+    local f = io.open(log_path, mode)
     if f then
         f:write(os.date("[%Y-%m-%d %H:%M:%S] ") .. msg .. "\n")
         f:close()
@@ -296,6 +303,5 @@ end
 
 -- === Init ===
 ensure_log_dir_safe()
-log("TEST LOG WORKING")
 mp.add_timeout(1, perform_update_logic)
 mp.register_script_message("check_update", perform_update_logic)

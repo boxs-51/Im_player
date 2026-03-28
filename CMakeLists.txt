@@ -53,11 +53,11 @@ add_executable(imgui_player WIN32
     native/src/popup/reusable_popup.cpp
     native/src/popup/sidebar_popup.cpp
 
-    native/src/service/key_manager_server.cpp
-    native/src/service/resolution_service.cpp
-    native/src/service/youtube_sevice.cpp
-    native/src/service/services.cpp
-    native/src/service/client_backend.cpp
+    native/src/services/services_key_manager.cpp
+    #native/src/service/resolution_service.cpp
+    native/src/services/services_youtube.cpp
+    native/src/services/services_services.cpp
+    native/src/services/services_client_backend.cpp
 
     native/src/threads/thread_manager.cpp
     native/src/threads/thread.cpp
@@ -92,6 +92,7 @@ target_include_directories(imgui_player PRIVATE
     native/include/popup
     native/include/threads
     native/src/mpv/shaders
+    native/include/services
 
     native/imgui/misc/freetype
     native/imgui/backends

@@ -7,6 +7,8 @@
 
 #include "mpv/mpv_basic_formats.h"
 
+#include "services/services_services.h"
+
 #include <filesystem>
 #include <vector>
 #include <commdlg.h>  
@@ -45,8 +47,6 @@ static bool g_isSeeking = false;
 
 static std::atomic<int> g_current_chapter_idx{-1};
 static std::unordered_set<std::string> g_loadedScriptsSet;
-
-std::vector<std::string> g_loadedScripts;
 
 void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state , WindowLayout& w)
 {
@@ -304,63 +304,80 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         {"video-rotate", "no"},
         {"audio-buffer", "50"},
         {"video-sync", "display-resample"},
-        {"framedrop", "vo"}
+        {"framedrop", "vo"},
+        {"config" , "yes"},
+        {"config-dir" , AutoPath<std::string>("%ROOT%")}
     });
 
     mpv_set_property_string(mpv, "hr-seek-framedrop", "yes");
 }
-void ApplyDynamicMPVConfig(mpv_handle* mpv, const std::string& videoType) {
+void ApplyDynamicMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
+    VideoType type = GetVideoType();
+    std::unordered_map<std::string, std::string> config;
+    switch (type) {
+        case VideoType::Live:
+        {
+            config = {
+                {"cache", "yes"},
+                {"cache-pause", "no"},
+                {"cache-secs", "10"},
+                {"demuxer-max-bytes", "10M"},
+                {"demuxer-max-back-bytes", "1M"},
+                {"vd-lavc-skipframe", "default"},
+                {"hr-seek", "no"},
+                {"vd-lavc-fast", "yes"},
+                {"seekable", "no"},
+                {"profile", "low-latency"},
+                {"untimed", "yes"},
+                {"interpolation", "no"},
+                {"video-sync", "audio"}
+            };
+            break;
+        }
+        case VideoType::File_Local:
+        {
+            config = {
+                {"cache", "auto"},
+                {"cache-pause", "yes"},
+                {"cache-secs", "100"},
+                {"demuxer-max-bytes", "50M"},
+                {"demuxer-max-back-bytes", "10M"},
+                {"vd-lavc-skipframe", "nonref"},
+                {"hr-seek", "keyframes"},
+                {"scale", "ewa_lanczossharp"},
+                {"cscale", "ewa_lanczossharp"},
+                {"video-sync", "display-resample"},
+                {"interpolation", "yes"}
+            };
+            break;
+        }
+        case VideoType::Vio:
+        {
+            config = {
+                {"cache", "yes"},
+                {"cache-pause", "yes"},
+                {"cache-secs", "60"},
+                {"demuxer-max-bytes", "20M"},
+                {"demuxer-readahead-secs", "20"},
+                {"demuxer-max-back-bytes", "5M"},
+                {"vd-lavc-skipframe", "default"},
+                {"hr-seek", "yes"}
 
-    static const std::unordered_map<std::string, std::unordered_map<std::string, std::string>> dynamicConfigs = {
-        {"livestream", {
-            {"cache", "yes"},
-            {"cache-pause", "no"},
-            {"cache-secs", "10"},
-            {"demuxer-max-bytes", "10M"},
-            {"demuxer-max-back-bytes", "1M"},
-            {"vd-lavc-skipframe", "default"},
-            {"hr-seek", "no"},
-            {"vd-lavc-fast", "yes"},
-            {"seekable", "no"},
-            {"profile", "low-latency"},
-            {"untimed", "yes"},
-            {"interpolation", "no"},
-            {"video-sync", "audio"}
-        }},
-        {"file", {
-            {"cache", "auto"},
-            {"cache-pause", "yes"},
-            {"cache-secs", "100"},
-            {"demuxer-max-bytes", "50M"},
-            {"demuxer-max-back-bytes", "10M"},
-            {"vd-lavc-skipframe", "nonref"},
-            {"hr-seek", "keyframes"},
-            {"scale", "ewa_lanczossharp"},
-            {"cscale", "ewa_lanczossharp"},
-            {"video-sync", "display-resample"},
-            {"interpolation", "yes"}
-        }},
-        {"vod", {
-            {"cache", "yes"},
-            {"cache-pause", "yes"},
-            {"cache-secs", "60"},
-            {"demuxer-max-bytes", "20M"},
-            {"demuxer-readahead-secs", "20"},
-            {"demuxer-max-back-bytes", "5M"},
-            {"vd-lavc-skipframe", "default"},
-            {"hr-seek", "yes"}
-
-        }}
-    };
-
-    const auto it = dynamicConfigs.find(videoType);
-    const auto& config = (it != dynamicConfigs.end()) ? it->second : std::unordered_map<std::string, std::string>{
-        {"cache", "auto"},
-        {"cache-pause", "yes"},
-        {"cache-secs", "10"},
-        {"hr-seek", "yes"},
-        {"vd-lavc-skipframe", "default"}
+            };
+            break;
+        }
+        default:
+        {
+            config = {
+                {"cache", "auto"},
+                {"cache-pause", "yes"},
+                {"cache-secs", "10"},
+                {"hr-seek", "yes"},
+                {"vd-lavc-skipframe", "default"}
+            };
+            break;
+        }
     };
 
     SetMPVOptions(mpv, config, true);
@@ -1011,7 +1028,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             g_isSeeking = false; 
             dataseek.g_isSeeking = g_isSeeking;
             if(pendingSeekTime >= 0.0){
-                if(!is_live)mpv_command_seek_abs(mpv, pendingSeekTime , g_playbackStatus.duration);
+                if(!(GetVideoType() == VideoType::Live))mpv_command_seek_abs(mpv, pendingSeekTime , g_playbackStatus.duration);
                 RATE_LIMITED_COUT(playback_restart_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << pendingSeekTime << " seconds.");
                 pendingSeekTime = -1.0;
             }
@@ -1025,7 +1042,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             auto* msg = (mpv_event_log_message*)event->data;
 
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
-                HandleYTDLLog(msg->text);
+                HandleYTDLLog(mpv,msg->text);
             
             if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
                                       strcmp(msg->level, "warn")  == 0 ))
@@ -1062,7 +1079,7 @@ void LoadAllScripts(mpv_handle* mpv) {
 
                 // Lưu vào vector + set tránh trùng
                 if (g_loadedScriptsSet.find(path) == g_loadedScriptsSet.end()) {
-                    g_loadedScripts.push_back(path);
+                    g_playbackStatus.g_loadedScripts.push_back(path);
                     g_loadedScriptsSet.insert(path);
                 }
             }
@@ -1292,7 +1309,7 @@ void DrawCardWithHole(
 
 
 
-void UpdateUIState() {
+void UpdateUIState( bool& show_ui_video ) {
     ImGuiIO& io = ImGui::GetIO();
     ImVec2 mousePos = io.MousePos; 
     Uint32 currentTime = SDL_GetTicks();
@@ -1345,7 +1362,7 @@ void UpdateUIState() {
         }
     }
 }
-void NotifyActivity() {
+void NotifyActivity(bool& show_ui_video) {
     // Đánh thức UI và hiện con trỏ
     if (!show_ui_video) {
         show_ui_video = true;
@@ -1355,5 +1372,41 @@ void NotifyActivity() {
     lastInteractionTime = SDL_GetTicks();
 }
 
+static std::unordered_map<std::string, GLuint> iconCache;
+
+GLuint GetIcon(const std::string& path)
+{
+    // Nếu đã load trước đó, trả luôn
+    auto it = iconCache.find(path);
+    if(it != iconCache.end())
+        return it->second;
+
+    int width, height, channels;
+    unsigned char* data = stbi_load(path.c_str(), &width, &height, &channels, 0);
+    if(!data)
+    {
+        std::string reason = stbi_failure_reason();
+        return 0;
+    }
+
+    GLenum format = (channels == 4) ? GL_RGBA : GL_RGB;
+
+    GLuint textureID;
+    glGenTextures(1, &textureID);
+    glBindTexture(GL_TEXTURE_2D, textureID);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+    glTexImage2D(GL_TEXTURE_2D, 0, format, width, height, 0, format, GL_UNSIGNED_BYTE, data);
+    glGenerateMipmap(GL_TEXTURE_2D);
+
+    stbi_image_free(data);
+
+    iconCache[path] = textureID;
 
 
+    return textureID;
+}

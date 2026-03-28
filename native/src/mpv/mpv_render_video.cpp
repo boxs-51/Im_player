@@ -17,9 +17,6 @@
 #include <array>
 
 
-extern mpv_render_context* render_ctx;
-extern mpv_handle* mpv;
-
 // Thay vì #define, dùng constexpr để có type-safety
 constexpr auto PARAM_FRAMEBUFFER_SIZE = static_cast<mpv_render_param_type>(3);
 constexpr auto PARAM_FLIP_Y = static_cast<mpv_render_param_type>(4);
@@ -41,10 +38,9 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
 
     LoadAllScripts(mpv_ptr);
     ShaderManager::Instance().Init(mpv_ptr);
-    ShaderManager::Instance().Register("adaptive",AutoPath<std::string>("%ROOT%","shaders","adaptive-sharpen.glsl"));
-    ShaderManager::Instance().Register("enhance",AutoPath<std::string>("%ROOT%","shaders","smart_enhance.glsl"));
-    //ShaderManager::Instance().Enable("adaptive");
-    ShaderManager::Instance().Enable("enhance");
+    ShaderManager::Instance().LoadFromFolder(AutoPath<std::string>("%ROOT%","shaders"));
+    ShaderManager::Instance().Enable("Anime4K_Upscale_Original_x2");
+    ShaderManager::Instance().Enable("Anime4K_Clamp_Highlights");
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);
     
@@ -66,11 +62,11 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
         { MPV_RENDER_PARAM_INVALID, nullptr }
     }};
 
-    if (mpv_render_context_create(&render_ctx, mpv_ptr, render_params.data()) < 0)
+    if (mpv_render_context_create(&mpv.render_ctx, mpv_ptr, render_params.data()) < 0)
         return false;
 
     // Sử dụng Lambda capture nếu cần, nhưng ở đây dùng static callback của MPV
-    mpv_render_context_set_update_callback(render_ctx, [](void*) {
+    mpv_render_context_set_update_callback(mpv.render_ctx, [](void*) {
     
         SDL_Event event;
         event.type = SDL_MPV_RENDER_UPDATE;
@@ -87,7 +83,7 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
 }
 
 void RenderMPVVideo(const ImVec2& size) {
-    if (!render_ctx) return;
+    if (!mpv.render_ctx) return;
 
     // Cấu hình Framebuffer Object
     mpv_opengl_fbo fbo {};
@@ -107,16 +103,16 @@ void RenderMPVVideo(const ImVec2& size) {
         { MPV_RENDER_PARAM_INVALID, nullptr }
     }};
 
-    mpv_render_context_render(render_ctx, params.data());
+    mpv_render_context_render(mpv.render_ctx, params.data());
 }
 
 void CleanupMPV() {
-    if (render_ctx) {
-        mpv_render_context_free(render_ctx);
-        render_ctx = nullptr;
+    if (mpv.render_ctx) {
+        mpv_render_context_free(mpv.render_ctx);
+        mpv.render_ctx = nullptr;
     }
-    if (mpv) {
-        mpv_terminate_destroy(mpv);
-        mpv = nullptr;
+    if (mpv.mpv) {
+        mpv_terminate_destroy(mpv.mpv);
+        mpv.mpv = nullptr;
     }
 }

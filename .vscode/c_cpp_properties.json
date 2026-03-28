@@ -5,7 +5,7 @@
             "includePath": [
                 "${workspaceFolder}/native/src",
                 "${workspaceFolder}/native/include",
-                "${workspaceFolder}/native/src/reusable_popup",
+                "${workspaceFolder}/native/src/popup/",
                 "${workspaceFolder}/native/include/mpv",
                 "${workspaceFolder}/native/include/GL",
                 "${workspaceFolder}/native/include/KHR",
