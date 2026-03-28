@@ -54,11 +54,6 @@ extern const std::string SETTINGS_PATH_COMMOM  ;
 extern const std::string SETTINGS_PATH_VIDEO   ;
 extern const std::string SETTINGS_PATH_POPUP_URL ;
 
-extern int WinX_SDL;
-extern int WinY_SDL;
-extern int WinW_SDL;
-extern int WinH_SDL;
-
 extern std::atomic<bool> g_KeyServiceStarted;
 extern std::mutex g_keyServiceMutex;
 extern std::condition_variable g_keyServiceCv;

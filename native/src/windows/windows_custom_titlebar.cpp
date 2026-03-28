@@ -5,7 +5,7 @@
 #define HTCUSTOM_CLOSE 1002
 #define HTCUSTOM_RETORE 1003
 #define _WIN32_WINNT 0x0A00
-#define UNICODE
+
 #include "globals.h"
 #include "utils.h"
 #include "imgui.h"

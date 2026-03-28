@@ -1,5 +1,4 @@
 #define _WIN32_WINNT 0x0A00
-#define UNICODE
 #include <SDL.h>
 #include "globals.h"
 #include "utils.h"

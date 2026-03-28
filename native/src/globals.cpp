@@ -21,10 +21,6 @@ const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "dat
 const std::string SETTINGS_PATH_VIDEO     = AutoPath<std::string>("%ROOT%", "data","settings_video.json");
 const std::string SETTINGS_PATH_POPUP_URL = AutoPath<std::string>("%ROOT%", "data","popup_data.json");
 
-int WinX_SDL = 0;
-int WinY_SDL = 0;
-int WinW_SDL = 0;
-int WinH_SDL = 0;
 
 std::atomic<bool> g_KeyServiceStarted = false;
 std::mutex g_keyServiceMutex;

@@ -34,7 +34,7 @@ WindowLayout Windowlayout;
 
 static bool isLoadingMedia = false;
 static std::unordered_map<int, int> g_retryCount; // key = g_PlayingIndex, value = số lần retry
-static constexpr int MAX_RETRY = 2;               // số lần thử tối đa
+static constexpr int MAX_RETRY = 1;               // số lần thử tối đa
 static std::mutex g_retry_mutex;
 static std::mutex g_chapters_mutex;
 static std::mutex g_audio_mutex;
@@ -54,16 +54,20 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState
 
     SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
     SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
-    SDL_GL_GetDrawableSize(sdlWindow ,&w.DrawWinW, &w.DrawWinH);
+    SDL_GL_GetDrawableSize(sdlWindow, &w.DrawWinW, &w.DrawWinH);
     // Fullscreen: video chiếm toàn bộ, title bar ẩn
     if (state.isFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
     } else {
         // Windowed: title bar trên, video dưới
         w.titleBar = {w.WinX , w.WinY,w.WinW,(int)state.titleHeight};
         w.videoArea = {w.WinX, w.WinY + (int)state.titleHeight,w.WinW,w.WinH - (int)state.titleHeight};
-
-        w.DisplayDPI  = ImVec2 ((float)w.DrawWinW / w.WinW,(float)w.DrawWinH / w.WinH);
-                                                        
+                                     
+    }
+    w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
+    w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
+    float ddpi, hdpi, vdpi;
+    if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) == 0) {
+        w.DisplayDPI = ddpi / 96.0f;
     }
 
 }
@@ -315,9 +319,14 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv, const std::string& videoType) {
             {"cache-secs", "10"},
             {"demuxer-max-bytes", "10M"},
             {"demuxer-max-back-bytes", "1M"},
-            {"vd-lavc-skipframe", "nonkey"},
+            {"vd-lavc-skipframe", "default"},
             {"hr-seek", "no"},
-            {"vd-lavc-fast", "yes"}
+            {"vd-lavc-fast", "yes"},
+            {"seekable", "no"},
+            {"profile", "low-latency"},
+            {"untimed", "yes"},
+            {"interpolation", "no"},
+            {"video-sync", "audio"}
         }},
         {"file", {
             {"cache", "auto"},
@@ -326,16 +335,22 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv, const std::string& videoType) {
             {"demuxer-max-bytes", "50M"},
             {"demuxer-max-back-bytes", "10M"},
             {"vd-lavc-skipframe", "nonref"},
-            {"hr-seek", "keyframes"}
+            {"hr-seek", "keyframes"},
+            {"scale", "ewa_lanczossharp"},
+            {"cscale", "ewa_lanczossharp"},
+            {"video-sync", "display-resample"},
+            {"interpolation", "yes"}
         }},
-        {"video", {
+        {"vod", {
             {"cache", "yes"},
             {"cache-pause", "yes"},
             {"cache-secs", "60"},
             {"demuxer-max-bytes", "20M"},
+            {"demuxer-readahead-secs", "20"},
             {"demuxer-max-back-bytes", "5M"},
             {"vd-lavc-skipframe", "default"},
             {"hr-seek", "yes"}
+
         }}
     };
 
@@ -1324,7 +1339,8 @@ void UpdateUIState() {
             // CỰC KỲ QUAN TRỌNG: Không ẩn khi đang có Popup/Combo mở hoặc đang kéo Slider
             if (!ImGui::IsAnyItemActive() ) {
                 show_ui_video = false;
-                SDL_ShowCursor(SDL_DISABLE);
+                if(!IsAnyPopupOpen())
+                    SDL_ShowCursor(SDL_DISABLE);
             }
         }
     }

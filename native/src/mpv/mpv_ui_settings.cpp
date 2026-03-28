@@ -16,8 +16,6 @@
 
 static std::string url_play = "";
 
-
-static bool is_live = false;
 static bool file_local = false;
 
 // Vị trí lưu file cấu hình

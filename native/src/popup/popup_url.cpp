@@ -261,14 +261,12 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
             urlConfirmed = true;
             closePopup_url = true;
             invalidUrl = false;
-            file_local = true;
         }else if(IsLikelyVideoURL(WideToUTF8(urlInput))){
             outResultURL =urlInput;
             if(data.saveHistory) AddURLToHistory(data, urlInput);
             urlConfirmed = true;
             closePopup_url = true;
             invalidUrl = false;
-            file_local = false;
         }else{
             invalidUrl = true;
         }

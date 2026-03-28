@@ -207,8 +207,8 @@ int main(int argc, char** argv) {
             ImFont* cur = FontManager::Instance().GetCurrentFont();
 
             ImGuiIO& io = ImGui::GetIO();
-            io.DisplaySize = Windowlayout.DisplayDPI;
-            io.DisplayFramebufferScale = Windowlayout.DisplayDPI;
+            ImGuiStyle& style = ImGui::GetStyle();
+            style.ScaleAllSizes(Windowlayout.DisplayDPI);
 
             ImGui_ImplOpenGL3_NewFrame();
             ImGui_ImplSDL2_NewFrame();
@@ -477,7 +477,7 @@ void Render( PlaybackState state ){
         state == PlaybackState::EndOfFile ||
         state == PlaybackState::Seeking ||
         state == PlaybackState::Playing) {
-        RenderMPVVideo(sdl_rec_to_imvec2_size(Windowlayout.videoArea));
+        RenderMPVVideo(Windowlayout.VideoSize);
         render_video = false;
         hasRenderedSomething = true;
     }
@@ -487,20 +487,20 @@ void Render( PlaybackState state ){
         state == PlaybackState::Seeking ||
         state == PlaybackState::EndOfFile ){
         RenderPlayerControls(mpv, 
-            sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-            sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+            Windowlayout.VideoPos, 
+            Windowlayout.VideoSize,
             ctx.mainWindow, 
-            BW.isFullscreen_video ,
-            show_ui_video) ;
+            BW.isFullscreen_video,
+            show_ui_video);
 
 
-        RenderSeekingOverlay(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-                            sdl_rec_to_imvec2_size(Windowlayout.videoArea),
+        RenderSeekingOverlay(Windowlayout.VideoPos, 
+                            Windowlayout.VideoSize,
                             dataseek);
     }
     if (state == PlaybackState::Loading ) { 
-        RenderLoading(sdl_rec_to_imvec2_pos(Windowlayout.videoArea), 
-                    sdl_rec_to_imvec2_size(Windowlayout.videoArea));
+        RenderLoading(Windowlayout.VideoPos, 
+                        Windowlayout.VideoSize);
 
     }
 

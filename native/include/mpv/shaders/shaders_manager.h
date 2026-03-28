@@ -19,6 +19,10 @@ public:
 
     void Register(const std::string& name, const std::string& path);
 
+    void ApplyPipeline();
+
+    void BuildPipeline(const std::vector<std::string>& order);
+
     void Enable(const std::string& name);
 
     void Disable(const std::string& name);

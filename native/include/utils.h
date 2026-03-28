@@ -273,7 +273,10 @@ struct WindowLayout {
     SDL_Rect videoArea;  // Vùng video/content
 
     ImVec2 DisplaySize;
-    ImVec2 DisplayDPI;
+    float DisplayDPI;
+
+    ImVec2 VideoPos;
+    ImVec2 VideoSize;
 
 };
 
@@ -376,10 +379,10 @@ inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const std::string& name, 
     return true;
 }
 
-inline ImVec4 sdl_rec_to_imvec4(SDL_Rect &r) {return ImVec4((float)(r).x, (float)(r).y, (float)((r).x + (r).w), (float)((r).y + (r).h));}
-inline ImVec4 sdl_rec_to_imvec4_raw(SDL_Rect &r) {return ImVec4((float)(r).x, (float)(r).y, (float)(r).w, (float)(r).h);}
-inline ImVec2 sdl_rec_to_imvec2_pos(SDL_Rect &r) {return ImVec2((float)(r).x, (float)(r).y);}
-inline ImVec2 sdl_rec_to_imvec2_size(SDL_Rect &r) {return ImVec2((float)(r).w, (float)(r).h);}
+inline ImVec4 sdl_rec_to_imvec4(SDL_Rect &r) {return ImVec4((float) r.x, (float)r.y, (float)(r.x + r.w), (float)(r.y + r.h));}
+inline ImVec4 sdl_rec_to_imvec4_raw(SDL_Rect &r) {return ImVec4((float)r.x, (float)r.y, (float)r.w, (float)r.h);}
+inline ImVec2 sdl_rec_to_imvec2_pos(SDL_Rect &r) {return ImVec2((float)r.x, (float)r.y);}
+inline ImVec2 sdl_rec_to_imvec2_size(SDL_Rect &r) {return ImVec2((float)r.w, (float)r.h);}
 
 
 // === Chuyển đổi sang string UTF-8/UTF-16 ===

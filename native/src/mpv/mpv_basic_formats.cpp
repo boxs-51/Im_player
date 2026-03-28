@@ -183,7 +183,7 @@ void BuildAllFormats(const VideoInfoResult &info, VideoAudioFormats &allFormats)
     std::string tpyevideo;
     if(is_live) tpyevideo = "livestream";
     else if(file_local) tpyevideo = "file";
-    else tpyevideo = "video";
+    else tpyevideo = "vod";
     ApplyDynamicMPVConfig(mpv,tpyevideo);
     std::string combinedFormat = BuildCombinedFormat(allFormats);
     // Áp dụng cho mpv
