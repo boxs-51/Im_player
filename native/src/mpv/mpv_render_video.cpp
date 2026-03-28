@@ -39,8 +39,6 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
     LoadAllScripts(mpv_ptr);
     ShaderManager::Instance().Init(mpv_ptr);
     ShaderManager::Instance().LoadFromFolder(AutoPath<std::string>("%ROOT%","shaders"));
-    ShaderManager::Instance().Enable("Anime4K_Upscale_Original_x2");
-    ShaderManager::Instance().Enable("Anime4K_Clamp_Highlights");
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);
     
