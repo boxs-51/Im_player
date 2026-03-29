@@ -121,9 +121,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
+    if (SetDelayHover(is_text_hovered, 1.5f)) ImGui::SetTooltip("%s", g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title");
     ImGui::PopID();
 
-    // --- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
+    //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
     ImGui::SameLine(0, gap_between); 
     ImGui::PushID("Header_Btn_Part");
     ImGui::InvisibleButton("##BtnPart", ImVec2(button_width, total_h));
@@ -416,6 +417,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
+            if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+                ImGui::SetTooltip("Previous Video");
         }
         // Nút PLAY/PAUSE
         static  PlayPauseData playData;
@@ -424,7 +427,14 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         if (CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize ,&playData)) {
             if (paused) mpv_command_play(mpv);
             else        mpv_command_pause(mpv);
+            
+
         }
+        if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+            if(paused)
+                ImGui::SetTooltip("Play Video");
+            else
+                ImGui::SetTooltip("Pause Video");
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
@@ -432,6 +442,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                 mpv_command_next_video(mpv);
             }
         }
+        if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+            ImGui::SetTooltip("Next Video");
 
         // === TIME TEXT ===
         int curHour = (int)(time_show_ui / 3600);
@@ -475,6 +487,13 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
+
+        if(SetDelayHover(hoverIcon,1.0f))
+            if(isMuted || volume == 0)
+                ImGui::SetTooltip("Unmute");
+            else
+                ImGui::SetTooltip("Mute");
+
         bool active = ImGui::IsItemActive();
 
         if (clicked) {
@@ -656,6 +675,9 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showSettings = !showSettings;
         }
 
+        if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+            ImGui::SetTooltip("Settings");
+
         RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video );
 
         settingsData.hovered = ImGui::IsItemHovered();
@@ -669,6 +691,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
             BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
         }
+        if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+            ImGui::SetTooltip(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen");
         
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
@@ -683,9 +707,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showOptionMenu = !showOptionMenu;
         }
         optdata.hovered = ImGui::IsItemHovered();
+        if(SetDelayHover(ImGui::IsItemHovered(),1.0f))
+            ImGui::SetTooltip("Options");
         
     
-
         if (endfile) {
             // Tính toán vị trí trung tâm
             ImVec2 center = ImVec2(videoSize.x * 0.5f, videoSize.y * 0.5f);

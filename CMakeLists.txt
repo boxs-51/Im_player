@@ -30,6 +30,7 @@ add_executable(imgui_player WIN32
     native/src/mpv/mpv_ui_settings.cpp
 
     native/src/mpv/shaders/shader_manager.cpp
+    native/src/mpv/scripts/script_manager.cpp
 
     native/src/UIStyleManager.cpp
 
@@ -91,7 +92,8 @@ target_include_directories(imgui_player PRIVATE
     native/include/windows
     native/include/popup
     native/include/threads
-    native/src/mpv/shaders
+    native/include/mpv/shaders
+    native/include/mpv/scripts
     native/include/services
 
     native/imgui/misc/freetype

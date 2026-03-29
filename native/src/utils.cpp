@@ -46,7 +46,8 @@ static std::mutex g_metadata_mutex;
 static bool g_isSeeking = false;
 
 static std::atomic<int> g_current_chapter_idx{-1};
-static std::unordered_set<std::string> g_loadedScriptsSet;
+
+std::vector<AudioDeviceInfo> g_audioDevices;
 
 void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state , WindowLayout& w)
 {
@@ -743,7 +744,7 @@ static void UpdateAudioDeviceList(const mpv_node* node) {
     }
 
     
-    g_playbackStatus.g_audioDevices.swap(tmp);
+    g_audioDevices.swap(tmp);
 
 }
 static void UpdateChapterList(const mpv_node* node) {
@@ -849,8 +850,6 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             else if (strcmp(name, "volume") == 0)           {g_playbackStatus.volume = std::clamp((int)*(int64_t*)prop->data, 0, 100);              RATE_LIMITED_COUT(volume_level, 1,std::cout << "[DEBUG] [INFO] [Audio] Volume updated: " << g_playbackStatus.volume << "");}
             else if (strcmp(name, "speed") == 0)            {g_playbackStatus.speed = *(double*)prop->data;                                         RATE_LIMITED_COUT(playback_speed, 1,std::cout << "[DEBUG] [INFO] [Playback] Speed updated: " << g_playbackStatus.speed << "x");}
             else if (strcmp(name, "seekable") == 0)         {g_playbackStatus.seekable = (*(int*)prop->data) != 0;                                  RATE_LIMITED_COUT(seekable_state, 1,std::cout << "[DEBUG] [INFO] [Playback] Seekable state updated: " << (g_playbackStatus.seekable ? "Yes" : "No") << "");}
-            else if (strcmp(name, "start") == 0)            {g_playbackStatus.startTime = *(double*)prop->data;                                     RATE_LIMITED_COUT(start_time, 1,std::cout << "[DEBUG] [INFO] [Playback] Start Time updated: " << g_playbackStatus.startTime << " seconds");}
-            else if (strcmp(name, "end") == 0)              {g_playbackStatus.endTime = *(double*)prop->data;                                       RATE_LIMITED_COUT(end_time, 1,std::cout << "[DEBUG] [INFO] [Playback] End Time updated: " << g_playbackStatus.endTime << " seconds");}
             else if (strcmp(name, "loop") == 0)             {mpv_get_prop(mpv,"loop",g_playbackStatus.loopMode);                                    RATE_LIMITED_COUT(loop_mode, 1,std::cout << "[DEBUG] [INFO] [Playback] Loop Mode updated: " << g_playbackStatus.loopMode << "");}
             else if (strcmp(name, "seeking") == 0)          {g_playbackStatus.seeking = (*(int*)prop->data) != 0;                                   RATE_LIMITED_COUT(seeking, 1,std::cout << "[DEBUG] [INFO] [Playback] Seeking updated: " << g_playbackStatus.seeking << "");}
             else if (strcmp(name, "time-remaining") == 0)   {g_playbackStatus.time_remaining = *(double*)prop->data;                                RATE_LIMITED_COUT(time_remaining, 1,std::cout << "[DEBUG] [INFO] [Playback] Time Remaining updated: " << g_playbackStatus.time_remaining << "");}
@@ -928,7 +927,6 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             else if (strcmp(name, "video-format") == 0)             {mpv_get_prop(mpv,"video-format", g_videoInfo.video_format);                    RATE_LIMITED_COUT(video_format, 1,std::cout << "[DEBUG] [INFO] [Video] Video Format updated: " << g_videoInfo.video_format << "");}
             else if (strcmp(name, "width") == 0)                    {g_videoInfo.width = (int)*(int64_t*)prop->data;                                RATE_LIMITED_COUT(width, 1,std::cout << "[DEBUG] [INFO] [Video] Video Width updated: " << g_videoInfo.width << "");}
             else if (strcmp(name, "height") == 0)                   {g_videoInfo.height = (int)*(int64_t*)prop->data;                               RATE_LIMITED_COUT(height, 1,std::cout << "[DEBUG] [INFO] [Video] Video Height updated: " << g_videoInfo.height << "");}
-            else if (strcmp(name, "display-fps") == 0)              {g_videoInfo.fps = *(double*)prop->data;                                        RATE_LIMITED_COUT(display_fps, 1,std::cout << "[DEBUG] [INFO] [Video] Display FPS updated: " << g_videoInfo.fps << "");}
             else if (strcmp(name, "estimated-vf-fps") == 0)         {g_videoInfo.estimated_vf_fps_mpv = *(double*)prop->data;                       RATE_LIMITED_COUT(estimated_vf_fps, 1,std::cout << "[DEBUG] [INFO] [Video] Estimated VF FPS updated: " << g_videoInfo.estimated_vf_fps_mpv << "");}
 
             // ==== Network / Cache ====
@@ -1053,41 +1051,6 @@ void ProcessMPVEvents(mpv_handle* mpv) {
 
 
         default: break;
-        }
-    }
-}
-
-void LoadAllScripts(mpv_handle* mpv) {
-    namespace fs = std::filesystem;
-
-    // 1. Danh sách các folder chứa script cần load
-    std::vector<std::string> folders = {
-        AutoPath<std::string>("%ROOT%","scripts"),                    // Thư mục scripts trong folder ứng dụng
-    };
-
-    for (auto& folderPath : folders) {
-        if (!fs::exists(folderPath)) continue;
-
-        for (auto& entry : fs::directory_iterator(folderPath)) {
-            if (!entry.is_regular_file()) continue;
-
-            std::string path = entry.path().string();
-            if (path.size() >= 4 && path.substr(path.size() - 4) == ".lua") {
-                // Load script runtime
-                const char* args[] = { "load-script", path.c_str(), nullptr };
-                int res = mpv_command(mpv, args);
-                //int res = mpv_set_option_string(mpv, "script", path.c_str());
-
-                // Lưu vào vector + set tránh trùng
-                if (res > 0){
-                    if (g_loadedScriptsSet.find(path) == g_loadedScriptsSet.end()) {
-                        g_playbackStatus.g_loadedScripts.push_back(path);
-                        g_loadedScriptsSet.insert(path);
-                        RATE_LIMITED_COUT(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << path << " (Command result: " << res << ")\n");
-                    }
-                }
-                
-            }
         }
     }
 }
@@ -1414,4 +1377,24 @@ GLuint GetIcon(const std::string& path)
 
 
     return textureID;
+}
+
+bool SetDelayHover(bool isHovering, float delaySeconds) {
+    static double hoverStartTime = -1.0; // Thời điểm bắt đầu hover, -1 nghĩa là chưa hover
+    if (isHovering) {
+        // Nếu vừa mới bắt đầu hover, ghi lại thời gian
+        if (hoverStartTime < 0) {
+            hoverStartTime = ImGui::GetTime();
+        }
+        
+        // Kiểm tra xem đã đủ thời gian delay chưa
+        if (ImGui::GetTime() - hoverStartTime >= (double)delaySeconds) {
+            return true;
+        }
+    } else {
+        // Nếu không còn hover, reset lại trạng thái ngay lập tức
+        hoverStartTime = -1.0;
+    }
+    
+    return false;
 }

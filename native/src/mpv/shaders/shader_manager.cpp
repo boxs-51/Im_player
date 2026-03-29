@@ -170,34 +170,39 @@ void ShaderManager::UpdateParams(const Shader& s) {
     // Gửi toàn bộ options của shader hiện tại vào mpv
     mpv_set_property_string(mpv, "glsl-shader-opts", opts.c_str());
 }
-void ShaderManager::LoadFromFolder(const std::string& folder) {
-    if (!fs::exists(folder)) return;
-
-    for (const auto& entry : fs::directory_iterator(folder)) {
-        if (!entry.is_regular_file()) continue;
-
-        auto path = entry.path();
-        std::string ext = path.extension().string();
-        
-        // Hỗ trợ cả .glsl và .hook
-        if (ext != ".glsl" && ext != ".hook") continue;
-
-        std::string name = path.stem().string();
-        Shader s;
-        s.name = name;
-        s.path = path.string();
-
-        // Sử dụng một hàm Parse tổng hợp duy nhất cho hiệu suất cao
-        ParseShaderFile(s.path, s);
-
-        // Tìm file meta đi kèm (ví dụ: anime4k.hook -> anime4k.meta)
-        fs::path metaPath = path;
-        metaPath.replace_extension(".meta");
-        if (fs::exists(metaPath)) {
-            LoadMeta(metaPath.string(), s);
+void ShaderManager::LoadShadersFromFolder(const std::vector<std::string>& folder) {
+    for (const auto& folderPath : folder) {
+        if (!fs::exists(folderPath) || !fs::is_directory(folderPath)) {
+            continue; 
         }
 
-        shaders[name] = s;
+        for (auto& entry : fs::directory_iterator(folderPath)) {
+            if (!entry.is_regular_file()) continue;
+
+            auto path = entry.path();
+            std::string ext = path.extension().string();
+            
+            // Hỗ trợ cả .glsl và .hook
+            if (ext != ".glsl" && ext != ".hook") continue;
+
+            std::string name = path.stem().string();
+            Shader s;
+            s.name = name;
+            s.path = path.string();
+
+            // Sử dụng một hàm Parse tổng hợp duy nhất cho hiệu suất cao
+            ParseShaderFile(s.path, s);
+
+            // Tìm file meta đi kèm (ví dụ: anime4k.hook -> anime4k.meta)
+            fs::path metaPath = path;
+            metaPath.replace_extension(".meta");
+            if (fs::exists(metaPath)) {
+                LoadMeta(metaPath.string(), s);
+            }
+
+            shaders[name] = s;
+        }
+        
     }
 }
 

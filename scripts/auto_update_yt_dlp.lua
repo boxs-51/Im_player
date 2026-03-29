@@ -312,7 +312,6 @@ local function perform_update_logic()
 end
 
 -- === Init ===
-mp.msg.warn("yt-dlp auto updater loaded")
 ensure_log_dir_safe()
 mp.add_timeout(1, perform_update_logic)
 mp.register_script_message("check_update", perform_update_logic)

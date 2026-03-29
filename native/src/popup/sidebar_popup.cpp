@@ -797,12 +797,15 @@ void RenderListVideoMPV(mpv_handle* mpv)
             int i = g_CurrentIndex;
 
             g_playbackStatus.g_playlist.erase(g_playbackStatus.g_playlist.begin() + i);
+            std::string indexStr = std::to_string(i);
+            const char* cmd[] = { "playlist-remove", indexStr.c_str(), nullptr };
+            int res = mpv_command(mpv, cmd);
+            if(!(res<0)) {
+                if (i >= g_playbackStatus.g_playlist.size())
+                    g_CurrentIndex = (int)g_playbackStatus.g_playlist.size() - 1;
+            } else {
 
-            const char* cmd[] = { "playlist-remove", std::to_string(i).c_str(), nullptr };
-            mpv_command(mpv, cmd);
-
-            if (i >= g_playbackStatus.g_playlist.size())
-                g_CurrentIndex = (int)g_playbackStatus.g_playlist.size() - 1;
+            }
         }
     }
     ImGui::Separator();
@@ -840,9 +843,9 @@ void RenderListVideoMPV(mpv_handle* mpv)
             if (ImGui::IsMouseDoubleClicked(0)) {
                 std::string indexStr = std::to_string(i);
                 const char* cmd[] = { "playlist-play-index", indexStr.c_str(), nullptr };
-                mpv_command(mpv, cmd);
-
-                g_playbackStatus.g_PlayingIndex = i; // Cập nhật trạng thái đang phát
+                int res = mpv_command(mpv, cmd);
+                if(!(res <0))
+                    g_playbackStatus.g_PlayingIndex = i; // Cập nhật trạng thái đang phát
 
                 if (g_OnVideoSelected) g_OnVideoSelected(i);
             }
@@ -869,19 +872,22 @@ void RenderListVideoMPV(mpv_handle* mpv)
                     std::swap(g_playbackStatus.g_playlist[srcIndex], g_playbackStatus.g_playlist[i]);
 
                     // Thực hiện move trong MPV
-                    const char* cmd[] = { "playlist-move", std::to_string(srcIndex).c_str(), std::to_string(i).c_str(), nullptr };
-                    mpv_command(mpv, cmd);
+                    std::string srcindexStr = std::to_string(srcIndex);
+                    std::string indexStr = std::to_string(i);
+                    const char* cmd[] = { "playlist-move", srcindexStr.c_str(), indexStr.c_str(), nullptr };
+                    int res = mpv_command(mpv, cmd);
+                    if(!(res < 0)) {
+                        // --- Cập nhật g_CurrentIndex ---
+                        if (g_CurrentIndex == srcIndex) g_CurrentIndex = i;
+                        else if (g_CurrentIndex == i) g_CurrentIndex = srcIndex;
 
-                    // --- Cập nhật g_CurrentIndex ---
-                    if (g_CurrentIndex == srcIndex) g_CurrentIndex = i;
-                    else if (g_CurrentIndex == i) g_CurrentIndex = srcIndex;
-
-                    // --- Cập nhật g_PlayingIndex để video đang phát giữ đúng ---
-                    if (currentPlayingIndex == srcIndex) g_playbackStatus.g_PlayingIndex = i;        // nếu item đang phát là item bị move
-                    else if (currentPlayingIndex == i) g_playbackStatus.g_PlayingIndex = srcIndex;  // nếu item đang phát bị swap với item khác
-                    // Nếu video đang phát nằm giữa srcIndex và i, adjust chỉ số
-                    else if (currentPlayingIndex > srcIndex && currentPlayingIndex <= i) g_playbackStatus.g_PlayingIndex--;
-                    else if (currentPlayingIndex < srcIndex && currentPlayingIndex >= i) g_playbackStatus.g_PlayingIndex++;
+                        // --- Cập nhật g_PlayingIndex để video đang phát giữ đúng ---
+                        if (currentPlayingIndex == srcIndex) g_playbackStatus.g_PlayingIndex = i;        // nếu item đang phát là item bị move
+                        else if (currentPlayingIndex == i) g_playbackStatus.g_PlayingIndex = srcIndex;  // nếu item đang phát bị swap với item khác
+                        // Nếu video đang phát nằm giữa srcIndex và i, adjust chỉ số
+                        else if (currentPlayingIndex > srcIndex && currentPlayingIndex <= i) g_playbackStatus.g_PlayingIndex--;
+                        else if (currentPlayingIndex < srcIndex && currentPlayingIndex >= i) g_playbackStatus.g_PlayingIndex++;
+                    }
                 }
             }
             ImGui::EndDragDropTarget();

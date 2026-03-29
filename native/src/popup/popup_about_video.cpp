@@ -4,6 +4,8 @@
 
 #include "mpv/mpv_basic_formats.h"
 
+#include "mpv/scripts/script_manager.h"
+
 #include"popup_about_video.h"
 
 #include"windows/windows_borderless_state.h"
@@ -24,7 +26,6 @@ void ShowVideoInfo() {
     ImGui::TextWrapped("Video Light Name :%s |", g_videoInfo.g_videoparams.vlight.c_str());
     ImGui::TextWrapped("Video Realistic FPS :%.2f |" , g_videoInfo.currentFPS);ImGui::SameLine();
     ImGui::TextWrapped("Video Estimated_vf_fps_mpv :%.2f |", g_videoInfo.estimated_vf_fps_mpv);
-    ImGui::TextWrapped("Video FPS : %.2f |", g_videoInfo.fps);
     ImGui::TextWrapped("Video Min FPS :%.2f / Video Max FPS: %.2f |", g_videoInfo.minFPS, g_videoInfo.maxFPS);ImGui::Separator();
     ImGui::TextWrapped("Video Resolution :%dx%d |", g_videoInfo.g_videoparams.vwidth, g_videoInfo.g_videoparams.vheight);ImGui::SameLine();
     ImGui::TextWrapped("Video Resolution Ratio :%dx%d |", g_videoInfo.g_videoparams.vdisp_w, g_videoInfo.g_videoparams.vdisp_h);ImGui::Separator();
@@ -52,7 +53,7 @@ void ShowVideoInfo() {
 
 void ShowAudioInfo() {
     // ---------------- Audio Devices ----------------
-    if(g_playbackStatus.g_audioDevices.size() >= 1){
+    if(g_audioDevices.size() >= 1){
         if (ImGui::CollapsingHeader("Audio Devices")) {
             ImGui::Columns(3, "audio_devices", true);
             ImGui::TextWrapped("Name"); ImGui::NextColumn();
@@ -60,7 +61,7 @@ void ShowAudioInfo() {
             ImGui::TextWrapped("Active"); ImGui::NextColumn();
             ImGui::Separator();
 
-            for (auto& dev : g_playbackStatus.g_audioDevices) {
+            for (auto& dev : g_audioDevices) {
                 ImGui::TextWrapped("%s", dev.name.c_str()); ImGui::NextColumn();
                 ImGui::TextWrapped("%s", dev.description.c_str()); ImGui::NextColumn();
                 ImGui::TextWrapped("%s", (dev.name == std::string(g_videoInfo.audio_device)) ? "Yes" : "No"); ImGui::NextColumn();
@@ -73,7 +74,7 @@ void ShowAudioInfo() {
     ImGui::TextWrapped("Audio device: %s |", g_videoInfo.audio_device);
     ImGui::TextWrapped("Audio codec: %s |", g_videoInfo.acodec);ImGui::SameLine();
     ImGui::TextWrapped("Audio format: %s |", g_videoInfo.g_audioarams.aformat.c_str());
-    ImGui::TextWrapped("Audio Delay: %d s |", g_videoInfo.audio_delay );
+    ImGui::TextWrapped("Audio Delay: %.2f s |", g_videoInfo.audio_delay );
     ImGui::TextWrapped("Audio bitrate: %d kbps |", g_videoInfo.abitrate / 1000);ImGui::SameLine();
     ImGui::TextWrapped("Audio Sample rate: %d Hz |", g_videoInfo.g_audioarams.asamplerate);
     ImGui::TextWrapped("Audio channels: %d |", g_videoInfo.g_audioarams.channel_count);ImGui::SameLine();
@@ -140,8 +141,6 @@ void ShowPlaybackInfo() {
     ImGui::TextWrapped("Current time: %.2f s / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
     ImGui::TextWrapped("Time Remaining : %.2f s", g_playbackStatus.time_remaining);
     ImGui::TextWrapped("Percent Pos : %.2f s", g_playbackStatus.percent_pos);
-    ImGui::TextWrapped("Start Time : %.2f s", g_playbackStatus.startTime);
-    ImGui::TextWrapped("End Time : %.2f s", g_playbackStatus.endTime);
     ImGui::TextWrapped("Speed: %.2fx", g_playbackStatus.speed);
     ImGui::TextWrapped("Loop mode: %s", g_playbackStatus.loopMode);
 }
@@ -210,20 +209,39 @@ void ShowDuBugInFo(){
     ImGui::Separator();
     ImGui::TextWrapped("HitTest Zone: %s", g_DragResizeState.debugInfo.c_str());
     ImGui::Separator();
-    ImGui::TextWrapped("Loaded Scripts (%zu):", g_playbackStatus.g_loadedScripts.size());
 
-    // Chiều cao mỗi dòng (TextWrapped + padding)
-    float lineHeight = ImGui::GetTextLineHeightWithSpacing();
-    int visibleCount = 5; // số dòng hiển thị
-    float childHeight = lineHeight * visibleCount + ImGui::GetStyle().FramePadding.y * 2;
+    // Lấy danh sách script dưới dạng struct (Giả sử bạn dùng GetAllScripts trả về vector hoặc map)
+    auto allScripts = ScriptManager::Instance().GetAllScripts();
+
+    ImGui::TextWrapped("Quản lý Scripts (%zu):", allScripts.size());
+
+    float lineHeight = ImGui::GetFrameHeightWithSpacing(); 
+    int visibleCount = 6; // Tăng lên một chút cho thoải mái
+    float childHeight = lineHeight * visibleCount + ImGui::GetStyle().WindowPadding.y;
 
     if (ImGui::BeginChild("LoadedScriptsChild", ImVec2(0, childHeight), true, ImGuiWindowFlags_HorizontalScrollbar)) {
-        if (!g_playbackStatus.g_loadedScripts.empty()) {
-            for (size_t i = 0; i < g_playbackStatus.g_loadedScripts.size(); i++) {
-                ImGui::TextWrapped("%zu. %s", i + 1, g_playbackStatus.g_loadedScripts[i].c_str());
+        if (!allScripts.empty()) {
+            // Nếu GetAllScripts trả về std::map<string, ScriptInfo>, dùng: for (auto& [path, info] : allScripts)
+            // Ở đây giả định trả về std::vector<ScriptInfo> để code đơn giản:
+            for (size_t i = 0; i < allScripts.size(); i++) {
+                auto& script = allScripts[i];
+                
+                ImGui::PushID(script.path.c_str()); // Quan trọng: Tránh trùng ID giữa các dòng
+
+    
+                ImGui::Text("%zu. %s", i + 1, script.name.c_str());
+                
+                if (!script.enabled) ImGui::PopStyleColor();
+
+                if (ImGui::IsItemHovered()) {
+                    ImGui::SetTooltip("%s", script.path.c_str());
+                }
+
+
+                ImGui::PopID();
             }
         } else {
-            ImGui::TextDisabled("(No scripts loaded)");
+            ImGui::TextDisabled("(Không có script nào)");
         }
     }
     ImGui::EndChild();

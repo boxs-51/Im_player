@@ -111,8 +111,6 @@ struct MPVPlaybackStatus {
     int g_playlist_count = -1;
 
     double percent_pos =0.0;
-    double startTime = 0.0;
-    double endTime = 0.0;
     double duration = 0.0;
     double timePos = 0.0;
     double playbackTime = 0.0;
@@ -147,8 +145,6 @@ struct MPVPlaybackStatus {
     
     SubInFo g_subinfo;
     std::vector<PlaylistEntry> g_playlist;
-    std::vector<AudioDeviceInfo> g_audioDevices;
-    std::vector<std::string> g_loadedScripts;
 };
 struct ChapterInfo {
     double time;     // giây
@@ -200,7 +196,6 @@ struct VideoInfo {
     int vbitrate = 0;           // video bitrate (bps)
     int rotate = 0;             // góc xoay (0, 90, 180, 270)    
     double aspect = 0.0;        // aspect ratio
-    double fps = 0.0;           // fps metadata (container báo)
     double estimated_vf_fps_mpv = 0.0; // fps ước lượng từ filter graph   
     double currentFPS = 0.0;    // fps thực tế (rendered, lấy từ mpv stats)
     double minFPS = 0.0;        // fps thấp nhất đo được
@@ -295,13 +290,13 @@ inline ImVec2 operator*(const ImVec2& lhs, float scalar) {
 inline ImVec2 operator/(const ImVec2& lhs, float scalar) {
     return ImVec2(lhs.x / scalar, lhs.y / scalar);
 }
-
-
 extern WindowLayout Windowlayout;
 extern WindowContext ctx;
 extern MPVPlaybackStatus g_playbackStatus;
 extern VideoInfo g_videoInfo;
 extern BorderlessWindowState BW;
+
+extern std::vector<AudioDeviceInfo> g_audioDevices;
 
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
@@ -316,6 +311,7 @@ void TerminateHandler();
 void SignalHandler(int signal);
 void UpdateUIState(bool& show_ui_video);
 void NotifyActivity(bool& show_ui_video);
+bool SetDelayHover(bool isHovering, float delaySeconds) ;
 
 void DrawCardWithHole(
     ImDrawList* dl,

@@ -54,7 +54,7 @@ public:
     void Init(mpv_handle* mpvHandle);
     
     // Load shader từ folder hoặc file đơn lẻ
-    void LoadFromFolder(const std::string& folder);
+    void LoadShadersFromFolder(const std::vector<std::string>& folder);
     void Register(const std::string& name, const std::string& path);
 
     // Điều khiển trạng thái
