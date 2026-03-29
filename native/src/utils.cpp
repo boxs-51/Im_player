@@ -305,8 +305,8 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         {"audio-buffer", "50"},
         {"video-sync", "display-resample"},
         {"framedrop", "vo"},
-        {"config" , "yes"},
-        {"config-dir" , AutoPath<std::string>("%ROOT%")}
+        {"tls-verify", "no"},
+        {"tls-ca-file", ""},
     });
 
     mpv_set_property_string(mpv, "hr-seek-framedrop", "yes");
@@ -358,8 +358,8 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
                 {"cache", "yes"},
                 {"cache-pause", "yes"},
                 {"cache-secs", "60"},
-                {"demuxer-max-bytes", "20M"},
-                {"demuxer-readahead-secs", "20"},
+                {"demuxer-max-bytes", "150M"},
+                {"demuxer-readahead-secs", "60"},
                 {"demuxer-max-back-bytes", "5M"},
                 {"vd-lavc-skipframe", "default"},
                 {"hr-seek", "yes"}
@@ -1075,13 +1075,18 @@ void LoadAllScripts(mpv_handle* mpv) {
             if (path.size() >= 4 && path.substr(path.size() - 4) == ".lua") {
                 // Load script runtime
                 const char* args[] = { "load-script", path.c_str(), nullptr };
-                mpv_command(mpv, args);
+                int res = mpv_command(mpv, args);
+                //int res = mpv_set_option_string(mpv, "script", path.c_str());
 
                 // Lưu vào vector + set tránh trùng
-                if (g_loadedScriptsSet.find(path) == g_loadedScriptsSet.end()) {
-                    g_playbackStatus.g_loadedScripts.push_back(path);
-                    g_loadedScriptsSet.insert(path);
+                if (res > 0){
+                    if (g_loadedScriptsSet.find(path) == g_loadedScriptsSet.end()) {
+                        g_playbackStatus.g_loadedScripts.push_back(path);
+                        g_loadedScriptsSet.insert(path);
+                        RATE_LIMITED_COUT(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << path << " (Command result: " << res << ")\n");
+                    }
                 }
+                
             }
         }
     }
