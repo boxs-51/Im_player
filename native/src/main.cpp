@@ -36,8 +36,7 @@
 
 static bool render_video = false;
 static bool show_ui_video = false;
-
-static int hiddenDelay = 0; 
+static bool g_WindowVisible = false;
 
 static int frameCount = 0;
 static int currentFPS = 0;
@@ -45,6 +44,8 @@ static int currentFPS = 0;
 static Uint32 frameTime;
 static Uint32 frameStart;
 static Uint32 flags;
+
+static Uint32 fpsTimer;
 
 std::atomic<bool> running(true);
 
@@ -93,282 +94,6 @@ void ShowAllWindows()
         ImGui::End();
     }
 }
-
-int main(int argc, char** argv) {
-
-    InitNotification();
-    SDL_SetMainReady();
-    SetProcessDpiAwarenessContext(DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2);
-    InitConsoleSystem();
-    //OpenConsoleWindow();
-    StartRuntimeServices(); 
-    std::set_terminate(TerminateHandler);
-
-    std::signal(SIGSEGV, SignalHandler);
-    std::signal(SIGABRT, SignalHandler);
-    std::signal(SIGFPE, SignalHandler);
-    std::signal(SIGINT, SignalHandler);
-    std::signal(SIGTERM, SignalHandler);
-
-    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
-        SDL_Log("SDL_Init Error: %s", SDL_GetError());
-        return 1;
-    }
-
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-    
-
-    if (!InitMainWindow()){
-        Cleanup();
-        return 1;
-    }
-
-    if (!InitMPV(mpv.mpv)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo mpv", nullptr);
-        Cleanup();
-        return 1;
-    }
-
-    if (!InitMPVRenderContext(mpv.mpv)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo render context từ mpv", nullptr);
-        Cleanup();
-        return 1;
-    }
-    
-    InitPlaybackStatus(mpv.mpv);
-    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
-    //WaitForServicesReady();
-    if (argc >= 2) {
-        std::string Url = argv[1];
-        CallThread_URLFetch(Url,true);
-    }
-    Uint32 fpsTimer = SDL_GetTicks();
-    while (running) {
-
-        frameStart = SDL_GetTicks();
-
-        flags = SDL_GetWindowFlags(ctx.mainWindow);
-
-        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED);
-        
-        PlaybackState state = GetPlaybackState();
-
-
-        SDL_Event e;
-
-        
-        while (SDL_PollEvent(&e)) {
-            Uint32 eventWindowID = 0;
-            Uint32 mainWindowID = 0;
-            if (e.type == SDL_WINDOWEVENT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEWHEEL || e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-                eventWindowID = e.window.windowID;  // Hoặc lấy windowID tương ứng
-                mainWindowID = SDL_GetWindowID(ctx.mainWindow);
-            }
-
-            if (eventWindowID == mainWindowID) {
-                // Xử lý sự kiện cho mainWindow
-                HandleMainWindowEvent(e);
-            } 
-            else {
-                if(g_WindowVisible){
-                    ImGui_ImplSDL2_ProcessEvent(&e);
-                    bool hotkeyHandled = HandleHotkeys(e, mpv.mpv);
-                    if (hotkeyHandled) continue;
-                }
-                
-            }
-            
-        }
-        
-        if (!g_WindowVisible) {
-                mpv_disable_video(mpv.mpv);
-            SDL_WaitEventTimeout(nullptr, hiddenDelay);
-
-            // Tăng độ trễ dần (giới hạn)
-            if (hiddenDelay <= 5000) {
-                hiddenDelay += 1000;
-            }
-
-            frameTime = SDL_GetTicks() - frameStart;
-            if (frameDelay > frameTime) {
-                SDL_Delay(frameDelay - frameTime);
-            }
-
-        } else {
-            if (audio_Theme){
-                mpv_disable_video(mpv.mpv);
-    
-            } else {
-                 mpv_enable_video(mpv.mpv);
-            }
-            hiddenDelay = 100;  
-            ProcessMPVEvents(mpv.mpv);
-        }
-
-        mpv_update_seek_pending( mpv.mpv  );
-
-        UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
-
-        //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
-
-        ImFont* cur = FontManager::Instance().GetCurrentFont();
-
-        ImGuiIO& io = ImGui::GetIO();
-
-        ImGui_ImplOpenGL3_NewFrame();
-        ImGui_ImplSDL2_NewFrame();
-        ImGui::NewFrame();
-
-        if (cur) {
-            ImGui::PushFont(cur);
-            Render(state);
-            if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-            if (( IsAnyPopupOpen()) ) {
-                RenderAllPopups(mpv.mpv);
-                hasRenderedSomething = true;
-            }else{
-                Disabehotkey = false;
-            }
-            ImGui::PopFont();
-        }else{
-
-            Render(state);
-            if( g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-            if (( IsAnyPopupOpen()) ) {
-                RenderAllPopups(mpv.mpv);
-                hasRenderedSomething = true;
-            } else {
-                Disabehotkey = false;
-            }
-        }
-        ImGui::Render();
-        ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-        {
-            SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
-            SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-
-            ImGui::UpdatePlatformWindows();
-            ImGui::RenderPlatformWindowsDefault();
-
-            SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
-            
-        }
-                
-        if (hasRenderedSomething ) {
-            SDL_GL_SwapWindow(ctx.mainWindow);
-            frameCount++;
-            Uint32 now = SDL_GetTicks();
-            if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
-                g_videoInfo.currentFPS = frameCount;
-            
-            static bool fpsInited  = false;
-
-            if (!fpsInited) {
-                g_videoInfo.minFPS = g_videoInfo.currentFPS;
-                g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-                fpsInited = true;
-            } else {
-                if (g_videoInfo.currentFPS < g_videoInfo.minFPS) g_videoInfo.minFPS = g_videoInfo.currentFPS;
-                if (g_videoInfo.currentFPS > g_videoInfo.maxFPS) g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-            }
-
-                frameCount = 0;
-                fpsTimer = now;
-
-                // (Tùy chọn) log ra console:
-                // std::cout << "FPS: " << currentFPS << std::endl;
-            }
-
-            render_video = false;
-        }
-        frameTime = SDL_GetTicks() - frameStart;
-        if (frameDelay > frameTime) {
-            SDL_Delay(frameDelay - frameTime);
-        }
-    }
-
-    Cleanup();
-    return 0;
-}
-bool InitMainWindow() {
-
-    Uint32 windowFlags = SDL_WINDOW_OPENGL|
-                        SDL_WINDOW_RESIZABLE|
-                        SDL_WINDOW_SHOWN|
-                        SDL_WINDOW_ALLOW_HIGHDPI;
-    #ifdef CUSTOM_TITLEBAR
-        windowFlags |= SDL_WINDOW_BORDERLESS;
-    #endif
-    ctx.mainWindow = SDL_CreateWindow("Media Video Control",
-        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        BW.WinWidth, BW.WinHeight, windowFlags);
-
-    if (!ctx.mainWindow) {
-        SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
-        return false;
-    }
-    #ifdef CUSTOM_TITLEBAR
-        SetWindowSDL(ctx.mainWindow,640,360,0, 0,0,0,true ,32 );
-    #else 
-        SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
-    #endif
-
-    ctx.mainGLContext = SDL_GL_CreateContext(ctx.mainWindow);
-    if (!ctx.mainGLContext) {
-        SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
-        SDL_DestroyWindow(ctx.mainWindow);
-        return false;
-    }
-
-    // Make current before gl loader init
-    if (SDL_GL_MakeCurrent(ctx.mainWindow, ctx.mainGLContext) != 0) {
-        SDL_Log("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
-        SDL_GL_DeleteContext(ctx.mainGLContext);
-        SDL_DestroyWindow(ctx.mainWindow);
-        return false;
-    }
-
-    if (gl3wInit() != 0) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL Error", "Can't init gl3w!", nullptr);
-        SDL_GL_DeleteContext(ctx.mainGLContext);
-        SDL_DestroyWindow(ctx.mainWindow);
-        return false;
-    }
-
-    SDL_GL_SetSwapInterval(1);
-
-
-    // ImGui main context
-    IMGUI_CHECKVERSION();
-    ctx.mainImGuiCtx = ImGui::CreateContext();
-    ImGui::SetCurrentContext(ctx.mainImGuiCtx);
-    ImGuiIO& io = ImGui::GetIO(); (void)io;
-    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-    ImGuiStyle& style = ImGui::GetStyle();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    } 
-    LoadSettings();
-
-    ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
-    ImGui_ImplOpenGL3_Init("#version 430 core");
-    //FontManager::Instance().LoadFontsSmartMultiAtlas(c_Settings.fontsize, 500 , 200 , 4080, c_Settings.defaultFamily,c_Settings.defaultStyle);
-    FontManager::Instance().LoadFontsSmartAuto(c_Settings.fontsize,500,c_Settings.defaultFamily,c_Settings.defaultStyle);
-    ImGui::StyleColorsDark();
-    return true;
-};
 void ShutdownMainWindow() {
     if (ctx.mainImGuiCtx) {
         ImGui::SetCurrentContext(ctx.mainImGuiCtx);
@@ -450,6 +175,77 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         }
     }
 }
+bool InitMainWindow() {
+
+    Uint32 windowFlags = SDL_WINDOW_OPENGL|
+                        SDL_WINDOW_RESIZABLE|
+                        SDL_WINDOW_SHOWN|
+                        SDL_WINDOW_ALLOW_HIGHDPI;
+    #ifdef CUSTOM_TITLEBAR
+        windowFlags |= SDL_WINDOW_BORDERLESS;
+    #endif
+    ctx.mainWindow = SDL_CreateWindow("Media Video Control",
+        SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
+        BW.WinWidth, BW.WinHeight, windowFlags);
+
+    if (!ctx.mainWindow) {
+        SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
+        return false;
+    }
+    #ifdef CUSTOM_TITLEBAR
+        SetWindowSDL(ctx.mainWindow,640,360,0, 0,0,0,true ,32 );
+    #else 
+        SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
+    #endif
+
+    ctx.mainGLContext = SDL_GL_CreateContext(ctx.mainWindow);
+    if (!ctx.mainGLContext) {
+        SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
+        SDL_DestroyWindow(ctx.mainWindow);
+        return false;
+    }
+
+    // Make current before gl loader init
+    if (SDL_GL_MakeCurrent(ctx.mainWindow, ctx.mainGLContext) != 0) {
+        SDL_Log("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
+        SDL_GL_DeleteContext(ctx.mainGLContext);
+        SDL_DestroyWindow(ctx.mainWindow);
+        return false;
+    }
+
+    if (gl3wInit() != 0) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL Error", "Can't init gl3w!", nullptr);
+        SDL_GL_DeleteContext(ctx.mainGLContext);
+        SDL_DestroyWindow(ctx.mainWindow);
+        return false;
+    }
+
+    SDL_GL_SetSwapInterval(1);
+
+
+    // ImGui main context
+    IMGUI_CHECKVERSION();
+    ctx.mainImGuiCtx = ImGui::CreateContext();
+    ImGui::SetCurrentContext(ctx.mainImGuiCtx);
+    ImGuiIO& io = ImGui::GetIO(); (void)io;
+    io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
+    //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    ImGuiStyle& style = ImGui::GetStyle();
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        style.WindowRounding = 0.0f;
+        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+    } 
+    LoadSettings();
+
+    ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
+    ImGui_ImplOpenGL3_Init("#version 430 core");
+    //FontManager::Instance().LoadFontsSmartMultiAtlas(c_Settings.fontsize, 500 , 200 , 4080, c_Settings.defaultFamily,c_Settings.defaultStyle);
+    FontManager::Instance().LoadFontsSmartAuto(c_Settings.fontsize,500,c_Settings.defaultFamily,c_Settings.defaultStyle);
+    ImGui::StyleColorsDark();
+    return true;
+};
 void Render( PlaybackState state ){
 
     glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
@@ -484,7 +280,6 @@ void Render( PlaybackState state ){
         if(!tex_idle)
             tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
         RenderIdleBackground((ImTextureID)(intptr_t)tex_idle ,Windowlayout.VideoPos, Windowlayout.VideoSize);
-        hasRenderedSomething = true;
     }
 
     if (render_video || 
@@ -494,7 +289,6 @@ void Render( PlaybackState state ){
         state == PlaybackState::Playing) {
         RenderMPVVideo(Windowlayout.VideoSize);
         render_video = false;
-        hasRenderedSomething = true;
     }
 
     if (state == PlaybackState::Playing || 
@@ -522,4 +316,191 @@ void Render( PlaybackState state ){
     ImGui::End();
 
 }
+void RenderPushFont(PlaybackState state){
+    Render(state);
+    if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
+    if (( IsAnyPopupOpen()) ) {
+        RenderAllPopups(mpv.mpv);
 
+    }else{
+        Disabehotkey = false;
+    }
+}
+void RenderFrame(){
+    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
+
+    PlaybackState state = GetPlaybackState();
+
+    ImFont* cur = FontManager::Instance().GetCurrentFont();
+
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplSDL2_NewFrame();
+    ImGui::NewFrame();
+
+    if (cur) {
+        ImGui::PushFont(cur);
+        RenderPushFont(state);
+        ImGui::PopFont();
+    }else{
+        RenderPushFont(state);
+    }
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+    {
+        SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
+        SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
+
+        ImGui::UpdatePlatformWindows();
+        ImGui::RenderPlatformWindowsDefault();
+
+        SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
+        
+    }
+            
+    
+    SDL_GL_SwapWindow(ctx.mainWindow);
+    frameCount++;
+    Uint32 now = SDL_GetTicks();
+    if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
+        g_videoInfo.currentFPS = frameCount;
+    
+    static bool fpsInited  = false;
+
+    if (!fpsInited) {
+        g_videoInfo.minFPS = g_videoInfo.currentFPS;
+        g_videoInfo.maxFPS = g_videoInfo.currentFPS;
+        fpsInited = true;
+    } else {
+        if (g_videoInfo.currentFPS < g_videoInfo.minFPS) g_videoInfo.minFPS = g_videoInfo.currentFPS;
+        if (g_videoInfo.currentFPS > g_videoInfo.maxFPS) g_videoInfo.maxFPS = g_videoInfo.currentFPS;
+    }
+
+        frameCount = 0;
+        fpsTimer = now;
+
+        // (Tùy chọn) log ra console:
+        // std::cout << "FPS: " << currentFPS << std::endl;
+    }
+
+    render_video = false;
+}
+int main(int argc, char** argv) {
+
+    //InitNotification();
+
+    SDL_SetMainReady();
+
+    InitConsoleSystem();
+
+    StartRuntimeServices(); 
+    std::set_terminate(TerminateHandler);
+
+    std::signal(SIGSEGV, SignalHandler);
+    std::signal(SIGABRT, SignalHandler);
+    std::signal(SIGFPE, SignalHandler);
+    std::signal(SIGINT, SignalHandler);
+    std::signal(SIGTERM, SignalHandler);
+
+    if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_TIMER) != 0) {
+        SDL_Log("SDL_Init Error: %s", SDL_GetError());
+        return 1;
+    }
+
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
+
+    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
+    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+    
+
+    if (!InitMainWindow()){
+        Cleanup();
+        return 1;
+    }
+
+    if (!InitMPV(mpv.mpv)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo mpv", nullptr);
+        Cleanup();
+        return 1;
+    }
+
+    if (!InitMPVRenderContext(mpv.mpv)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo render context từ mpv", nullptr);
+        Cleanup();
+        return 1;
+    }
+    
+    InitPlaybackStatus(mpv.mpv);
+    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
+    //WaitForServicesReady();
+    if (argc >= 2) {
+        std::string Url = argv[1];
+        CallThread_URLFetch(Url,true);
+    }
+    fpsTimer = SDL_GetTicks();
+    while (running) {
+
+        frameStart = SDL_GetTicks();
+
+        flags = SDL_GetWindowFlags(ctx.mainWindow);
+
+        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED);
+        
+
+        SDL_Event e;
+
+        
+        while (SDL_PollEvent(&e)) {
+            Uint32 eventWindowID = 0;
+            Uint32 mainWindowID = 0;
+            if (e.type == SDL_WINDOWEVENT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEWHEEL || e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
+                eventWindowID = e.window.windowID;  // Hoặc lấy windowID tương ứng
+                mainWindowID = SDL_GetWindowID(ctx.mainWindow);
+            }
+
+            if (eventWindowID == mainWindowID) {
+                // Xử lý sự kiện cho mainWindow
+                HandleMainWindowEvent(e);
+            } 
+            else {
+                if(g_WindowVisible){
+                    ImGui_ImplSDL2_ProcessEvent(&e);
+                    bool hotkeyHandled = HandleHotkeys(e, mpv.mpv);
+                    if (hotkeyHandled) continue;
+                }
+                
+            }
+            
+        }
+        
+        if (!g_WindowVisible) {
+            mpv_disable_video(mpv.mpv);
+        } else {
+            if (audio_Theme)
+                mpv_disable_video(mpv.mpv);
+            else 
+                mpv_enable_video(mpv.mpv);
+        }
+
+        mpv_update_seek_pending( mpv.mpv  );
+
+        
+        //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
+
+        RenderFrame() ;
+        
+        frameTime = SDL_GetTicks() - frameStart;
+        if (frameDelay > frameTime) {
+            SDL_Delay(frameDelay - frameTime);
+        }
+    }
+
+    Cleanup();
+    return 0;
+}

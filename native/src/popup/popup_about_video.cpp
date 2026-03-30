@@ -12,25 +12,24 @@
 
 #include <imgui.h>
 
-void InfoRow(const char* label, const char* value) {
+#include <stdarg.h>
+
+void InfoRow(const char* label, const char* fmt, ...) {
     ImGui::TableNextRow();
 
+    // Cột 1: Hiển thị Label (màu xám)
     ImGui::TableNextColumn();
     ImGui::TextDisabled("%s", label);
 
+    // Cột 2: Hiển thị Value với định dạng tùy chỉnh
     ImGui::TableNextColumn();
-    ImGui::Text("%s", value ? value : "-");
+    
+    va_list args;
+    va_start(args, fmt);
+    ImGui::TextV(fmt, args); // Sử dụng TextV để truyền danh sách tham số
+    va_end(args);
 }
 
-void InfoRowFloat(const char* label, float value, const char* fmt = "%.2f") {
-    ImGui::TableNextRow();
-
-    ImGui::TableNextColumn();
-    ImGui::TextDisabled("%s", label);
-
-    ImGui::TableNextColumn();
-    ImGui::Text(fmt, value);
-}
 
 bool BeginInfoTable(const char* id) {
     return ImGui::BeginTable(id, 2,
@@ -73,16 +72,16 @@ void ShowMediaInfo() {
         ImGuiTableFlags_BordersInnerV)) {
 
         if (g_playbackStatus.Title)
-            InfoRow("Title", g_playbackStatus.Title);
+            InfoRow("Title", "%s", g_playbackStatus.Title);
 
         if (g_playbackStatus.mediaTitle)
-            InfoRow("Media Title", g_playbackStatus.mediaTitle);
+            InfoRow("Media Title", "%s", g_playbackStatus.mediaTitle);
 
         if (g_playbackStatus.filename)
-            InfoRow("File", g_playbackStatus.filename);
+            InfoRow("File", "%s", g_playbackStatus.filename);
 
         if (g_playbackStatus.fileFormat)
-            InfoRow("Format", g_playbackStatus.fileFormat);
+            InfoRow("Format", "%s", g_playbackStatus.fileFormat);
 
         ImGui::EndTable();
     }
@@ -103,9 +102,9 @@ void ShowMediaInfo() {
             ImGui::TextWrapped("%s", display.c_str());
 
             // Hover → hiện full
-            if (ImGui::IsItemHovered() && !showFullUrl) {
-                ImGui::SetTooltip("%s", full.c_str());
-            }
+            //if (ImGui::IsItemHovered() && !showFullUrl) {
+            //    ImGui::SetTooltip("%s", full.c_str());
+            //}
 
         }
         ImGui::EndChild();
@@ -131,11 +130,11 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_overview")) {
 
-    InfoRow("Light", g_videoInfo.g_videoparams.vlight.c_str());
-    InfoRow("Codec", g_videoInfo.vcodec);
-    InfoRow("Pixel Format", g_videoInfo.g_videoparams.vpixfmt.c_str());
-    InfoRow("Format", g_videoInfo.video_format);
-    InfoRow("HW Decode", g_videoInfo.hwdec);
+    InfoRow("Light","%s", g_videoInfo.g_videoparams.vlight.c_str());
+    InfoRow("Codec", "%s", g_videoInfo.vcodec);
+    InfoRow("Pixel Format", "%s", g_videoInfo.g_videoparams.vpixfmt.c_str());
+    InfoRow("Format", "%s", g_videoInfo.video_format);
+    InfoRow("HW Decode", "%s", g_videoInfo.hwdec);
 
     EndInfoTable();
     }
@@ -148,13 +147,9 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_perf")) {
 
-    InfoRowFloat("Current FPS", g_videoInfo.currentFPS);
-    InfoRowFloat("Estimated FPS (mpv)", g_videoInfo.estimated_vf_fps_mpv);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Min / Max FPS");
-    ImGui::TableNextColumn();
-    ImGui::Text("%.2f / %.2f", g_videoInfo.minFPS, g_videoInfo.maxFPS);
-
+    InfoRow("Current FPS","%.2f", g_videoInfo.currentFPS);
+    InfoRow("Estimated FPS (mpv)", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
+    InfoRow("Min / Max FPS", "%.2f / %.2f" ,g_videoInfo.minFPS, g_videoInfo.maxFPS);
     EndInfoTable();
     }
 
@@ -166,22 +161,11 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_resolution")) {
 
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Size");
-    ImGui::TableNextColumn();
-    ImGui::Text("%dx%d",
-        g_videoInfo.g_videoparams.vwidth,
-        g_videoInfo.g_videoparams.vheight);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Display");
-    ImGui::TableNextColumn();
-    ImGui::Text("%dx%d",
-        g_videoInfo.g_videoparams.vdisp_w,
-        g_videoInfo.g_videoparams.vdisp_h);
-
-    InfoRow("Aspect Name", g_videoInfo.g_videoparams.vaspect_name.c_str());
-    InfoRow("SAR Name", g_videoInfo.g_videoparams.vsar_name.c_str());
-
-    InfoRowFloat("Aspect Ratio", g_videoInfo.g_videoparams.vaspect);
+    InfoRow("Size", "%dx%d", g_videoInfo.width, g_videoInfo.height);
+    InfoRow("Display", "%dx%d", g_videoInfo.g_videoparams.vdisp_w, g_videoInfo.g_videoparams.vdisp_h);
+    InfoRow("Aspect Name", "%s", g_videoInfo.g_videoparams.vaspect_name.c_str());
+    InfoRow("SAR Name", "%s", g_videoInfo.g_videoparams.vsar_name.c_str());
+    InfoRow("Aspect Ratio", "%.2f", g_videoInfo.g_videoparams.vaspect);
 
     EndInfoTable();
     }
@@ -194,18 +178,8 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_crop")) {
 
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Crop XY");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d x %d",
-        g_videoInfo.g_videoparams.vcrop_x,
-        g_videoInfo.g_videoparams.vcrop_y);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Crop WH");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d x %d",
-        g_videoInfo.g_videoparams.vcrop_w,
-        g_videoInfo.g_videoparams.vcrop_h);
-
+    InfoRow("Crop X x Y" , "%d x %d", g_videoInfo.g_videoparams.vcrop_x, g_videoInfo.g_videoparams.vcrop_y);
+    InfoRow("Crop WH", "%d x %d",g_videoInfo.g_videoparams.vcrop_w,g_videoInfo.g_videoparams.vcrop_h);
     EndInfoTable();
     }
 
@@ -217,10 +191,10 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_color")) {
 
-    InfoRow("Primaries", g_videoInfo.g_videoparams.vprimaries.c_str());
-    InfoRow("Gamma", g_videoInfo.g_videoparams.vgamma.c_str());
-    InfoRow("Matrix", g_videoInfo.g_videoparams.vcolormatrix.c_str());
-    InfoRow("Levels", g_videoInfo.g_videoparams.vcolorlevels.c_str());
+    InfoRow("Primaries", "%s", g_videoInfo.g_videoparams.vprimaries.c_str());
+    InfoRow("Gamma", "%s", g_videoInfo.g_videoparams.vgamma.c_str());
+    InfoRow("Matrix", "%s", g_videoInfo.g_videoparams.vcolormatrix.c_str());
+    InfoRow("Levels", "%s", g_videoInfo.g_videoparams.vcolorlevels.c_str());
 
     EndInfoTable();
     }
@@ -233,26 +207,12 @@ void ShowVideoInfo() {
 
     if (BeginInfoTable("video_advanced")) {
 
-    InfoRow("Stereo In", g_videoInfo.g_videoparams.vstereo_in.c_str());
-    InfoRow("Chroma Location", g_videoInfo.g_videoparams.vchroma_location.c_str());
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("SAR / PAR");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d / %d",
-        g_videoInfo.g_videoparams.vsar,
-        g_videoInfo.g_videoparams.vpar);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Signal Peak");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d", g_videoInfo.g_videoparams.vsig_peak);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Avg BPP");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d", g_videoInfo.g_videoparams.average_bpp);
-
-    ImGui::TableNextColumn(); ImGui::TextDisabled("Bitrate");
-    ImGui::TableNextColumn();
-    ImGui::Text("%d kbps", g_videoInfo.vbitrate / 1000);
+    InfoRow("Stereo In", "%s" ,g_videoInfo.g_videoparams.vstereo_in.c_str());
+    InfoRow("Chroma Location", "%s", g_videoInfo.g_videoparams.vchroma_location.c_str());
+    InfoRow("SAR / PAR", "%0.2f / %0.2f"," ", g_videoInfo.g_videoparams.vsar, g_videoInfo.g_videoparams.vpar);
+    InfoRow("Signal Peak" , "%d", g_videoInfo.g_videoparams.vsig_peak);
+    InfoRow("Avg BPP", "%d", g_videoInfo.g_videoparams.average_bpp);
+    InfoRow("Bitrate", "%d kbps", g_videoInfo.vbitrate / 1000);
 
     EndInfoTable();
     }
@@ -261,7 +221,7 @@ void ShowVideoInfo() {
 void ShowAudioInfo() {
 
     // ====== Audio Devices ======
-    if (!g_audioDevices.empty()) {
+    if (!g_playbackStatus.g_audioDevices.empty()) {
         if (ImGui::CollapsingHeader("Audio Devices", ImGuiTreeNodeFlags_DefaultOpen)) {
 
             if (ImGui::BeginTable("audio_devices", 3,
@@ -270,12 +230,15 @@ void ShowAudioInfo() {
                 ImGuiTableFlags_SizingStretchSame)) {
 
                 // Header
+                ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(255.0f, 255.0f, 255.0f, 1.0f));
                 ImGui::TableSetupColumn("Name");
                 ImGui::TableSetupColumn("Description");
                 ImGui::TableSetupColumn("Active");
+                ImGui::PopStyleColor();
+
                 ImGui::TableHeadersRow();
 
-                for (auto& dev : g_audioDevices) {
+                for (auto& dev : g_playbackStatus.g_audioDevices) {
 
                     ImGui::TableNextRow();
 
@@ -306,13 +269,10 @@ void ShowAudioInfo() {
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
 
-        InfoRow("Client", g_playbackStatus.audio_client_name);
-        InfoRow("Device", g_videoInfo.audio_device);
-        InfoRow("Codec", g_videoInfo.acodec);
-        InfoRow("Format", g_videoInfo.g_audioarams.aformat.c_str());
-        InfoRow("Output", g_videoInfo.a_out);
-        InfoRow("Filter", g_videoInfo.a_filter);
-
+        InfoRow("Client", "%s", g_playbackStatus.audio_client_name);
+        InfoRow("Device", "%s", g_videoInfo.audio_device);
+        InfoRow("Codec", "%s", g_videoInfo.acodec);
+        InfoRow("Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
         ImGui::EndTable();
     }
 
@@ -326,26 +286,11 @@ void ShowAudioInfo() {
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
 
-        InfoRowFloat("Delay (s)", g_videoInfo.audio_delay);
-
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn(); ImGui::TextDisabled("Bitrate");
-        ImGui::TableNextColumn();
-        ImGui::Text("%d kbps", g_videoInfo.abitrate / 1000);
-
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn(); ImGui::TextDisabled("Sample Rate");
-        ImGui::TableNextColumn();
-        ImGui::Text("%d Hz", g_videoInfo.g_audioarams.asamplerate);
-
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn(); ImGui::TextDisabled("Channels");
-        ImGui::TableNextColumn();
-        ImGui::Text("%s (%d)",
-            g_videoInfo.g_audioarams.achannels_str.c_str(),
-            g_videoInfo.g_audioarams.channel_count);
-
-        InfoRow("Channels HR", g_videoInfo.g_audioarams.ahr_channels.c_str());
+        InfoRow("Delay Audio", "%.2f s", g_videoInfo.audio_delay);
+        InfoRow("Bitrate", "%d kbps", g_videoInfo.abitrate / 1000);
+        InfoRow("Sample Rate", "%d Hz", g_videoInfo.g_audioarams.asamplerate);
+        InfoRow("Channels", "%s (%d)",g_videoInfo.g_audioarams.achannels_str.c_str(),g_videoInfo.g_audioarams.channel_count);
+        InfoRow("Channels HR", "%s", g_videoInfo.g_audioarams.ahr_channels.c_str());
 
         ImGui::EndTable();
     }
@@ -393,9 +338,9 @@ void ShowTrackInfo() {
             ImGuiTableFlags_SizingStretchSame |
             ImGuiTableFlags_BordersInnerV)) {
 
-            InfoRow("Language", track.language.c_str());
-            InfoRow("Title", track.title.c_str());
-            InfoRow("Format", track.format_name.c_str());
+            InfoRow("Language", "%s", track.language.c_str());
+            InfoRow("Title", "%s", track.title.c_str());
+            InfoRow("Format", "%s", track.format_name.c_str());
 
             ImGui::EndTable();
         }
@@ -407,40 +352,22 @@ void ShowTrackInfo() {
                 ImGuiTableFlags_SizingStretchSame |
                 ImGuiTableFlags_BordersInnerV)) {
 
-                InfoRow("Codec Desc", track.codec_desc.c_str());
-                InfoRow("Decoder", track.decoder.c_str());
-                InfoRow("Decoder Desc", track.decoder_desc.c_str());
+                InfoRow("Codec Desc", "%s", track.codec_desc.c_str());
+                InfoRow("Decoder", "%s", track.decoder.c_str());
+                InfoRow("Decoder Desc", "%s", track.decoder_desc.c_str());
 
-                InfoRow("External", track.external ? "Yes" : "No");
-                InfoRow("Dependent", track.dependent ? "Yes" : "No");
-                InfoRow("Forced", track.forced ? "Yes" : "No");
+                InfoRow("External", "%s", track.external ? "Yes" : "No");
+                InfoRow("Dependent", "%s", track.dependent ? "Yes" : "No");
+                InfoRow("Forced", "%s", track.forced ? "Yes" : "No");
 
                 // ---- TYPE SPECIFIC ----
                 if (track.type == "video") {
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::TextDisabled("Resolution");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%dx%d", track.demux_w, track.demux_h);
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::TextDisabled("FPS");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%.2f", track.demux_fps);
+                    InfoRow("Resolution", "%dx%d", track.demux_w, track.demux_h);
+                    InfoRow("FPS", "%.2f", track.demux_fps);
                 }
                 else if (track.type == "audio") {
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::TextDisabled("Sample Rate");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%d Hz", track.demux_samplerate);
-
-                    ImGui::TableNextRow();
-                    ImGui::TableNextColumn(); ImGui::TextDisabled("Channels");
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s (%dch)",
-                        track.demux_channels.c_str(),
-                        track.demux_channel_count);
+                    InfoRow("Sample Rate", "%d Hz", track.demux_samplerate);
+                    InfoRow("Channels", "%s (%dch)", track.demux_channels.c_str(), track.demux_channel_count);
                 }
 
                 ImGui::EndTable();
@@ -467,15 +394,15 @@ void ShowPlaybackInfo() {
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
 
-        InfoRow("Status", PlaybackStateToString(GetPlaybackState()));
-        InfoRow("Video Type", VideoTypeToString(GetVideoType()));
-        InfoRow("Loop Mode", g_playbackStatus.loopMode);
+        InfoRow("Status","%s", PlaybackStateToString(GetPlaybackState()));
+        InfoRow("Video Type", "%s", VideoTypeToString(GetVideoType()));
+        InfoRow("Loop Mode", "%s", g_playbackStatus.loopMode);
 
-        InfoRow("Has File", g_playbackStatus.hasFile ? "Yes" : "No");
-        InfoRow("Seekable", g_playbackStatus.seekable ? "Yes" : "No");
-        InfoRow("Idle", g_playbackStatus.idle_active ? "Yes" : "No");
+        InfoRow("Has File", "%s", g_playbackStatus.hasFile ? "Yes" : "No");
+        InfoRow("Seekable", "%s", g_playbackStatus.seekable ? "Yes" : "No");
+        InfoRow("Idle", "%s", g_playbackStatus.idle_active ? "Yes" : "No");
 
-        InfoRow("Sub Visible", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
+        InfoRow("Sub Visible", "%s", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
 
         ImGui::EndTable();
     }
@@ -496,16 +423,9 @@ void ShowPlaybackInfo() {
     if (ImGui::BeginTable("playback_time", 2,
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
-
-        ImGui::TableNextRow();
-        ImGui::TableNextColumn(); ImGui::TextDisabled("Current");
-        ImGui::TableNextColumn();
-        ImGui::Text("%.2f / %.2f s",
-            g_playbackStatus.timePos,
-            g_playbackStatus.duration);
-
-        InfoRowFloat("Remaining", g_playbackStatus.time_remaining);
-        InfoRowFloat("Percent", g_playbackStatus.percent_pos);
+        InfoRow("Current", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
+        InfoRow("Remaining", "%.2f s", g_playbackStatus.time_remaining);
+        InfoRow("Percent", "%.2f%%", g_playbackStatus.percent_pos);
 
         ImGui::EndTable();
     }
@@ -520,8 +440,8 @@ void ShowPlaybackInfo() {
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
 
-        InfoRowFloat("Speed", g_playbackStatus.speed, "%.2fx");
-        InfoRowFloat("Subtitle Delay", g_playbackStatus.g_subinfo.sub_Delay);
+        InfoRow("Speed", "%.2fx", g_playbackStatus.speed);
+        InfoRow("Subtitle Delay", "%.2f s", g_playbackStatus.g_subinfo.sub_Delay);
 
         ImGui::EndTable();
     }
@@ -547,12 +467,12 @@ void ShowNetworkInfo() {
         ImGuiTableFlags_SizingStretchSame |
         ImGuiTableFlags_BordersInnerV)) {
 
-        InfoRowFloat("Cache Duration (s)", g_playbackStatus.demuxer_cache_duration);
-        InfoRowFloat("Cache Time (s)", g_playbackStatus.demuxer_cache_time);
-        InfoRowFloat("Audio Buffer (s)", g_playbackStatus.audio_buffer);
-        InfoRowFloat("Bitrate", g_playbackStatus.demuxer_bitrate);
+        InfoRow("Cache Duration ", "%.2f s", g_playbackStatus.demuxer_cache_duration);
+        InfoRow("Cache Time (s)", "%.2f s", g_playbackStatus.demuxer_cache_time);
+        InfoRow("Audio Buffer (s)", "%.2f s", g_playbackStatus.audio_buffer);
+        InfoRow("Bitrate", "%.2f kbps", g_playbackStatus.demuxer_bitrate);
 
-        InfoRow("Via Network", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
+        InfoRow("Via Network", "%s", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
 
         ImGui::EndTable();
     }
@@ -714,7 +634,15 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
             ImGui::EndTabItem();
         }
 
-        if (g_DragResizeState.showDebug) {if (ImGui::BeginTabItem("DeBug")) {ShowDuBugInFo();ImGui::EndTabItem();}}
+        if (g_DragResizeState.showDebug) {
+            if (ImGui::BeginTabItem("DeBug")) 
+            {
+                BeginCard();
+                ShowDuBugInFo();
+                EndCard();
+                ImGui::EndTabItem();
+            }
+        }
             
         ImGui::PopStyleColor();
         ImGui::EndTabBar();

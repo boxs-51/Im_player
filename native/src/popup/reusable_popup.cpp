@@ -27,7 +27,6 @@ void ReusablePopup::Render() {
     }
 
     // Mở window thay cho popup
-    if( g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
     if (ImGui::Begin(title_.c_str(), &open, ImGuiWindowFlags_NoCollapse)) {
         contentCallback(closeRequested);
 

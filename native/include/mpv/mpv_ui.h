@@ -25,7 +25,7 @@ void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize);
 
 void RenderSeekingOverlay( ImVec2 VideoPos , ImVec2 VideoSize ,SeekingData& data) ;
 
-void ShowTooltipDelayed(const char* text, bool hovering ,double delaySeconds = 0.5);
+void ShowTooltipDelayed(const char* text, bool hovering ,double delaySeconds = 0.5, const char* id = nullptr);
 
 
 #endif // PLAYER_CONTROLS_H

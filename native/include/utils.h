@@ -145,6 +145,7 @@ struct MPVPlaybackStatus {
     
     SubInFo g_subinfo;
     std::vector<PlaylistEntry> g_playlist;
+    std::vector<AudioDeviceInfo> g_audioDevices;
 };
 struct ChapterInfo {
     double time;     // giây
@@ -297,8 +298,6 @@ extern MPVPlaybackStatus g_playbackStatus;
 extern VideoInfo g_videoInfo;
 extern BorderlessWindowState BW;
 
-extern std::vector<AudioDeviceInfo> g_audioDevices;
-
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
@@ -312,7 +311,7 @@ void TerminateHandler();
 void SignalHandler(int signal);
 void UpdateUIState(bool& show_ui_video);
 void NotifyActivity(bool& show_ui_video);
-bool SetDelayHover(bool isHovering, double delaySeconds = 3.0) ;
+bool SetDelayHover( bool isHovering, double delaySeconds = 3.0, const char * id = nullptr ) ;
 
 void DrawCardWithHole(
     ImDrawList* dl,

@@ -10,6 +10,7 @@
 #include "globals.h"
 #include "utils.h"
 #include "imgui.h"
+#include "main.h"
 
 #include "windows/windows_custom_titlebar.h"
 #include "windows/windows_borderless_state.h"
@@ -173,6 +174,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
+        /*
         case WM_CREATE:
         {   
             BOOL disable = FALSE;
@@ -189,6 +191,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             
             return 0;
         }
+        */
         case WM_APPCOMMAND: 
         {
             int cmd = GET_APPCOMMAND_LPARAM(lParam);
@@ -221,7 +224,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             PCOPYDATASTRUCT pCDS = (PCOPYDATASTRUCT)lParam;
             std::string url((char*)pCDS->lpData, pCDS->cbData);
             CallThread_URLFetch(url, true); // append vào playlist
-            return TRUE;
+            return 0;
         }
 
         // ===== HitTest & chuột =====
@@ -302,9 +305,14 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             g_DragResizeState.debugInfo = "HTCLIENT";
             return HTCLIENT;
         }
-        
-        //case WM_NCPAINT:
-        //    return 0; 
+        case WM_PAINT:{
+            //SyncSDLWithWinAPI(sdlWindow);
+            PAINTSTRUCT ps;
+            HDC hdc = BeginPaint(hwnd, &ps);
+            RenderFrame();
+            EndPaint(hwnd, &ps);
+            return 0;
+        }
         //case WM_NCACTIVATE:
         //    return 0; 
         
@@ -341,15 +349,16 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 int frameY = GetSystemMetricsForDpi(SM_CYFRAME, dpi)
                         + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi); // FIX
 
-                */
-                InflateRect(&p->rgrc[0],0, 0);
                 
-                //p->rgrc[0] = p->rgrc[0];
+                InflateRect(&p->rgrc[0],- frameX , - frameY);
+                
+                p->rgrc[0] = p->rgrc[0];
+                */
+                
             }
-            
             return 0;
         }
-
+        
         
         case WM_NCLBUTTONDOWN: {
             // wParam chính là hit-test code
@@ -422,12 +431,12 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
             break;
         }
-        
         /*
+        
         case WM_ENTERSIZEMOVE:
         {
             if (sdlWindow) {
-                //SyncSDLWithWinAPI(sdlWindow);
+                SyncSDLWithWinAPI(sdlWindow);
                 SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_ENTER);
             }
             g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
@@ -436,7 +445,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         case WM_EXITSIZEMOVE: {
             if (!g_DragResizeState.snapEnabled) break;
             if (sdlWindow) {
-                //yncSDLWithWinAPI(sdlWindow);
+                SyncSDLWithWinAPI(sdlWindow);
                 SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_LEAVE);
             }
             
@@ -445,12 +454,14 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 
         // ===== Di chuyển =====
         case WM_MOVE:{
+            SyncSDLWithWinAPI(sdlWindow);
+            SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MOVED, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
             break;
         }
         case WM_MOVING: {
             RECT rc; GetWindowRect(hwnd, &rc);
             if (sdlWindow) {
-                //SyncSDLWithWinAPI(sdlWindow);
+                SyncSDLWithWinAPI(sdlWindow);
                 SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MOVED, rc.left, rc.top);
             }
             break;
@@ -460,12 +471,12 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         // ===== Thay đổi kích thước / DPI =====
         case WM_SIZE: {
             if (!sdlWindow) break;
-            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
-            //SyncSDLWithWinAPI(sdlWindow);
+            //SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
+            SyncSDLWithWinAPI(sdlWindow);
             int w = LOWORD(lParam), h = HIWORD(lParam);
 
             if (wParam == SIZE_MAXIMIZED) {
-                //SDLX_SavePlacement(sdlWindow);
+                SDLX_SavePlacement(sdlWindow);
                 SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MAXIMIZED, w, h);
             } else if (wParam == SIZE_MINIMIZED) {
                 SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED, w, h);
@@ -479,6 +490,9 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         case WM_SIZING: {
             RECT* rc = (RECT*)lParam;
             KeepAspectRatio(rc, (int)wParam);
+            SyncSDLWithWinAPI(sdlWindow);
+            SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESIZED,
+                           rc->right - rc->left, rc->bottom - rc->top);
             break;
         }
         */
@@ -572,7 +586,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             break;
         case WM_WINDOWPOSCHANGED:
-            //g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
+            g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
             break;
         */
         case WM_TRAYICON:
@@ -695,9 +709,6 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
     //g_DragResizeState.dpiX = dpi; g_DragResizeState.dpiY = dpi;
 
     //SDL_SetWindowBordered(window,SDL_FALSE);
-
-
-
 }
 
 

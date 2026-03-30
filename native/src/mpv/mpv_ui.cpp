@@ -31,6 +31,48 @@ static bool seek_bar_hover = false;
 
 bool items_action=  false;
 bool items_hover = false;
+
+void DrawTimeDisplay(double current, double duration, ImVec2 videoSize, ImVec2 pos, float parentHeight) {
+    ImGuiStyle& style = ImGui::GetStyle();
+    
+    // 1. Tính toán tỉ lệ scale dựa trên chiều rộng video (Reference: 1920px)
+    float baseFontSizeMultiplier = 2.0f;
+    float dynamicScale = videoSize.x /  1920.0f  * baseFontSizeMultiplier;
+    dynamicScale = std::max(dynamicScale, 0.5f); // Giới hạn nhỏ nhất
+
+    // 2. Định dạng chuỗi thời gian
+    int curH = (int)(current / 3600), curM = (int)(current / 60) % 60, curS = (int)current % 60;
+    int durH = (int)(duration / 3600), durM = (int)(duration / 60) % 60, durS = (int)duration % 60;
+
+    char timeStr[64];
+    if (durH > 0) {
+        snprintf(timeStr, sizeof(timeStr), "%02d:%02d:%02d / %02d:%02d:%02d", curH, curM, curS, durH, durM, durS);
+    } else {
+        snprintf(timeStr, sizeof(timeStr), "%02d:%02d / %02d:%02d", curM, curS, durM, durS);
+    }
+
+    // 3. Sử dụng FontScale mới trong ImGui 1.92
+    // Lưu lại scale cũ
+    float oldFontScale = ImGui::GetFont()->Scale; 
+    
+    // Áp dụng scale mới cho Font hiện tại
+    ImGui::GetFont()->Scale = dynamicScale;
+    ImGui::PushFont(ImGui::GetFont()); 
+
+    // 4. Tính toán kích thước Text thực tế sau khi scale
+    ImVec2 textSize = ImGui::CalcTextSize(timeStr);
+    
+    // Căn giữa trục Y (Công thức: Vị trí Y + (Chiều cao vùng chứa - Chiều cao chữ) / 2)
+    float centeredY = pos.y + (parentHeight - textSize.y) * 0.5f;
+
+    // 5. Render
+    ImGui::SetCursorPos(ImVec2(pos.x, centeredY));
+    ImGui::TextUnformatted(timeStr);
+
+    // 6. Khôi phục trạng thái
+    ImGui::PopFont();
+    ImGui::GetFont()->Scale = oldFontScale;
+}
 //================================================================================================
 void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SDL_Window* window,
                           bool& isFullscreen_video,bool& show_ui_video)
@@ -61,6 +103,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     bool isMuted = g_playbackStatus.isMuted;
     
 
+    float timePosX = 0.0f;
     float scale = std::clamp(videoSize.x / 1280.0f, 0.1f, 2.0f);
     float spacing = videoSize.x * 0.05;
     ImVec2 iconSize(35 * scale, 35 * scale);
@@ -121,10 +164,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    if(SetDelayHover(is_text_hovered, 3.0f)){
-        ImGui::SetTooltip(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title");
-    }
-    //ShowTooltipDelayed(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title", is_text_hovered , 3.0);
+    //if(SetDelayHover(is_text_hovered, 3.0 ,"Header_Text_Part")){
+    //    ImGui::SetTooltip(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title");
+    //}
+    ShowTooltipDelayed(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title", is_text_hovered , 3.0, "Header_Text_Part");
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -420,10 +463,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
-            if(SetDelayHover(ImGui::IsItemHovered(), 3.0f)){
-                ImGui::SetTooltip("Previous Video");
-            }
-            //ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0);
+            //if(SetDelayHover(ImGui::IsItemHovered(), 3.0,"Prev_Button")){
+            //    ImGui::SetTooltip("Previous Video");
+            //}
+            ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
         }
         // Nút PLAY/PAUSE
         static  PlayPauseData playData;
@@ -435,27 +478,27 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             
 
         }
-        if(SetDelayHover(ImGui::IsItemHovered(), 3.0f)){
-            if(paused)
-                ImGui::SetTooltip("Play");
-            else
-                ImGui::SetTooltip("Pause");
-        }
-        //ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0);
+        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "PlayPause_Button")){
+        //    if(paused)
+        //        ImGui::SetTooltip("Play");
+        //    else
+        //        ImGui::SetTooltip("Pause");
+        //}
+        ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
             if (CustomIconButton("##next", DrawNextIcon, iconSize)) {
                 mpv_command_next_video(mpv);
             }
-            if(SetDelayHover(ImGui::IsItemHovered(), 3.0f)){
-                ImGui::SetTooltip("Next Video");
-            }
+            //if(SetDelayHover(ImGui::IsItemHovered(), 3.0 ,"Next_Button")){
+            //    ImGui::SetTooltip("Next Video");
+            //}
+            ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
         }
 
-        //ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0);
-
         // === TIME TEXT ===
+        /*
         int curHour = (int)(time_show_ui / 3600);
         int curMin  = (int)(time_show_ui / 60) % 60;
         int curSec  = (int)time_show_ui % 60;
@@ -478,7 +521,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                     curMin, curSec,
                     durMin, durSec);
         }
-
+        */
 
         ImGui::BeginGroup();
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); 
@@ -498,13 +541,13 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
 
-        if(SetDelayHover(hoverIcon, 3.0)){
-            if(isMuted)
-                ImGui::SetTooltip("Unmute");
-            else
-                ImGui::SetTooltip("Mute");
-        }
-        //ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0);
+        //if(SetDelayHover(hoverIcon, 3.0, "Volume_Button")){
+        //    if(isMuted)
+        //        ImGui::SetTooltip("Unmute");
+        //    else
+        //        ImGui::SetTooltip("Mute");
+        //}
+        ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
 
         bool active = ImGui::IsItemActive();
 
@@ -658,14 +701,15 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
             // Text thời gian
             ImGui::SameLine(); i = i + 0.4f;
-            ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i + sliderSize.x,
-                                    controlPos.y + (iconSize.y - (iconSize.y * 0.59f)) * 0.5f));
-            ImGui::Text("%s", timeStr);
+
+            timePosX = controlPos.x + (spacing * i) + (sliderSize.x + 10.0f * scale);
+            DrawTimeDisplay( time_show_ui, duration, videoSize, 
+                ImVec2(timePosX, controlPos.y), iconSize.y);
         } else {
-            ImGui::SameLine(); i = i + 0.65f;
-            ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i,
-                                    controlPos.y + (iconSize.y - (iconSize.y * 0.59f)) * 0.5f));
-            ImGui::Text("%s", timeStr);
+            ImGui::SameLine(); i = i + 0.4f;
+            timePosX = controlPos.x + (spacing * i);
+            DrawTimeDisplay( time_show_ui, duration, videoSize, 
+                ImVec2(timePosX, controlPos.y), iconSize.y);
         }
 
         ImGui::EndGroup();
@@ -686,10 +730,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             LoadSettings_Video();
             showSettings = !showSettings;
         }
-        if(SetDelayHover(ImGui::IsItemHovered(), 3.0)){
-            ImGui::SetTooltip("Settings");
-        }
-        //ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0);
+        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "Settings_Button")){
+        //    ImGui::SetTooltip("Settings");
+        //}
+        ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
 
         RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video );
 
@@ -704,13 +748,13 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
             BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
         }
-        if (SetDelayHover(ImGui::IsItemHovered(), 3.0)){
-            if (isFullscreen_video)
-                ImGui::SetTooltip("Exit Fullscreen");
-            else
-                ImGui::SetTooltip("Fullscreen");
-        }
-        //ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0);
+        //if (SetDelayHover(ImGui::IsItemHovered(), 3.0, "Fullscreen_Button")) {
+        //    if (isFullscreen_video)
+        //        ImGui::SetTooltip("Exit Fullscreen");
+        //   else
+        //        ImGui::SetTooltip("Fullscreen");
+        //}
+        ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
 
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
@@ -725,10 +769,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showOptionMenu = !showOptionMenu;
         }
         optdata.hovered = ImGui::IsItemHovered();
-        if(SetDelayHover(ImGui::IsItemHovered(), 3.0)){
-            ImGui::SetTooltip("Options");
-        }
-        //ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0);
+        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "Option_Button")){
+        //    ImGui::SetTooltip("Options");
+        //}
+        //ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
     
         if (endfile) {
             // Tính toán vị trí trung tâm
@@ -776,7 +820,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     ImGui::EndChild ();
     ImGui::PopStyleVar();
 
-    hasRenderedSomething =true;
 }
 
 
@@ -831,7 +874,6 @@ void RenderLoading(ImVec2 VideoPos, ImVec2 VideoSize) {
         &centralLoading
     );
 
-    hasRenderedSomething = true;
 }
 
 void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data)  {
@@ -861,36 +903,39 @@ void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data) 
             &data
         );
         
-        hasRenderedSomething = true;
     }
 }
 
-void ShowTooltipDelayed(const char* text, bool hovering ,double delaySeconds)
+void ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds, const char* id)
 {
-    ImGuiIO& io = ImGui::GetIO();
+    // 1. Xử lý delay
+    bool shouldShow = SetDelayHover(hovering, delaySeconds, id);
 
-    static float alpha = 0.0f;
+    // 2. Quản lý Alpha riêng biệt cho từng tooltip bằng Storage ID của ImGui
+    // Điều này giúp nhiều tooltip không bị dùng chung 1 biến alpha tĩnh
+    ImGuiID storage_id = ImGui::GetID(id);
+    float* pAlpha = ImGui::GetStateStorage()->GetFloatRef(storage_id, 0.0f);
 
-    // Gọi hàm delay của bạn
-    bool hoverdelay = SetDelayHover(hovering, delaySeconds);
+    // 3. Cập nhật hiệu ứng Fade (Tăng tốc độ fade ra để cảm giác nhạy hơn)
+    float fadeSpeed = 12.0f; 
+    UpdateHoverAnim(*pAlpha, shouldShow, fadeSpeed);
 
-    // ---- Fade logic ----
-
-    UpdateHoverAnim(alpha,hoverdelay,12.0f);
-
-    if (alpha <= 0.01f)
+    // Ngắt sớm nếu alpha quá nhỏ để tiết kiệm hiệu năng
+    if (*pAlpha <= 0.001f)
         return;
 
-    // ---- Render tooltip ----
-    ImGui::SetNextWindowBgAlpha(alpha);
+    // 4. Thiết lập Style trước khi Begin
+    // Sử dụng ImGuiWindowFlags_AlwaysAutoResize để giữ kích thước ổn định
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);
+    ImGui::SetNextWindowBgAlpha(*pAlpha); 
 
+    // Render Tooltip
     if (ImGui::BeginTooltip())
     {
-        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, alpha);
         ImGui::TextUnformatted(text);
-        ImGui::PopStyleVar();
         ImGui::EndTooltip();
     }
-}
 
+    ImGui::PopStyleVar();
+}
 

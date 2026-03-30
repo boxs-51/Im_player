@@ -183,7 +183,7 @@ bool SDLX_RestoreWindowSmart(SDL_Window* window, POINT cursor)
     g_DragResizeState.snapState = SnapState::NONE;
 
     // Đồng bộ + event
-    //SyncSDLWithWinAPI(window);
+    SyncSDLWithWinAPI(window);
     //SDLX_PushEvent(window, SDL_WINDOWEVENT_RESTORED);
 
     int finalW = rr.right - rr.left;
@@ -448,7 +448,6 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
 
     //SyncSDLWithWinAPI(sdlWindow);
 
-    hasRenderedSomething = true;
 }
 
 void SetWindowSDL(SDL_Window* window,

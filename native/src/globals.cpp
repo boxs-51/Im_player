@@ -31,9 +31,6 @@ std::string g_searchQuery;
 bool Disabehotkey = false;
 bool playImmediately = true;
 bool audio_Theme = false;
-bool hasRenderedSomething = false;  
-bool g_WindowVisible = true;
-
 
 double pendingSeekTime = -1.0;
 

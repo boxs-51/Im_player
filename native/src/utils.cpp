@@ -48,7 +48,6 @@ static bool g_isSeeking = false;
 
 static std::atomic<int> g_current_chapter_idx{-1};
 
-std::vector<AudioDeviceInfo> g_audioDevices;
 
 void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state , WindowLayout& w)
 {
@@ -739,7 +738,7 @@ static void UpdateAudioDeviceList(const mpv_node* node) {
     }
 
     
-    g_audioDevices.swap(tmp);
+    g_playbackStatus.g_audioDevices.swap(tmp);
 
 }
 static void UpdateChapterList(const mpv_node* node) {
@@ -854,7 +853,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             else if (strcmp(name, "track-list") == 0)           UpdateTrackList((const mpv_node*)prop->data); 
             else if (strcmp(name, "filename") == 0)             {g_playbackStatus.hasFile = true;  mpv_get_prop(mpv,"filename",g_playbackStatus.filename);   RATE_LIMITED_COUT(filename, 1,std::cout << "[DEBUG] [INFO] [Media] Filename updated: " << g_playbackStatus.filename << "");}
             else if (strcmp(name, "stream-open-filename") == 0) {mpv_get_prop(mpv,"stream-open-filename",g_playbackStatus.streamUrl);                        RATE_LIMITED_COUT(stream_open_filename, 1,std::cout << "[DEBUG] [INFO] [Media] Stream Open Filename updated: " << g_playbackStatus.streamUrl << "");}
-            else if (strcmp(name, "media-title") == 0)          {mpv_get_prop(mpv,"media-title",g_playbackStatus.mediaTitle); NotifyMPV();                               RATE_LIMITED_COUT(media_title, 1,std::cout << "[DEBUG] [INFO] [Media] Media Title updated: " << g_playbackStatus.mediaTitle << "");}
+            else if (strcmp(name, "media-title") == 0)          {mpv_get_prop(mpv,"media-title",g_playbackStatus.mediaTitle);                                RATE_LIMITED_COUT(media_title, 1,std::cout << "[DEBUG] [INFO] [Media] Media Title updated: " << g_playbackStatus.mediaTitle << "");}
             else if (strcmp(name, "title") == 0)                {mpv_get_prop(mpv,"title",g_playbackStatus.Title);                                           RATE_LIMITED_COUT(title, 1,std::cout << "[DEBUG] [INFO] [Media] Title updated: " << g_playbackStatus.Title << "");}
             else if (strcmp(name, "file-format") == 0)          {mpv_get_prop(mpv,"file-format",g_playbackStatus.fileFormat);                                RATE_LIMITED_COUT(file_format, 1,std::cout << "[DEBUG] [INFO] [Media] File Format updated: " << g_playbackStatus.fileFormat << "");}
             else if (strcmp(name, "metadata") == 0)             UpdateMetadata((const mpv_node*)prop->data);
@@ -940,7 +939,6 @@ void ProcessMPVEvents(mpv_handle* mpv) {
         case MPV_EVENT_START_FILE:
             g_playbackStatus.ilde = false;
             isLoadingMedia = true;
-            g_playbackStatus = {};
             break;
         case MPV_EVENT_FILE_LOADED:
         {
@@ -1273,15 +1271,23 @@ void DrawCardWithHole(
 
 
 void UpdateUIState( bool& show_ui_video ) {
+    int mouseX, mouseY;
     ImGuiIO& io = ImGui::GetIO();
+
     ImVec2 mousePos = io.MousePos; 
+    //SDL_GetMouseState(&mouseX, &mouseY);
+    //SDL_Point mousePos = { mouseX, mouseY };
+
     Uint32 currentTime = SDL_GetTicks();
     
     // 1. Kiểm tra vị trí chuột
+    
     bool isMouseInsideVideo = (mousePos.x >= Windowlayout.videoArea.x && 
                                mousePos.x <= (Windowlayout.videoArea.x + Windowlayout.videoArea.w) &&
                                mousePos.y >= Windowlayout.videoArea.y && 
                                mousePos.y <= (Windowlayout.videoArea.y + Windowlayout.videoArea.h));
+    
+    //bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
 
     // 2. Kiểm tra tương tác với UI (Hover nút, kéo slider, combo...)
     // io.WantCaptureMouse là cách nhanh nhất để biết chuột có đang đè lên bất kỳ cửa sổ ImGui nào không
@@ -1374,22 +1380,28 @@ GLuint GetIcon(const std::string& path)
     return textureID;
 }
 
-bool SetDelayHover(bool isHovering, double delaySeconds) {
-    static Uint32 hoverStartTime = -1.0; // Thời điểm bắt đầu hover, -1 nghĩa là chưa hover
+bool SetDelayHover( bool isHovering, double delaySeconds ,const char* id) {
+    // Dùng unordered_map để tốc độ tìm kiếm nhanh hơn (O(1))
+    // Key là std::string để so sánh nội dung "text"
+    static std::unordered_map<std::string, Uint32> hoverTimers;
+
+    // Chuyển pointer thành string để làm key tìm kiếm
+    std::string key(id); 
+
     if (isHovering) {
-        // Nếu vừa mới bắt đầu hover, ghi lại thời gian
-        if (hoverStartTime < 0) {
-            hoverStartTime = SDL_GetTicks();
+        // Nếu chưa tồn tại ID này trong danh sách đang hover
+        if (hoverTimers.find(key) == hoverTimers.end()) {
+            hoverTimers[key] = SDL_GetTicks();
         }
-        
-        // Kiểm tra xem đã đủ thời gian delay chưa
-        if (SDL_GetTicks() - hoverStartTime >= (Uint32)(delaySeconds * 1000)) {
+
+        Uint32 elapsed = SDL_GetTicks() - hoverTimers[key];
+        if (elapsed >= (Uint32)(delaySeconds * 1000)) {
             return true;
         }
     } else {
-        // Nếu không còn hover, reset lại trạng thái ngay lập tức
-        hoverStartTime = -1.0;
+        // Xóa khỏi map khi không còn hover
+        hoverTimers.erase(key);
     }
-    
+
     return false;
 }

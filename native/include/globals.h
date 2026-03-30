@@ -74,9 +74,6 @@ extern Uint32 lastInteractionTime;
 extern bool Disabehotkey;
 extern bool playImmediately;
 
-extern bool g_WindowVisible ;
-extern bool hasRenderedSomething ; 
-
 extern bool audio_Theme;
 
 extern std::vector<std::wstring> playlist;
