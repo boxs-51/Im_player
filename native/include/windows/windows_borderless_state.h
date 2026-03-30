@@ -80,6 +80,13 @@ struct DragResizeState {
     std::string     debugInfo               = "None";
 
     LRESULT         lastHit                 = 0;
+
+    bool           mouseDownMin            = false;
+    bool           mouseDownMax            = false;
+    bool           mouseDownClose          = false;
+    bool           mouseDownRestore        = false;
+
+    bool           trayiconAdded           = true;
 };
 
 extern DragResizeState g_DragResizeState;

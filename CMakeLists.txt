@@ -21,6 +21,8 @@ add_executable(imgui_player WIN32
     native/src/gl3w.c
     native/src/globals.cpp
     native/src/hotkey_handler.cpp
+    native/src/notification.cpp
+    native/src/wintoastlib.cpp
 
     native/src/mpv/mpv_basic_formats.cpp
     native/src/mpv/mpv_controller.cpp
@@ -74,6 +76,7 @@ target_compile_definitions(imgui_player PRIVATE
     WIN32_LEAN_AND_MEAN
     NOMINMAX
     IMGUI_IMPL_OPENGL_LOADER_GLAD
+    CUSTOM_TITLEBAR
     
 )
 # Include path

@@ -1,4 +1,5 @@
 #define _WIN32_WINNT 0x0A00
+
 #include <SDL.h>
 #include "globals.h"
 #include "utils.h"
@@ -73,50 +74,72 @@ void SDLX_EnableSnap(bool enabled, int thresholdPx)
 bool SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
 {
     if (!window) return false;
+    #ifdef CUSTOM_TITLEBAR
+        if (!g_DragResizeState.hwnd_windown_main) {
+            SDL_SysWMinfo wmInfo{};
+            SDL_VERSION(&wmInfo.version);
+            if (!SDL_GetWindowWMInfo(window, &wmInfo)) return false;
+            g_DragResizeState.hwnd_windown_main = wmInfo.info.win.window;
+        }
+        HWND hwnd = g_DragResizeState.hwnd_windown_main;
 
-    HWND hwnd = g_DragResizeState.hwnd_windown_main;
+        if (!g_DragResizeState.IsFullscreen_video)
+        {
+            // Lưu trạng thái windowed trước fullscreen
+            GetWindowRect(hwnd, &g_DragResizeState.fullscreenRestoreRect);
+            g_DragResizeState.placement.length = sizeof(WINDOWPLACEMENT);
+            GetWindowPlacement(hwnd, &g_DragResizeState.placement);
 
-    if (!g_DragResizeState.IsFullscreen_video)
-    {
-        // Lưu trạng thái windowed trước fullscreen
-        GetWindowRect(hwnd, &g_DragResizeState.fullscreenRestoreRect);
-        g_DragResizeState.placement.length = sizeof(WINDOWPLACEMENT);
-        GetWindowPlacement(hwnd, &g_DragResizeState.placement);
+            SDL_GetWindowSize(window, &g_DragResizeState.restoreW, &g_DragResizeState.restoreH);
 
-        SDL_GetWindowSize(window, &g_DragResizeState.restoreW, &g_DragResizeState.restoreH);
+            // Phủ toàn màn hình desktop
+            RECT rcScreen;
+            SystemParametersInfo(SPI_GETWORKAREA, 0, &rcScreen, 0);
+            SetWindowPos(hwnd, HWND_TOP, rcScreen.left, rcScreen.top,
+                        rcScreen.right - rcScreen.left,
+                        rcScreen.bottom - rcScreen.top,
+                        SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
-        // Phủ toàn màn hình desktop
-        RECT rcScreen;
-        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcScreen, 0);
-        SetWindowPos(hwnd, HWND_TOP, rcScreen.left, rcScreen.top,
-                     rcScreen.right - rcScreen.left,
-                     rcScreen.bottom - rcScreen.top,
-                     SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+            g_DragResizeState.IsFullscreen_video = true;
+        }
+        else if (g_DragResizeState.IsFullscreen_video)
+        {
 
-        g_DragResizeState.IsFullscreen_video = true;
-    }
-    else if (g_DragResizeState.IsFullscreen_video)
-    {
+            // Restore vị trí và kích thước windowed
+            RECT rc = g_DragResizeState.fullscreenRestoreRect;
+            SetWindowPos(hwnd, HWND_TOP,
+                        rc.left, rc.top,
+                        rc.right - rc.left,
+                        rc.bottom - rc.top,
+                        SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
-        // Restore vị trí và kích thước windowed
-        RECT rc = g_DragResizeState.fullscreenRestoreRect;
-        SetWindowPos(hwnd, HWND_TOP,
-                     rc.left, rc.top,
-                     rc.right - rc.left,
-                     rc.bottom - rc.top,
-                     SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+            // Restore trạng thái maximize/minimize
+            SetWindowPlacement(hwnd, &g_DragResizeState.placement);
 
-        // Restore trạng thái maximize/minimize
-        SetWindowPlacement(hwnd, &g_DragResizeState.placement);
+            // Đồng bộ lại kích thước SDL
+            SDL_SetWindowPosition(window, rc.left, rc.top);
+            SDL_SetWindowSize(window, g_DragResizeState.restoreW, g_DragResizeState.restoreH);
 
-        // Đồng bộ lại kích thước SDL
-        SDL_SetWindowPosition(window, rc.left, rc.top);
-        SDL_SetWindowSize(window, g_DragResizeState.restoreW, g_DragResizeState.restoreH);
+            g_DragResizeState.IsFullscreen_video = false;
+        }
 
-        g_DragResizeState.IsFullscreen_video = false;
-    }
-
-    return g_DragResizeState.IsFullscreen_video;
+        return g_DragResizeState.IsFullscreen_video;
+    #else
+        Uint32 fullscreenFlag = SDL_WINDOW_FULLSCREEN_DESKTOP;
+        if (enable) {
+            if (SDL_SetWindowFullscreen(window, fullscreenFlag) != 0) {
+                SDL_Log("Failed to enter fullscreen: %s", SDL_GetError());
+                return false;
+            }
+        } else {
+            if (SDL_SetWindowFullscreen(window, 0) != 0) {
+                SDL_Log("Failed to exit fullscreen: %s", SDL_GetError());
+                return false;
+            }
+        }
+        g_DragResizeState.IsFullscreen_video = enable;
+        return g_DragResizeState.IsFullscreen_video;
+    #endif
 }
 
 void SDLX_SavePlacement(SDL_Window* window)
@@ -160,12 +183,12 @@ bool SDLX_RestoreWindowSmart(SDL_Window* window, POINT cursor)
     g_DragResizeState.snapState = SnapState::NONE;
 
     // Đồng bộ + event
-    SyncSDLWithWinAPI(window);
-    SDLX_PushEvent(window, SDL_WINDOWEVENT_RESTORED);
+    //SyncSDLWithWinAPI(window);
+    //SDLX_PushEvent(window, SDL_WINDOWEVENT_RESTORED);
 
     int finalW = rr.right - rr.left;
     int finalH = rr.bottom - rr.top;
-    SDLX_PushEvent(window, SDL_WINDOWEVENT_RESIZED, finalW, finalH);
+    //SDLX_PushEvent(window, SDL_WINDOWEVENT_RESIZED, finalW, finalH);
 
     return true;
 }
@@ -234,11 +257,6 @@ void GetNormalRect(HWND hwnd, RECT& out)
 }
 void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, BorderlessWindowState& state) {
     if (!sdlWindow || state.isFullscreen_video) return;
-    SDL_SysWMinfo wmInfo{};
-    SDL_VERSION(&wmInfo.version);
-    SDL_GetWindowWMInfo(sdlWindow, &wmInfo);
-    HWND hwnd = wmInfo.info.win.window;
-    g_DragResizeState.hwnd_windown_main = hwnd;
 
     ImVec2 winPos  = ImGui::GetWindowPos();
     ImVec2 winSize = ImGui::GetWindowSize();
@@ -270,14 +288,15 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
     // Kiểm tra trạng thái hover / click
     bool clickedClose = ImGui::InvisibleButton("CloseBtn", btnSize);
     bool hoveredClose = ImGui::IsItemHovered();
-    bool activeClose = (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+    bool activeClose = (ImGui::IsItemHovered() && (g_DragResizeState.mouseDownClose));
 
-    if (clickedClose) SDLX_PushClose(sdlWindow);
+    //if (clickedClose) //SDLX_PushClose(sdlWindow);
     // Điều chỉnh màu dựa vào trạng thái
     //ImU32 closeColor = IM_COL32(35,35,35,255);       // mặc định
     ImU32 closeColor = IM_COL32(35,35,35,255);       // mặc định đỏ vừa phải
-    if (hoveredClose) closeColor = IM_COL32(220,50,50,255);  // hover đỏ tươi hơn
-    if (activeClose)  closeColor = IM_COL32(180,40,40,255);   // click đỏ rực rỡ
+    if (activeClose)  closeColor = IM_COL32(220,50,50,150);   // click đỏ rực rỡ
+    else if (hoveredClose) closeColor = IM_COL32(220,50,50,255);  // hover đỏ tươi hơn
+    
 
     dl->AddRectFilled(closePos, closePos + btnSize, closeColor, 4.0f);
     {
@@ -328,24 +347,25 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
     ImVec2 maxPos(closePos.x - btnSize.x - gap, titlePos.y );
     ImGui::SetCursorScreenPos(maxPos);
 
-    if (ImGui::InvisibleButton("MaxRestoreBtn", btnSize)) {
-        if (!g_DragResizeState.IsMax) {
-            ShowWindow(hwnd, SW_MAXIMIZE);
-            RECT wr{}; GetWindowRect(hwnd, &wr);
-            SDL_SetWindowPosition(sdlWindow, wr.left, wr.top);
-            SDL_SetWindowSize(sdlWindow, wr.right - wr.left, wr.bottom - wr.top);
-            SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MAXIMIZED);
-        } else {
-            ShowWindow(hwnd, SW_RESTORE);
-            RECT wr{}; GetWindowRect(hwnd, &wr);
-            SDL_SetWindowPosition(sdlWindow, wr.left, wr.top);
-            SDL_SetWindowSize(sdlWindow, wr.right - wr.left, wr.bottom - wr.top);
-            SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESTORED);
-        }
+    bool clickedMax =ImGui::InvisibleButton("MaxRestoreBtn", btnSize);
+    if (clickedMax) {
+        //if (!g_DragResizeState.IsMax) {
+            //ShowWindow(hwnd, SW_MAXIMIZE);
+            //RECT wr{}; GetWindowRect(hwnd, &wr);
+            //SDL_SetWindowPosition(sdlWindow, wr.left, wr.top);
+            //SDL_SetWindowSize(sdlWindow, wr.right - wr.left, wr.bottom - wr.top);
+           // SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MAXIMIZED);
+        //} else {
+            //ShowWindow(hwnd, SW_RESTORE);
+            //RECT wr{}; GetWindowRect(hwnd, &wr);
+            //SDL_SetWindowPosition(sdlWindow, wr.left, wr.top);
+            //SDL_SetWindowSize(sdlWindow, wr.right - wr.left, wr.bottom - wr.top);
+            //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESTORED);
+        //}
     }
 
     bool hoveredMax = ImGui::IsItemHovered();
-    bool activeMax  = (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+    bool activeMax  = (ImGui::IsItemHovered() && (g_DragResizeState.mouseDownMax || g_DragResizeState.mouseDownRestore));
 
 
     ImU32 maxColor = IM_COL32(35,35,35,255);
@@ -382,13 +402,14 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
     ImVec2 minPos(maxPos.x - btnSize.x - gap, titlePos.y );
     ImGui::SetCursorScreenPos(minPos);
     
-    if (ImGui::InvisibleButton("MinBtn", btnSize)) {
-        ShowWindow(hwnd, SW_MINIMIZE);
-        SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED);
-        SDL_MinimizeWindow(sdlWindow);
+    bool clickedMin = ImGui::InvisibleButton("MinBtn", btnSize);
+    if (clickedMin) {
+        //ShowWindow(hwnd, SW_MINIMIZE);
+        //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED);
+        //SDL_MinimizeWindow(sdlWindow);
     }
     bool hoveredMin = ImGui::IsItemHovered();
-    bool activeMin  = (ImGui::IsItemHovered() && ImGui::IsMouseDown(ImGuiMouseButton_Left));
+    bool activeMin  = (ImGui::IsItemHovered() && g_DragResizeState.mouseDownMin);
 
     ImU32 minColor = IM_COL32(35,35,35,255);
     if (hoveredMin) minColor = IM_COL32(60,60,60,255);
@@ -405,7 +426,7 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
     float totalControlWidth = 3 * btnSize.x + 2 * gap;
     state.controlWidth = winSize.x - totalControlWidth - gap;
     g_DragResizeState.ControlWidth = state.controlWidth;
-
+    HWND hwnd = g_DragResizeState.hwnd_windown_main;
     auto ToRECT = [hwnd](ImVec2 pos, ImVec2 size) {
         RECT r{};
         r.left   = (LONG)pos.x;
@@ -425,7 +446,9 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, Borderless
     g_DragResizeState.rcMax   = ToRECT(maxPos, btnSize);
     g_DragResizeState.rcMin   = ToRECT(minPos, btnSize);
 
-    SyncSDLWithWinAPI(sdlWindow);
+    //SyncSDLWithWinAPI(sdlWindow);
+
+    hasRenderedSomething = true;
 }
 
 void SetWindowSDL(SDL_Window* window,

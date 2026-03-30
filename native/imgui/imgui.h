@@ -418,17 +418,17 @@ namespace ImGui
     IMGUI_API void          StyleColorsClassic(ImGuiStyle* dst = NULL); // classic imgui style
 
     // Windows
-    // - Begin() = push window to the stack and start appending to it. End() = pop window from the stack.
-    // - Passing 'bool* p_open != NULL' shows a window-closing widget in the upper-right corner of the window,
-    //   which clicking will set the boolean to false when clicked.
-    // - You may append multiple times to the same window during the same frame by calling Begin()/End() pairs multiple times.
-    //   Some information such as 'flags' or 'p_open' will only be considered by the first call to Begin().
-    // - Begin() return false to indicate the window is collapsed or fully clipped, so you may early out and omit submitting
-    //   anything to the window. Always call a matching End() for each Begin() call, regardless of its return value!
-    //   [Important: due to legacy reason, Begin/End and BeginChild/EndChild are inconsistent with all other functions
-    //    such as BeginMenu/EndMenu, BeginPopup/EndPopup, etc. where the EndXXX call should only be called if the corresponding
-    //    BeginXXX function returned true. Begin and BeginChild are the only odd ones out. Will be fixed in a future update.]
-    // - Note that the bottom of window stack always contains a window called "Debug".
+    // - Begin() = đẩy cửa sổ vào ngăn xếp và bắt đầu thêm vào nó. End() = lấy cửa sổ ra khỏi ngăn xếp.
+    // - Truyền 'bool* p_open != NULL' hiển thị một tiện ích đóng cửa sổ ở góc trên bên phải của cửa sổ,
+    //   việc nhấp sẽ đặt giá trị boolean thành false khi được nhấp.
+    // - Bạn có thể thêm nhiều lần vào cùng một cửa sổ trong cùng một khung bằng cách gọi các cặp Begin()/End() nhiều lần.
+    //   Một số thông tin như 'flags' hoặc 'p_open' chỉ được xem xét bởi lần gọi đầu tiên của Begin().
+    // - Begin() trả về false để chỉ ra rằng cửa sổ đã bị thu gọn hoặc bị cắt hoàn toàn, vì vậy bạn có thể thoát sớm và bỏ qua việc gửi
+    //   bất cứ thứ gì vào cửa sổ. Luôn gọi End() tương ứng cho mỗi lần gọi Begin(), bất kể giá trị trả về của nó!
+    //   [Quan trọng: do lý do kế thừa, Begin/End và BeginChild/EndChild không nhất quán với tất cả các chức năng khác]
+    //    chẳng hạn như BeginMenu/EndMenu, BeginPopup/EndPopup, v.v., nơi cuộc gọi EndXXX chỉ nên được gọi nếu tương ứng
+    //    Hàm BeginXXX trả về true. Chỉ có Begin và BeginChild là khác thường. Sẽ được sửa trong bản cập nhật tương lai.]
+    // - Lưu ý rằng đáy của ngăn xếp cửa sổ luôn chứa một cửa sổ gọi là "Debug".
     IMGUI_API bool          Begin(const char* name, bool* p_open = NULL, ImGuiWindowFlags flags = 0);
     IMGUI_API void          End();
 
@@ -470,23 +470,23 @@ namespace ImGui
 
     // Window manipulation
     // - Prefer using SetNextXXX functions (before Begin) rather that SetXXX functions (after Begin).
-    IMGUI_API void          SetNextWindowPos(const ImVec2& pos, ImGuiCond cond = 0, const ImVec2& pivot = ImVec2(0, 0)); // set next window position. call before Begin(). use pivot=(0.5f,0.5f) to center on given point, etc.
-    IMGUI_API void          SetNextWindowSize(const ImVec2& size, ImGuiCond cond = 0);                  // set next window size. set axis to 0.0f to force an auto-fit on this axis. call before Begin()
-    IMGUI_API void          SetNextWindowSizeConstraints(const ImVec2& size_min, const ImVec2& size_max, ImGuiSizeCallback custom_callback = NULL, void* custom_callback_data = NULL); // set next window size limits. use 0.0f or FLT_MAX if you don't want limits. Use -1 for both min and max of same axis to preserve current size (which itself is a constraint). Use callback to apply non-trivial programmatic constraints.
-    IMGUI_API void          SetNextWindowContentSize(const ImVec2& size);                               // set next window content size (~ scrollable client area, which enforce the range of scrollbars). Not including window decorations (title bar, menu bar, etc.) nor WindowPadding. set an axis to 0.0f to leave it automatic. call before Begin()
-    IMGUI_API void          SetNextWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                 // set next window collapsed state. call before Begin()
-    IMGUI_API void          SetNextWindowFocus();                                                       // set next window to be focused / top-most. call before Begin()
-    IMGUI_API void          SetNextWindowScroll(const ImVec2& scroll);                                  // set next window scrolling value (use < 0.0f to not affect a given axis).
-    IMGUI_API void          SetNextWindowBgAlpha(float alpha);                                          // set next window background color alpha. helper to easily override the Alpha component of ImGuiCol_WindowBg/ChildBg/PopupBg. you may also use ImGuiWindowFlags_NoBackground.
-    IMGUI_API void          SetNextWindowViewport(ImGuiID viewport_id);                                 // set next window viewport
-    IMGUI_API void          SetWindowPos(const ImVec2& pos, ImGuiCond cond = 0);                        // (not recommended) set current window position - call within Begin()/End(). prefer using SetNextWindowPos(), as this may incur tearing and side-effects.
-    IMGUI_API void          SetWindowSize(const ImVec2& size, ImGuiCond cond = 0);                      // (not recommended) set current window size - call within Begin()/End(). set to ImVec2(0, 0) to force an auto-fit. prefer using SetNextWindowSize(), as this may incur tearing and minor side-effects.
-    IMGUI_API void          SetWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                     // (not recommended) set current window collapsed state. prefer using SetNextWindowCollapsed().
-    IMGUI_API void          SetWindowFocus();                                                           // (not recommended) set current window to be focused / top-most. prefer using SetNextWindowFocus().
-    IMGUI_API void          SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);      // set named window position.
-    IMGUI_API void          SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);    // set named window size. set axis to 0.0f to force an auto-fit on this axis.
-    IMGUI_API void          SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // set named window collapsed state
-    IMGUI_API void          SetWindowFocus(const char* name);                                           // set named window to be focused / top-most. use NULL to remove focus.
+    IMGUI_API void          SetNextWindowPos(const ImVec2& pos, ImGuiCond cond = 0, const ImVec2& pivot = ImVec2(0, 0)); // đặt vị trí cửa sổ tiếp theo. gọi trước Begin(). sử dụng pivot=(0.5f,0.5f) để căn giữa tại điểm đã cho, v.v.
+    IMGUI_API void          SetNextWindowSize(const ImVec2& size, ImGuiCond cond = 0);                  // thiết lập kích thước cửa sổ tiếp theo. đặt trục thành 0.0f để buộc tự động điều chỉnh theo trục này. gọi trước Begin()
+    IMGUI_API void          SetNextWindowSizeConstraints(const ImVec2& size_min, const ImVec2& size_max, ImGuiSizeCallback custom_callback = NULL, void* custom_callback_data = NULL); // đặt giới hạn kích thước cửa sổ tiếp theo. sử dụng 0.0f hoặc FLT_MAX nếu bạn không muốn giới hạn. Sử dụng -1 cho cả min và max của cùng một trục để giữ kích thước hiện tại (bản thân nó là một giới hạn). Sử dụng callback để áp dụng các giới hạn lập trình không tầm thường.
+    IMGUI_API void          SetNextWindowContentSize(const ImVec2& size);                               // đặt kích thước nội dung cửa sổ tiếp theo (~ khu vực khách có thể cuộn, điều này xác định phạm vi của thanh cuộn). Không bao gồm trang trí cửa sổ (thanh tiêu đề, thanh menu, v.v.) cũng như WindowPadding. đặt một trục là 0.0f để giữ tự động. gọi trước Begin()
+    IMGUI_API void          SetNextWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                 // đặt trạng thái thu gọn của cửa sổ tiếp theo. gọi trước Begin()
+    IMGUI_API void          SetNextWindowFocus();                                                       // đặt cửa sổ tiếp theo để được tập trung / luôn ở trên cùng. gọi trước Begin()
+    IMGUI_API void          SetNextWindowScroll(const ImVec2& scroll);                                  // đặt giá trị cuộn cửa sổ tiếp theo (sử dụng < 0.0f để không ảnh hưởng đến một trục nhất định).
+    IMGUI_API void          SetNextWindowBgAlpha(float alpha);                                          // đặt alpha màu nền cửa sổ tiếp theo. trợ giúp để dễ dàng ghi đè thành phần Alpha của ImGuiCol_WindowBg/ChildBg/PopupBg. bạn cũng có thể sử dụng ImGuiWindowFlags_NoBackground.
+    IMGUI_API void          SetNextWindowViewport(ImGuiID viewport_id);                                 // đặt chế độ xem cửa sổ tiếp theo
+    IMGUI_API void          SetWindowPos(const ImVec2& pos, ImGuiCond cond = 0);                        // (không được khuyến nghị) đặt vị trí cửa sổ hiện tại - gọi bên trong Begin()/End(). nên sử dụng SetNextWindowPos(), vì điều này có thể gây ra hiện tượng xé hình và các tác dụng phụ.
+    IMGUI_API void          SetWindowSize(const ImVec2& size, ImGuiCond cond = 0);                      // (không được khuyến nghị) đặt kích thước cửa sổ hiện tại - gọi trong Begin()/End(). đặt thành ImVec2(0, 0) để buộc tự động điều chỉnh. ưu tiên sử dụng SetNextWindowSize(), vì điều này có thể gây ra xé hình và các tác dụng phụ nhỏ.
+    IMGUI_API void          SetWindowCollapsed(bool collapsed, ImGuiCond cond = 0);                     // (không được khuyến nghị) đặt trạng thái thu gọn của cửa sổ hiện tại. ưu tiên sử dụng SetNextWindowCollapsed().
+    IMGUI_API void          SetWindowFocus();                                                           // (không khuyến nghị) đặt cửa sổ hiện tại để được tập trung / luôn ở trên cùng. nên sử dụng SetNextWindowFocus().
+    IMGUI_API void          SetWindowPos(const char* name, const ImVec2& pos, ImGuiCond cond = 0);      // đặt vị trí cửa sổ có tên.
+    IMGUI_API void          SetWindowSize(const char* name, const ImVec2& size, ImGuiCond cond = 0);    // đặt kích thước cửa sổ có tên. đặt trục thành 0.0f để buộc tự động điều chỉnh trên trục này.
+    IMGUI_API void          SetWindowCollapsed(const char* name, bool collapsed, ImGuiCond cond = 0);   // đặt trạng thái thu gọn của cửa sổ có tên
+    IMGUI_API void          SetWindowFocus(const char* name);                                           // đặt cửa sổ có tên để được tập trung / luôn ở trên cùng. sử dụng NULL để loại bỏ tập trung.
 
     // Windows Scrolling
     // - Any change of Scroll will be applied at the beginning of next frame in the first call to Begin().
@@ -819,9 +819,9 @@ namespace ImGui
     // - Tooltips are windows following the mouse. They do not take focus away.
     // - A tooltip window can contain items of any types.
     // - SetTooltip() is more or less a shortcut for the 'if (BeginTooltip()) { Text(...); EndTooltip(); }' idiom (with a subtlety that it discard any previously submitted tooltip)
-    IMGUI_API bool          BeginTooltip();                                                     // begin/append a tooltip window.
-    IMGUI_API void          EndTooltip();                                                       // only call EndTooltip() if BeginTooltip()/BeginItemTooltip() returns true!
-    IMGUI_API void          SetTooltip(const char* fmt, ...) IM_FMTARGS(1);                     // set a text-only tooltip. Often used after a ImGui::IsItemHovered() check. Override any previous call to SetTooltip().
+    IMGUI_API bool          BeginTooltip();                                                     // bắt đầu/thêm một cửa sổ chú giải công cụ.
+    IMGUI_API void          EndTooltip();                                                       // chỉ gọi EndTooltip() nếu BeginTooltip()/BeginItemTooltip() trả về true!
+    IMGUI_API void          SetTooltip(const char* fmt, ...) IM_FMTARGS(1);                     // đặt một tooltip chỉ văn bản. Thường được sử dụng sau khi kiểm tra ImGui::IsItemHovered(). Ghi đè mọi lệnh gọi trước đó đến SetTooltip().
     IMGUI_API void          SetTooltipV(const char* fmt, va_list args) IM_FMTLIST(1);
 
     // Tooltips: helpers for showing a tooltip when hovering an item
@@ -1020,23 +1020,23 @@ namespace ImGui
     // Item/Widgets Utilities and Query Functions
     // - Most of the functions are referring to the previous Item that has been submitted.
     // - See Demo Window under "Widgets->Querying Status" for an interactive visualization of most of those functions.
-    IMGUI_API bool          IsItemHovered(ImGuiHoveredFlags flags = 0);                         // is the last item hovered? (and usable, aka not blocked by a popup, etc.). See ImGuiHoveredFlags for more options.
-    IMGUI_API bool          IsItemActive();                                                     // is the last item active? (e.g. button being held, text field being edited. This will continuously return true while holding mouse button on an item. Items that don't interact will always return false)
-    IMGUI_API bool          IsItemFocused();                                                    // is the last item focused for keyboard/gamepad navigation?
-    IMGUI_API bool          IsItemClicked(ImGuiMouseButton mouse_button = 0);                   // is the last item hovered and mouse clicked on? (**)  == IsMouseClicked(mouse_button) && IsItemHovered()Important. (**) this is NOT equivalent to the behavior of e.g. Button(). Read comments in function definition.
-    IMGUI_API bool          IsItemVisible();                                                    // is the last item visible? (items may be out of sight because of clipping/scrolling)
-    IMGUI_API bool          IsItemEdited();                                                     // did the last item modify its underlying value this frame? or was pressed? This is generally the same as the "bool" return value of many widgets.
-    IMGUI_API bool          IsItemActivated();                                                  // was the last item just made active (item was previously inactive).
-    IMGUI_API bool          IsItemDeactivated();                                                // was the last item just made inactive (item was previously active). Useful for Undo/Redo patterns with widgets that require continuous editing.
-    IMGUI_API bool          IsItemDeactivatedAfterEdit();                                       // was the last item just made inactive and made a value change when it was active? (e.g. Slider/Drag moved). Useful for Undo/Redo patterns with widgets that require continuous editing. Note that you may get false positives (some widgets such as Combo()/ListBox()/Selectable() will return true even when clicking an already selected item).
-    IMGUI_API bool          IsItemToggledOpen();                                                // was the last item open state toggled? set by TreeNode().
-    IMGUI_API bool          IsAnyItemHovered();                                                 // is any item hovered?
-    IMGUI_API bool          IsAnyItemActive();                                                  // is any item active?
-    IMGUI_API bool          IsAnyItemFocused();                                                 // is any item focused?
-    IMGUI_API ImGuiID       GetItemID();                                                        // get ID of last item (~~ often same ImGui::GetID(label) beforehand)
-    IMGUI_API ImVec2        GetItemRectMin();                                                   // get upper-left bounding rectangle of the last item (screen space)
-    IMGUI_API ImVec2        GetItemRectMax();                                                   // get lower-right bounding rectangle of the last item (screen space)
-    IMGUI_API ImVec2        GetItemRectSize();                                                  // get size of last item
+    IMGUI_API bool          IsItemHovered(ImGuiHoveredFlags flags = 0);                         // có phải mục cuối cùng đang được di chuột qua không? (và có thể sử dụng, tức là không bị chặn bởi một cửa sổ bật lên, v.v.). Xem ImGuiHoveredFlags để biết thêm các tùy chọn.
+    IMGUI_API bool          IsItemActive();                                                     // mục cuối cùng có đang hoạt động không? (ví dụ: nút đang được nhấn, trường văn bản đang được chỉnh sửa. Điều này sẽ liên tục trả về true khi giữ nút chuột trên một mục. Các mục không tương tác sẽ luôn trả về false)
+    IMGUI_API bool          IsItemFocused();                                                    // mục cuối cùng có đang được tập trung cho điều hướng bàn phím/gamepad không?
+    IMGUI_API bool          IsItemClicked(ImGuiMouseButton mouse_button = 0);                   // có phải mục cuối cùng được di chuột qua và nhấp chuột không? (**) == IsMouseClicked(mouse_button) && IsItemHovered()Quan trọng. (**) điều này KHÔNG tương đương với hành vi của ví dụ Button(). Đọc các chú thích trong định nghĩa hàm.
+    IMGUI_API bool          IsItemVisible();                                                    // đây có phải là mục cuối cùng đang hiển thị không? (các mục có thể bị khuất do cắt/b cuộn)
+    IMGUI_API bool          IsItemEdited();                                                     // mục cuối cùng có thay đổi giá trị cơ bản của nó trong khung này không? hay đã được nhấn? Điều này thường giống như giá trị trả về "bool" của nhiều widget.
+    IMGUI_API bool          IsItemActivated();                                                  // có phải mục cuối cùng vừa được kích hoạt (mục trước đó đang không hoạt động).
+    IMGUI_API bool          IsItemDeactivated();                                                // là mục cuối cùng vừa bị đặt thành không hoạt động (mục trước đó đã hoạt động). Hữu ích cho các mẫu Hoàn tác/Làm lại với các widget yêu cầu chỉnh sửa liên tục.
+    IMGUI_API bool          IsItemDeactivatedAfterEdit();                                       // mục cuối cùng vừa bị vô hiệu hóa và thay đổi giá trị khi nó còn hoạt động phải không? (ví dụ: Slider/Drag di chuyển). Hữu ích cho các mẫu Hoàn tác/Làm lại với các widget yêu cầu chỉnh sửa liên tục. Lưu ý rằng bạn có thể nhận được kết quả dương tính giả (một số widget như Combo()/ListBox()/Selectable() sẽ trả về true ngay cả khi nhấp vào một mục đã được chọn).
+    IMGUI_API bool          IsItemToggledOpen();                                                // có phải trạng thái mở của mục cuối cùng đã được chuyển đổi? được thiết lập bởi TreeNode().
+    IMGUI_API bool          IsAnyItemHovered();                                                 // có mục nào đang được di chuột qua không?
+    IMGUI_API bool          IsAnyItemActive();                                                  // có mục nào đang hoạt động không?
+    IMGUI_API bool          IsAnyItemFocused();                                                 // có phải bất kỳ mục nào đang được tập trung không?
+    IMGUI_API ImGuiID       GetItemID();                                                        // lấy ID của mục cuối cùng (~~ thường giống ImGui::GetID(label) trước đó)
+    IMGUI_API ImVec2        GetItemRectMin();                                                   // lấy hình chữ nhật giới hạn phía trên bên trái của mục cuối cùng (không gian màn hình)
+    IMGUI_API ImVec2        GetItemRectMax();                                                   // lấy hình chữ nhật giới hạn phía dưới bên phải của mục cuối cùng (không gian màn hình)
+    IMGUI_API ImVec2        GetItemRectSize();                                                  // lấy kích thước của mục cuối cùng
 
     // Viewports
     // - Currently represents the Platform Window created by the application which is hosting our Dear ImGui windows.

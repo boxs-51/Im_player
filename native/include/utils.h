@@ -241,7 +241,12 @@ struct WindowContext {
 struct BorderlessWindowState {
     ImVec2 videoOffset = ImVec2(0,0);
     bool isFullscreen_video = false;
-    float titleHeight = 25.0f;
+    
+    #ifdef CUSTOM_TITLEBAR
+        float titleHeight = 25.0f;
+    #else
+        float titleHeight = 0.0f;
+    #endif
     int resizeMargin = 5; // vùng nhạy resize
     int minWidth = 100 ;
     int minHeight = 100 ;
@@ -261,14 +266,10 @@ struct WindowLayout {
     int WinX;
     int WinY;
 
-    int DrawWinW;
-    int DrawWinH;
-
     SDL_Rect titleBar;   // Vùng titlebar
     SDL_Rect videoArea;  // Vùng video/content
 
     ImVec2 DisplaySize;
-    float DisplayDPI;
 
     ImVec2 VideoPos;
     ImVec2 VideoSize;
@@ -311,7 +312,7 @@ void TerminateHandler();
 void SignalHandler(int signal);
 void UpdateUIState(bool& show_ui_video);
 void NotifyActivity(bool& show_ui_video);
-bool SetDelayHover(bool isHovering, float delaySeconds) ;
+bool SetDelayHover(bool isHovering, double delaySeconds = 3.0) ;
 
 void DrawCardWithHole(
     ImDrawList* dl,

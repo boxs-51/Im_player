@@ -53,10 +53,10 @@ bool SDLX_RestoreWindowSmart(SDL_Window* window, POINT cursor);
 void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, BorderlessWindowState& state);
 
 void SetWindowSDL(SDL_Window* window,
-                  int minW, int minH,
-                  int maxW, int maxH,
-                  int aspectNum , int aspectDen,
-                  bool enableSnap , int snapThreshold );
+                  int minW = 0, int minH = 0,
+                  int maxW = 0, int maxH = 0,
+                  int aspectNum = 0, int aspectDen = 0,
+                  bool enableSnap = true, int snapThreshold = 24);
 
 inline RECT GetMonitorRectForWindow(HWND hwnd) {
     HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);

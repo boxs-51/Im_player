@@ -1,0 +1,117 @@
+#include "wintoastlib.h"
+#include "notification.h"
+#include "utils.h"
+
+#include <string>
+#include <windows.h>
+#include <shlobj.h>
+#include <shobjidl.h>   // IShellLink
+#include <objbase.h>
+
+
+using namespace WinToastLib;
+
+
+bool CreateShortcut(const std::wstring& shortcutName,
+                    const std::wstring& targetPath,
+                    const std::wstring& appId)
+{
+    CoInitialize(nullptr);
+
+    wchar_t startMenuPath[MAX_PATH];
+    if (FAILED(SHGetFolderPathW(nullptr, CSIDL_STARTMENU, nullptr, 0, startMenuPath))) {
+        return false;
+    }
+
+    std::wstring shortcutPath = std::wstring(startMenuPath) +
+        L"\\Programs\\" + shortcutName + L".lnk";
+
+    IShellLinkW* pShellLink = nullptr;
+
+    HRESULT hr = CoCreateInstance(CLSID_ShellLink, nullptr,
+                                 CLSCTX_INPROC_SERVER,
+                                 IID_IShellLinkW,
+                                 (void**)&pShellLink);
+
+    if (FAILED(hr)) return false;
+
+    // Set đường dẫn tới exe
+    pShellLink->SetPath(targetPath.c_str());
+
+    // Set working dir
+    pShellLink->SetWorkingDirectory(targetPath.substr(0, targetPath.find_last_of(L"\\")).c_str());
+
+    // ⚠️ Quan trọng: Set AppUserModelID
+    IPropertyStore* pPropStore;
+    hr = pShellLink->QueryInterface(IID_IPropertyStore, (void**)&pPropStore);
+
+    if (SUCCEEDED(hr)) {
+        PROPVARIANT pv;
+        InitPropVariantFromString(appId.c_str(), &pv);
+
+        pPropStore->SetValue(PKEY_AppUserModel_ID, pv);
+        pPropStore->Commit();
+
+        PropVariantClear(&pv);
+        pPropStore->Release();
+    }
+
+    // Save shortcut
+    IPersistFile* pPersistFile;
+    hr = pShellLink->QueryInterface(IID_IPersistFile, (void**)&pPersistFile);
+
+    if (SUCCEEDED(hr)) {
+        hr = pPersistFile->Save(shortcutPath.c_str(), TRUE);
+        pPersistFile->Release();
+    }
+
+    pShellLink->Release();
+    CoUninitialize();
+
+    return SUCCEEDED(hr);
+}
+bool InitNotification() {
+    if (!WinToast::isCompatible()) return false;
+
+    std::wstring exePath = L"D:\\ProJecy2\\imgui_player\\bin\\Debug\\imgui_player.exe";
+    
+    std::wstring appId = L"MyCompany.MyPlayer.Player.1.0";
+
+    
+
+    CreateShortcut(
+        L"My MPV Player",
+        exePath,
+        appId
+    );
+
+    WinToast::instance()->setAppName(L"My MPV Player");
+
+    WinToast::instance()->setAppUserModelId(
+        WinToast::configureAUMI(L"MyCompany", L"MyPlayer", L"Player", L"1.0")
+    );
+
+    if (!WinToast::instance()->initialize()) {
+        return false;
+    }
+
+    return true;
+}
+
+void ShowNotification(const std::wstring& title, const std::wstring& content) {
+    WinToastTemplate templ(WinToastTemplate::Text02);
+
+    templ.setTextField(title, WinToastTemplate::FirstLine);
+    templ.setTextField(content, WinToastTemplate::SecondLine);
+
+    WinToast::instance()->showToast(templ, nullptr);
+}
+void NotifyMPV() {
+
+    std::string title = std::string(g_playbackStatus.mediaTitle).empty() ? "Unknown Title" : g_playbackStatus.mediaTitle;
+    bool paused = g_playbackStatus.isPaused;
+
+    std::wstring status = paused ? L"Paused" : L"Playing";
+
+    ShowNotification(ToWString(title), status);
+}

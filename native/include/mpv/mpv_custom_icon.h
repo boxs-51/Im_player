@@ -16,6 +16,8 @@ struct PlayPauseData
 {
     float t = 0.0f;      // animation 0→1
     bool paused = false; // state thực của player
+
+    bool hovered = false; // trạng thái hover hiện tại
 };
 
 inline static void DrawPlayPauseIcon(
@@ -822,7 +824,6 @@ inline const IconButtonStyle& GetDefaultIconButtonStyle()
     static IconButtonStyle s;
     return s;
 }
-
 inline static bool CustomIconButton(
     const char* str_id,
     void(*drawFn)(ImDrawList*, ImVec2, ImVec2, ImU32, void*),

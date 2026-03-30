@@ -4,6 +4,7 @@
 #include "json.hpp"
 #include "windows/windows_borderless.h"
 #include "thread.h"
+#include "notification.h"
 
 #include "mpv/mpv_basic_formats.h"
 
@@ -55,7 +56,6 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState
 
     SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
     SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
-    SDL_GL_GetDrawableSize(sdlWindow, &w.DrawWinW, &w.DrawWinH);
     // Fullscreen: video chiếm toàn bộ, title bar ẩn
     if (state.isFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
     } else {
@@ -66,11 +66,6 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState
     }
     w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
     w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
-    float ddpi, hdpi, vdpi;
-    if (SDL_GetDisplayDPI(0, &ddpi, &hdpi, &vdpi) == 0) {
-        w.DisplayDPI = ddpi / 96.0f;
-    }
-
 }
 
 
@@ -859,7 +854,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             else if (strcmp(name, "track-list") == 0)           UpdateTrackList((const mpv_node*)prop->data); 
             else if (strcmp(name, "filename") == 0)             {g_playbackStatus.hasFile = true;  mpv_get_prop(mpv,"filename",g_playbackStatus.filename);   RATE_LIMITED_COUT(filename, 1,std::cout << "[DEBUG] [INFO] [Media] Filename updated: " << g_playbackStatus.filename << "");}
             else if (strcmp(name, "stream-open-filename") == 0) {mpv_get_prop(mpv,"stream-open-filename",g_playbackStatus.streamUrl);                        RATE_LIMITED_COUT(stream_open_filename, 1,std::cout << "[DEBUG] [INFO] [Media] Stream Open Filename updated: " << g_playbackStatus.streamUrl << "");}
-            else if (strcmp(name, "media-title") == 0)          {mpv_get_prop(mpv,"media-title",g_playbackStatus.mediaTitle);                                RATE_LIMITED_COUT(media_title, 1,std::cout << "[DEBUG] [INFO] [Media] Media Title updated: " << g_playbackStatus.mediaTitle << "");}
+            else if (strcmp(name, "media-title") == 0)          {mpv_get_prop(mpv,"media-title",g_playbackStatus.mediaTitle); NotifyMPV();                               RATE_LIMITED_COUT(media_title, 1,std::cout << "[DEBUG] [INFO] [Media] Media Title updated: " << g_playbackStatus.mediaTitle << "");}
             else if (strcmp(name, "title") == 0)                {mpv_get_prop(mpv,"title",g_playbackStatus.Title);                                           RATE_LIMITED_COUT(title, 1,std::cout << "[DEBUG] [INFO] [Media] Title updated: " << g_playbackStatus.Title << "");}
             else if (strcmp(name, "file-format") == 0)          {mpv_get_prop(mpv,"file-format",g_playbackStatus.fileFormat);                                RATE_LIMITED_COUT(file_format, 1,std::cout << "[DEBUG] [INFO] [Media] File Format updated: " << g_playbackStatus.fileFormat << "");}
             else if (strcmp(name, "metadata") == 0)             UpdateMetadata((const mpv_node*)prop->data);
@@ -1299,14 +1294,14 @@ void UpdateUIState( bool& show_ui_video ) {
     // 3. XÁC ĐỊNH TIMEOUT THEO 3 TRẠNG THÁI (Ưu tiên từ cao xuống thấp)
     Uint32 currentTimeout;
     if (isInteractingWithUI ) {
-        currentTimeout = 2000; // Đang tương tác UI: 2s
+        currentTimeout = 5000; // Đang tương tác UI: 5s
     } else if (isMouseInsideVideo) {
         currentTimeout = 1000; // Di chuột bình thường trong video: 1s
     } else {
         currentTimeout = 500;  // Đã rời khỏi video: 0.5s
     }
     // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
-    if ((isMouseMoving ) && isMouseInsideVideo) {
+    if ((isMouseMoving  ) && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         
         // Tự động hiện lại UI nếu có hoạt động
@@ -1379,16 +1374,16 @@ GLuint GetIcon(const std::string& path)
     return textureID;
 }
 
-bool SetDelayHover(bool isHovering, float delaySeconds) {
-    static double hoverStartTime = -1.0; // Thời điểm bắt đầu hover, -1 nghĩa là chưa hover
+bool SetDelayHover(bool isHovering, double delaySeconds) {
+    static Uint32 hoverStartTime = -1.0; // Thời điểm bắt đầu hover, -1 nghĩa là chưa hover
     if (isHovering) {
         // Nếu vừa mới bắt đầu hover, ghi lại thời gian
         if (hoverStartTime < 0) {
-            hoverStartTime = ImGui::GetTime();
+            hoverStartTime = SDL_GetTicks();
         }
         
         // Kiểm tra xem đã đủ thời gian delay chưa
-        if (ImGui::GetTime() - hoverStartTime >= (double)delaySeconds) {
+        if (SDL_GetTicks() - hoverStartTime >= (Uint32)(delaySeconds * 1000)) {
             return true;
         }
     } else {
