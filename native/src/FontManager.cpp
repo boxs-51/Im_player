@@ -1,5 +1,5 @@
 
-#define USE_FREETYPE
+
 #define STB_TRUETYPE_IMPLEMENTATION
 #define IMGUI_ENABLE_FREETYPE
 #include "FontManager.h"
@@ -13,7 +13,7 @@
 #endif
 // To use FreeType, define USE_FREETYPE and make sure FT_Init_FreeType/FT_Done_FreeType are enabled below.
 // For now we disable FreeType to use stb validation only:
-// #define USE_FREETYPE
+//#define USE_FREETYPE
 #include "utils.h"
 //#undef RATE_LIMITED_COUT
 //#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
@@ -95,13 +95,11 @@ bool FontManager::LoadFontsSmartMultiAtlas(
     int maxFontsPerAtlas,
     int texWidth,
     const std::string& defaultFamily,
-    const std::string& defaultStyle)
+    const std::string& defaultStyle,
+    std::vector<std::string> dirs
+)
 {
-    std::vector<std::string> dirs = {
-        "C:/Windows/Fonts",
-        "imgui_player/fonts",
-        "imgui_player/fonts/static"
-    };
+
     std::vector<std::string> exts = { ".ttf", ".otf" }; // skip .ttc to avoid stb parse issues
 
     ImGuiIO& io = ImGui::GetIO();
@@ -460,11 +458,9 @@ void FontManager::SetCurrentFont(int index) {
         m_activeFont = m_fonts[index].imFont;
     }
 }
-
 ImFont* FontManager::GetCurrentFont() const {
     return m_activeFont;
 }
-
 ImFont* FontManager::GetFontByName(const std::string& family, const std::string& style) {
     for (auto& f : m_fonts) {
         if (ToLower(f.family) == ToLower(family) &&
@@ -474,7 +470,6 @@ ImFont* FontManager::GetFontByName(const std::string& family, const std::string&
     }
     return nullptr;
 }
-
 ImFont* FontManager::GetFontByFamily(const std::string& family) {
     for (auto& f : m_fonts) {
         if (ToLower(f.family) == ToLower(family)) {
@@ -483,7 +478,6 @@ ImFont* FontManager::GetFontByFamily(const std::string& family) {
     }
     return nullptr;
 }
-
 ImFont* FontManager::GetFont(const std::string& family, const std::string& style, float scale) {
     for (auto& f : m_fonts) {
         if (ToLower(f.family) == ToLower(family) &&
@@ -494,7 +488,6 @@ ImFont* FontManager::GetFont(const std::string& family, const std::string& style
     }
     return nullptr;
 }
-
 void FontManager::ResetFontScale(ImFont* font) {
     for (auto& f : m_fonts) {
         if (f.imFont == font) {
@@ -503,25 +496,22 @@ void FontManager::ResetFontScale(ImFont* font) {
         }
     }
 }
-
 const std::vector<FontEntry>& FontManager::GetFonts() const {
     return m_fonts;
 }
-
 void FontManager::PushFont(int index) {
     if (index < 0 || index >= (int)m_fonts.size()) return;
     ImGui::PushFont(m_fonts[index].imFont);
 }
-
 void FontManager::PopFont() {
     ImGui::PopFont();
 }
-
 bool FontManager::LoadFontsSmartAuto(
     float size,
     int maxFonts,
     const std::string& defaultFamily,
-    const std::string& defaultStyle)
+    const std::string& defaultStyle,
+    std::vector<std::string> dirs)
 {
     ImGuiIO& io = ImGui::GetIO();
 #ifdef USE_FREETYPE
@@ -530,11 +520,6 @@ bool FontManager::LoadFontsSmartAuto(
     io.Fonts->Clear(); // reset toàn bộ font
     Clear();
 
-    std::vector<std::string> dirs = {
-        AutoPath<std::string>("C:/Windows/Fonts"),
-        AutoPath<std::string>("%ROOT%","fonts"),
-
-    };
     std::vector<std::string> exts = { ".ttf", ".otf" ,"ttc"};
 
 #ifdef USE_FREETYPE
@@ -718,5 +703,94 @@ bool FontManager::LoadFontsSmartAuto(
     io.Fonts->GetTexDataAsRGBA32(&pixels, &width, &height, &bpp);
 
     std::cout << "[DEBUG] Font atlas size: " << width << "x" << height << ", Bpp=" << bpp << "\n";
+    return true;
+}
+
+bool FontManager::LoadFontsSpecific(float size, const std::string& fontDir) {
+    ImGuiIO& io = ImGui::GetIO();
+    
+    // Hàm trợ giúp kiểm tra file "sống" hay không
+    auto IsValidFontFile = [](const std::string& path) -> bool {
+        try {
+            if (!fs::exists(path)) return false;
+            if (!fs::is_regular_file(path)) return false;
+            size_t fileSize = fs::file_size(path);
+            if (fileSize < 1024) return false; // File nhỏ hơn 1KB chắc chắn không phải font hợp lệ
+            return true;
+        } catch (...) { return false; }
+    };
+
+#ifdef USE_FREETYPE
+    io.Fonts->FontLoaderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
+#endif
+
+    io.Fonts->Clear();
+    this->Clear();
+
+    std::string pathMain  = fontDir + "/Notosans-Regular.ttf";
+    std::string pathCJK   = fontDir + "/NotoSansCJK-Regular.ttc";
+    std::string pathEmoji = fontDir + "/NotoColorEmoji.ttf";
+    std::string pathIcon  = fontDir + "/fa-solid-900.ttf";
+
+    // 1. Cấu hình Font chính
+    ImFontConfig mainCfg{};
+    mainCfg.OversampleH = 2;
+    mainCfg.OversampleV = 2;
+    mainCfg.PixelSnapH = true;
+
+    // --- BƯỚC 1: LOAD FONT CHÍNH ---
+    if (!IsValidFontFile(pathMain)) {
+        std::cout << "[ERROR] Main font missing or invalid: " << pathMain << "\n";
+        // Nếu font chính lỗi, dùng font mặc định của ImGui để tránh crash
+        ImFont* defFont = io.Fonts->AddFontDefault();
+        m_activeFont = defFont;
+        return false;
+    }
+
+    ImFont* mainFont = io.Fonts->AddFontFromFileTTF(pathMain.c_str(), size, &mainCfg, io.Fonts->GetGlyphRangesDefault());
+    if (!mainFont) return false;
+
+    // --- CẤU HÌNH MERGE ---
+    ImFontConfig mergeCfg{};
+    mergeCfg.MergeMode = true;
+    mergeCfg.PixelSnapH = true;
+
+    // --- BƯỚC 2: MERGE CJK ---
+    if (IsValidFontFile(pathCJK)) {
+        io.Fonts->AddFontFromFileTTF(pathCJK.c_str(), size, &mergeCfg, io.Fonts->GetGlyphRangesChineseFull());
+    }
+
+    // --- BƯỚC 3: MERGE ICONS ---
+    if (IsValidFontFile(pathIcon)) {
+        static const ImWchar icon_ranges[] = { 0xe005, 0xf8ff, 0 }; 
+        io.Fonts->AddFontFromFileTTF(pathIcon.c_str(), size, &mergeCfg, icon_ranges);
+    }
+    // --- BƯỚC 4: MERGE EMOJI ---
+    #ifdef USE_FREETYPE 
+        // Chỉ thử load Emoji nếu có FreeType
+        if (IsValidFontFile(pathEmoji)) {
+            ImFontConfig emojiCfg = mergeCfg;
+            emojiCfg.FontLoaderFlags = ImGuiFreeTypeBuilderFlags_LoadColor; // Bắt buộc
+            
+            static const ImWchar emoji_ranges[] = { 0x2000, 0x206F, 0x2190, 0x21FF, 0x1F000, 0x1FAFF, 0 };
+            
+            // Dùng con trỏ tạm để kiểm tra
+            ImFont* res = io.Fonts->AddFontFromFileTTF(pathEmoji.c_str(), size, &emojiCfg, emoji_ranges);
+            if (!res) {
+                RATE_LIMITED_COUT(font_manager_emoji_merge_failed_specific, 1,
+                    std::cout << "[DEBUG] Failed to merge emoji font: " << pathEmoji << "\n");  
+            }
+        }
+    #else
+        RATE_LIMITED_COUT(font_manager_freetype_required_for_emoji_specific, 1,
+            std::cout << "[DEBUG] FreeType required to load emoji fonts. Skipping: " << pathEmoji << "\n");
+    #endif
+    // Cập nhật trạng thái
+    FontEntry fe;
+    fe.family = "CombinedFont";
+    fe.imFont = mainFont;
+    m_fonts.push_back(fe);
+    m_activeFont = mainFont;
+
     return true;
 }

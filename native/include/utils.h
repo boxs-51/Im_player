@@ -133,15 +133,15 @@ struct MPVPlaybackStatus {
     bool hasFile = false;
     bool seeking = false;
 
-    const char* working_directory;
-    const char* stream_path;
-    const char* filename;
-    const char* streamUrl;
-    const char* mediaTitle;
-    const char* Title;
-    const char* fileFormat;
-    const char* loopMode;
-    const char* audio_client_name ;
+    std::string working_directory;
+    std::string stream_path;
+    std::string filename;
+    std::string streamUrl;
+    std::string mediaTitle;
+    std::string Title;
+    std::string fileFormat;
+    std::string loopMode;
+    std::string audio_client_name ;
     
     SubInFo g_subinfo;
     std::vector<PlaylistEntry> g_playlist;
@@ -201,13 +201,13 @@ struct VideoInfo {
     double currentFPS = 0.0;    // fps thực tế (rendered, lấy từ mpv stats)
     double minFPS = 0.0;        // fps thấp nhất đo được
     double maxFPS = 0.0;        // fps cao nhất đo được    
-    const char* video_format;  // video format/container (vd: "mp4", "mkv")    
-    const char* vcodec;         // codec video (vd: "h264")
+    std::string video_format;  // video format/container (vd: "mp4", "mkv")    
+    std::string vcodec;         // codec video (vd: "h264")
     std::string description;   // mô tả chung (vd: "1920x1080 [SAR 1:1 DAR 16:9] fps 23.976")
-    const char* v_out;
+    std::string v_out;
 
     // ==== Audio ====
-    const char* acodec;         // codec audio (vd: "aac")
+    std::string acodec;         // codec audio (vd: "aac")
     double audio_delay = 0.0;
     int achannels = 0;          // số kênh
     
@@ -217,10 +217,10 @@ struct VideoInfo {
     int g_current_chapter;
 
     // ==== Hardware/Device ====
-    const char* a_out;
-    const char* a_filter;
-    const char* audio_device;   // thiết bị audio đang xuất (vd: "wasapi/{device-id}")
-    const char* hwdec;          // hardware decoder (vd: "d3d11va", "vaapi", "cuda", "vdpau")
+    std::string a_out;
+    std::string a_filter;
+    std::string audio_device;   // thiết bị audio đang xuất (vd: "wasapi/{device-id}")
+    std::string hwdec;          // hardware decoder (vd: "d3d11va", "vaapi", "cuda", "vdpau")
 
     std::vector<TrackInfo>g_tracks;
     std::vector<ChapterInfo> g_chapters;
@@ -359,15 +359,19 @@ inline bool mpv_get_prop<bool>(mpv_handle* mpv, const std::string& name, bool& o
 // Specialization for const char*
 template<>
 inline bool mpv_get_prop<const char*>(mpv_handle* mpv, const std::string& name, const char*& out) {
+
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_STRING, &out) >= 0;
 }
 
 // Specialization for std::string
 template<>
 inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const std::string& name, std::string& out) {
-    const char* tmp=nullptr;
-    if(!mpv_get_property(mpv,name.c_str(),MPV_FORMAT_STRING,&tmp)) return false;
-    out = tmp ? tmp : "";
+    const char* tmp = nullptr;
+    int ret = mpv_get_property(mpv, name.c_str(), MPV_FORMAT_STRING, &tmp);
+    if (ret != 0) return false; // 0 = success
+
+    out = tmp ? tmp : "";       // copy vào std::string
+    if (tmp) mpv_free(const_cast<void*>(reinterpret_cast<const void*>(tmp)));
     return true;
 }
 
@@ -496,6 +500,32 @@ auto AutoPath(Args&&... args) {
     } else {
         // type deduction: trả std::filesystem::path mặc định, có thể ép khi gán
         return final;
+    }
+}
+namespace TextUtils {
+    inline std::string TruncateText(const std::string& text, size_t maxLen = 60) {
+        if (text.length() <= maxLen) return text;
+        return text.substr(0, maxLen) + "...";
+    }
+    inline std::string TruncateTextByPixels(const char* text, float max_width) {
+        std::string s = text;
+        ImVec2 size = ImGui::CalcTextSize(s.c_str());
+        if (size.x <= max_width) return s;
+
+        // Cắt dần cho đến khi vừa
+        while (!s.empty() && ImGui::CalcTextSize((s + "...").c_str()).x > max_width) {
+            s.pop_back();
+        }
+        return s + "...";
+    }
+    inline std::string TruncateToWidth(const char* text, float max_pixel_width) {
+        std::string s = text;
+        if (ImGui::CalcTextSize(s.c_str()).x <= max_pixel_width) return s;
+
+        while (!s.empty() && ImGui::CalcTextSize((s + "...").c_str()).x > max_pixel_width) {
+            s.pop_back();
+        }
+        return s + "...";
     }
 }
 #endif

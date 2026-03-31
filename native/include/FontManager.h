@@ -47,11 +47,17 @@ public:
     // clear all (fonts + atlas + GPU textures)
     void Clear();
 
+    bool LoadFontsSpecific(float size, const std::string& fontDir);
+
     bool LoadFontsSmartAuto(
         float size = 16.0f,
         int maxFonts = 100,
         const std::string& defaultFamily = "",
-        const std::string& defaultStyle = "");
+        const std::string& defaultStyle = "",
+        std::vector<std::string> dirs = {
+            "C:/Windows/Fonts"
+        } 
+    );
 
     // Multi-atlas smart loader
     bool LoadFontsSmartMultiAtlas(
@@ -60,7 +66,10 @@ public:
         int maxFontsPerAtlas = 120,
         int texWidth = 4080 ,
         const std::string& defaultFamily = "",
-        const std::string& defaultStyle = ""
+        const std::string& defaultStyle = "",
+        std::vector<std::string> dirs = {
+            "C:/Windows/Fonts"
+        }
     );
 
     // Upload atlas textures to GPU

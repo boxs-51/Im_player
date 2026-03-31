@@ -3,18 +3,27 @@
         {
             "name": "Win32",
             "includePath": [
-                "${workspaceFolder}/native/src",
-                "${workspaceFolder}/native/include",
-                "${workspaceFolder}/native/src/popup/",
-                "${workspaceFolder}/native/include/mpv",
-                "${workspaceFolder}/native/include/GL",
+                
+                "${workspaceFolder}/native/include",        
+                "${workspaceFolder}/native/include/mpv",      
+                "${workspaceFolder}/native/include/nlohmann",  
                 "${workspaceFolder}/native/include/KHR",
-                "${workspaceFolder}/native/include/cpr",
+                "${workspaceFolder}/native/include/GL",
+                "${workspaceFolder}/native/include/freetype2",
+                "${workspaceFolder}/native/include/SDL2",
+                "${workspaceFolder}/native/include/compat",
                 "${workspaceFolder}/native/include/curl",
-                "${workspaceFolder}/native/include/nlohmann",
-                "${workspaceFolder}/native/imgui",
+                "${workspaceFolder}/native/include/cpr",
+                "${workspaceFolder}/native/include/openssl",
+                "${workspaceFolder}/native/include/windows",
+                "${workspaceFolder}/native/include/popup",
+                "${workspaceFolder}/native/include/threads",
+                "${workspaceFolder}/native/include/mpv/shaders",
+                "${workspaceFolder}/native/include/mpv/scripts",
+                "${workspaceFolder}/native/include/services",
+                "${workspaceFolder}/native/imgui/misc/freetype",
                 "${workspaceFolder}/native/imgui/backends",
-                "${workspaceFolder}/native/include/SDL2"
+                "${workspaceFolder}/native/imgui"
             ],
             "defines": [
                 "UNICODE",

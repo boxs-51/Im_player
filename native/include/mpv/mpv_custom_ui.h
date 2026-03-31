@@ -2,6 +2,9 @@
 
 #include <imgui_internal.h>
 #include <imgui.h>
+#include <string>
+#include <stdarg.h>
+
 
 static inline ImVec2 Lerp(const ImVec2& a, const ImVec2& b, float t)
 {
@@ -997,3 +1000,122 @@ inline bool CustomIconButton(
         GetDefaultIconButtonStyle()
     );
 }
+
+// Helper: format một argument an toàn
+inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
+    std::string result;
+    char tmp[128]; // tạm để snprintf
+
+    switch (type) {
+        case 's': {
+            const char* str = va_arg(args, const char*);
+            if (!str || str[0] == '\0') str = "None";
+            int n = snprintf(tmp, sizeof(tmp), fmtSpec, str);
+            result.assign(tmp, n);
+            break;
+        }
+        case 'd': {
+            int val = va_arg(args, int);
+            int n = snprintf(tmp, sizeof(tmp), fmtSpec, val);
+            result.assign(tmp, n);
+            break;
+        }
+        case 'u': {
+            unsigned int val = va_arg(args, unsigned int);
+            int n = snprintf(tmp, sizeof(tmp), fmtSpec, val);
+            result.assign(tmp, n);
+            break;
+        }
+        case 'f': {
+            double val = va_arg(args, double);
+            int n = snprintf(tmp, sizeof(tmp), fmtSpec, val);
+            result.assign(tmp, n);
+            break;
+        }
+        case 'p': {
+            void* ptr = va_arg(args, void*);
+            int n = snprintf(tmp, sizeof(tmp), fmtSpec, ptr);
+            result.assign(tmp, n);
+            break;
+        }
+        case '%': {
+            result = "%";
+            break;
+        }
+        default:
+            break;
+    }
+
+    return result;
+}
+
+// InfoRow an toàn, hỗ trợ std::string
+inline void InfoRow(const char* label, const char* fmt, ...) {
+    ImGui::TableNextRow();
+
+    // Cột 1: Label
+    ImGui::TableNextColumn();
+    ImGui::TextDisabled("%s", label);
+
+    // Cột 2: Value
+    ImGui::TableNextColumn();
+
+    std::string finalStr;
+    va_list args;
+    va_start(args, fmt);
+
+    const char* traverse = fmt;
+    while (*traverse) {
+        if (*traverse == '%') {
+            const char* percentStart = traverse;
+            traverse++;
+
+            // tìm ký tự định dạng cuối cùng (s,d,u,f,p,%)
+            while (*traverse && strchr("sdfup%", *traverse) == nullptr) traverse++;
+
+            char fmtSpec[32] = {};
+            size_t len = traverse - percentStart + 1;
+            if (len >= sizeof(fmtSpec)) len = sizeof(fmtSpec)-1;
+            memcpy(fmtSpec, percentStart, len); 
+            fmtSpec[len] = '\0';
+
+            char typeChar = *traverse;
+            finalStr += safeFormatArg(fmtSpec, args, typeChar);
+
+            traverse++; // qua ký tự định dạng cuối cùng
+        } else {
+            finalStr += *traverse++;
+        }
+    }
+
+    va_end(args);
+
+    ImGui::TextUnformatted(finalStr.c_str());
+}
+
+
+inline bool BeginInfoTable(const char* id) {
+    return ImGui::BeginTable(id, 2,
+        ImGuiTableFlags_SizingStretchSame |
+        ImGuiTableFlags_BordersInnerV);
+}
+
+inline void EndInfoTable() {
+    ImGui::EndTable();
+}
+
+inline void BeginCard() {
+    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(1,1,1,1));
+    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10,10));
+
+    ImGui::BeginChild(ImGui::GetID("##card"), ImVec2(0, 0), true);
+}
+
+inline void EndCard() {
+    ImGui::EndChild();
+    ImGui::PopStyleVar(2);
+    ImGui::PopStyleColor();
+}
+
+

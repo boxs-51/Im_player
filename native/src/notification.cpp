@@ -108,7 +108,7 @@ void ShowNotification(const std::wstring& title, const std::wstring& content) {
 }
 void NotifyMPV() {
 
-    std::string title = std::string(g_playbackStatus.mediaTitle).empty() ? "Unknown Title" : g_playbackStatus.mediaTitle;
+    std::string title = g_playbackStatus.mediaTitle.empty() ? "Unknown Title" : g_playbackStatus.mediaTitle.c_str();
     bool paused = g_playbackStatus.isPaused;
 
     std::wstring status = paused ? L"Paused" : L"Playing";

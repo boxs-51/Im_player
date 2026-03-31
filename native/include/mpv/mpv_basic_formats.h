@@ -12,8 +12,10 @@ enum class  VideoType{
 };
 
 struct FormatGroup {
+
     std::vector<std::string> formats; 
-    std::vector<std::string> labels;  
+    std::vector<std::string> short_labels;  
+    std::vector<std::string> full_labels;  
     std::vector<std::string> urls;
     std::vector<std::string> ids;
 };

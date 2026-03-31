@@ -193,7 +193,7 @@ bool InitMainWindow() {
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-        SetWindowSDL(ctx.mainWindow,640,360,0, 0,0,0,true ,32 );
+        SetWindowSDL(ctx.mainWindow,720,360,0, 0,0,0,true ,32 );
     #else 
         SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
@@ -241,8 +241,25 @@ bool InitMainWindow() {
 
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
-    //FontManager::Instance().LoadFontsSmartMultiAtlas(c_Settings.fontsize, 500 , 200 , 4080, c_Settings.defaultFamily,c_Settings.defaultStyle);
-    FontManager::Instance().LoadFontsSmartAuto(c_Settings.fontsize,500,c_Settings.defaultFamily,c_Settings.defaultStyle);
+    /*
+    FontManager::Instance().LoadFontsSmartMultiAtlas(c_Settings.fontsize,
+                                                     500 , 200 , 4080,
+                                                    c_Settings.defaultFamily,
+                                                    c_Settings.defaultStyle 
+                                                    {
+                                                    AutoPath<std::string>("C:/Windows/Fonts"),
+                                                    AutoPath<std::string>("%ROOT%","fonts")
+                                                    });
+    FontManager::Instance().LoadFontsSmartAuto(c_Settings.fontsize,
+                                                500,c_Settings.defaultFamily,
+                                                c_Settings.defaultStyle,
+                                                {
+                                                AutoPath<std::string>("C:/Windows/Fonts"),
+                                                AutoPath<std::string>("%ROOT%","fonts")
+                                                });
+    */
+    FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%","fonts"));
+
     ImGui::StyleColorsDark();
     return true;
 };

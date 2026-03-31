@@ -1,5 +1,5 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include "mpv/mpv_custom_icon.h"
+#include "mpv/mpv_custom_ui.h"
 #include "mpv/mpv_ui_settings.h"
 #include "mpv/mpv_controller.h"
 #include "mpv/mpv_settings.h"
@@ -108,7 +108,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     float spacing = videoSize.x * 0.05;
     ImVec2 iconSize(35 * scale, 35 * scale);
     const float minWidthForControls = 750.0f ;
-    const float minWHegthForControls = 400.0f ;
+    const float minWHegthForControls = 424.0f ;
     bool onlyShowSeekBar = (videoSize.x <= minWidthForControls || videoSize.y  <= minWHegthForControls );
     // === CONTROL WINDOW (bao gồm cả SEEKBAR) ===
 
@@ -167,7 +167,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     //if(SetDelayHover(is_text_hovered, 3.0 ,"Header_Text_Part")){
     //    ImGui::SetTooltip(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title");
     //}
-    ShowTooltipDelayed(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title", is_text_hovered , 3.0, "Header_Text_Part");
+    ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -205,7 +205,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
     // --- VẼ NỘI DUNG ---
     // Text Title
-    const char* title = (g_playbackStatus.mediaTitle && g_playbackStatus.mediaTitle[0] != '\0') ? g_playbackStatus.mediaTitle : "No Title";
+    const char* title = (!g_playbackStatus.mediaTitle.empty()) ? g_playbackStatus.mediaTitle.c_str() : "No Title";
     ImVec2 text_pos = ImVec2(t_min.x + 15.0f, t_min.y + (total_h - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::RenderTextEllipsis(draw_list, text_pos, ImVec2(t_max.x - 10.0f, t_max.y), t_max.x - 10.0f, title, NULL, NULL);
 
@@ -733,9 +733,12 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "Settings_Button")){
         //    ImGui::SetTooltip("Settings");
         //}
+        ImVec2 iconPos = ImGui::GetItemRectMin();
+        ImVec2 iconSize = ImGui::GetItemRectSize(); // Lấy kích thước nút
+
         ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
 
-        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video );
+        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video ,iconPos);
 
         settingsData.hovered = ImGui::IsItemHovered();
 

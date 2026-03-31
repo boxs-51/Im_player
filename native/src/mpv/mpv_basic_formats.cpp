@@ -36,11 +36,13 @@ void SetVideoTypeLocal(){
 
 void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup &videoGroup)
 {
-    videoGroup.labels.clear();
+    videoGroup.full_labels.clear();
+    videoGroup.short_labels.clear();
     videoGroup.formats.clear();
     videoGroup.ids.clear();
 
-    videoGroup.labels.push_back("Auto");
+    videoGroup.full_labels.push_back("Auto");
+    videoGroup.short_labels.push_back("Auto");
     videoGroup.formats.push_back("bestvideo");
     videoGroup.ids.push_back("auto");
 
@@ -64,21 +66,24 @@ void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, Format
             continue;
 
         // --- Label chi tiết ---
-        std::string label;
-        if (!vf.resolution.empty()) label += vf.resolution;
-        if (!vf.frame_rate.empty()) label += " @" + vf.frame_rate ;
-        if (!shortCodec.empty()) label += " • " + shortCodec;
-        if (!vf.bitrate_video.empty()) label += " • " + vf.bitrate_video;
-        if (!vf.size.empty()) label += " • " + vf.size;
-        if (!vf.format_id.empty())label += "  [" + vf.format_id + "]";
-        
+        std::string short_label;
+        if (!vf.resolution.empty()) short_label += vf.resolution;
+        std::string full_label = short_label;
+        // if (!vf.resolution.empty()) full_label += vf.resolution;
+        if (!vf.frame_rate.empty()) full_label += " @" + vf.frame_rate ;
+        if (!shortCodec.empty()) full_label += " • " + shortCodec;
+        if (!vf.bitrate_video.empty()) full_label += " • " + vf.bitrate_video;
+        if (!vf.size.empty()) full_label += " • " + vf.size;
+        if (!vf.format_id.empty())full_label += "  [" + vf.format_id + "]";
+
         // --- Format chi tiết ---
         std::string format;
         if(!vf.resolution.empty())format += "bestvideo[height<=" + std::to_string(height) + "]";
         if(!shortCodec.empty()) format += "[vcodec^=" + shortCodec + "]";
 
                                 
-        videoGroup.labels.push_back(label);
+        videoGroup.full_labels.push_back(full_label);
+        videoGroup.short_labels.push_back(short_label);
         videoGroup.formats.push_back(format);
         videoGroup.ids.push_back(vf.format_id);
         videoGroup.urls.push_back(vf.url);
@@ -89,10 +94,13 @@ void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, Format
 
 void BuildAudioOptions(const std::vector<ResolutionOption>& audioFormats, FormatGroup &audioGroup)
 {
-    audioGroup.labels.clear();
+    
+    audioGroup.full_labels.clear();
+    audioGroup.short_labels.clear();
     audioGroup.formats.clear();
 
-    audioGroup.labels.push_back("Auto");
+    audioGroup.full_labels.push_back("Auto");
+    audioGroup.short_labels.push_back("Auto");
     audioGroup.formats.push_back("bestaudio/best");
 
     std::unordered_set<std::string> seen;
@@ -103,15 +111,28 @@ void BuildAudioOptions(const std::vector<ResolutionOption>& audioFormats, Format
         std::string key = af.acodec + "#" + af.audio_sample_rate;
         if (seen.count(key)) continue;
 
-        std::string label;
-        if (!af.acodec.empty()) label += af.acodec;
-        if (!af.audio_sample_rate.empty()) label += " (" + af.audio_sample_rate + ")";
-        if (!af.format_id.empty()) label += "  [" + af.format_id + "]";
+        std::string short_label;
+        if (!af.acodec.empty()) {
+            if(af.acodec == "opus") short_label += "High Quality (Opus)";
+            else if(af.acodec == "vorbis") short_label += "Vorbis";
+            else if(af.acodec == "aac") short_label += "AAC";
+            else if(af.acodec == "mp3") short_label += "MP3";
+            else if(af.acodec == "flac") short_label += "FLAC";
+            else if(af.acodec == "alac") short_label += "ALAC";
+            else if(af.acodec == "wav") short_label += "WAV";
+            else short_label += af.acodec;
+        }
+
+        std::string full_labels;
+        if (!af.acodec.empty()) full_labels += af.acodec;
+        if (!af.audio_sample_rate.empty()) full_labels += " (" + af.audio_sample_rate + ")";
+        if (!af.format_id.empty()) full_labels += "  [" + af.format_id + "]";
 
         std::string format;
         if (!af.acodec.empty()) format += "bestaudio[acodec^=" + af.acodec + "]" + "/" + "best";
 
-        audioGroup.labels.push_back(label);
+        audioGroup.short_labels.push_back(short_label);
+        audioGroup.full_labels.push_back(full_labels);
         audioGroup.formats.push_back(format);
         audioGroup.ids.push_back(af.format_id);  
         audioGroup.urls.push_back(af.url);
