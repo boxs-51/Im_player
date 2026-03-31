@@ -246,8 +246,7 @@ bool InitMainWindow() {
     ImGui::StyleColorsDark();
     return true;
 };
-void Render( PlaybackState state ){
-
+void RenderUI( PlaybackState state ){
     glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -317,7 +316,7 @@ void Render( PlaybackState state ){
 
 }
 void RenderPushFont(PlaybackState state){
-    Render(state);
+    RenderUI(state);
     if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
     if (( IsAnyPopupOpen()) ) {
         RenderAllPopups(mpv.mpv);
@@ -327,8 +326,18 @@ void RenderPushFont(PlaybackState state){
     }
 }
 void RenderFrame(){
-    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
+    static bool renderedoneframe = false;
+    if(!g_WindowVisible ) 
+    {
+        renderedoneframe = true;
+        if(!renderedoneframe)
+            return;
+    }else{
+        renderedoneframe = false;
+    }
 
+    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
+    
     PlaybackState state = GetPlaybackState();
 
     ImFont* cur = FontManager::Instance().GetCurrentFont();
@@ -479,16 +488,16 @@ int main(int argc, char** argv) {
             
         }
         
-        if (!g_WindowVisible) {
-            mpv_disable_video(mpv.mpv);
-        } else {
-            if (audio_Theme)
-                mpv_disable_video(mpv.mpv);
-            else 
-                mpv_enable_video(mpv.mpv);
-        }
+        //if (!g_WindowVisible) {
+        //    mpv_disable_video(mpv.mpv);
+        //} else {
+        //    if (audio_Theme)
+        //        mpv_disable_video(mpv.mpv);
+        //    else 
+        //        mpv_enable_video(mpv.mpv);
+        //}
 
-        mpv_update_seek_pending( mpv.mpv  );
+        mpv_update_seek_pending( mpv.mpv );
 
         
         //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
