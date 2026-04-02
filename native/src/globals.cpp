@@ -9,13 +9,19 @@
 #include <thread>
 #include <condition_variable>
 #include <queue>
+#include <map>
 
-#include "mpv/mpv_settings.h"
+#include <mpv/mpv_custom_ui.h>
+#include <mpv/mpv_settings.h>
 #include <mpv/render_gl.h>
 
+ThemeTransition GTrans;
+ThemeColors GTheme;
 SeekingData dataseek;
 UiWindowsState uiState;
 MPV mpv;
+
+std::map<ThemeType, ThemeColors> ThemeLibrary;
 
 const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "data","settings_common.json");
 const std::string SETTINGS_PATH_VIDEO     = AutoPath<std::string>("%ROOT%", "data","settings_video.json");

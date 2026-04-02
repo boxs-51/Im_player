@@ -9,12 +9,10 @@
 #include <optional>
 
 struct AppSettings {
-    std::string selectedFormat;
-    std::string selectedAudio;
-    std::string selectedResolution;     // VD: "bestvideo[height<=720]+bestaudio"
-    std::vector<std::string> resLabels; // Hiển thị: "Auto", "144p", ...
-    std::vector<std::string> resFormats;// Tương ứng: "best", "bestvideo[height<=360]+bestaudio"    
-    bool enableSubtitles = true;
+    std::string selectedFormat = "";
+    std::string selectedAudio = "";
+    std::string selectedResolution = "";     // VD: "bestvideo[height<=720]+bestaudio"
+    bool enableSubtitles = false;
     float playbackSpeed = 1.0f;
     float audiodelay = 0.0f;
     bool repeatVideo = false;
@@ -22,32 +20,32 @@ struct AppSettings {
     int defaultVolume = 100;    
     bool repeatlist = false;
 };
-enum class Theme {DarkMode,LightMode};
+enum class ThemeType {DarkMode,LightMode};
 
-inline std::string ThemeToString(Theme t) {
+inline std::string ThemeToString(ThemeType t) {
     switch (t) {
-        case Theme::DarkMode:    return "DarkMode";
-        case Theme::LightMode:   return "LightMode";
-        default:                 return "DarkMode";
+        case ThemeType::DarkMode:    return "Dark Mode";
+        case ThemeType::LightMode:   return "Light Mode";
+        default:                 return "Dark Mode";
     }
 }
-inline Theme StringToTheme(const std::string& s) {
-    if (s == "DarkMode")    return Theme::DarkMode;
-    if (s == "LightMode")   return Theme::LightMode;
+inline ThemeType StringToTheme(const std::string& s) {
+    if (s == "Dark Mode")    return ThemeType::DarkMode;
+    if (s == "Light Mode")   return ThemeType::LightMode;
 
-    return Theme::DarkMode; // fallback
+    return ThemeType::DarkMode; // fallback
 }
 
 struct CommonSettings {
 
-    Theme theme = Theme::DarkMode;
+    ThemeType themetype = ThemeType::DarkMode;
 
     std::string Videofilter = "";
     std::string Audiofilter = "";
     std::string VideoDecode = "";
     std::string AudioDecode = "";
 
-    int fontsize = 16;
+    int fontsize = 20;
 };
 
 

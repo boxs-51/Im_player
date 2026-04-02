@@ -240,6 +240,8 @@ bool InitMainWindow() {
     } 
     LoadSettings();
 
+    ApplyTheme(c_Settings.themetype);
+
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
     /*
@@ -423,6 +425,7 @@ int main(int argc, char** argv) {
     SDL_SetMainReady();
 
     InitConsoleSystem();
+    InitThemeLibrary();
 
     StartRuntimeServices(); 
     std::set_terminate(TerminateHandler);
@@ -474,6 +477,8 @@ int main(int argc, char** argv) {
     }
     fpsTimer = SDL_GetTicks();
     while (running) {
+
+        UpdateTheme(ImGui::GetIO().DeltaTime);
 
         frameStart = SDL_GetTicks();
 

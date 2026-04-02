@@ -1,11 +1,14 @@
+#pragma once
 #include "utils.h"
+#include "globals.h"
 
-#include "mpv/mpv_ui_theme.h"
+#include <mpv/mpv_settings.h>
 
 #include <imgui_internal.h>
 #include <imgui.h>
 #include <string>
 #include <stdarg.h>
+#include <map>
 
 
 static inline ImVec2 Lerp(const ImVec2& a, const ImVec2& b, float t)
@@ -1131,7 +1134,244 @@ inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
     return result;
 }
 // Khai báo biến toàn cục để các Helper sử dụng
-static ThemeColors GTheme;
+
+struct ThemeColors {
+    
+    ImVec4 WindowBg_ModernWindowStyle;
+    ImVec4 TitleBg_ModernWindowStyle;
+    ImVec4 TitleBgActive_ModernWindowStyle;
+    ImVec4 Border_ModernWindowStyle;
+    ImVec4 Separator_ModernWindowStyle;
+
+    ImVec4 ChildBg_ModernChild;
+    ImVec4 Border_ModernChild;
+    ImVec4 Text_ModernChild;
+
+    ImVec4 ChildBg_Card;
+    ImVec4 Border_Card;
+    ImVec4 Text_Card;
+
+    ImVec4 TableRowBg_InfoTable;
+    ImVec4 TableRowBgAlt_InfoTable;
+
+    ImVec4 Text_ModernTabBar;
+    ImVec4 Tab_ModernTabBar;
+    ImVec4 TabHovered_ModernTabBar;
+    ImVec4 TabActive_ModernTabBar;
+    ImVec4 TabUnfocused_ModernTabBar;
+    ImVec4 TabUnfocusedActive_ModernTabBar;
+
+    ImVec4 Button_ModernButton;
+    ImVec4 ButtonHovered_ModernButton;
+    ImVec4 ButtonActive_ModernButton;
+    ImVec4 Text_ModernButton;
+
+    ImVec4 Button_SecondaryButton;
+    ImVec4 ButtonHovered_SecondaryButton;
+    ImVec4 ButtonActive_SecondaryButton;
+    ImVec4 Border_SecondaryButton;
+    ImVec4 Text_SecondaryButton;
+
+    ImVec4 FrameBg_ModernCheckbox;
+    ImVec4 FrameBgHovered_ModernCheckbox;
+    ImVec4 FrameBgActive_ModernCheckbox;
+    ImVec4 CheckMark_ModernCheckbox;
+
+    ImVec4 FrameBg_ModernInputTextMultiline;
+    ImVec4 FrameBgHovered_ModernInputTextMultiline;
+    ImVec4 FrameBgActive_ModernInputTextMultiline;
+    ImVec4 Border_ModernInputTextMultiline;
+    ImVec4 TextSelectedBg_ModernInputTextMultiline;
+
+    ImVec4 Header_ModernSelectable;
+    ImVec4 HeaderHovered_ModernSelectable;
+    ImVec4 HeaderActive_ModernSelectable;
+    ImVec4 ImGuiCol_Text_Selected_ModernSelectable;
+    ImVec4 ImGuiCol_Text_UnSelected_ModernSelectable;
+
+    ImVec4 TableHeaderBg_ListTable;
+    ImVec4 Text_ListTable;
+    ImVec4 TableRowBgAlt_ListTable;
+
+    ImVec4 Header_ModernCollapsingHeader;
+};
+extern ThemeColors GTheme;
+static inline void SetDarkTheme() {
+ 
+    GTheme.WindowBg_ModernWindowStyle = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
+    GTheme.TitleBg_ModernWindowStyle = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
+    GTheme.TitleBgActive_ModernWindowStyle = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.Border_ModernWindowStyle = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.Separator_ModernWindowStyle = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+
+    GTheme.ChildBg_ModernChild = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
+    GTheme.Border_ModernChild = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
+    GTheme.Text_ModernChild = ImVec4(1.0f,1.0f,1.0f,1.0f);
+
+    GTheme.ChildBg_Card = ImVec4(0.18f, 0.18f, 0.20f, 1.0f);
+    GTheme.Border_Card = ImVec4(0.30f, 0.30f, 0.33f, 1.0f);
+    GTheme.Text_Card = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
+
+    GTheme.TableRowBg_InfoTable = ImVec4(0, 0, 0, 0);
+    GTheme.TableRowBgAlt_InfoTable = ImVec4(1, 1, 1, 0.04f);
+
+    GTheme.Text_ModernTabBar = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+    GTheme.Tab_ModernTabBar = ImVec4(0, 0, 0, 0);
+    GTheme.TabHovered_ModernTabBar = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
+    GTheme.TabActive_ModernTabBar = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+    GTheme.TabUnfocused_ModernTabBar = ImVec4(0, 0, 0, 0);
+    GTheme.TabUnfocusedActive_ModernTabBar = ImVec4(0.1f, 0.45f, 0.9f, 0.7f);
+
+    GTheme.Button_ModernButton = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+    GTheme.ButtonHovered_ModernButton = ImVec4(0.15f, 0.55f, 1.00f, 1.0f);
+    GTheme.ButtonActive_ModernButton = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
+    GTheme.Text_ModernButton = ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
+
+    GTheme.Text_SecondaryButton = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.Button_SecondaryButton = ImVec4(0.20f, 0.20f, 0.22f, 0.0f);
+    GTheme.ButtonHovered_SecondaryButton = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
+    GTheme.ButtonActive_SecondaryButton = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+    GTheme.Border_SecondaryButton = ImVec4(0.35f, 0.35f, 0.38f, 1.0f);
+
+    GTheme.FrameBg_ModernCheckbox = ImVec4(0.20f, 0.20f, 0.22f, 1.0f);
+    GTheme.FrameBgHovered_ModernCheckbox = ImVec4(0.25f, 0.25f, 0.28f, 1.0f);
+    GTheme.FrameBgActive_ModernCheckbox = ImVec4(0.15f, 0.45f, 0.90f, 0.5f);
+    GTheme.CheckMark_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+
+    GTheme.FrameBg_ModernInputTextMultiline = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.FrameBgHovered_ModernInputTextMultiline = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
+    GTheme.FrameBgActive_ModernInputTextMultiline = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
+    GTheme.Border_ModernInputTextMultiline = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.TextSelectedBg_ModernInputTextMultiline = ImVec4(0.10f, 0.40f, 0.75f, 0.50f);
+
+    GTheme.Header_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.70f);
+    GTheme.HeaderHovered_ModernSelectable = ImVec4(0.25f, 0.25f, 0.27f, 1.00f);
+    GTheme.HeaderActive_ModernSelectable = ImVec4(0.10f, 0.40f, 0.75f, 1.00f);
+    GTheme.ImGuiCol_Text_Selected_ModernSelectable = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme. ImGuiCol_Text_UnSelected_ModernSelectable = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
+
+    GTheme.TableHeaderBg_ListTable = ImVec4(0.12f, 0.12f, 0.14f, 1.0f);
+    GTheme.Text_ListTable = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+    GTheme.TableRowBgAlt_ListTable = ImVec4(1.0f, 1.0f, 1.0f, 0.03f);
+    
+    GTheme.Header_ModernCollapsingHeader = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+}
+
+static inline void SetLightTheme() {
+
+    GTheme.WindowBg_ModernWindowStyle = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
+    GTheme.TitleBg_ModernWindowStyle = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
+    GTheme.TitleBgActive_ModernWindowStyle = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
+    GTheme.Border_ModernWindowStyle = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
+    GTheme.Separator_ModernWindowStyle = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
+
+    GTheme.ChildBg_ModernChild = ImVec4(0.97f, 0.97f, 0.98f, 1.0f);
+    GTheme.Border_ModernChild = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
+    GTheme.Text_ModernChild = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+
+    GTheme.ChildBg_Card = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.Border_Card = ImVec4(0.80f, 0.80f, 0.83f, 1.0f);
+    GTheme.Text_Card = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+
+    GTheme.TableRowBg_InfoTable = ImVec4(0, 0, 0, 0);
+    GTheme.TableRowBgAlt_InfoTable = ImVec4(0, 0, 0, 0.03f);
+
+    GTheme.Text_ModernTabBar = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.Tab_ModernTabBar = ImVec4(0, 0, 0, 0);
+    GTheme.TabHovered_ModernTabBar = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
+    GTheme.TabActive_ModernTabBar = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
+    GTheme.TabUnfocused_ModernTabBar = ImVec4(0, 0, 0, 0);
+    GTheme.TabUnfocusedActive_ModernTabBar = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
+
+    GTheme.Button_ModernButton = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+    GTheme.ButtonHovered_ModernButton = ImVec4(0.20f, 0.55f, 1.00f, 1.0f);
+    GTheme.ButtonActive_ModernButton = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
+    GTheme.Text_ModernButton = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+
+    GTheme.Text_SecondaryButton =  ImVec4(0.20f, 0.20f, 0.20f, 1.0f);
+    GTheme.Button_SecondaryButton = ImVec4(0.85f, 0.85f, 0.88f, 0.0f);
+    GTheme.ButtonHovered_SecondaryButton = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
+    GTheme.ButtonActive_SecondaryButton = ImVec4(0.65f, 0.65f, 0.70f, 1.0f);
+    GTheme.Border_SecondaryButton = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
+
+    GTheme.FrameBg_ModernCheckbox = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
+    GTheme.FrameBgHovered_ModernCheckbox = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
+    GTheme.FrameBgActive_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
+    GTheme.CheckMark_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+
+    GTheme.FrameBg_ModernInputTextMultiline = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.FrameBgHovered_ModernInputTextMultiline = ImVec4(0.95f, 0.95f, 0.97f, 1.0f);
+    GTheme.FrameBgActive_ModernInputTextMultiline = ImVec4(0.90f, 0.90f, 0.93f, 1.0f);
+    GTheme.Border_ModernInputTextMultiline = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
+    GTheme.TextSelectedBg_ModernInputTextMultiline = ImVec4(0.12f, 0.45f, 0.90f, 0.25f);
+
+    GTheme.Header_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.5f);
+    GTheme.HeaderHovered_ModernSelectable = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
+    GTheme.HeaderActive_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.8f);
+    GTheme.ImGuiCol_Text_Selected_ModernSelectable = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    GTheme.ImGuiCol_Text_UnSelected_ModernSelectable = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+
+    GTheme.TableHeaderBg_ListTable = ImVec4(0.90f, 0.90f, 0.92f, 1.0f);
+    GTheme.Text_ListTable = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.TableRowBgAlt_ListTable = ImVec4(0, 0, 0, 0.02f);
+
+    GTheme.Header_ModernCollapsingHeader = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
+}
+ 
+extern std::map<ThemeType, ThemeColors> ThemeLibrary;
+
+inline void InitThemeLibrary() {
+
+    // Theme Dark
+    SetDarkTheme(); // Hàm cũ của bạn
+    ThemeLibrary[ThemeType::DarkMode] = GTheme;
+
+    // Theme Light
+    SetLightTheme(); // Hàm cũ của bạn
+    ThemeLibrary[ThemeType::LightMode] = GTheme;
+
+    // Theme Nord (Ví dụ theme thứ 3)
+    // SetNordTheme();
+    // ThemeLibrary[ThemeType::Nord] = GTheme;
+}
+struct ThemeTransition {
+    ThemeColors startTheme;   // Màu lúc bắt đầu bấm nút
+    ThemeColors targetTheme;  // Màu đích muốn tới
+    float progress = 1.0f;    // 1.0 nghĩa là đã xong, < 1.0 là đang chạy
+    float speed = 2.5f;       // Tốc độ chuyển đổi
+    bool active = false;
+};
+extern ThemeTransition GTrans;
+inline void ApplyTheme(ThemeType type) {
+    if (ThemeLibrary.find(type) == ThemeLibrary.end()) return;
+
+    GTrans.startTheme = GTheme;              // Lưu trạng thái hiện tại làm điểm gốc
+    GTrans.targetTheme = ThemeLibrary[type]; // Lấy theme đích từ thư viện
+    GTrans.progress = 0.0f;                  // Reset tiến trình về 0
+    GTrans.active = true;
+}
+
+inline void UpdateTheme(float deltaTime) {
+    if (!GTrans.active) return;
+
+    GTrans.progress += deltaTime * GTrans.speed;
+    if (GTrans.progress >= 1.0f) {
+        GTrans.progress = 1.0f;
+        GTrans.active = false;
+    }
+
+    // Ép kiểu sang float* để duyệt toàn bộ struct (Nếu struct chỉ chứa ImVec4/float)
+    float* current = (float*)&GTheme;
+    float* start = (float*)&GTrans.startTheme;
+    float* target = (float*)&GTrans.targetTheme;
+
+    size_t numFloats = sizeof(ThemeColors) / sizeof(float);
+
+    for (size_t i = 0; i < numFloats; i++) {
+        // Công thức Lerp: Current = Start + (Target - Start) * Progress
+        current[i] = start[i] + (target[i] - start[i]) * GTrans.progress;
+    }
+}
 
 namespace CusTomImGui{
     // InfoRow an toàn, hỗ trợ std::string
@@ -1187,8 +1427,8 @@ namespace CusTomImGui{
                 ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
             }
 
-            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(1, 1, 1, 0.04f)); 
+            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GTheme.TableRowBg_InfoTable);
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt_InfoTable); 
             
             return true;
         }
@@ -1205,9 +1445,9 @@ namespace CusTomImGui{
 
     inline void BeginCard() {
         // Sử dụng màu nền Card nhẹ nhàng, tiệp với tông Dark của Window
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.18f, 0.18f, 0.20f, 1.0f)); 
-        ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.30f, 0.30f, 0.33f, 1.0f)); // Viền mảnh
-        ImGui::PushStyleColor(ImGuiCol_Text,    ImVec4(0.95f, 0.95f, 0.95f, 1.0f)); // Chữ trắng sáng
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg_Card); 
+        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border_Card); // Viền mảnh
+        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text_Card); // Chữ trắng sáng
 
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
@@ -1233,9 +1473,9 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 12.0f));
         
         // Màu sắc (Sử dụng màu tối nhẹ hoặc trắng tinh khôi)
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.12f, 1.0f)); 
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f,1.0f,1.0f,1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg_ModernChild); 
+        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_ModernChild);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernChild);
 
         bool ret = ImGui::BeginChild(str_id, size, border, extra_flags | ImGuiWindowFlags_NoScrollbar);
         return ret;
@@ -1251,14 +1491,14 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 10.0f)); // Tab cao hơn nhìn sang hơn
         
         // Màu sắc
-        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.6f, 0.6f, 0.6f, 1.0f));  // Text mặc định hơi tối
-        ImGui::PushStyleColor(ImGuiCol_Tab,           ImVec4(0, 0, 0, 0));              // Trong suốt khi ko chọn
-        ImGui::PushStyleColor(ImGuiCol_TabHovered,    ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_TabActive,     ImVec4(0.15f, 0.15f, 0.17f, 1.0f)); // Tiệp màu với ChildBg bên dưới
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  ImVec4(0, 0, 0, 0));
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernTabBar);  // Text mặc định hơi tối
+        ImGui::PushStyleColor(ImGuiCol_Tab,           GTheme.Tab_ModernTabBar);              // Trong suốt khi ko chọn
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,    GTheme.TabHovered_ModernTabBar);
+        ImGui::PushStyleColor(ImGuiCol_TabActive,     GTheme.TabActive_ModernTabBar); // Tiệp màu với ChildBg bên dưới
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GTheme.TabUnfocused_ModernTabBar);
         
         // Đường kẻ dưới Tab Active (Màu Accent)
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0.1f, 0.45f, 0.9f, 0.7f));
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GTheme.TabUnfocused_ModernTabBar);
 
         return ImGui::BeginTabBar(id, ImGuiTabBarFlags_NoTabListScrollingButtons | ImGuiTabBarFlags_FittingPolicyResizeDown);
     }
@@ -1280,11 +1520,11 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));    // Tăng độ cao title bar
         
         // 3. Màu sắc hiện đại (Dark Theme tinh tế)
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.10f, 0.10f, 0.12f, 0.95f));
-        ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.08f, 0.08f, 0.09f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.12f, 0.12f, 0.14f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.28f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.25f, 0.25f, 0.28f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, GTheme.WindowBg_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, GTheme.TitleBg_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GTheme.TitleBgActive_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_Separator, GTheme.Separator_ModernWindowStyle);
     }
     inline void PopModernWindowStyle() {
         ImGui::PopStyleColor(5);
@@ -1295,10 +1535,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8)); // Nút dày dặn hơn
         
         // Màu sắc nút Primary (Accent)
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.12f, 0.45f, 0.90f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.55f, 1.00f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.80f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.00f, 1.00f, 1.00f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernButton);
 
         bool pressed = ImGui::Button(label, size);
 
@@ -1311,14 +1551,15 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Có viền nhẹ
 
-        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.20f, 0.22f, 0.0f)); // Trong suốt
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.15f, 0.17f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_Border,        ImVec4(0.35f, 0.35f, 0.38f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_SecondaryButton); // Trong suốt
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_Border,        GTheme.Border_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_SecondaryButton);
 
         bool pressed = ImGui::Button(label, size);
 
-        ImGui::PopStyleColor(4);
+        ImGui::PopStyleColor(5);
         ImGui::PopStyleVar(3);
         return pressed;
     }
@@ -1327,12 +1568,12 @@ namespace CusTomImGui{
         //ImGui::PushStyleVar(ImGuiStyleVar_CheckMarkSize, 14.0f); // Dấu tích lớn dễ nhìn
 
         // Màu nền ô Check
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.20f, 0.20f, 0.22f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.25f, 0.25f, 0.28f, 1.0f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.15f, 0.45f, 0.90f, 0.5f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernCheckbox);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernCheckbox);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernCheckbox);
         
         // Màu dấu tích khi được chọn
-        ImGui::PushStyleColor(ImGuiCol_CheckMark,        ImVec4(0.12f, 0.45f, 0.90f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_CheckMark,        GTheme.CheckMark_ModernCheckbox);
 
         bool changed = ImGui::Checkbox(label, v);
 
@@ -1347,13 +1588,13 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
         // 2. Màu sắc (Nền tối, Chữ trắng, Viền xanh khi Focus)
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.12f, 0.12f, 0.14f, 1.00f)); // Nền ô nhập
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.15f, 0.15f, 0.17f, 1.00f));
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.10f, 0.10f, 0.12f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernInputTextMultiline); // Nền ô nhập
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernInputTextMultiline);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernInputTextMultiline);
         
         // Màu viền (Rất quan trọng để nhận biết đang gõ)
-        ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.25f, 0.25f, 0.28f, 1.00f)); 
-        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,   ImVec4(0.10f, 0.40f, 0.75f, 0.50f)); // Màu khi bôi đen chữ
+        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border_ModernInputTextMultiline); 
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,   GTheme.TextSelectedBg_ModernInputTextMultiline); // Màu khi bôi đen chữ
 
         bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
 
@@ -1383,13 +1624,13 @@ namespace CusTomImGui{
 
         // 3. Màu sắc hiện đại
         // Không màu khi bình thường, xám nhẹ khi hover, xanh khi được chọn
-        ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.12f, 0.45f, 0.90f, 0.70f)); // Màu khi được chọn (Selected)
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.25f, 0.25f, 0.27f, 1.00f)); // Màu khi di chuột qua
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.10f, 0.40f, 0.75f, 1.00f)); // Màu khi nhấn giữ
+        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header_ModernSelectable); // Màu khi được chọn (Selected)
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered_ModernSelectable); // Màu khi di chuột qua
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive_ModernSelectable); // Màu khi nhấn giữ
         
         // Nếu item đang được chọn, có thể đổi màu chữ sang trắng tinh
-        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-        else          ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, GTheme.ImGuiCol_Text_Selected_ModernSelectable);
+        else          ImGui::PushStyleColor(ImGuiCol_Text, GTheme.ImGuiCol_Text_UnSelected_ModernSelectable);
 
         // Gọi hàm gốc của ImGui
         // Sử dụng size.y lớn hơn một chút để tạo danh sách thoáng đãng
@@ -1425,13 +1666,13 @@ namespace CusTomImGui{
             }
 
             // Style cho Header
-            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
-            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, GTheme.TableHeaderBg_ListTable);
+            ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ListTable);
             ImGui::TableHeadersRow();
             ImGui::PopStyleColor(2);
 
             // Màu xen kẽ hàng
-            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt_ListTable);
             return true;
         }
         
@@ -1466,7 +1707,7 @@ namespace CusTomImGui{
     inline bool ModernCollapsingHeader( const char* id ,ImGuiTreeNodeFlags flags = 0){
 
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
-        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.15f, 0.15f, 0.17f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Header, GTheme.Header_ModernCollapsingHeader);
 
         bool res = ImGui::CollapsingHeader(id, flags);
 
@@ -1476,5 +1717,127 @@ namespace CusTomImGui{
         if (!res)
             return false;
         return true;
+    }
+    // --- HELPER 2: MODERN SEARCH COMBO (Nâng cao: Search + Max Height + Scroll) ---
+    inline bool ModernSearchCombo(const char* label, std::string& current_value, const std::vector<std::string>& options, int max_items_visible = 6) {
+        bool value_changed = false;
+        ImGuiID popup_id = ImGui::GetID(label);
+
+        ImGui::TextDisabled("%s", label);
+        
+        // 1. Ô Input Text
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg_ModernInputTextMultiline);
+        
+        char buf[128];
+        snprintf(buf, sizeof(buf), "%s", current_value.c_str());
+        if (ImGui::InputTextEx("##search_input", "Type to search...", buf, sizeof(buf), ImVec2(-1, 0), 0)) {
+            current_value = buf;
+            value_changed = true;
+        }
+
+        if (ImGui::IsItemActivated()) ImGui::OpenPopup(popup_id);
+
+        ImGui::PopStyleColor();
+        ImGui::PopStyleVar(2);
+
+        // 2. Popup Danh sách với Scroll tự động
+        ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2));
+        
+        // Tính toán chiều cao: Nếu số item thực tế ít hơn max_items_visible, nó sẽ co lại
+        // Nếu nhiều hơn, nó sẽ giữ ở mức max_items_visible và hiện Scrollbar
+        float row_height = ImGui::GetTextLineHeightWithSpacing() + 12.0f; // Khớp với ModernSelectable padding
+        
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.ChildBg_ModernChild);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+        
+        // WindowFlags_AlwaysVerticalScrollbar: luôn hiện hoặc tự động tùy bạn chọn
+        if (ImGui::BeginPopupEx(popup_id, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoResize)) {
+            
+            // Bọc danh sách trong một Child để giới hạn chiều cao và tạo Scrollbar
+            float total_items_to_show = 0;
+            std::string filter = current_value;
+            std::transform(filter.begin(), filter.end(), filter.begin(), ::tolower);
+
+            // Đếm số lượng item khớp với filter để tính chiều cao Child
+            std::vector<std::string> filtered_options;
+            for(const auto& opt : options) {
+                std::string o = opt; std::transform(o.begin(), o.end(), o.begin(), ::tolower);
+                if (filter.empty() || o.find(filter) != std::string::npos) filtered_options.push_back(opt);
+            }
+
+            float display_count = (float)std::min((int)filtered_options.size(), max_items_visible);
+            float child_height = display_count * row_height + ImGui::GetStyle().WindowPadding.y;
+
+            if (ImGui::BeginChild("##combo_scroll", ImVec2(ImGui::GetWindowWidth() - 10, child_height), false, ImGuiWindowFlags_NoScrollWithMouse == 0)) {
+                for (const auto& opt : filtered_options) {
+                    if (CusTomImGui::ModernSelectable(opt.c_str(), (current_value == opt))) {
+                        current_value = opt;
+                        value_changed = true;
+                        ImGui::CloseCurrentPopup();
+                    }
+                }
+            }
+            ImGui::EndChild();
+            ImGui::EndPopup();
+        }
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+
+        return value_changed;
+    }
+
+    inline bool NormalCombo(const char* label, std::string& current_item, const std::vector<std::string>& options, int max_items_visible = 5) {
+        bool changed = false;
+        ImGui::TextDisabled("%s", label);
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        
+        // Tính toán chiều cao tối đa dựa trên số lượng item muốn hiển thị
+        // 1 item = LineHeight + ItemSpacing
+        float item_height = ImGui::GetTextLineHeightWithSpacing() + 8.0f; 
+        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, item_height * max_items_visible));
+
+        if (ImGui::BeginCombo("##normal_combo", current_item.c_str(), ImGuiComboFlags_HeightLarge)) {
+            for (const auto& opt : options) {
+                bool is_selected = (current_item == opt);
+                if (CusTomImGui::ModernSelectable(opt.c_str(), is_selected)) {
+                    current_item = opt;
+                    changed = true;
+                }
+                if (is_selected) ImGui::SetItemDefaultFocus();
+            }
+            ImGui::EndCombo();
+        }
+        ImGui::PopStyleVar(2);
+        return changed;
+    }
+
+    // --- HELPER: MODERN POPUP (Dùng cho Modal/Dialog) ---
+    inline bool BeginModernPopup(const char* name, bool* open = NULL, ImGuiWindowFlags flags = 0) {
+        // Áp dụng Style Window hiện đại cho Popup
+        CusTomImGui::PushModernWindowStyle();
+        
+        // Thêm hiệu ứng làm mờ nền (Dim background)
+        ImGui::PushStyleColor(ImGuiCol_ModalWindowDimBg, ImVec4(0, 0, 0, 0.6f));
+
+        ImVec2 center = ImGui::GetMainViewport()->GetCenter();
+        ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
+
+        bool isOpen = ImGui::BeginPopupModal(name, open, flags | ImGuiWindowFlags_AlwaysAutoResize | ImGuiWindowFlags_NoMove);
+        
+        if (!isOpen) {
+            ImGui::PopStyleColor();
+            CusTomImGui::PopModernWindowStyle();
+        }
+        return isOpen;
+    }
+
+    inline void EndModernPopup() {
+        ImGui::EndPopup();
+        ImGui::PopStyleColor();
+        CusTomImGui::PopModernWindowStyle();
     }
 }

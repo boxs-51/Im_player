@@ -23,6 +23,38 @@ void OpenSettingPopup() {
     });
 }
 
+void GeneralSettingsPage(){
+
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+
+    CusTomImGui::BeginModernChild("LeftPanel", avail, true);
+    {
+        ImGui::Text("Tùy chọn hiển thị");
+        ImGui::Separator();
+        
+        // Dùng ModernCombo vừa tạo
+        static std::string selectedTheme = ThemeToString(c_Settings.themetype);
+        std::vector<std::string> themes = { "Dark Mode", "Light Mode", "Nord Mode", "Cyberpunk Mode", "Dracula Mode" };
+        
+        if (CusTomImGui::NormalCombo("CHỦ ĐỀ (THEME)", selectedTheme, themes , 3)) {
+            // Logic đổi theme mượt mà của bạn ở đây
+            if (selectedTheme == "Dark Mode") {
+                c_Settings.themetype = ThemeType::DarkMode;
+                ApplyTheme(c_Settings.themetype);
+                SaveSettings_Common();
+            }
+            else if (selectedTheme == "Light Mode") {
+                c_Settings.themetype = ThemeType::LightMode;
+                ApplyTheme(c_Settings.themetype);
+                SaveSettings_Common();
+            }
+
+        }
+    }
+    CusTomImGui::EndModernChild();
+
+}
+
 // Hàm render nội dung chính của popup
 void ShowSettingsPopup(bool& closePopup_setting) {
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -48,10 +80,10 @@ void ShowSettingsPopup(bool& closePopup_setting) {
             ImGui::TableSetColumnIndex(0);
             
             ImGui::Spacing();
-            ImGui::TextDisabled("HỆ THỐNG"); // Phân loại mục cài đặt
+            ImGui::TextDisabled("Systems"); // Phân loại mục cài đặt
             ImGui::Spacing();
 
-            const char* items[] = { "Phông chữ", "Tùy chọn" };
+            const char* items[] = { "General", "Options" };
             for (int i = 0; i < IM_ARRAYSIZE(items); ++i) {
                 // Dùng ModernSelectable đã viết trước đó
                 if (CusTomImGui::ModernSelectable(items[i], selectedItem == i)) {
@@ -68,8 +100,9 @@ void ShowSettingsPopup(bool& closePopup_setting) {
                 ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
                 
                 if (selectedItem == 0) {
-                    ImGui::TextDisabled("CÀI ĐẶT PHÔNG CHỮ");
+                    ImGui::TextDisabled("General Settings");
                     ImGui::Separator();
+                    GeneralSettingsPage();
                     ImGui::Spacing();
                 } 
                 else if (selectedItem == 1) {

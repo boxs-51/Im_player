@@ -7,7 +7,7 @@
 #include "notification.h"
 
 #include "mpv/mpv_basic_formats.h"
-
+#include "mpv/mpv_custom_ui.h"
 #include "services/services_services.h"
 
 #include <filesystem>
