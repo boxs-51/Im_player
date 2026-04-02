@@ -5,6 +5,7 @@
 #include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
 #include <mpv/mpv_settings.h>
+#include <mpv/mpv_custom_ui.h>
 #include <mpv/render_gl.h>
 
 #include "utils.h"
@@ -304,6 +305,7 @@ void RenderUI( PlaybackState state ){
         state == PlaybackState::Seeking ||
         state == PlaybackState::Playing) {
         RenderMPVVideo(Windowlayout.VideoSize);
+        DrawGhostStatusOverlay(Windowlayout.VideoPos, Windowlayout.VideoSize, state == PlaybackState::Paused);
         render_video = false;
     }
 
@@ -343,15 +345,17 @@ void RenderPushFont(PlaybackState state){
     }
 }
 void RenderFrame(){
-    static bool renderedoneframe = false;
-    if(!g_WindowVisible ) 
-    {
-        renderedoneframe = true;
-        if(!renderedoneframe)
-            return;
-    }else{
-        renderedoneframe = false;
+    if (!g_WindowVisible) {
+        mpv_disable_video(mpv.mpv);
+        //return;
+    } else {
+        if (audio_Theme)
+            mpv_disable_video(mpv.mpv);
+        else 
+            mpv_enable_video(mpv.mpv);
     }
+
+    mpv_update_seek_pending( mpv.mpv );
 
     UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
     
@@ -411,7 +415,6 @@ void RenderFrame(){
         // std::cout << "FPS: " << currentFPS << std::endl;
     }
 
-    render_video = false;
 }
 int main(int argc, char** argv) {
 
@@ -504,17 +507,7 @@ int main(int argc, char** argv) {
             }
             
         }
-        
-        //if (!g_WindowVisible) {
-        //    mpv_disable_video(mpv.mpv);
-        //} else {
-        //    if (audio_Theme)
-        //        mpv_disable_video(mpv.mpv);
-        //    else 
-        //        mpv_enable_video(mpv.mpv);
-        //}
-
-        mpv_update_seek_pending( mpv.mpv );
+    
 
         
         //ImGui::SetCurrentContext(ctx.mainImGuiCtx);

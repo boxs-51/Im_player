@@ -19,12 +19,6 @@ struct PopupData {
 PopupData LoadPopupData();
 void SavePopupData( const PopupData& data);
 
-void AddURLToHistory(PopupData& data, const std::wstring& newUrl);
-void AddLocalToHistory(PopupData& data, const std::wstring& filePath);
-
-// --- Kiểm tra hợp lệ ---
-bool IsLikelyVideoURL(const std::string& url);
-bool IsValidLocalFile(const std::wstring& path);
 
 // --- Popup chính ---
 void ShowURLPopupContent(bool& closePopup_url,

@@ -22,30 +22,32 @@ struct AppSettings {
     int defaultVolume = 100;    
     bool repeatlist = false;
 };
+enum class Theme {DarkMode,LightMode};
+
+inline std::string ThemeToString(Theme t) {
+    switch (t) {
+        case Theme::DarkMode:    return "DarkMode";
+        case Theme::LightMode:   return "LightMode";
+        default:                 return "DarkMode";
+    }
+}
+inline Theme StringToTheme(const std::string& s) {
+    if (s == "DarkMode")    return Theme::DarkMode;
+    if (s == "LightMode")   return Theme::LightMode;
+
+    return Theme::DarkMode; // fallback
+}
 
 struct CommonSettings {
-    int fontIndex   = 0;
 
-    float fontScale   = 1.0f;
-    float wrapWidth   = 500.0f;
-    float lineSpacing = 1.0f; 
-    
-    float fontsize = 18.0f;
+    Theme theme = Theme::DarkMode;
 
-    ImVec4 fontColor;
+    std::string Videofilter = "";
+    std::string Audiofilter = "";
+    std::string VideoDecode = "";
+    std::string AudioDecode = "";
 
-    std::string fontName;
-    std::string defaultFamily = "Times New Roman";
-    std::string defaultStyle = "Regular"; 
-
-    ImVec2 windowPos;
-    ImVec2 windowSize;
-
-    int theme;
-    float opacity;
-
-    bool option1 = false;
-    bool option2 = false;
+    int fontsize = 16;
 };
 
 

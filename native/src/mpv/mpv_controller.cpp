@@ -150,7 +150,7 @@ void mpv_update_seek_pending(mpv_handle* mpv) {
 
 // Chỉnh âm lượng (0 - 100)
 void mpv_command_set_volume(mpv_handle *mpv, int volume) {
-    volume = std::clamp(volume, 0, 100);  // Đảm bảo không vượt quá 100
+    volume = std::clamp(volume, 0, 130);  // Đảm bảo không vượt quá 100
     std::string value = std::to_string(volume);
     const char *cmd[] = { "set", "volume", value.c_str(), nullptr };
     mpv_command(mpv, cmd);

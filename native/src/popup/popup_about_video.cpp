@@ -3,9 +3,10 @@
 #include"utils.h"
 
 #include "mpv/mpv_basic_formats.h"
-#include "mpv/scripts/script_manager.h"
 #include "mpv/mpv_custom_ui.h"
+#include "mpv/mpv_ui.h"
 
+#include "mpv/scripts/script_manager.h"
 #include"popup_about_video.h"
 
 #include"windows/windows_borderless_state.h"
@@ -20,16 +21,14 @@ void ShowMediaInfo() {
     ImGui::Text("Media Info");
     ImGui::Separator();
 
-    if (ImGui::BeginTable("media_info", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+    if (CusTomImGui::BeginInfoTable("media_info")) {
 
-        InfoRow("Title :", "%s", g_playbackStatus.Title.c_str());
-        InfoRow("Media Title :", "%s", g_playbackStatus.mediaTitle.c_str());
-        InfoRow("File :", "%s", g_playbackStatus.filename.c_str());
-        InfoRow("Format :", "%s", g_playbackStatus.fileFormat.c_str());
+        CusTomImGui::InfoRow("Title :", "%s", g_playbackStatus.Title.c_str());
+        CusTomImGui::InfoRow("Media Title :", "%s", g_playbackStatus.mediaTitle.c_str());
+        CusTomImGui::InfoRow("File :", "%s", g_playbackStatus.filename.c_str());
+        CusTomImGui::InfoRow("Format :", "%s", g_playbackStatus.fileFormat.c_str());
 
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
 
 
@@ -48,20 +47,19 @@ void ShowMediaInfo() {
             ImGui::TextWrapped("%s", display.c_str());
 
             // Hover → hiện full
-            if(SetDelayHover(ImGui::IsItemHovered(), 5.0, "Stream_URL_Hover")) {
-                ImGui::SetTooltip("%s", full.c_str());
-            }
+            ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0, "Stream_URL_Hover");
         }
         ImGui::EndChild();
+        ImGui::Spacing();
 
         // Buttons
-        if (ImGui::Button(showFullUrl ? "Hide Full" : "Show Full")) {
+        if (CusTomImGui::ModernButton(showFullUrl ? "Hide Full" : "Show Full", ImVec2(80, 0))) {
             showFullUrl = !showFullUrl;
         }
 
         ImGui::SameLine();
 
-        if (ImGui::Button("Copy")) {
+        if (CusTomImGui::ModernButton("Copy", ImVec2(80, 0))) {
             ImGui::SetClipboardText(full.c_str());
         }
     }
@@ -73,15 +71,15 @@ void ShowVideoInfo() {
     ImGui::Text("Overview");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_overview")) {
+    if (CusTomImGui::BeginInfoTable("video_overview")) {
 
-    InfoRow("Light :", "%s", g_videoInfo.g_videoparams.vlight.c_str());
-    InfoRow("Codec :", "%s", g_videoInfo.vcodec.c_str());
-    InfoRow("Pixel Format :", "%s", g_videoInfo.g_videoparams.vpixfmt.c_str());
-    InfoRow("Format :", "%s", g_videoInfo.video_format.c_str());
-    InfoRow("HW Decode :", "%s", g_videoInfo.hwdec.c_str());
+    CusTomImGui::InfoRow("Light :", "%s", g_videoInfo.g_videoparams.vlight.c_str());
+    CusTomImGui::InfoRow("Codec :", "%s", g_videoInfo.vcodec.c_str());
+    CusTomImGui::InfoRow("Pixel Format :", "%s", g_videoInfo.g_videoparams.vpixfmt.c_str());
+    CusTomImGui::InfoRow("Format :", "%s", g_videoInfo.video_format.c_str());
+    CusTomImGui::InfoRow("HW Decode :", "%s", g_videoInfo.hwdec.c_str());
 
-    EndInfoTable();
+    CusTomImGui::EndInfoTable();
     }
 
 
@@ -90,12 +88,12 @@ void ShowVideoInfo() {
     ImGui::Text("Performance");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_perf")) {
+    if (CusTomImGui::BeginInfoTable("video_perf")) {
 
-    InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
-    InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
-    InfoRow("Min / Max FPS :", "%.2f / %.2f" ,g_videoInfo.minFPS, g_videoInfo.maxFPS);
-    EndInfoTable();
+    CusTomImGui::InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
+    CusTomImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
+    CusTomImGui::InfoRow("Min / Max FPS :", "%.2f / %.2f" ,g_videoInfo.minFPS, g_videoInfo.maxFPS);
+    CusTomImGui::EndInfoTable();
     }
 
 
@@ -104,15 +102,15 @@ void ShowVideoInfo() {
     ImGui::Text("Resolution");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_resolution")) {
+    if (CusTomImGui::BeginInfoTable("video_resolution")) {
 
-    InfoRow("Size :", "%dx%d", g_videoInfo.width, g_videoInfo.height);
-    InfoRow("Display :", "%dx%d", g_videoInfo.g_videoparams.vdisp_w, g_videoInfo.g_videoparams.vdisp_h);
-    InfoRow("Aspect Name :", "%s", g_videoInfo.g_videoparams.vaspect_name.c_str());
-    InfoRow("SAR Name :", "%s", g_videoInfo.g_videoparams.vsar_name.c_str());
-    InfoRow("Aspect Ratio :", "%.2f", g_videoInfo.g_videoparams.vaspect);
+    CusTomImGui::InfoRow("Size :", "%dx%d", g_videoInfo.width, g_videoInfo.height);
+    CusTomImGui::InfoRow("Display :", "%dx%d", g_videoInfo.g_videoparams.vdisp_w, g_videoInfo.g_videoparams.vdisp_h);
+    CusTomImGui::InfoRow("Aspect Name :", "%s", g_videoInfo.g_videoparams.vaspect_name.c_str());
+    CusTomImGui::InfoRow("SAR Name :", "%s", g_videoInfo.g_videoparams.vsar_name.c_str());
+    CusTomImGui::InfoRow("Aspect Ratio :", "%.2f", g_videoInfo.g_videoparams.vaspect);
 
-    EndInfoTable();
+    CusTomImGui::EndInfoTable();
     }
 
 
@@ -121,11 +119,11 @@ void ShowVideoInfo() {
     ImGui::Text("Crop");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_crop")) {
+    if (CusTomImGui::BeginInfoTable("video_crop")) {
 
-    InfoRow("Crop X x Y :" , "%d x %d", g_videoInfo.g_videoparams.vcrop_x, g_videoInfo.g_videoparams.vcrop_y);
-    InfoRow("Crop WH :", "%d x %d",g_videoInfo.g_videoparams.vcrop_w,g_videoInfo.g_videoparams.vcrop_h);
-    EndInfoTable();
+    CusTomImGui::InfoRow("Crop X x Y :" , "%d x %d", g_videoInfo.g_videoparams.vcrop_x, g_videoInfo.g_videoparams.vcrop_y);
+    CusTomImGui::InfoRow("Crop WH :", "%d x %d",g_videoInfo.g_videoparams.vcrop_w,g_videoInfo.g_videoparams.vcrop_h);
+    CusTomImGui::EndInfoTable();
     }
 
 
@@ -134,14 +132,14 @@ void ShowVideoInfo() {
     ImGui::Text("Color Info");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_color")) {
+    if (CusTomImGui::BeginInfoTable("video_color")) {
 
-    InfoRow("Primaries", "%s", g_videoInfo.g_videoparams.vprimaries.c_str());
-    InfoRow("Gamma", "%s", g_videoInfo.g_videoparams.vgamma.c_str());
-    InfoRow("Matrix", "%s", g_videoInfo.g_videoparams.vcolormatrix.c_str());
-    InfoRow("Levels", "%s", g_videoInfo.g_videoparams.vcolorlevels.c_str());
+    CusTomImGui::InfoRow("Primaries", "%s", g_videoInfo.g_videoparams.vprimaries.c_str());
+    CusTomImGui::InfoRow("Gamma", "%s", g_videoInfo.g_videoparams.vgamma.c_str());
+    CusTomImGui::InfoRow("Matrix", "%s", g_videoInfo.g_videoparams.vcolormatrix.c_str());
+    CusTomImGui::InfoRow("Levels", "%s", g_videoInfo.g_videoparams.vcolorlevels.c_str());
 
-    EndInfoTable();
+    CusTomImGui::EndInfoTable();
     }
 
 
@@ -150,16 +148,16 @@ void ShowVideoInfo() {
     ImGui::Text("Advanced");
     ImGui::Separator();
 
-    if (BeginInfoTable("video_advanced")) {
+    if (CusTomImGui::BeginInfoTable("video_advanced")) {
 
-    InfoRow("Stereo In", "%s" ,g_videoInfo.g_videoparams.vstereo_in.c_str());
-    InfoRow("Chroma Location", "%s", g_videoInfo.g_videoparams.vchroma_location.c_str());
-    InfoRow("SAR / PAR", "%0.2f / %0.2f"," ", g_videoInfo.g_videoparams.vsar, g_videoInfo.g_videoparams.vpar);
-    InfoRow("Signal Peak" , "%d", g_videoInfo.g_videoparams.vsig_peak);
-    InfoRow("Avg BPP", "%d", g_videoInfo.g_videoparams.average_bpp);
-    InfoRow("Bitrate", "%d kbps", g_videoInfo.vbitrate / 1000);
+        CusTomImGui::InfoRow("Stereo In", "%s" ,g_videoInfo.g_videoparams.vstereo_in.c_str());
+        CusTomImGui::InfoRow("Chroma Location", "%s", g_videoInfo.g_videoparams.vchroma_location.c_str());
+        CusTomImGui::InfoRow("SAR / PAR", "%0.2f / %0.2f"," ", g_videoInfo.g_videoparams.vsar, g_videoInfo.g_videoparams.vpar);
+        CusTomImGui::InfoRow("Signal Peak" , "%d", g_videoInfo.g_videoparams.vsig_peak);
+        CusTomImGui::InfoRow("Avg BPP", "%d", g_videoInfo.g_videoparams.average_bpp);
+        CusTomImGui::InfoRow("Bitrate", "%d kbps", g_videoInfo.vbitrate / 1000);
 
-    EndInfoTable();
+        CusTomImGui::EndInfoTable();
     }
 }
 
@@ -167,41 +165,47 @@ void ShowAudioInfo() {
 
     // ====== Audio Devices ======
     if (!g_playbackStatus.g_audioDevices.empty()) {
-        if (ImGui::CollapsingHeader("Audio Devices", ImGuiTreeNodeFlags_DefaultOpen)) {
 
-            if (ImGui::BeginTable("audio_devices", 3,
-                ImGuiTableFlags_Borders |
-                ImGuiTableFlags_RowBg |
-                ImGuiTableFlags_SizingStretchSame)) {
+        if (CusTomImGui::ModernCollapsingHeader("Audio Devices",ImGuiTreeNodeFlags_DefaultOpen)) {
+            // 1. Định nghĩa cấu trúc bảng
+            std::vector <CusTomImGui::TableCol> cols = {
+                {"Device Name", 180.0f},
+                {"Description", 0.0f},   // Stretch
+                {"Status", 80.0f}
+            };
 
-                // Header
-                ImGui::TableSetupColumn("Name");
-                ImGui::TableSetupColumn("Description");
-                ImGui::TableSetupColumn("Active");
+            // 2. Bắt đầu bảng
+            if (CusTomImGui::BeginListTable("audio_devices_v2", cols)) {
                 
-                ImGui::PushStyleColor(ImGuiCol_Text,ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
-                ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.2f, 0.2f, 0.2f, 1.0f));
-                ImGui::TableHeadersRow();
-                ImGui::PopStyleColor(2);
-
                 for (auto& dev : g_playbackStatus.g_audioDevices) {
-
-                    ImGui::TableNextRow();
-
-                    ImGui::TableNextColumn();
-                    ImGui::Text("%s", dev.name.c_str());
-
-                    ImGui::TableNextColumn();
-                    ImGui::TextWrapped("%s", dev.description.c_str());
-
-                    ImGui::TableNextColumn();
                     bool active = (dev.name == g_videoInfo.audio_device);
 
-                    ImVec4 col = active ? ImVec4(0.3f,1,0.3f,1) : ImVec4(0.6f,0.6f,0.6f,1);
-                    ImGui::TextColored(col, active ? "Yes" : "No");
-                }
+                    // 3. Bắt đầu hàng
+                    CusTomImGui::BeginListRow();
 
-                ImGui::EndTable();
+                    // Cột 1 (Đã tự động chuyển Column ở BeginListRow)
+                    if (active) ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "● %s", dev.name.c_str());
+                    else ImGui::Text("%s", dev.name.c_str());
+
+                    // Cột 2
+                    ImGui::TableNextColumn();
+                    ImGui::TextWrapped("%s", dev.description.empty() ? "N/A" : dev.description.c_str());
+
+                    // Cột 3
+                    ImGui::TableNextColumn();
+                    if (active) ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Active");
+                    else ImGui::TextDisabled("Idle");
+
+                    // 4. Xử lý click cho toàn bộ hàng
+                    if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
+                    //if (IsRowClicked()) {
+                    //    g_videoInfo.audio_device = dev.name;
+                        // Thực hiện lệnh đổi thiết bị tại đây
+                    //}
+
+                    CusTomImGui::EndListRow();
+                }
+                CusTomImGui::EndListTable();
             }
         }
     }
@@ -210,16 +214,14 @@ void ShowAudioInfo() {
     ImGui::Spacing();
     ImGui::Text("Audio Overview");
     ImGui::Separator();
+    if(CusTomImGui::BeginInfoTable("audio_info")){
 
-    if (ImGui::BeginTable("audio_info", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+        CusTomImGui::InfoRow("Client", "%s", g_playbackStatus.audio_client_name.c_str());
+        CusTomImGui::InfoRow("Device", "%s", g_videoInfo.audio_device.c_str());
+        CusTomImGui::InfoRow("Codec", "%s", g_videoInfo.acodec.c_str());
+        CusTomImGui::InfoRow("Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
 
-        InfoRow("Client", "%s", g_playbackStatus.audio_client_name.c_str());
-        InfoRow("Device", "%s", g_videoInfo.audio_device.c_str());
-        InfoRow("Codec", "%s", g_videoInfo.acodec.c_str());
-        InfoRow("Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
 
 
@@ -228,97 +230,105 @@ void ShowAudioInfo() {
     ImGui::Text("Properties");
     ImGui::Separator();
 
-    if (ImGui::BeginTable("audio_props", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+    if(CusTomImGui::BeginInfoTable("audio_props")){
 
-        InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
-        InfoRow("Delay Audio :", "%.2f s", g_videoInfo.audio_delay);
-        InfoRow("Bitrate Audio :", "%d kbps", g_videoInfo.abitrate / 1000);
-        InfoRow("Sample Rate :", "%d Hz", g_videoInfo.g_audioarams.asamplerate);
-        InfoRow("Channels :", "%s (%d)",g_videoInfo.g_audioarams.achannels_str.c_str(),g_videoInfo.g_audioarams.channel_count);
-        InfoRow("Channels HR :", "%s", g_videoInfo.g_audioarams.ahr_channels.c_str());
+        CusTomImGui::InfoRow("Mute :" , "%s", g_playbackStatus.isMuted ? "Yes" : "No") ;   
+        CusTomImGui::InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
+        CusTomImGui::InfoRow("Delay Audio :", "%.2f s", g_videoInfo.audio_delay);
+        CusTomImGui::InfoRow("Bitrate Audio :", "%d kbps", g_videoInfo.abitrate / 1000);
+        CusTomImGui::InfoRow("Sample Rate :", "%d Hz", g_videoInfo.g_audioarams.asamplerate);
+        CusTomImGui::InfoRow("Channels :", "%s (%d)",g_videoInfo.g_audioarams.achannels_str.c_str(),g_videoInfo.g_audioarams.channel_count);
+        CusTomImGui::InfoRow("Channels HR :", "%s", g_videoInfo.g_audioarams.ahr_channels.c_str());
 
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
 }
 void ShowTrackInfo() {
     ImGui::Text("Track List");
     ImGui::Separator();
 
-    int index = 0;
-
     for (const auto& track : g_videoInfo.g_tracks) {
-        ImGui::PushID(index++);
+        // Sử dụng ID của track để PushID cho an toàn
+        std::string unique_id = track.common.type + "_" + std::to_string(track.common.id);
+        ImGui::PushID(unique_id.c_str());
 
         // ====== CARD ======
-        ImGui::BeginChild("track_card", ImVec2(0, 0), true);
+        // Sử dụng Child window với chiều cao cố định hoặc tự động
+        ImGui::BeginChild("track_card", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Border);
 
-        // ---- HEADER ----
-        ImGui::Text("[%s #%d]", track.type.c_str(), track.id);
+        // ---- HEADER (Phần chung) ----
+        ImGui::Text("[%s #%d]", track.common.type.c_str(), track.common.id);
         ImGui::SameLine();
-        ImGui::Text("%s", track.codec.c_str());
+        ImGui::Text("%s", track.common.codec.c_str());
 
-        if (!track.codec_profile.empty()) {
+        if (!track.common.codec_profile.empty()) {
             ImGui::SameLine();
-            ImGui::TextDisabled("(%s)", track.codec_profile.c_str());
+            ImGui::TextDisabled("(%s)", track.common.codec_profile.c_str());
         }
 
-        // ---- STATUS BADGE ----
-        if (track.selected) {
+        // ---- STATUS BADGES ----
+        if (track.common.selected) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.3f,1,0.3f,1), "● Selected");
+            ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), " ● Selected");
         }
-
-        if (track.is_default) {
+        if (track.common.is_default) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(0.3f,0.7f,1,1), "● Default");
+            ImGui::TextColored(ImVec4(0.3f, 0.7f, 1.0f, 1.0f), " ● Default");
         }
-
-        if (track.forced) {
+        if (track.common.forced) {
             ImGui::SameLine();
-            ImGui::TextColored(ImVec4(1,0.6f,0,1), "● Forced");
+            ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), " ● Forced");
         }
 
         ImGui::Separator();
 
-        // ====== QUICK INFO ======
-        if (ImGui::BeginTable("track_summary", 2,
-            ImGuiTableFlags_SizingStretchSame |
-            ImGuiTableFlags_BordersInnerV)) {
-
-            InfoRow("Language", "%s", track.language.c_str());
-            InfoRow("Title", "%s", track.title.c_str());
-            InfoRow("Format", "%s", track.format_name.c_str());
-            InfoRow("External", "%s", track.external ? "Yes" : "No");
-            InfoRow("Dependent", "%s", track.dependent ? "Yes" : "No");
-            InfoRow("Album Art", "%s", track.albumart ? "Yes" : "No");
-            InfoRow("Image Track", "%s", track.image ? "Yes" : "No");
+        // ====== QUICK INFO (Thông tin tóm tắt) ======
+        if (ImGui::BeginTable("track_summary", 2, ImGuiTableFlags_SizingStretchSame)) {
+            
+            CusTomImGui::InfoRow("Language", "%s", track.common.language.empty() ? "unknown" : track.common.language.c_str());
+            CusTomImGui::InfoRow("Title", "%s", track.common.title.empty() ? "N/A" : track.common.title.c_str());
+            
+            // Hiển thị thông số kỹ thuật nhanh dựa trên loại track
+            if (track.common.type == "video") {
+                CusTomImGui::InfoRow("Resolution", "%dx%d", track.video.demux_w, track.video.demux_h);
+                if (track.video.albumart) CusTomImGui::InfoRow("Type", "Album Art");
+            } 
+            else if (track.common.type == "audio") {
+                CusTomImGui::InfoRow("Channels", "%s (%d ch)", track.audio.demux_channels.c_str(), track.audio.demux_channel_count);
+            }
 
             ImGui::EndTable();
         }
 
-        // ====== DETAILS ======
-        if (ImGui::TreeNode("Details")) {
-            if (ImGui::BeginTable("track_details", 2,
-                ImGuiTableFlags_SizingStretchSame |
-                ImGuiTableFlags_BordersInnerV)) {
+        // ====== DETAILS (Phần mở rộng) ======
+        
+        if (ImGui::TreeNode(("Full Details##" + std::to_string(track.common.id)).c_str())){
+            if (ImGui::BeginTable("track_details_full", 2, ImGuiTableFlags_BordersInnerV)) {
+                
+                // Common Details
+                CusTomImGui::InfoRow("Codec Desc", "%s", track.common.codec_desc.c_str());
+                CusTomImGui::InfoRow("Decoder", "%s", track.common.decoder.c_str());
+                CusTomImGui::InfoRow("FF-Index", "%d", track.common.ff_index);
+                CusTomImGui::InfoRow("External", "%s", track.common.external ? "Yes" : "No");
 
-                InfoRow("Codec Description", "%s", track.codec_desc.c_str());
-                InfoRow("Decoder", "%s", track.decoder.c_str());
-                InfoRow("Decoder Description", "%s", track.decoder_desc.c_str());
+                // Video Details
+                if (track.common.type == "video" || track.common.type == "image") {
+                    CusTomImGui::InfoRow("FPS", "%.3f", track.video.demux_fps);
+                    CusTomImGui::InfoRow("Format", "%s", track.video.format_name.c_str());
+                    CusTomImGui::InfoRow("Is Image", "%s", track.video.image ? "Yes" : "No");
+                }
+                
+                // Audio Details
+                if (track.common.type == "audio") {
+                    CusTomImGui::InfoRow("Sample Rate", "%d Hz", track.audio.demux_samplerate);
+                    CusTomImGui::InfoRow("Format", "%s", track.audio.format_name.c_str());
+                }
 
-                InfoRow("Visual Impaired", "%s", track.visual_impaired ? "Yes" : "No");
-                InfoRow("Hearing Impaired", "%s", track.hearing_impaired ? "Yes" : "No");
-
-                // ---- TYPE SPECIFIC ----
-                if (track.type == "video") {
-                    InfoRow("Resolution", "%dx%d", track.demux_w, track.demux_h);
-                    InfoRow("FPS", "%.2f", track.demux_fps);
-                } 
-                else if (track.type == "audio") {
-                    InfoRow("Sample Rate", "%d Hz", track.demux_samplerate);
-                    InfoRow("Channels", "%s (%dch)", track.demux_channels.c_str(), track.demux_channel_count);
+                // Accessibility
+                if (track.access.hearing_impaired || track.access.visual_impaired) {
+                    CusTomImGui::InfoRow("Accessibility", "%s%s", 
+                        track.access.hearing_impaired ? "[Hearing] " : "",
+                        track.access.visual_impaired ? "[Visual]" : "");
                 }
 
                 ImGui::EndTable();
@@ -336,22 +346,19 @@ void ShowPlaybackInfo() {
     // ====== STATE ======
     ImGui::Text("Playback State");
     ImGui::Separator();
+    if(CusTomImGui::BeginInfoTable("playback_state")){
 
-    if (ImGui::BeginTable("playback_state", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+        CusTomImGui::InfoRow("Status :","%s", PlaybackStateToString(GetPlaybackState()));
+        CusTomImGui::InfoRow("Video Type :", "%s", VideoTypeToString(GetVideoType()));
+        CusTomImGui::InfoRow("Loop Mode :", "%s", g_playbackStatus.loopMode.c_str());
 
-        InfoRow("Status :","%s", PlaybackStateToString(GetPlaybackState()));
-        InfoRow("Video Type :", "%s", VideoTypeToString(GetVideoType()));
-        InfoRow("Loop Mode :", "%s", g_playbackStatus.loopMode.c_str());
+        CusTomImGui::InfoRow("Has File :", "%s", g_playbackStatus.hasFile ? "Yes" : "No");
+        CusTomImGui::InfoRow("Seekable :", "%s", g_playbackStatus.seekable ? "Yes" : "No");
+        CusTomImGui::InfoRow("Idle :", "%s", g_playbackStatus.idle_active ? "Yes" : "No");
 
-        InfoRow("Has File :", "%s", g_playbackStatus.hasFile ? "Yes" : "No");
-        InfoRow("Seekable :", "%s", g_playbackStatus.seekable ? "Yes" : "No");
-        InfoRow("Idle :", "%s", g_playbackStatus.idle_active ? "Yes" : "No");
+        CusTomImGui::InfoRow("Sub Visible :", "%s", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
 
-        InfoRow("Sub Visible :", "%s", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
-
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
 
 
@@ -367,14 +374,13 @@ void ShowPlaybackInfo() {
     // Progress bar
     ImGui::ProgressBar(progress, ImVec2(-1, 8));
 
-    if (ImGui::BeginTable("playback_time", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
-        InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
-        InfoRow("Remaining :", "%.2f s", g_playbackStatus.time_remaining);
-        InfoRow("Percent :", "%.2f%%", g_playbackStatus.percent_pos);
+    if(CusTomImGui::BeginInfoTable("playback_time")){
 
-        ImGui::EndTable();
+        CusTomImGui::InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
+        CusTomImGui::InfoRow("Remaining :", "%.2f s", g_playbackStatus.time_remaining);
+        CusTomImGui::InfoRow("Percent :", "%.2f%%", g_playbackStatus.percent_pos);
+
+        CusTomImGui::EndInfoTable();
     }
 
 
@@ -383,15 +389,13 @@ void ShowPlaybackInfo() {
     ImGui::Text("Properties");
     ImGui::Separator();
 
-    if (ImGui::BeginTable("playback_props", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+    if(CusTomImGui::BeginInfoTable("playback_props")){
 
-        InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
-        InfoRow("Speed :", "%.2fx", g_playbackStatus.speed);
-        InfoRow("Subtitle Delay :", "%.2f s", g_playbackStatus.g_subinfo.sub_Delay);
+        CusTomImGui::InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
+        CusTomImGui::InfoRow("Speed :", "%.2fx", g_playbackStatus.speed);
+        CusTomImGui::InfoRow("Subtitle Delay :", "%.2f s", g_playbackStatus.g_subinfo.sub_Delay);
 
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
 }
 
@@ -411,17 +415,15 @@ void ShowNetworkInfo() {
     ImGui::Text("Network / Buffer");
     ImGui::Separator();
 
-    if (ImGui::BeginTable("network_info", 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV)) {
+    if(CusTomImGui::BeginInfoTable("network_info")){
 
-        InfoRow("Cache Duration :", "%.2f s", g_playbackStatus.demuxer_cache_duration);
-        InfoRow("Cache Time :", "%.2f s", g_playbackStatus.demuxer_cache_time);
-        InfoRow("Audio Buffer :", "%.2f s", g_playbackStatus.audio_buffer);
-        InfoRow("Bitrate :", "%.2f kbps", g_playbackStatus.demuxer_bitrate);
-        InfoRow("Via Network :", "%s", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
+        CusTomImGui::InfoRow("Cache Duration :", "%.2f s", g_playbackStatus.demuxer_cache_duration);
+        CusTomImGui::InfoRow("Cache Time :", "%.2f s", g_playbackStatus.demuxer_cache_time);
+        CusTomImGui::InfoRow("Audio Buffer :", "%.2f s", g_playbackStatus.audio_buffer);
+        CusTomImGui::InfoRow("Bitrate :", "%.2f kbps", g_playbackStatus.demuxer_bitrate);
+        CusTomImGui::InfoRow("Via Network :", "%s", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
 
-        ImGui::EndTable();
+        CusTomImGui::EndInfoTable();
     }
     float bufferRatio = 0.0f;
 
@@ -526,84 +528,49 @@ void OpenVideoInfoPopup() {
     });
 }
 void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
+    //ImVec2 avail = ImGui::GetContentRegionAvail();
 
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 1.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg,  ImVec4(0.85f, 0.85f, 0.85f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Border,   ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.9f, 0.9f, 0.9f, 1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text,     ImVec4(0.0f, 0.0f, 0.0f, 1.0f));
+    // Sử dụng Helper cho Child (Vùng bao ngoài)
+    //if (BeginModernChild("##PopupVideoInFo", avail, true)) {
+        
+        // Sử dụng Helper cho TabBar
+        if (CusTomImGui::BeginModernTabBar("##InfoTabs")) {
+            
+            // Một mảng cấu trúc để lặp qua các Tab (Giúp code gọn hơn nữa)
+            struct Tab { const char* Name; void (*Func)(); };
+            Tab tabs[] = {
+                {"Media", ShowMediaInfo},
+                {"Video", ShowVideoInfo},
+                {"Audio", ShowAudioInfo},
+                {"Playback", ShowPlaybackInfo},
+                {"Network", ShowNetworkInfo},
+                {"Track", ShowTrackInfo},
+                {"Metadata", ShowMetadata}
+            };
 
-    ImGui::BeginChild("##PopupVideoInFo",avail,  true);
+            for (auto& tab : tabs) {
+                if (ImGui::BeginTabItem(tab.Name)) {
+                    ImGui::Dummy(ImVec2(0, 10)); // Thêm khoảng trống trên đầu mỗi card
+                    CusTomImGui::BeginCard(); 
+                    tab.Func();
+                    CusTomImGui::EndCard();
+                    ImGui::EndTabItem();
+                }
+            }
 
-    if (ImGui::BeginTabBar("##InfoTabs",ImGuiTabBarFlags_FittingPolicyResizeDown)) {
-        ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
-        if (ImGui::BeginTabItem("Media"))   {
-            BeginCard();
-            ShowMediaInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Video"))   {
-            BeginCard();
-            ShowVideoInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Audio"))   {
-            BeginCard();
-            ShowAudioInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Playback")){
-            BeginCard();
-            ShowPlaybackInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Network")) {
-            BeginCard();
-            ShowNetworkInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Track"))   {
-            BeginCard();
-            ShowTrackInfo();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("Metadata"))   {
-            BeginCard();
-            ShowMetadata();
-            EndCard();
-            ImGui::EndTabItem();
-        }
-
-        if (g_DragResizeState.showDebug) {
-            if (ImGui::BeginTabItem("DeBug")) 
-            {
-                BeginCard();
+            // Tab Debug đặc biệt
+            if (g_DragResizeState.showDebug && ImGui::BeginTabItem("Debug")) {
+                CusTomImGui::BeginCard();
                 ShowDuBugInFo();
-                EndCard();
+                CusTomImGui::EndCard();
                 ImGui::EndTabItem();
             }
+
+            CusTomImGui::EndModernTabBar();
         }
-            
-        ImGui::PopStyleColor();
-        ImGui::EndTabBar();
-    }
-
-    ImGui::Separator();
-
-    //if (ImGui::Button("Close")) {
-    //    closePopup_VideoInFo = true;
+        
+    //    EndModernChild();
     //}
-
-    ImGui::EndChild();
-    ImGui::PopStyleColor(4);
-    ImGui::PopStyleVar();
 }
 void RenderVideoInfoPopup(){
     // Render popup mỗi frame

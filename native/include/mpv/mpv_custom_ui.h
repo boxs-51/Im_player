@@ -1,5 +1,7 @@
 #include "utils.h"
 
+#include "mpv/mpv_ui_theme.h"
+
 #include <imgui_internal.h>
 #include <imgui.h>
 #include <string>
@@ -788,6 +790,86 @@ inline static void DrawSeekingIconAnimated(
         drawList->AddTriangleFilled(p1, p2, p3, finalCol);
     }
 }
+
+struct PlayPauseOverlay {
+    float alpha = 0.0f;
+    float scale = 1.0f;
+    bool last_paused = false; 
+    bool initialized = false;
+};
+inline void DrawGhostStatusOverlay(ImVec2 vPos, ImVec2 vSize, bool isPaused) {
+    static PlayPauseOverlay s;
+    float dt = ImGui::GetIO().DeltaTime;
+
+    if (!s.initialized) {
+        s.last_paused = isPaused;
+        s.initialized = true;
+        return;
+    }
+
+    // 1. Phát hiện thay đổi trạng thái
+    if (isPaused != s.last_paused) {
+        s.last_paused = isPaused;
+        s.alpha = 1.0f;
+        s.scale = 0.6f; 
+    }
+
+    // 2. Nội suy Alpha & Scale
+    if (s.alpha > 0.0f) {
+        s.alpha -= dt * 1.8f; // Tốc độ biến mất vừa phải
+        s.scale = ImLerp(s.scale, 1.4f, dt * 5.0f); 
+    }
+
+    if (s.alpha > 0.001f) {
+        // Sử dụng WindowDrawList để icon nằm đúng trong không gian video
+        ImDrawList* dl = ImGui::GetWindowDrawList(); 
+        
+        ImVec2 center = ImVec2(vPos.x + vSize.x * 0.5f, vPos.y + vSize.y * 0.5f);
+        float baseSize = (vSize.y * 0.08f) * s.scale; // Kích thước cơ bản
+
+        // --- THIẾT LẬP MÀU SẮC ---
+        ImVec4 iconColVec = ImVec4(1.0f, 1.0f, 1.0f, s.alpha * 0.9f);
+        ImU32 iconCol = ImGui::ColorConvertFloat4ToU32(iconColVec);
+        
+        // Màu Glow (vòng tròn mờ phía sau)
+        ImU32 glowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, s.alpha * 0.4f));
+
+        // 3. VẼ VÒNG TRÒN GLOW (Nền bên dưới)
+        // Tạo một vòng tròn đen mờ giúp icon trắng nổi bật hơn
+        dl->AddCircleFilled(center, baseSize * 1.8f, glowCol, 36);
+
+        // 4. VẼ ICON CHI TIẾT
+        if (isPaused) {
+            // Tinh chỉnh Pause: Rộng hơn, thấp hơn (Dày và chắc chắn)
+            float barWidth = baseSize * 0.45f;  // Tăng độ rộng vạch
+            float barHeight = baseSize * 1.1f;  // Giảm chiều cao tương đối
+            float gap = baseSize * 0.25f;      // Khoảng cách giữa 2 vạch
+
+            // Vạch trái
+            dl->AddRectFilled(
+                ImVec2(center.x - barWidth - gap, center.y - barHeight),
+                ImVec2(center.x - gap, center.y + barHeight),
+                iconCol, 5.0f); // Bo góc một chút cho hiện đại
+            
+            // Vạch phải
+            dl->AddRectFilled(
+                ImVec2(center.x + gap, center.y - barHeight),
+                ImVec2(center.x + barWidth + gap, center.y + barHeight),
+                iconCol, 5.0f);
+        } 
+        else {
+            // Tinh chỉnh Play: Tam giác đều và mập hơn
+            float pSize = baseSize * 1.2f;
+            ImVec2 p1 = center + ImVec2(-pSize * 0.6f, -pSize * 0.9f);
+            ImVec2 p2 = center + ImVec2(-pSize * 0.6f,  pSize * 0.9f);
+            ImVec2 p3 = center + ImVec2( pSize * 1.0f,  0.0f);
+            
+            // Vẽ đổ bóng nhẹ cho tam giác
+            dl->AddTriangleFilled(p1 + ImVec2(2,2), p2 + ImVec2(2,2), p3 + ImVec2(2,2), glowCol);
+            dl->AddTriangleFilled(p1, p2, p3, iconCol);
+        }
+    }
+}
 struct IconButtonStyle
 {
     // Button background: Dùng Alpha thấp cho cảm giác "Glassmorphism"
@@ -1048,74 +1130,351 @@ inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
 
     return result;
 }
+// Khai báo biến toàn cục để các Helper sử dụng
+static ThemeColors GTheme;
 
-// InfoRow an toàn, hỗ trợ std::string
-inline void InfoRow(const char* label, const char* fmt, ...) {
-    ImGui::TableNextRow();
+namespace CusTomImGui{
+    // InfoRow an toàn, hỗ trợ std::string
+    inline void InfoRow(const char* label, const char* fmt, ...) {
+        va_list args;
+        va_start(args, fmt);
+        
+        char buf[1024];
+        int len = vsnprintf(buf, sizeof(buf), fmt, args);
+        va_end(args);
 
-    // Cột 1: Label
-    ImGui::TableNextColumn();
-    ImGui::TextDisabled("%s", label);
+        // Kiểm tra nếu giá trị rỗng hoặc chỉ có khoảng trắng
+        bool isEmpty = (len <= 0 || buf[0] == '\0');
 
-    // Cột 2: Value
-    ImGui::TableNextColumn();
+        ImGui::TableNextRow(ImGuiTableRowFlags_None, 24.0f);
 
-    std::string finalStr;
-    va_list args;
-    va_start(args, fmt);
+        // Cột 1: Label
+        ImGui::TableNextColumn();
+        ImGui::AlignTextToFramePadding();
+        ImGui::TextDisabled("%s", label);
 
-    const char* traverse = fmt;
-    while (*traverse) {
-        if (*traverse == '%') {
-            const char* percentStart = traverse;
-            traverse++;
+        // Cột 2: Value
+        ImGui::TableNextColumn();
+        ImGui::AlignTextToFramePadding();
 
-            // tìm ký tự định dạng cuối cùng (s,d,u,f,p,%)
-            while (*traverse && strchr("sdfup%", *traverse) == nullptr) traverse++;
-
-            char fmtSpec[32] = {};
-            size_t len = traverse - percentStart + 1;
-            if (len >= sizeof(fmtSpec)) len = sizeof(fmtSpec)-1;
-            memcpy(fmtSpec, percentStart, len); 
-            fmtSpec[len] = '\0';
-
-            char typeChar = *traverse;
-            finalStr += safeFormatArg(fmtSpec, args, typeChar);
-
-            traverse++; // qua ký tự định dạng cuối cùng
+        if (isEmpty) {
+            // Nếu rỗng, hiện dấu gạch ngang mờ (N/A)
+            ImGui::TextDisabled("None"); 
         } else {
-            finalStr += *traverse++;
+            ImGui::TextUnformatted(buf);
         }
+
+        // Chỉ cho phép Copy nếu có dữ liệu
+        //if (!isEmpty && ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
+        //    ImGui::SetClipboardText(buf);
+        //}
     }
 
-    va_end(args);
+    inline bool BeginInfoTable(const char* id, int column_count = 2, float first_col_width = 120.0f, ImGuiTableFlags extra_flags = 0) {
+        // Flags: Thêm NoBordersInBody để UI trông phẳng (Flat Design)
+        ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | 
+                                ImGuiTableFlags_RowBg | 
+                                ImGuiTableFlags_NoSavedSettings | 
+                                ImGuiTableFlags_NoBordersInBody | 
+                                extra_flags;
 
-    ImGui::TextUnformatted(finalStr.c_str());
+        // Đẩy khoảng cách giữa các ô ra một chút (Padding)
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 4.0f));
+
+        if (ImGui::BeginTable(id, column_count, flags)) {
+            ImGui::TableSetupColumn("##Label", ImGuiTableColumnFlags_WidthFixed, first_col_width);
+            for (int i = 1; i < column_count; i++) {
+                ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
+            }
+
+            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    ImVec4(0, 0, 0, 0));
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(1, 1, 1, 0.04f)); 
+            
+            return true;
+        }
+        
+        ImGui::PopStyleVar(); // Pop CellPadding nếu BeginTable fail
+        return false;
+    }
+
+    inline void EndInfoTable() {
+        ImGui::EndTable();
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(); // Pop CellPadding
+    }
+
+    inline void BeginCard() {
+        // Sử dụng màu nền Card nhẹ nhàng, tiệp với tông Dark của Window
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.18f, 0.18f, 0.20f, 1.0f)); 
+        ImGui::PushStyleColor(ImGuiCol_Border,  ImVec4(0.30f, 0.30f, 0.33f, 1.0f)); // Viền mảnh
+        ImGui::PushStyleColor(ImGuiCol_Text,    ImVec4(0.95f, 0.95f, 0.95f, 1.0f)); // Chữ trắng sáng
+
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
+
+        // Dùng ID động để tránh trùng lặp nếu có nhiều Card
+        ImGui::BeginChild(ImGui::GetID("##card_inner"), ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysUseWindowPadding);
+    }
+
+    inline void EndCard() {
+        ImGui::EndChild();
+        ImGui::PopStyleVar(3);
+        ImGui::PopStyleColor(3);
+    }
+
+    inline bool BeginModernChild(const char* str_id, ImVec2 size = ImVec2(0, 0), bool border = false, ImGuiWindowFlags extra_flags = 0) {
+        ImGuiContext& g = *GImGui;
+        ImGuiStyle& style = ImGui::GetStyle();
+        
+        // Tùy chỉnh Style cho hiện đại
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f); // Bo góc mềm mại
+        ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 12.0f));
+        
+        // Màu sắc (Sử dụng màu tối nhẹ hoặc trắng tinh khôi)
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.12f, 0.12f, 0.12f, 1.0f)); 
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.25f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f,1.0f,1.0f,1.0f));
+
+        bool ret = ImGui::BeginChild(str_id, size, border, extra_flags | ImGuiWindowFlags_NoScrollbar);
+        return ret;
+    }
+
+    inline void EndModernChild() {
+        ImGui::EndChild();
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(3);
+    }
+    inline bool BeginModernTabBar(const char* id) {
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(15.0f, 0.0f)); 
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 10.0f)); // Tab cao hơn nhìn sang hơn
+        
+        // Màu sắc
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(0.6f, 0.6f, 0.6f, 1.0f));  // Text mặc định hơi tối
+        ImGui::PushStyleColor(ImGuiCol_Tab,           ImVec4(0, 0, 0, 0));              // Trong suốt khi ko chọn
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,    ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_TabActive,     ImVec4(0.15f, 0.15f, 0.17f, 1.0f)); // Tiệp màu với ChildBg bên dưới
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  ImVec4(0, 0, 0, 0));
+        
+        // Đường kẻ dưới Tab Active (Màu Accent)
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0.1f, 0.45f, 0.9f, 0.7f));
+
+        return ImGui::BeginTabBar(id, ImGuiTabBarFlags_NoTabListScrollingButtons | ImGuiTabBarFlags_FittingPolicyResizeDown);
+    }
+    inline void EndModernTabBar() {
+        ImGui::EndTabBar();
+        ImGui::PopStyleColor(6);
+        ImGui::PopStyleVar(2);
+    }
+    inline void PushModernWindowStyle() {
+        ImGuiStyle& style = ImGui::GetStyle();
+        
+        // 1. Bo góc và viền
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(15, 15));
+        
+        // 2. Tiêu đề (Title bar) - Làm cho nó cao hơn và phẳng hơn
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowTitleAlign, ImVec2(0.5f, 0.5f)); // Căn giữa title
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));    // Tăng độ cao title bar
+        
+        // 3. Màu sắc hiện đại (Dark Theme tinh tế)
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.10f, 0.10f, 0.12f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, ImVec4(0.08f, 0.08f, 0.09f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, ImVec4(0.12f, 0.12f, 0.14f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.28f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_Separator, ImVec4(0.25f, 0.25f, 0.28f, 1.00f));
+    }
+    inline void PopModernWindowStyle() {
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(5);
+    }
+    inline bool ModernButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8)); // Nút dày dặn hơn
+        
+        // Màu sắc nút Primary (Accent)
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.12f, 0.45f, 0.90f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.15f, 0.55f, 1.00f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.10f, 0.35f, 0.80f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Text,          ImVec4(1.00f, 1.00f, 1.00f, 1.0f));
+
+        bool pressed = ImGui::Button(label, size);
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(2);
+        return pressed;
+    }
+    inline bool SecondaryButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Có viền nhẹ
+
+        ImGui::PushStyleColor(ImGuiCol_Button,        ImVec4(0.20f, 0.20f, 0.22f, 0.0f)); // Trong suốt
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.25f, 0.25f, 0.27f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  ImVec4(0.15f, 0.15f, 0.17f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_Border,        ImVec4(0.35f, 0.35f, 0.38f, 1.0f));
+
+        bool pressed = ImGui::Button(label, size);
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(3);
+        return pressed;
+    }
+    inline bool ModernCheckbox(const char* label, bool* v) {
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        //ImGui::PushStyleVar(ImGuiStyleVar_CheckMarkSize, 14.0f); // Dấu tích lớn dễ nhìn
+
+        // Màu nền ô Check
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.20f, 0.20f, 0.22f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.25f, 0.25f, 0.28f, 1.0f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.15f, 0.45f, 0.90f, 0.5f));
+        
+        // Màu dấu tích khi được chọn
+        ImGui::PushStyleColor(ImGuiCol_CheckMark,        ImVec4(0.12f, 0.45f, 0.90f, 1.0f));
+
+        bool changed = ImGui::Checkbox(label, v);
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar();
+        return changed;
+    }
+    inline bool ModernInputTextMultiline(const char* label, char* buf, size_t buf_size, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0) {
+        // 1. Bo góc và Padding cho nội dung bên trong ô nhập
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10)); // Tạo khoảng trống cho chữ "thở"
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+        // 2. Màu sắc (Nền tối, Chữ trắng, Viền xanh khi Focus)
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          ImVec4(0.12f, 0.12f, 0.14f, 1.00f)); // Nền ô nhập
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   ImVec4(0.15f, 0.15f, 0.17f, 1.00f));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    ImVec4(0.10f, 0.10f, 0.12f, 1.00f));
+        
+        // Màu viền (Rất quan trọng để nhận biết đang gõ)
+        ImGui::PushStyleColor(ImGuiCol_Border,           ImVec4(0.25f, 0.25f, 0.28f, 1.00f)); 
+        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,   ImVec4(0.10f, 0.40f, 0.75f, 0.50f)); // Màu khi bôi đen chữ
+
+        bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
+
+        // Kiểm tra nếu đang gõ thì đổi màu viền sang xanh Blue (Accent)
+        if (ImGui::IsItemActive()) {
+            ImGui::GetWindowDrawList()->AddRect(
+                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), 
+                ImColor(40, 110, 230, 255), 6.0f, 0, 1.5f
+            );
+        }
+
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(3);
+        return changed;
+    }
+    inline bool ModernSelectable(const char* label, bool selected, ImGuiSelectableFlags flags = 0, const ImVec2& size_arg = ImVec2(0, 0)) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        // 1. Tăng khoảng cách (Padding) cho Item
+        // Giúp item cao hơn, dễ nhìn và dễ click hơn
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        
+        // 2. Bo góc cho phần highlight (nền khi chọn hoặc hover)
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+
+        // 3. Màu sắc hiện đại
+        // Không màu khi bình thường, xám nhẹ khi hover, xanh khi được chọn
+        ImGui::PushStyleColor(ImGuiCol_Header,        ImVec4(0.12f, 0.45f, 0.90f, 0.70f)); // Màu khi được chọn (Selected)
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, ImVec4(0.25f, 0.25f, 0.27f, 1.00f)); // Màu khi di chuột qua
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  ImVec4(0.10f, 0.40f, 0.75f, 1.00f)); // Màu khi nhấn giữ
+        
+        // Nếu item đang được chọn, có thể đổi màu chữ sang trắng tinh
+        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 1.0f, 1.0f, 1.0f));
+        else          ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.8f, 0.8f, 1.0f));
+
+        // Gọi hàm gốc của ImGui
+        // Sử dụng size.y lớn hơn một chút để tạo danh sách thoáng đãng
+        ImVec2 size = size_arg;
+        if (size.y == 0.0f) size.y = ImGui::GetTextLineHeightWithSpacing() + 4.0f;
+
+        bool pressed = ImGui::Selectable(label, selected, flags, size);
+
+        // 4. Hoàn trả Style
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(3);
+
+        return pressed;
+    }
+    struct TableCol {
+        const char* name;
+        float width; // 0.0f là Stretch, > 0.0f là Fixed
+    };
+    inline bool BeginListTable(const char* id, const std::vector<TableCol>& cols, ImGuiTableFlags extra_flags = 0) {
+        ImGuiTableFlags flags = ImGuiTableFlags_RowBg | 
+                                ImGuiTableFlags_SizingFixedFit | 
+                                ImGuiTableFlags_NoSavedSettings | 
+                                ImGuiTableFlags_BordersInnerV | 
+                                extra_flags;
+
+        ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10, 8));
+
+        if (ImGui::BeginTable(id, (int)cols.size(), flags)) {
+            // Setup từng cột dựa trên vector truyền vào
+            for (const auto& col : cols) {
+                ImGuiTableColumnFlags c_flags = (col.width > 0.0f) ? ImGuiTableColumnFlags_WidthFixed : ImGuiTableColumnFlags_WidthStretch;
+                ImGui::TableSetupColumn(col.name, c_flags, col.width);
+            }
+
+            // Style cho Header
+            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, ImVec4(0.12f, 0.12f, 0.14f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.6f, 0.6f, 0.6f, 1.0f));
+            ImGui::TableHeadersRow();
+            ImGui::PopStyleColor(2);
+
+            // Màu xen kẽ hàng
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, ImVec4(1.0f, 1.0f, 1.0f, 0.03f));
+            return true;
+        }
+        
+        ImGui::PopStyleVar(); // Pop CellPadding nếu fail
+        return false;
+    }
+    inline void EndListTable() {
+        ImGui::EndTable();
+        ImGui::PopStyleColor(1); // Pop TableRowBgAlt
+        ImGui::PopStyleVar(1);   // Pop CellPadding
+    }
+    inline bool BeginListRow(float height = 28.0f) {
+        ImGui::TableNextRow(ImGuiTableRowFlags_None, height);
+        
+        // Tạo một ID ẩn cho hàng để bắt sự kiện click trên toàn bộ hàng
+        ImGui::TableNextColumn(); 
+        ImGui::PushID(ImGui::GetCursorPosY());
+        
+        // Trả về true nếu người dùng click vào hàng này (sẽ kiểm tra ở cuối hàng)
+        return true; 
+    }
+
+    inline void EndListRow() {
+        ImGui::PopID();
+    }
+
+    // Kiểm tra xem hàng vừa vẽ có được click hay không
+    inline bool IsRowClicked() {
+        return ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlapped) && ImGui::IsMouseReleased(0);
+    }
+
+    inline bool ModernCollapsingHeader( const char* id ,ImGuiTreeNodeFlags flags = 0){
+
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+        ImGui::PushStyleColor(ImGuiCol_Header, ImVec4(0.15f, 0.15f, 0.17f, 1.0f));
+
+        bool res = ImGui::CollapsingHeader(id, flags);
+
+        ImGui::PopStyleVar();
+        ImGui::PopStyleColor();
+
+        if (!res)
+            return false;
+        return true;
+    }
 }
-
-
-inline bool BeginInfoTable(const char* id) {
-    return ImGui::BeginTable(id, 2,
-        ImGuiTableFlags_SizingStretchSame |
-        ImGuiTableFlags_BordersInnerV);
-}
-
-inline void EndInfoTable() {
-    ImGui::EndTable();
-}
-
-inline void BeginCard() {
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(1,1,1,1));
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 6.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10,10));
-
-    ImGui::BeginChild(ImGui::GetID("##card"), ImVec2(0, 0), true);
-}
-
-inline void EndCard() {
-    ImGui::EndChild();
-    ImGui::PopStyleVar(2);
-    ImGui::PopStyleColor();
-}
-
-

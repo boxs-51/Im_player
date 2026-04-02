@@ -85,7 +85,6 @@ void LoadSettings_Video() {
         std::cerr << "Failed to load settings JSON: " << e.what() << std::endl;
     }
 }
-
 void LoadSettings_Common() {
     std::ifstream in(SETTINGS_PATH_COMMOM);
     if (!in.is_open()) return;
@@ -95,37 +94,13 @@ void LoadSettings_Common() {
         in >> j;
         in.close();
 
-        if (j.contains("fontIndex"))   c_Settings.fontIndex          = j["fontIndex"];
-        if (j.contains("fontScale"))   c_Settings.fontScale          = j["fontScale"];
-        if (j.contains("wrapWidth"))   c_Settings.wrapWidth          = j["wrapWidth"];
-        if (j.contains("lineSpacing")) c_Settings.lineSpacing        = j["lineSpacing"];
-        if (j.contains("Family"))      c_Settings.defaultFamily      = j["Family"];
-        if (j.contains("Style"))       c_Settings.defaultStyle       = j["Style"];
+        if (j.contains("theme"))        c_Settings.theme = StringToTheme(j["theme"].get<std::string>());
+        if (j.contains("fontsize"))     c_Settings.fontsize   = j["fontsize"];
+        if (j.contains("Videofilter"))  c_Settings.fontsize   = j["Videofilter"];
+        if (j.contains("VideoDecode"))  c_Settings.fontsize   = j["VideoDecode"];
+        if (j.contains("Audiofilter"))  c_Settings.fontsize   = j["Audiofilter"];
+        if (j.contains("AudioDecode"))  c_Settings.fontsize   = j["AudioDecode"];
 
-        if (j.contains("fontColor") && j["fontColor"].is_array() && j["fontColor"].size() == 4) {
-            c_Settings.fontColor = ImVec4(
-                j["fontColor"][0],
-                j["fontColor"][1],
-                j["fontColor"][2],
-                j["fontColor"][3]
-            );
-        }
-
-        if (j.contains("fontName")) c_Settings.fontName = j["fontName"];
-
-        if (j.contains("windowPos") && j["windowPos"].is_array() && j["windowPos"].size() == 2) {
-            c_Settings.windowPos = ImVec2(j["windowPos"][0], j["windowPos"][1]);
-        }
-
-        if (j.contains("windowSize") && j["windowSize"].is_array() && j["windowSize"].size() == 2) {
-            c_Settings.windowSize = ImVec2(j["windowSize"][0], j["windowSize"][1]);
-        }
-
-        if (j.contains("theme"))   c_Settings.theme   = j["theme"];
-        if (j.contains("opacity")) c_Settings.opacity = j["opacity"];
-
-        if (j.contains("option1")) c_Settings.option1 = j["option1"];
-        if (j.contains("option2")) c_Settings.option2 = j["option2"];
     }
     catch (...) {
         // Lỗi đọc JSON → giữ mặc định
@@ -138,35 +113,14 @@ void LoadSettings(){
 }
 void SaveSettings_Common() {
     nlohmann::json j;
-    j["fontIndex"]   = c_Settings.fontIndex;
-    j["fontScale"]   = c_Settings.fontScale;
-    j["wrapWidth"]   = c_Settings.wrapWidth;
-    j["lineSpacing"] = c_Settings.lineSpacing;
-    j["Family"]      = c_Settings.defaultFamily;
-    j["Style"]       = c_Settings.defaultStyle;
 
-    // Lưu thêm màu font
-    j["fontColor"] = {
-        c_Settings.fontColor.x,
-        c_Settings.fontColor.y,
-        c_Settings.fontColor.z,
-        c_Settings.fontColor.w
-    };
+    j["theme"]          = ThemeToString(c_Settings.theme);
+    j["fontsize"]       = c_Settings.fontsize;
+    j["Videofilter"]    = c_Settings.Videofilter;
+    j["VideoDecode"]    = c_Settings.VideoDecode;
+    j["Audiofilter"]    = c_Settings.Audiofilter;
+    j["AudioDecode"]    = c_Settings.AudioDecode;
 
-    // Lưu thêm tên font
-    j["fontName"] = c_Settings.fontName;
-
-    // Lưu thêm vị trí/kích thước cửa sổ
-    j["windowPos"]  = { c_Settings.windowPos.x, c_Settings.windowPos.y };
-    j["windowSize"] = { c_Settings.windowSize.x, c_Settings.windowSize.y };
-
-    // Tuỳ chọn khác
-    j["theme"]   = c_Settings.theme;
-    j["opacity"] = c_Settings.opacity;
-
-    // Các option cũ
-    j["option1"] = c_Settings.option1;
-    j["option2"] = c_Settings.option2;
 
     std::ofstream out(SETTINGS_PATH_COMMOM);
     if (!out.is_open()) return;

@@ -291,11 +291,17 @@ bool FontManager::LoadFontsSmartMultiAtlas(
             try {
                 if (IsIconFont(family, path)) {
                     cfg.MergeMode = true;
-                    static const ImWchar icon_ranges[] = { 0xF000, 0xFAFF, 0 };
+                    static const ImWchar icon_ranges[] = { 
+                        (ImWchar)0xF000, 
+                        (ImWchar)0xFAFF, 
+                        0 };
                     font = currentAtlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size - 2.0f, &cfg, icon_ranges);
                 } else if (IsEmojiFont(family, path)) {
                     cfg.MergeMode = true;
-                    static const ImWchar emoji_ranges[] = { 0x1F300, 0x1F6FF, 0 };
+                    static const ImWchar emoji_ranges[] = { 
+                        (ImWchar)0x1F300, 
+                        (ImWchar)0x1F6FF, 
+                        0 };
                     font = currentAtlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size, &cfg, emoji_ranges);
                 } else {
                     static const ImWchar default_ranges[] = {
@@ -654,11 +660,11 @@ bool FontManager::LoadFontsSmartAuto(
 #endif
 
             static const ImWchar emoji_ranges[] = {
-                0x2190, 0x21FF,
-                0x2300, 0x23FF,
-                0x2600, 0x27BF,
-                0x2900, 0x297F,
-                0x1F000, 0x1FAFF,
+                (ImWchar)0x2190, (ImWchar)0x21FF,
+                (ImWchar)0x2300, (ImWchar)0x23FF,
+                (ImWchar)0x2600, (ImWchar)0x27BF,
+                (ImWchar)0x2900, (ImWchar)0x297F,
+                (ImWchar)0x1F000, (ImWchar)0x1FAFF,
                 0
             };
 

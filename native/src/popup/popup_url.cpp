@@ -5,6 +5,7 @@
 #include "json.hpp"
 
 #include "mpv/mpv_basic_formats.h"
+#include "mpv/mpv_custom_ui.h"
 
 #include <vector>
 #include <string>
@@ -22,6 +23,7 @@ static bool urlConfirmed = false;
 
 static std::wstring result;
 
+static char buffer[2048] = {};
 // --- Lịch sử URL ---
 PopupData LoadPopupData() {
     std::filesystem::path path = SETTINGS_PATH_POPUP_URL;
@@ -137,7 +139,46 @@ bool IsValidLocalFile(const std::wstring& path) {
 
 // --- Popup chính ---
 
-
+void HistoryUrlPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
+{
+    if(CusTomImGui::BeginModernChild("##URLHistoryTable",size,true,ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    {
+        static int selectedUrlIndex=-1;
+        auto& urlHistory = data.urlHistory;
+        for(size_t i=0; i<urlHistory.size(); ++i){
+            std::string labelUtf8 = WideToUTF8(urlHistory[i]);
+            if (CusTomImGui::ModernSelectable(labelUtf8.c_str(), selectedUrlIndex==(int)i)) {
+            //if(ImGui::Selectable(labelUtf8.c_str(), selectedUrlIndex==(int)i)){
+                selectedUrlIndex = (int)i;
+                std::wstring wLabel = UTF8ToWide(labelUtf8);
+                strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
+                urlInput = wLabel;
+                buffer[2047] = 0;
+            }
+            ImGui::Separator();
+        }
+        CusTomImGui::EndModernChild();
+    }
+}
+void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
+{
+    if(CusTomImGui::BeginModernChild("##LocalFilesTable",size,true,ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    {
+        static int selectedFileIndex=-1;
+        auto& localHistory = data.localHistory;
+        for(size_t i=0; i<localHistory.size(); ++i){
+            std::string labelUtf8 = WideToUTF8(localHistory[i]);
+            if(ImGui::Selectable(labelUtf8.c_str(), selectedFileIndex==(int)i)){
+                selectedFileIndex = (int)i;
+                std::wstring wLabel = UTF8ToWide(labelUtf8);
+                strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
+                urlInput = wLabel;
+                buffer[2047] = 0;
+            }
+        }
+        CusTomImGui::EndModernChild();
+    }
+}
 void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
                          PopupData& data, std::wstring& lastURL,std::wstring& urlInput ,
                          std::vector<std::wstring>& pendingLocalFilesLocal) {
@@ -148,83 +189,48 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     float historyHeight = lineHeight*10;
     static bool invalidUrl = false; // local
 
-    ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding,1.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize,1.0f);
-    ImGui::PushStyleColor(ImGuiCol_ChildBg, ImVec4(0.85f,0.85f,0.85f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f,0.8f,0.8f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(0.9f,0.9f,0.9f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(0.7f,0.7f,0.7f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.9f,0.9f,0.9f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0,0,0,1));
-    ImGui::PushStyleColor(ImGuiCol_CheckMark, ImVec4(0.2f,0.2f,0.8f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0.8f,0.8f,0.8f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(0.9f,0.9f,0.9f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(0.7f,0.7f,0.7f,1.0f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.6f,0.6f,0.6f,1.0f));
+    ImGui::TextDisabled("NHẬP NGUỒN VIDEO");
+    ImGui::Separator();
 
-    ImGui::BeginChild("##PopupUrl",avail,true);
     ImGui::Text("Vui lòng nhập URL hoặc chọn file local:");
-    char buffer[2048] = {};
-    if (!urlInput.empty())strncpy(buffer, WideToUTF8(urlInput).c_str(), sizeof(buffer)-1);
-        
-    ImGui::InputTextMultiline("##URLInput", buffer, sizeof(buffer),
-                              ImVec2(popupWidth-1, maxInputHeight-1),
-                              ImGuiInputTextFlags_AllowTabInput);
 
+    if (!urlInput.empty())strncpy(buffer, WideToUTF8(urlInput).c_str(), sizeof(buffer)-1);
+    CusTomImGui::ModernInputTextMultiline("##URLInput", buffer, sizeof(buffer),
+                            ImVec2(popupWidth-1, maxInputHeight-1),
+                            ImGuiInputTextFlags_AllowTabInput);
+ 
     Disabehotkey = ImGui::IsItemActive()||ImGui::IsItemFocused();
 
     urlInput = UTF8ToWide(buffer);
-    if(ImGui::Checkbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);;
+
+    if(CusTomImGui::ModernCheckbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);
+    //if(ImGui::Checkbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);;
     ImGui::Separator();
 
     // --- History tabs ---
-    if(ImGui::BeginTabBar("##HistoryTabs")){
+    if (CusTomImGui::BeginModernTabBar("##HistoryTabs")) {
         // URL Tab
-        ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
+        ImVec2 size = ImVec2(popupWidth,historyHeight);
         if(ImGui::BeginTabItem("URL")){
-            static int selectedUrlIndex=-1;
-            ImGui::BeginChild("##URLHistoryTable",ImVec2(popupWidth,historyHeight),true,ImGuiWindowFlags_AlwaysVerticalScrollbar);
-            auto& urlHistory = data.urlHistory;
-            for(size_t i=0; i<urlHistory.size(); ++i){
-                std::string labelUtf8 = WideToUTF8(urlHistory[i]);
-                if(ImGui::Selectable(labelUtf8.c_str(), selectedUrlIndex==(int)i)){
-                    selectedUrlIndex = (int)i;
-                    std::wstring wLabel = UTF8ToWide(labelUtf8);
-                    strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
-                    urlInput = wLabel;
-                    buffer[2047] = 0;
-                }
-            }
-            ImGui::EndChild();
+            HistoryUrlPage(data , urlInput ,size);
             ImGui::EndTabItem();
         }
 
         // Local Tab
         if(ImGui::BeginTabItem("File local")){
-            static int selectedFileIndex=-1;
-            ImGui::BeginChild("##LocalFilesTable",ImVec2(popupWidth,historyHeight),true,ImGuiWindowFlags_AlwaysVerticalScrollbar);
-            auto& localHistory = data.localHistory;
-            for(size_t i=0; i<localHistory.size(); ++i){
-                std::string labelUtf8 = WideToUTF8(localHistory[i]);
-                if(ImGui::Selectable(labelUtf8.c_str(), selectedFileIndex==(int)i)){
-                    selectedFileIndex = (int)i;
-                    std::wstring wLabel = UTF8ToWide(labelUtf8);
-                    strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
-                    urlInput = wLabel;
-                    buffer[2047] = 0;
-                }
-            }
-            ImGui::EndChild();
+            HistoryFileLocalPage(data , urlInput ,size);
             ImGui::EndTabItem();
         }
-        ImGui::PopStyleColor();
-        ImGui::EndTabBar();
+
+        CusTomImGui::EndModernTabBar();
     }
 
     ImGui::Separator();
-    if(ImGui::Checkbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);;
+    if(CusTomImGui::ModernCheckbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
+    //if(ImGui::Checkbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
 
-    if( ImGui::Button("Lấy từ Clipboard")){
+    //if( ImGui::Button("Lấy từ Clipboard")){
+    if( CusTomImGui::ModernButton("Lấy từ Clipboard" ,ImVec2(150, 0))){
         if(OpenClipboard(NULL)){
             HANDLE hData=GetClipboardData(CF_UNICODETEXT);
             if(hData){
@@ -241,7 +247,8 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     }
 
     ImGui::SameLine(0.0f,30.0f);
-    if(ImGui::Button("Thêm từ file local")){
+    if( CusTomImGui::ModernButton("Thêm từ file local" ,ImVec2(150, 0))){
+    //if(ImGui::Button("Thêm từ file local")){
         auto files=OpenFilePickerW();
         if(!files.empty()){
             std::wstring firstFileUtf8=files[0];
@@ -258,9 +265,10 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     ImGui::TextWrapped("%ls",lastURL.c_str());
 
     // --- Buttons OK/Cancel ---
-    if(ImGui::Button("OK")){
+    if( CusTomImGui::ModernButton("OK" ,ImVec2(80, 0))){
+    //if(ImGui::Button("OK")){
 
-       if( IsValidLocalFile(urlInput)){
+    if( IsValidLocalFile(urlInput)){
             outResultURL = urlInput;
             if(data.saveHistory) AddLocalToHistory(data, urlInput);
             pendingLocalFilesLocal.clear();
@@ -281,18 +289,14 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     }
 
     ImGui::SameLine();
-    if(ImGui::Button("Hủy")){
+    if( CusTomImGui::ModernButton("Hủy" ,ImVec2(80, 0))){
+    //if(ImGui::Button("Hủy")){
         closePopup_url=true;
         pendingLocalFilesLocal.clear();
     }
 
     if(invalidUrl)
-        
         ImGui::TextColored(ImVec4(1,0.4f,0.4f,1),"⚠ URL hoặc file không hợp lệ.");
-
-    ImGui::EndChild();
-    ImGui::PopStyleColor(11);
-    ImGui::PopStyleVar(2);
 }
 
 void OpenURLPopup(ReusablePopup& popup ) {

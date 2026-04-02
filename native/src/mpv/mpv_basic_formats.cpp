@@ -476,8 +476,8 @@ void HandleYTDLLog(mpv_handle* mpv,const std::string& text) {
             }
 
             VideoInfoResult info = ExtractAllFormats(inner_json);
-            json j_out = VideoInfoResultToJson(info);
-            std::ofstream ofs("log/ytdl_video_info.json"); if (ofs.is_open()) ofs << j_out.dump(2);
+            //json j_out = VideoInfoResultToJson(info);
+            //std::ofstream ofs("log/ytdl_video_info.json"); if (ofs.is_open()) ofs << j_out.dump(2);
             BuildAllFormats(mpv,info,all_formats);
         } catch (const std::exception& e) {
 

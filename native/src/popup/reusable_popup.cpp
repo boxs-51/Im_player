@@ -1,6 +1,7 @@
 #include "globals.h"
 #include "reusable_popup.h"
 #include "windows/windows_borderless_state.h"
+#include "mpv/mpv_custom_ui.h"
 #include <imgui.h>
 
 void ReusablePopup::Open(const std::string& title, std::function<void(bool&)> contentFunc) {
@@ -16,33 +17,46 @@ void ReusablePopup::Render() {
 
     bool closeRequested = false;
 
-    // Đặt vị trí lần đầu ở giữa màn hình
+    // Thiết lập vị trí
     if (!positionInitialized) {
         if (lastPopupPos.x != 0 || lastPopupPos.y != 0) {
-            ImGui::SetNextWindowPos(lastPopupPos, ImGuiCond_Appearing); // mở lại vị trí cũ
+            ImGui::SetNextWindowPos(lastPopupPos, ImGuiCond_Appearing);
         } else {
-            ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, {0.5f, 0.5f});
+            ImGui::SetNextWindowPos(ImGui::GetMainViewport()->GetCenter(), ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
         }
         positionInitialized = true;
     }
 
-    // Mở window thay cho popup
-    if (ImGui::Begin(title_.c_str(), &open, ImGuiWindowFlags_NoCollapse)) {
+    // Tăng kích thước mặc định nếu cần để trông cân đối hơn
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 300), ImVec2(1920, 1080));
+
+    // --- BẮT ĐẦU STYLE HIỆN ĐẠI ---
+    CusTomImGui::PushModernWindowStyle();
+
+    // Loại bỏ thanh cuộn nếu không cần để UI mượt hơn
+    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse; 
+    
+    if (ImGui::Begin(title_.c_str(), &open, window_flags)) {
+        
+        // Vẽ nội dung bên trong
+        // Lưu ý: Bên trong contentCallback, bạn nên gọi các hàm BeginModernChild đã hướng dẫn ở trên
         contentCallback(closeRequested);
 
-        // Nếu callback yêu cầu đóng
         if (closeRequested)
             open = false;
 
-        // Lưu vị trí hiện tại
         if (open)
             lastPopupPos = ImGui::GetWindowPos();
-        
+    }
+    
+    ImGui::End();
 
-        ImGui::End();
-    } else {
-        // Nếu window bị đóng bất ngờ
-        open = false;
+    // --- KẾT THÚC STYLE HIỆN ĐẠI ---
+    CusTomImGui::PopModernWindowStyle();
+
+    if (!open) {
+        // Reset logic khi đóng hẳn
+        positionInitialized = false; 
     }
 }
 

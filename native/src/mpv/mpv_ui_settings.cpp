@@ -15,442 +15,12 @@
 #include <log.h>
 #include <string>
 
-enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed };
+enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed ,Options };
+enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;
-
-// Vị trí lưu file cấu hình
-/*
-bool ShowAudioFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats , VideoType videotype) {
-    if (formats.audio.labels.empty()) return false;
-
-    int current_index = formats.audio_index >= 0 ? formats.audio_index : 0;
-    const char* current_label = formats.audio.labels[current_index].c_str();
-
-    if (ImGui::BeginCombo("##audio_format_combo", current_label)) {
-        for (int i = 0; i < formats.audio.labels.size(); ++i) {
-            bool selected = (i == current_index);
-
-            // Khi chọn lại format đang dùng, không đóng combo
-            ImGuiSelectableFlags flags = ImGuiSelectableFlags_None;
-            if (selected)
-                flags |= ImGuiSelectableFlags_DontClosePopups;
-
-            if (ImGui::Selectable(formats.audio.labels[i].c_str(), selected , flags)) {
-                // Cập nhật chỉ khi khác
-                if (i < formats.audio.formats.size() && i != formats.audio_index) {
-                    formats.audio_index = i;
-                    formats.active_audio = formats.audio.formats[i];
-                    v_Settings.selectedAudio = all_formats.audio.formats[i];
-
-                    if (g_playbackStatus.hasFile) {
-                        if(videotype == VideoType::Live){
-                            const char* cmd1[] = { "set", "ytdl-format", all_formats.audio.ids[i].c_str(), nullptr };
-                            int res = mpv_command(mpv, cmd1);
-                            RATE_LIMITED_COUT(mpv_audio_format_change_live, 1,std::cout << "[DEBUG] [INFO] [MPV] Audio format changed for live stream to " << all_formats.audio.ids[i] << "");
-                        }else{
-                            pendingSeekTime = g_playbackStatus.timePos;
-                            v_Settings.selectedResolution = v_Settings.selectedFormat + "+" + v_Settings.selectedAudio;
-                            const char* cmd1[] = { "set", "ytdl-format", v_Settings.selectedResolution .c_str(), nullptr };
-                            int res = mpv_command(mpv, cmd1);
-                            RATE_LIMITED_COUT(mpv_audio_format_change, 1,std::cout << "[DEBUG] [INFO] [MPV] Audio format changed to " << v_Settings.selectedAudio << "");
-                        }
-                        std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        int res = mpv_command_string(mpv, cmd.c_str());
-                        RATE_LIMITED_COUT(mpv_audio_format_play_index, 1,std::cout << "[DEBUG] [INFO] [MPV] Playing index " << g_playbackStatus.g_PlayingIndex << " after audio format change.");
-                    }
-                    SaveSettings_Video();
-                }
-            }
-            if (selected) ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
-    return true;
-}
-
-bool ShowVideoFormatCombo(mpv_handle *mpv, VideoAudioFormats &formats ,VideoType videotype) {
-    if (formats.video.labels.empty()) return false;
-
-    int current_index = formats.video_index >= 0 ? formats.video_index : 0;
-    const char* current_label = formats.video.labels[current_index].c_str();
-
-    if (ImGui::BeginCombo("##resolution_combo", current_label)) {
-        for (int i = 0; i < formats.video.labels.size(); ++i) {
-            bool selected = (formats.video_index == i);
-            // Khi chọn lại format đang dùng, không đóng combo
-            ImGuiSelectableFlags flags = ImGuiSelectableFlags_None;
-            if (selected)
-                flags |= ImGuiSelectableFlags_DontClosePopups;
-            if (ImGui::Selectable(formats.video.labels[i].c_str(), selected, flags)) {
-                // Cập nhật chỉ khi khác
-                if (i < formats.video.formats.size() && i != formats.video_index) {
-                    formats.video_index = i;
-                    formats.active_video = formats.video.formats[i];
-                    v_Settings.selectedFormat = formats.video.formats[i];
-                    if (g_playbackStatus.hasFile) {
-                        if(videotype == VideoType::Live){
-                            const char* cmd1[] = { "set", "ytdl-format", all_formats.video.ids[i].c_str(), nullptr };
-                            int res = mpv_command(mpv, cmd1);
-                            RATE_LIMITED_COUT(mpv_video_format_change_live, 1,std::cout << "[DEBUG] [INFO] [MPV] Video format changed for live stream to " << all_formats.video.ids[i] << "");
-                        }else{
-                            pendingSeekTime = g_playbackStatus.timePos;
-                            v_Settings.selectedResolution = v_Settings.selectedFormat + "+" + v_Settings.selectedAudio;
-                            const char* cmd1[] = { "set", "ytdl-format", v_Settings.selectedResolution .c_str(), nullptr };
-                            int res = mpv_command(mpv, cmd1);
-                            RATE_LIMITED_COUT(mpv_video_format_change, 1,std::cout << "[DEBUG] [INFO] [MPV] Video format changed to " << v_Settings.selectedFormat << "");
-                        }
-                        std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        int res = mpv_command_string(mpv, cmd.c_str());
-                        RATE_LIMITED_COUT(mpv_video_format_play_index, 1,std::cout << "[DEBUG] [INFO] [MPV] Playing index " << g_playbackStatus.g_PlayingIndex << " after video format change.");
-                    }
-                    SaveSettings_Video();
-                }
-            }
-            if (selected) ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
-    return true;
-}
-bool RenderToggleCombo(const char* label, bool& state) {
-    const char* options[] = { "Tắt", "Bật" };
-    int current_index = state ? 1 : 0;
-    bool changed = false;
-
-    if (ImGui::BeginCombo(label, options[current_index])) {
-        for (int i = 0; i < 2; ++i) {
-            bool is_selected = (current_index == i);
-            if (ImGui::Selectable(options[i], is_selected)) {
-                if (current_index != i) {
-                    current_index = i;
-                    state = (i == 1);
-                    changed = true;
-                }
-            }
-            if (is_selected)
-                ImGui::SetItemDefaultFocus();
-        }
-        ImGui::EndCombo();
-    }
-
-    return changed;
-}
-void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos, ImVec2 videoSize , bool open , bool& show_ui_video) {
-    
-    static float anim = 0.0f;
-    UpdateHoverAnim(anim ,open, 15.0f);
-    // Nếu panel gần như tắt hoàn toàn thì không cần vẽ
-    if (anim < 0.01f )
-        return;
-
-    ImVec2 windowSize(250, 300);
-    ImVec2 windowPos(
-        videoPos.x + videoSize.x * 0.98f - windowSize.x,
-        videoPos.y + videoSize.y * 0.85f - windowSize.y
-    );
-    // ---- Set window trước Begin ----
-    ImGui::SetNextWindowPos(windowPos);
-    ImGui::SetNextWindowSize(windowSize);
-    ImGui::SetNextWindowBgAlpha(0.9f * anim);
-
-    // ---- Style ----
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(1.5f, 1.5f)); // mỏng
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
-
-    ImGui::PushStyleColor(ImGuiCol_FrameBg,        ImVec4(0, 0, 0, 0));   // nền trong suốt
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, ImVec4(1, 1, 1, 0.1f)); // hover nhẹ
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive,  ImVec4(1, 1, 1, 0.2f)); // click sáng hơn
-    
-    ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoScrollbar |
-                                    ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove ;
-    if (ImGui::Begin("##SettingsSidebar",nullptr,window_flags)) {
-        ImGui::Text("Cấu hình phát video");
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        if (ImGui::BeginTable("SettingsTable", 2, ImGuiTableFlags_SizingStretchProp)) {
-            ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 150.0f);
-            ImGui::TableSetupColumn("Control", ImGuiTableColumnFlags_WidthStretch);
-            VideoType videotype = GetVideoType();
-
-            // --- Độ phân giải ---
-            if  (!(videotype == VideoType::File_Local) && all_formats.video.labels.size() >=0){
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::AlignTextToFramePadding();
-                ImGui::Text("Độ phân giải:");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::PushItemWidth(-1);
-                ShowVideoFormatCombo(mpv, all_formats ,videotype);
-                ImGui::PopItemWidth();
-            }
-
-            if  (!(videotype == VideoType::Live)  && !(videotype == VideoType::File_Local)  && all_formats.audio.labels.size() >= 0){
-                // --- Chất lượng audio ---
-                ImGui::TableNextRow();
-                ImGui::TableSetColumnIndex(0);
-                ImGui::AlignTextToFramePadding();
-                ImGui::Text("Chất lượng audio:");
-                ImGui::TableSetColumnIndex(1);
-                ImGui::PushItemWidth(-1);
-                ShowAudioFormatCombo(mpv, all_formats, videotype);
-                ImGui::PopItemWidth();
-            }
-
-            // --- Phụ đề ---
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Phụ đề:");
-            ImGui::TableSetColumnIndex(1);
-            
-            ImGui::PushItemWidth(-1);
-            if (RenderToggleCombo("##Subtitles_video_combo", v_Settings.enableSubtitles)) {
-                if (mpv) {
-                    const char* value = v_Settings.enableSubtitles ? "yes" : "no"; // mpv dùng "no" để tắt sub
-                    mpv_set_property_string(mpv, "sub-visibility", value);
-                }
-                SaveSettings_Video();
-            }
-            ImGui::PopItemWidth();
-
-            // --- Tốc độ phát ---
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Tốc độ phát:");
-            ImGui::TableSetColumnIndex(1);
-
-            static const float speedPresets[] = { 0.25f, 0.5f, 0.75f, 1.0f, 1.25f, 1.5f, 2.0f, 3.0f };
-            static const char* speedLabels[] = { "0.25x", "0.5x", "0.75x", "1.0x", "1.25x", "1.5x", "2.0x", "3.0x" };
-
-            // Tìm preset khớp
-            int presetIndex = -1;
-            for (int i = 0; i < IM_ARRAYSIZE(speedPresets); i++) {
-                if (fabs(v_Settings.playbackSpeed - speedPresets[i]) < 0.001f) {
-                    presetIndex = i;
-                    break;
-                }
-            }
-
-            // Tạo nhãn động
-            char comboLabel[16];
-            if (presetIndex >= 0) {
-                snprintf(comboLabel, sizeof(comboLabel), "%s", speedLabels[presetIndex]); // preset khớp
-            } else {
-                snprintf(comboLabel, sizeof(comboLabel), "%.2fx", v_Settings.playbackSpeed); // giá trị lẻ
-            }
-
-            ImGui::PushItemWidth(-1);
-            if (ImGui::BeginCombo("##speed_combo", comboLabel)) {
-
-                float oldSpeed = v_Settings.playbackSpeed;
-
-                ImGui::Text("Tùy chỉnh:");
-                if (ImGui::SliderFloat("##speed_slider", &v_Settings.playbackSpeed, 0.25f, 3.0f, "%.2fx")) {
-                    double speed = static_cast<double>(v_Settings.playbackSpeed);
-                    mpv_command_set_speed(mpv,speed);
-                    SaveSettings_Video();
-                }
-
-                ImGui::Separator();
-
-                // Danh sách preset tốc độ
-                for (int i = 0; i < IM_ARRAYSIZE(speedPresets); ++i) {
-                    bool selected = (presetIndex == i);
-                    if (ImGui::Selectable(speedLabels[i], selected)) {
-                        v_Settings.playbackSpeed = speedPresets[i];
-                        double speed = static_cast<double>(v_Settings.playbackSpeed);
-                        mpv_command_set_speed(mpv,speed);
-                        SaveSettings_Video();
-                        presetIndex = i; // đồng bộ lại presetIndex
-                    }
-                    if (selected) ImGui::SetItemDefaultFocus();
-                }
-
-                ImGui::EndCombo();
-            }
-            ImGui::PopItemWidth();
-
-            // --- Lặp lại video ---
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Lặp lại video:");
-            ImGui::TableSetColumnIndex(1);
-
-            ImGui::PushItemWidth(-1);
-            if (RenderToggleCombo("##repeat_video_combo", v_Settings.repeatVideo)) {
-                if (mpv) {
-                    const char* value = v_Settings.repeatVideo ? "inf" : "no";
-                    const char* cmd[] = { "set", "loop-file", value, nullptr };
-                    mpv_command(mpv, cmd);
-                }
-                SaveSettings_Video();
-            }
-            ImGui::PopItemWidth();
-
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Lặp lại list:");
-            ImGui::TableSetColumnIndex(1);
-
-            ImGui::PushItemWidth(-1);
-            if (RenderToggleCombo("##repeat_list_combo", v_Settings.repeatlist)) {
-                if (mpv) {
-                    const char* value = v_Settings.repeatlist ? "force" : "no";
-                    const char* cmd[] = { "set", "loop-playlist", value, nullptr };
-                    mpv_command(mpv, cmd);
-                }
-                SaveSettings_Video();
-            }
-            ImGui::PopItemWidth();
-
-            // --- Tự động phát tiếp ---
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Tự động phát tiếp:");
-            ImGui::TableSetColumnIndex(1);
-
-            ImGui::PushItemWidth(-1);
-            if (RenderToggleCombo("##autoPlayNext_video_combo", v_Settings.autoPlayNext)) {
-                if (mpv) {
-                    const char* value = v_Settings.autoPlayNext ? "yes" : "no";
-                    const char* cmd[] = { "set", "playlist-auto-advance", value, nullptr };
-                    mpv_command(mpv, cmd);
-                }
-                SaveSettings_Video();
-            }
-            ImGui::PopItemWidth();
-
-            ImGui::TableNextRow();
-            ImGui::TableSetColumnIndex(0);
-            ImGui::AlignTextToFramePadding();
-            ImGui::Text("Theme Audio");
-            ImGui::TableSetColumnIndex(1);
-            
-            ImGui::PushItemWidth(-1);
-            if (RenderToggleCombo("##Theme Audio", audio_Theme))
-            ImGui::PopItemWidth();
-
-            ImGui::EndTable();
-        }
-    }
-    if(ImGui::IsAnyItemActive() || ImGui::IsAnyItemFocused()) NotifyActivity(show_ui_video);
-
-    ImGui::End();
-    ImGui::PopStyleVar(3);
-    ImGui::PopStyleColor(3);
-}
-
-// Hàm vẽ một dòng menu có mũi tên ">" để vào trang con
-
-bool MenuNavigationItem(const char* label, const char* value) {
-    ImGui::BeginGroup();
-    float width = ImGui::GetContentRegionAvail().x;
-    if (ImGui::Selectable(label, false, ImGuiSelectableFlags_None, ImVec2(width, 30))) {
-        ImGui::EndGroup();
-        return true;
-    }
-    ImGui::SameLine(width - 40);
-    ImGui::TextDisabled("%s >", value); // Hiển thị giá trị hiện tại và mũi tên
-    ImGui::EndGroup();
-    return false;
-}
-
-// Hàm vẽ nút Bật/Tắt (Toggle Switch kiểu đơn giản)
-void RenderSimpleToggle(const char* label, bool& state, std::function<void(bool)> on_change) {
-    float width = ImGui::GetContentRegionAvail().x;
-    if (ImGui::Selectable(label, false, ImGuiSelectableFlags_None, ImVec2(width, 30))) {
-        state = !state;
-        on_change(state);
-    }
-    ImGui::SameLine(width - 40);
-    if (state) 
-        ImGui::TextColored(ImVec4(0.2f, 0.8f, 0.2f, 1.0f), "[ Bật ]");
-    else 
-        ImGui::TextDisabled("[ Tắt ]");
-}
+static OptionsPage current_options_page = OptionsPage::Main;
 
 
-void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool open, bool& show_ui_video) {
-    static float anim = 0.0f;
-    UpdateHoverAnim(anim, open, 15.0f);
-    if (anim < 0.01f) {
-        current_page = SettingsPage::Main; // Reset về trang chủ khi đóng
-        return;
-    }
-
-    ImVec2 windowSize(280, 350); // Tăng kích thước một chút cho thoải mái
-    ImVec2 windowPos(videoPos.x + videoSize.x * 0.98f - windowSize.x, videoPos.y + videoSize.y * 0.85f - windowSize.y);
-
-    ImGui::SetNextWindowPos(windowPos);
-    ImGui::SetNextWindowSize(windowSize);
-    ImGui::SetNextWindowBgAlpha(0.95f * anim);
-
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10, 10));
-    ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(0, 10));
-
-    if (ImGui::Begin("##SettingsSidebar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove)) {
-        
-        // Nút BACK nếu không ở trang Main
-        if (current_page != SettingsPage::Main) {
-            if (ImGui::Button("< Quay lại")) current_page = SettingsPage::Main;
-            ImGui::Separator();
-        } else {
-            ImGui::TextDisabled("Cấu hình phát video");
-            ImGui::Separator();
-        }
-
-        VideoType videotype = GetVideoType();
-
-        // --- TRANG CHỦ (MAIN) ---
-        if (current_page == SettingsPage::Main) {
-            
-            // Độ phân giải
-            if (!(videotype == VideoType::File_Local)) {
-                const char* res_label = all_formats.video.labels.empty() ? "N/A" : all_formats.video.labels[all_formats.video_index].c_str();
-                if (MenuNavigationItem("Độ phân giải", res_label)) current_page = SettingsPage::Resolution;
-            }
-
-            // Tốc độ phát
-            char speed_buf[16];
-            snprintf(speed_buf, sizeof(speed_buf), "%.2fx", v_Settings.playbackSpeed);
-            if (MenuNavigationItem("Tốc độ phát", speed_buf)) current_page = SettingsPage::PlaybackSpeed;
-
-            ImGui::Separator();
-
-            // Các nút Toggle (Nhấn là đổi)
-            RenderSimpleToggle("Phụ đề", v_Settings.enableSubtitles, [&](bool s){
-                mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
-                SaveSettings_Video();
-            });
-
-            RenderSimpleToggle("Lặp lại video", v_Settings.repeatVideo, [&](bool s){
-                mpv_set_property_string(mpv, "loop-file", s ? "inf" : "no");
-                SaveSettings_Video();
-            });
-
-            RenderSimpleToggle("Tự động phát tiếp", v_Settings.autoPlayNext, [&](bool s){
-                mpv_set_property_string(mpv, "playlist-auto-advance", s ? "yes" : "no");
-                SaveSettings_Video();
-            });
-        }
-
-
-
-
-    }
-
-    if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
-    ImGui::End();
-    ImGui::PopStyleVar(3);
-}
-*/
 // Thêm màu sắc và khoảng cách chuẩn
 void UI_MenuItem(const char* label, const char* current_value, float scale, std::function<void()> on_click) {
     ImGui::PushID(label);
@@ -509,7 +79,7 @@ void UI_MenuItem(const char* label, const char* current_value, float scale, std:
 
 }
 
-void UI_Toggle(const char* label, bool* v, float scale, std::function<void(bool)> on_change) {
+void UI_Toggle(const char* label, bool* v, float scale, bool enabled , std::function<void(bool)> on_change) {
     ImGui::PushID(label);
     
     // --- QUẢN LÝ ANIMATION ---
@@ -529,7 +99,13 @@ void UI_Toggle(const char* label, bool* v, float scale, std::function<void(bool)
     float sw_h = 18.0f * scale;
     float knob_r = 7.0f * scale;
 
-    if (ImGui::InvisibleButton("##toggle_btn", ImVec2(width, row_height))) {
+    // Thiết lập độ trong suốt dựa trên trạng thái enabled
+    // Nếu disabled, dùng alpha thấp (vd: 100), nếu enabled dùng full alpha (255)
+    float alpha_mult = enabled ? 1.0f : 0.4f; 
+    ImU32 text_col = IM_COL32(240, 240, 240, (int)(255 * alpha_mult));
+    ImU32 knob_col = IM_COL32(255, 255, 255, (int)(255 * alpha_mult));
+
+    if (ImGui::InvisibleButton("##toggle_btn", ImVec2(width, row_height)) && enabled) {
         *v = !*v;
         if (on_change) on_change(*v);
     }
@@ -539,7 +115,7 @@ void UI_Toggle(const char* label, bool* v, float scale, std::function<void(bool)
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     // 1. Background khi hover
-    if (ImGui::IsItemHovered()) {
+    if ( enabled && ImGui::IsItemHovered()) {
         draw_list->AddRectFilled(p_min, p_max, IM_COL32(255, 255, 255, 10), 4.0f * scale);
     }
 
@@ -547,18 +123,25 @@ void UI_Toggle(const char* label, bool* v, float scale, std::function<void(bool)
     float max_label_w = width - sw_w - (30.0f * scale);
     std::string safe_label = TextUtils::TruncateTextByPixels(label, max_label_w);
     draw_list->AddText(ImVec2(p_min.x + 12 * scale, p_min.y + (row_height - ImGui::GetFontSize()) * 0.5f), 
-                       IM_COL32(240, 240, 240, 255), safe_label.c_str());
+                       text_col, safe_label.c_str());
 
     // 3. Switch Background (Nội suy màu sắc - Interpolation)
     ImVec2 sw_pos = ImVec2(p_max.x - sw_w - 12 * scale, p_min.y + (row_height - sw_h) * 0.5f);
     
     // Màu OFF (70,70,70) -> Màu ON (50,205,50)
-    ImU32 col_bg = IM_COL32(
-        (int)(70  + (50 - 70) * t),
-        (int)(70  + (205 - 70) * t),
-        (int)(70  + (50 - 70) * t),
-        255
-    );
+    int r, g, b;
+
+    if (enabled) {
+        r = (int)(70 + (50 - 70) * t);
+        g = (int)(70 + (205 - 70) * t);
+        b = (int)(70 + (50 - 70) * t);
+    } else {
+        // Khi disable, ta cho nó một màu xám tối và nhạt hơn
+        r = g = b = 45; 
+    }
+
+    ImU32 col_bg = IM_COL32(r, g, b, 255);
+
     draw_list->AddRectFilled(sw_pos, ImVec2(sw_pos.x + sw_w, sw_pos.y + sw_h), col_bg, 10.0f * scale);
 
     // 4. Knob (Nội suy vị trí)
@@ -567,7 +150,7 @@ void UI_Toggle(const char* label, bool* v, float scale, std::function<void(bool)
     float end_x = sw_pos.x + sw_w - (sw_h * 0.5f);
     float knob_x = start_x + (end_x - start_x) * t;
 
-    draw_list->AddCircleFilled(ImVec2(knob_x, sw_pos.y + sw_h * 0.5f), knob_r, IM_COL32(255, 255, 255, 255));
+    draw_list->AddCircleFilled(ImVec2(knob_x, sw_pos.y + sw_h * 0.5f), knob_r, knob_col);
 
     ImGui::PopID();
     ImGui::Dummy(ImVec2(0.0f, 2.0f * scale)); // Khoảng cách nhỏ giữa các dòng
@@ -583,27 +166,37 @@ void UI_GroupHeader(const char* title) {
 
 void UI_SliderSpeed(const char* label, float* value, float min, float max, float scale, std::function<void(float)> on_change) {
     ImGui::PushID(label);
-    float width = ImGui::GetContentRegionAvail().x - (20.0f * scale);
     
-    // Đặt Cursor để căn giữa Slider trong Sidebar
-    ImGui::SetCursorPosX(10.0f * scale);
+    // 1. Lấy toàn bộ chiều rộng khả dụng
+    float width = ImGui::GetContentRegionAvail().x;
     
-    // Cấu hình style cho Slider giống với theme của bạn
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(40, 40, 40, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(50, 50, 50, 255));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(50, 205, 50, 255)); // Màu xanh lá đồng bộ với Toggle
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f * scale);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 5 * scale));
+    // 2. Thiết lập Style "Mảnh" (Slim)
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f * scale);
+    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 2.0f * scale)); // Hẹp lại (giảm từ 5 xuống 2)
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 12.0f * scale);          // Nút kéo nhỏ lại cho tinh tế
+    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 12.0f * scale);
 
-    // Vẽ Slider
-    if (ImGui::SliderFloat("##speed_slider", value, min, max, "Tốc độ: %.2fx")) {
+    // 3. Màu sắc Modern
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(45, 45, 48, 255));          // Nền thanh trượt tối
+    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(55, 55, 58, 255));
+    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(65, 65, 68, 255));
+    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(50, 205, 50, 255));      // Nút kéo màu xanh lá
+    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(80, 255, 80, 255));
+
+    // Đặt chiều rộng cho item tiếp theo (Slider)
+    ImGui::PushItemWidth(width); 
+    
+    // Vẽ Slider không có Label bên cạnh (dùng ## để ẩn label mặc định của ImGui)
+    if (ImGui::SliderFloat("##speed_slider", value, min, max, "%.2fx")) {
         if (on_change) on_change(*value);
     }
-
-    ImGui::PopStyleVar(2);
-    ImGui::PopStyleColor(3);
+    
+    ImGui::PopItemWidth();
+    ImGui::PopStyleColor(5);
+    ImGui::PopStyleVar(4);
+    
     ImGui::PopID();
-    ImGui::Dummy(ImVec2(0, 15.0f * scale)); // Khoảng cách với danh sách bên dưới
+    ImGui::Dummy(ImVec2(0, 10.0f * scale)); // Khoảng cách dưới
 }
 
 void UI_SelectableItem(const char* label, bool is_active, float scale, std::function<void()> on_click) {
@@ -656,7 +249,7 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     ImGui::PopID();
     
     // Tạo khoảng cách giữa các dòng
-    ImGui::Dummy(ImVec2(0, 2.0f * scale));
+    ImGui::Dummy(ImVec2(0, 0));
 }
 
 void ResolutionQualityPage(mpv_handle *mpv, VideoAudioFormats &formats, VideoType videotype, float scale) {
@@ -746,13 +339,19 @@ void AudioQualityPage( mpv_handle *mpv, VideoAudioFormats &formats , VideoType v
 }
 void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
     // 1. Phần Slider tùy chỉnh (Tự do từ 0.25x đến 4.0x)
+    // Tiêu đề nhỏ bên trên thanh trượt
+    ImGui::Indent(10 * scale);
+    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Tốc độ tùy chỉnh: %.2fx", v_Settings.playbackSpeed);
+    ImGui::Unindent(10 * scale);
+    ImGui::Dummy(ImVec2(0, 5 * scale));
+
+    // Gọi thanh trượt Full-width
     float current_speed = (float)v_Settings.playbackSpeed;
     
     UI_SliderSpeed("SpeedSlider", &current_speed, 0.25f, 4.0f, scale, [&](float new_speed) {
         v_Settings.playbackSpeed = (double)new_speed;
         // Gửi lệnh trực tiếp đến mpv
-        const char* cmd[] = { "set", "speed", std::to_string(new_speed).c_str(), nullptr };
-        mpv_command(mpv, cmd);
+        mpv_command_set_speed( mpv, (double)new_speed);
     });
 
     ImGui::Separator();
@@ -777,8 +376,7 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
             
             UI_SelectableItem(buf, is_active, scale, [&]() {
                 v_Settings.playbackSpeed = (double)s;
-                const char* cmd[] = { "set", "speed", std::to_string(s).c_str(), nullptr };
-                mpv_command(mpv, cmd);
+                mpv_command_set_speed(mpv, (double)s);
             });
 
             if (is_active && ImGui::IsWindowAppearing()) {
@@ -787,6 +385,9 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
         }
     }
     ImGui::EndChild();
+}
+void OptionsPage(){
+
 }
 void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool open, bool& show_ui_video ,ImVec2 iconPos) {
     static float anim = 0.0f;
@@ -818,9 +419,6 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
 
     // Thiết lập cửa sổ
 
-    //ImVec2 windowSize(260, 360); 
-    //ImVec2 windowPos(videoPos.x + videoSize.x - windowSize.x - 20, videoPos.y + videoSize.y - windowSize.y - 80);
-
     ImGui::SetNextWindowPos(windowPos);
     ImGui::SetNextWindowSize(windowSize);
     ImGui::SetNextWindowBgAlpha(0.92f * anim);
@@ -833,76 +431,120 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
     if (ImGui::Begin("##SettingsSidebar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar)) {
         
         // --- HEADER ---
-        if (current_page != SettingsPage::Main) {
-            if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
-            ImGui::Separator();
-            ImGui::Spacing();
-        } else {
-            ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "CÀI ĐẶT PHÁT VIDEO");
-            ImGui::Separator();
-            ImGui::Spacing();
-        }
 
         VideoType videotype = GetVideoType();
 
         // --- NỘI DUNG ---
-        if (current_page == SettingsPage::Main) {
-            
-            UI_GroupHeader("Chất lượng");
-            if (videotype != VideoType::File_Local) {
-                const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
-                UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { current_page = SettingsPage::ResolutionQuality; });
+        switch (current_page) {
+            case SettingsPage::Main:
+            {
+                UI_GroupHeader("Chất lượng");
+                if (videotype != VideoType::File_Local) {
+                    const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
+                    UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { current_page = SettingsPage::ResolutionQuality; });
+                }
+                if (videotype != VideoType::File_Local) {
+                    const char* res_label = all_formats.audio.short_labels.empty() ? "N/A" : all_formats.audio.short_labels[all_formats.audio_index].c_str();
+                    UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { current_page = SettingsPage::AudioQuality; });
+                }
+    
+                char speed_buf[16];
+                snprintf(speed_buf, sizeof(speed_buf), "%.2fx", v_Settings.playbackSpeed);
+                UI_MenuItem("Tốc độ phát", speed_buf, scaleFactor, [&]() { current_page = SettingsPage::PlaybackSpeed; });
+
+                UI_MenuItem("Tùy chọn nâng cao", "Thiết lập", scaleFactor, [&]() { current_page = SettingsPage::Options; });
+
+                ImGui::Spacing();
+                UI_GroupHeader("Tùy chọn");
+
+                UI_Toggle("Phụ đề", &v_Settings.enableSubtitles, scaleFactor, g_videoInfo.hasSubtitles, [&](bool s) {
+                    mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
+                    mpv_set_property_string(mpv, "sid", "1");
+                    SaveSettings_Video();
+                });
+
+                UI_Toggle("Lặp lại video", &v_Settings.repeatVideo, scaleFactor, true, [&](bool s) {
+                    mpv_set_property_string(mpv, "loop-file", s ? "inf" : "no");
+                    SaveSettings_Video();
+                });
+
+                UI_Toggle("Tự động phát tiếp", &v_Settings.autoPlayNext, scaleFactor, true, [&](bool s) {
+                    mpv_set_property_string(mpv, "playlist-auto-advance", s ? "yes" : "no");
+                    SaveSettings_Video();
+                });
+                break;
             }
-            if (videotype != VideoType::File_Local) {
-                const char* res_label = all_formats.audio.short_labels.empty() ? "N/A" : all_formats.audio.short_labels[all_formats.audio_index].c_str();
-                UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { current_page = SettingsPage::AudioQuality; });
+        
+            // --- TRANG CON: RESOLUTION ---
+            case SettingsPage::ResolutionQuality:
+            {
+                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ResolutionQualityPage(mpv, all_formats, videotype , scaleFactor);
+                break;
             }
- 
-            char speed_buf[16];
-            snprintf(speed_buf, sizeof(speed_buf), "%.2fx", v_Settings.playbackSpeed);
-            UI_MenuItem("Tốc độ phát", speed_buf, scaleFactor, [&]() { current_page = SettingsPage::PlaybackSpeed; });
 
-            ImGui::Spacing();
-            UI_GroupHeader("Tùy chọn");
+            case SettingsPage::AudioQuality:
+            {
+                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                ImGui::Separator();
+                ImGui::Spacing();
 
-            UI_Toggle("Phụ đề", &v_Settings.enableSubtitles, scaleFactor, [&](bool s) {
-                mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
-                mpv_set_property_string(mpv, "sid", "1");
-                SaveSettings_Video();
-            });
-
-            UI_Toggle("Lặp lại video", &v_Settings.repeatVideo, scaleFactor, [&](bool s) {
-                mpv_set_property_string(mpv, "loop-file", s ? "inf" : "no");
-                SaveSettings_Video();
-            });
-
-            UI_Toggle("Tự động phát tiếp", &v_Settings.autoPlayNext, scaleFactor, [&](bool s) {
-                mpv_set_property_string(mpv, "playlist-auto-advance", s ? "yes" : "no");
-                SaveSettings_Video();
-            });
-        }
+                AudioQualityPage(mpv, all_formats, videotype , scaleFactor);
+                break;
+            }
         
-        // --- TRANG CON: RESOLUTION ---
-        else if (current_page == SettingsPage::ResolutionQuality) {
-            ResolutionQualityPage(mpv, all_formats, videotype , scaleFactor);
+            // --- TRANG CHỌN TỐC ĐỘ ---
+            case SettingsPage::PlaybackSpeed:
+            {
+                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                PlaybackSpeedPage(mpv , scaleFactor);
+                break;
+            }
+            case SettingsPage::Options:
+            {
+                switch (current_options_page)
+                {
+                    case OptionsPage::Main:
+                    {
+                        if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                        ImGui::Separator();
+                        ImGui::Spacing();
+
+                        UI_MenuItem("Tùy chọn Phụ đề", "Cài đặt phụ đề", scaleFactor, [&]() { current_options_page = OptionsPage::Subtitles; });
+                        break;
+                    }
+                    case OptionsPage::Subtitles:
+                    {
+                        if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_options_page = OptionsPage::Main;
+                        ImGui::Separator();
+                        ImGui::Spacing();
+
+                        UI_Toggle("Bật phụ đề", &v_Settings.enableSubtitles, scaleFactor, g_videoInfo.hasSubtitles, [&](bool s) {
+                            mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
+                            mpv_set_property_string(mpv, "sid", "1");
+                            SaveSettings_Video();
+                        });
+
+                        break;
+                    }
+                }
+
+               
+
+
+                break;
+            }
         }
-
-        else if (current_page == SettingsPage::AudioQuality)
-        {
-            AudioQualityPage(mpv, all_formats, videotype , scaleFactor);
-        }
-        
-
-
-        // --- TRANG CHỌN TỐC ĐỘ ---
-        else if (current_page == SettingsPage::PlaybackSpeed) {
-            PlaybackSpeedPage(mpv , scaleFactor);
-        }
-    }
-
     if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
     ImGui::End();
     ImGui::PopStyleVar(3);
+    }
 }
 
 
@@ -910,14 +552,14 @@ void ApplyPlaybackSettings(mpv_handle * mpv) {
     if (!mpv) return;
 
     // 1. Thiết lập các thông số dạng số (Double)
-    double volume = std::clamp(static_cast<double>(v_Settings.defaultVolume), 0.0, 100.0);
-    mpv_set_property(mpv, "volume", MPV_FORMAT_DOUBLE, &volume); 
+    int volume = v_Settings.defaultVolume;
+    mpv_command_set_volume(mpv, volume);
 
-    double speed = static_cast<double>(v_Settings.playbackSpeed);
-    mpv_set_property(mpv, "speed", MPV_FORMAT_DOUBLE, &speed);
+    double speed = (double)v_Settings.playbackSpeed;
+    mpv_command_set_speed(mpv, speed);
 
-    double audiodelay = static_cast<double>(v_Settings.audiodelay);
-    mpv_set_property(mpv, "audio-delay", MPV_FORMAT_DOUBLE, &audiodelay);
+    double audiodelay = (double)v_Settings.audiodelay;
+    mpv_command_set_audio_delay(mpv, audiodelay);
 
     // 2. Thiết lập Subtitles (Dùng mpv_set_property_string cho gọn và an toàn)
     const char* sub_vis = v_Settings.enableSubtitles ? "yes" : "no"; // mpv dùng "no" để tắt sub

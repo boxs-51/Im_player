@@ -48,6 +48,55 @@ struct AudioDeviceInfo {
     std::string description;
 };
 
+struct TrackCommon {
+    int id = -1;
+    int ff_index = -1;
+    std::string type;           // "audio", "video", "sub", ...
+    std::string codec;
+    std::string codec_desc;
+    std::string codec_profile;
+    std::string decoder;
+    std::string decoder_desc;
+    std::string language;       // "eng", "vie", ...
+    std::string title;
+    
+    // Flags
+    bool is_default = false;
+    bool forced = false;
+    bool selected = false;
+    bool external = false;
+};
+struct VideoDetails {
+    int demux_w = 0;
+    int demux_h = 0;
+    double demux_fps = 0.0;
+    std::string format_name;    // "yuv420p", ...
+    bool image = false;
+    bool albumart = false;
+};
+
+struct AudioDetails {
+    int demux_samplerate = 0;
+    int demux_channel_count = 0;
+    std::string demux_channels; // "stereo", "5.1", ...
+    std::string format_name;    // "fltp", ...
+};
+
+struct AccessibilityFlags {
+    bool visual_impaired = false;
+    bool hearing_impaired = false;
+    bool dependent = false;
+};
+
+struct TrackInfo {
+    TrackCommon common;
+    VideoDetails video;
+    AudioDetails audio;
+    AccessibilityFlags access;
+    
+    int main_selection = 0; 
+};
+/*
 struct TrackInfo {
     int id = -1;
     std::string type;           // "audio", "video", "sub", "image", ...
@@ -83,6 +132,7 @@ struct TrackInfo {
     bool external = false;
     bool selected = false;
 };
+*/
 struct PlaylistEntry {
     std::string filename;
     std::string title;
@@ -102,6 +152,7 @@ struct SubInFo {
     std::string sub_codec;
     std::string sub_ass_override;
 };
+
 struct MPVPlaybackStatus {
     int volume = 100;
     int stream_pos = 0;
@@ -215,6 +266,8 @@ struct VideoInfo {
     int abitrate = 0;           // audio bitrate (bps)
 
     int g_current_chapter;
+
+    bool hasSubtitles ;
 
     // ==== Hardware/Device ====
     std::string a_out;

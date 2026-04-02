@@ -164,9 +164,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    //if(SetDelayHover(is_text_hovered, 3.0 ,"Header_Text_Part")){
-    //    ImGui::SetTooltip(g_playbackStatus.mediaTitle ? g_playbackStatus.mediaTitle : "No Title");
-    //}
     ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
     ImGui::PopID();
 
@@ -463,9 +460,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
-            //if(SetDelayHover(ImGui::IsItemHovered(), 3.0,"Prev_Button")){
-            //    ImGui::SetTooltip("Previous Video");
-            //}
             ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
         }
         // Nút PLAY/PAUSE
@@ -478,12 +472,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             
 
         }
-        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "PlayPause_Button")){
-        //    if(paused)
-        //        ImGui::SetTooltip("Play");
-        //    else
-        //        ImGui::SetTooltip("Pause");
-        //}
+
         ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
@@ -491,37 +480,9 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (CustomIconButton("##next", DrawNextIcon, iconSize)) {
                 mpv_command_next_video(mpv);
             }
-            //if(SetDelayHover(ImGui::IsItemHovered(), 3.0 ,"Next_Button")){
-            //    ImGui::SetTooltip("Next Video");
-            //}
+
             ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
         }
-
-        // === TIME TEXT ===
-        /*
-        int curHour = (int)(time_show_ui / 3600);
-        int curMin  = (int)(time_show_ui / 60) % 60;
-        int curSec  = (int)time_show_ui % 60;
-
-        int durHour = (int)(duration / 3600);
-        int durMin  = (int)(duration / 60) % 60;
-        int durSec  = (int)duration % 60;
-
-        char timeStr[32];
-        if (durHour > 0) {
-            // Có giờ -> hiển thị dạng HH:MM:SS
-            snprintf(timeStr, sizeof(timeStr),
-                    "%02d:%02d:%02d / %02d:%02d:%02d",
-                    curHour, curMin, curSec,
-                    durHour, durMin, durSec);
-        } else {
-            // Không có giờ -> vẫn giữ dạng MM:SS
-            snprintf(timeStr, sizeof(timeStr),
-                    "%02d:%02d / %02d:%02d",
-                    curMin, curSec,
-                    durMin, durSec);
-        }
-        */
 
         ImGui::BeginGroup();
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); 
@@ -541,12 +502,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
 
-        //if(SetDelayHover(hoverIcon, 3.0, "Volume_Button")){
-        //    if(isMuted)
-        //        ImGui::SetTooltip("Unmute");
-        //    else
-        //        ImGui::SetTooltip("Mute");
-        //}
         ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
 
         bool active = ImGui::IsItemActive();
@@ -615,7 +570,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
             if (isActive_Slider) {
                 float newVolume = (localMouse.x - sliderPos.x) / sliderSize.x;
-                volume = std::clamp(int(newVolume * 100.0f), 0, 100);
+                volume = std::clamp(int(newVolume * 130.0f), 0, 130);
                 mpv_command_set_volume(mpv, volume);
                 if (volume > 0 && isMuted)
                     mpv_command_set_mute(mpv, false);
@@ -652,7 +607,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             ImU32 fillColor = LerpColor(fillBase, fillHover, hoverAnim);
 
             float barHalf = sliderSize.y * (0.25f + hoverAnim * 0.1f);
-            float filledWidth = sliderSize.x * (volume / 100.0f);
+            float filledWidth = sliderSize.x * (volume / 130.0f);
             float centerY = sliderPos.y + sliderSize.y * 0.5f;
             
             ImVec2 barStart(sliderPos.x + winPos.x, centerY - barHalf + winPos.y);
@@ -685,7 +640,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
             if (knobActive || (ImGui::IsMouseDragging(0) && hoverSlider)) {
                 float newVolume = (localMouse.x - sliderPos.x) / sliderSize.x;
-                volume = std::clamp(int(newVolume * 100.0f), 0, 100);
+                volume = std::clamp(int(newVolume * 130.0f), 0, 130);
                 mpv_command_set_volume(mpv, volume);
                 if (volume > 0 && isMuted)
                     mpv_command_set_mute(mpv, false);
@@ -730,9 +685,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             LoadSettings_Video();
             showSettings = !showSettings;
         }
-        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "Settings_Button")){
-        //    ImGui::SetTooltip("Settings");
-        //}
+
         ImVec2 iconPos = ImGui::GetItemRectMin();
         ImVec2 iconSize = ImGui::GetItemRectSize(); // Lấy kích thước nút
 
@@ -751,12 +704,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
             BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
         }
-        //if (SetDelayHover(ImGui::IsItemHovered(), 3.0, "Fullscreen_Button")) {
-        //    if (isFullscreen_video)
-        //        ImGui::SetTooltip("Exit Fullscreen");
-        //   else
-        //        ImGui::SetTooltip("Fullscreen");
-        //}
+
         ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
 
         // --- BUTTON OPTION ---
@@ -772,36 +720,9 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             showOptionMenu = !showOptionMenu;
         }
         optdata.hovered = ImGui::IsItemHovered();
-        //if(SetDelayHover(ImGui::IsItemHovered(), 3.0, "Option_Button")){
-        //    ImGui::SetTooltip("Options");
-        //}
-        //ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
+
+        ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
     
-        if (endfile) {
-            // Tính toán vị trí trung tâm
-            ImVec2 center = ImVec2(videoSize.x * 0.5f, videoSize.y * 0.5f);
-            ImVec2 iconSizeBig(80 * scale, 80 * scale); // Nút to hơn
-
-            // Đặt vị trí nút ở giữa video
-            ImVec2 buttonPos(center.x - iconSizeBig.x * 0.5f, center.y - iconSizeBig.y * 0.5f);
-            ImGui::SetCursorPos(buttonPos);
-
-            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0, 0, 0, 0));
-            ImGui::PushStyleColor(ImGuiCol_ButtonHovered, ImVec4(1, 1, 1, 0.1f));
-            ImGui::PushStyleColor(ImGuiCol_ButtonActive, ImVec4(1, 1, 1, 0.2f));
-            /*
-
-            if (ImGui::ImageButton("##ReplayCenter", (ImTextureID)(intptr_t)GetIcon("replay"), iconSizeBig)) {
-                // Khi nhấn → tua lại đầu + tiếp tục phát
-                mpv_command_seek_abs(mpv, 0 , duration); // seek về đầu
-                mpv_command_string(mpv, "set pause no"); // phát tiếp
-                //render_video = true;
-                //render_ui_video = true;
-            }
-            */
-
-            ImGui::PopStyleColor(3);
-        }
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;
             else {
@@ -810,11 +731,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                 else 
                     mpv_command_pause(mpv);
             }
-
-            
         }
-
-
     }
 
     items_action = (Volume_action || seek_bar_action);
@@ -824,10 +741,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     ImGui::PopStyleVar();
 
 }
-
-
-
-
 
 void RenderIdleBackground(ImTextureID texID , ImVec2 videopos, ImVec2 videoSize) {
     if (!texID) return;

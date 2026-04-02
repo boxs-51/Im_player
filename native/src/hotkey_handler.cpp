@@ -98,7 +98,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
             {
                 float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
                 if (key == SDLK_DOWN) step = -step;
-                float newVol = std::clamp(mpv_get_volume(mpv) + step,0.0f,100.0f);
+                float newVol = std::clamp(mpv_get_volume(mpv) + step,0.0f,130.0f);
                 mpv_command_set_volume(mpv, newVol);
                 v_Settings.defaultVolume = newVol;
                 SaveSettings_Video();

@@ -35,3 +35,6 @@ thumbnail_cache/
 libs/
 
 log/
+
+.bat/ffmpeg.zip
+.bat/ffmpeg
