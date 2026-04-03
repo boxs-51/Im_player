@@ -1137,6 +1137,7 @@ inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
 
 struct ThemeColors {
     
+    ImVec4 Text_ModernWindowStyle;
     ImVec4 WindowBg_ModernWindowStyle;
     ImVec4 TitleBg_ModernWindowStyle;
     ImVec4 TitleBgActive_ModernWindowStyle;
@@ -1172,6 +1173,7 @@ struct ThemeColors {
     ImVec4 Border_SecondaryButton;
     ImVec4 Text_SecondaryButton;
 
+    ImVec4 Text_ModernCheckbox;
     ImVec4 FrameBg_ModernCheckbox;
     ImVec4 FrameBgHovered_ModernCheckbox;
     ImVec4 FrameBgActive_ModernCheckbox;
@@ -1182,140 +1184,182 @@ struct ThemeColors {
     ImVec4 FrameBgActive_ModernInputTextMultiline;
     ImVec4 Border_ModernInputTextMultiline;
     ImVec4 TextSelectedBg_ModernInputTextMultiline;
+    ImVec4 Text_ModernInputTextMultiline;
 
     ImVec4 Header_ModernSelectable;
     ImVec4 HeaderHovered_ModernSelectable;
     ImVec4 HeaderActive_ModernSelectable;
-    ImVec4 ImGuiCol_Text_Selected_ModernSelectable;
-    ImVec4 ImGuiCol_Text_UnSelected_ModernSelectable;
+    ImVec4 Text_Selected_ModernSelectable;
+    ImVec4 Text_UnSelected_ModernSelectable;
 
     ImVec4 TableHeaderBg_ListTable;
     ImVec4 Text_ListTable;
     ImVec4 TableRowBgAlt_ListTable;
 
     ImVec4 Header_ModernCollapsingHeader;
+    ImVec4 HeaderHovered_ModernCollapsingHeader;
+    ImVec4 HeaderActive_ModernCollapsingHeader;
+    ImVec4 Text_ModernCollapsingHeader;
+
+    ImVec4 FrameBg_ModernSearchCombo;
+
+    ImVec4 FrameBg_NormalCombo;
+    ImVec4 FrameBgHovered_NormalCombo;
+    ImVec4 Border_NormalCombo;
+    ImVec4 Text_NormalCombo;
+    ImVec4 TextLaBel_NormalCombo;
 };
 extern ThemeColors GTheme;
 static inline void SetDarkTheme() {
  
-    GTheme.WindowBg_ModernWindowStyle = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
-    GTheme.TitleBg_ModernWindowStyle = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.Border_ModernWindowStyle = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.Separator_ModernWindowStyle = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.Text_ModernWindowStyle           = ImVec4(1.0f, 1.0f, 1.0f, 0.95f);
+    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
+    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
+    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.Border_ModernWindowStyle         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.Separator_ModernWindowStyle      = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
 
-    GTheme.ChildBg_ModernChild = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
-    GTheme.Border_ModernChild = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
-    GTheme.Text_ModernChild = ImVec4(1.0f,1.0f,1.0f,1.0f);
+    GTheme.ChildBg_ModernChild  = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
+    GTheme.Border_ModernChild   = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
+    GTheme.Text_ModernChild     = ImVec4(1.0f,1.0f,1.0f,1.0f);
 
     GTheme.ChildBg_Card = ImVec4(0.18f, 0.18f, 0.20f, 1.0f);
-    GTheme.Border_Card = ImVec4(0.30f, 0.30f, 0.33f, 1.0f);
-    GTheme.Text_Card = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
+    GTheme.Border_Card  = ImVec4(0.30f, 0.30f, 0.33f, 1.0f);
+    GTheme.Text_Card    = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
 
-    GTheme.TableRowBg_InfoTable = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable = ImVec4(1, 1, 1, 0.04f);
+    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
+    GTheme.TableRowBgAlt_InfoTable  = ImVec4(1, 1, 1, 0.04f);
 
-    GTheme.Text_ModernTabBar = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-    GTheme.Tab_ModernTabBar = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
-    GTheme.TabActive_ModernTabBar = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar = ImVec4(0, 0, 0, 0);
-    GTheme.TabUnfocusedActive_ModernTabBar = ImVec4(0.1f, 0.45f, 0.9f, 0.7f);
+    GTheme.Text_ModernTabBar                = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+    GTheme.Tab_ModernTabBar                 = ImVec4(0, 0, 0, 0);
+    GTheme.TabHovered_ModernTabBar          = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
+    GTheme.TabActive_ModernTabBar           = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+    GTheme.TabUnfocused_ModernTabBar        = ImVec4(0, 0, 0, 0);
+    GTheme.TabUnfocusedActive_ModernTabBar  = ImVec4(0.1f, 0.45f, 0.9f, 0.7f);
 
-    GTheme.Button_ModernButton = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
-    GTheme.ButtonHovered_ModernButton = ImVec4(0.15f, 0.55f, 1.00f, 1.0f);
-    GTheme.ButtonActive_ModernButton = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
-    GTheme.Text_ModernButton = ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
+    GTheme.Button_ModernButton              = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
+    GTheme.ButtonHovered_ModernButton       = ImVec4(0.15f, 0.55f, 1.00f, 1.0f);
+    GTheme.ButtonActive_ModernButton        = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
+    GTheme.Text_ModernButton                = ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
 
-    GTheme.Text_SecondaryButton = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.Button_SecondaryButton = ImVec4(0.20f, 0.20f, 0.22f, 0.0f);
-    GTheme.ButtonHovered_SecondaryButton = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
-    GTheme.ButtonActive_SecondaryButton = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
-    GTheme.Border_SecondaryButton = ImVec4(0.35f, 0.35f, 0.38f, 1.0f);
+    GTheme.Text_SecondaryButton             = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
+    GTheme.Button_SecondaryButton           = ImVec4(0.15f, 0.15f, 0.17f, 0.00f);
+    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.22f, 0.22f, 0.25f, 0.80f);
+    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.18f, 0.18f, 0.20f, 1.00f);
+    GTheme.Border_SecondaryButton           = ImVec4(0.35f, 0.35f, 0.38f, 1.0f);
 
-    GTheme.FrameBg_ModernCheckbox = ImVec4(0.20f, 0.20f, 0.22f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox = ImVec4(0.25f, 0.25f, 0.28f, 1.0f);
-    GTheme.FrameBgActive_ModernCheckbox = ImVec4(0.15f, 0.45f, 0.90f, 0.5f);
-    GTheme.CheckMark_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+    GTheme.Text_ModernCheckbox              = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.20f, 0.20f, 0.22f, 1.0f);
+    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.25f, 0.25f, 0.28f, 1.0f);
+    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.15f, 0.45f, 0.90f, 0.5f);
+    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
 
-    GTheme.FrameBg_ModernInputTextMultiline = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
-    GTheme.FrameBgActive_ModernInputTextMultiline = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
-    GTheme.Border_ModernInputTextMultiline = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline = ImVec4(0.10f, 0.40f, 0.75f, 0.50f);
+    GTheme.FrameBg_ModernInputTextMultiline          = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.FrameBgHovered_ModernInputTextMultiline  = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
+    GTheme.FrameBgActive_ModernInputTextMultiline   = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
+    GTheme.Border_ModernInputTextMultiline          = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.TextSelectedBg_ModernInputTextMultiline  = ImVec4(0.10f, 0.40f, 0.75f, 0.50f);
 
-    GTheme.Header_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.70f);
-    GTheme.HeaderHovered_ModernSelectable = ImVec4(0.25f, 0.25f, 0.27f, 1.00f);
-    GTheme.HeaderActive_ModernSelectable = ImVec4(0.10f, 0.40f, 0.75f, 1.00f);
-    GTheme.ImGuiCol_Text_Selected_ModernSelectable = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme. ImGuiCol_Text_UnSelected_ModernSelectable = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
+    GTheme.Header_ModernSelectable          = ImVec4(0.12f, 0.45f, 0.90f, 0.70f);
+    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.25f, 0.25f, 0.27f, 1.00f);
+    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.10f, 0.40f, 0.75f, 1.00f);
+    GTheme.Text_Selected_ModernSelectable   = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.8f, 0.8f, 0.8f, 1.0f);
+    GTheme.Text_ModernInputTextMultiline    = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
 
-    GTheme.TableHeaderBg_ListTable = ImVec4(0.12f, 0.12f, 0.14f, 1.0f);
-    GTheme.Text_ListTable = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable = ImVec4(1.0f, 1.0f, 1.0f, 0.03f);
+    GTheme.TableHeaderBg_ListTable  = ImVec4(0.12f, 0.12f, 0.14f, 1.0f);
+    GTheme.Text_ListTable           = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
+    GTheme.TableRowBgAlt_ListTable  = ImVec4(1.0f, 1.0f, 1.0f, 0.03f);
     
-    GTheme.Header_ModernCollapsingHeader = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
+    GTheme.HeaderHovered_ModernCollapsingHeader = ImVec4(0.22f, 0.22f, 0.25f, 1.00f);
+    GTheme.HeaderActive_ModernCollapsingHeader  = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
+
+    GTheme.FrameBg_ModernSearchCombo = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+
+    // Dark Theme
+    GTheme.FrameBg_NormalCombo        = ImVec4(0.12f, 0.12f, 0.14f, 1.00f); 
+    GTheme.FrameBgHovered_NormalCombo = ImVec4(0.18f, 0.18f, 0.21f, 1.00f); 
+    GTheme.Border_NormalCombo         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f); 
+    GTheme.Text_NormalCombo           = ImVec4(0.90f, 0.90f, 0.92f, 1.00f); 
+    GTheme.TextLaBel_NormalCombo      = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
 }
 
 static inline void SetLightTheme() {
 
-    GTheme.WindowBg_ModernWindowStyle = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
-    GTheme.TitleBg_ModernWindowStyle = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
-    GTheme.Border_ModernWindowStyle = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
-    GTheme.Separator_ModernWindowStyle = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
+    GTheme.Text_ModernWindowStyle           = ImVec4(0.1f, 0.1f, 0.1f, 0.95f);
+    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
+    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
+    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
+    GTheme.Border_ModernWindowStyle         = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
+    GTheme.Separator_ModernWindowStyle      = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
 
-    GTheme.ChildBg_ModernChild = ImVec4(0.97f, 0.97f, 0.98f, 1.0f);
-    GTheme.Border_ModernChild = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
-    GTheme.Text_ModernChild = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    GTheme.ChildBg_ModernChild  = ImVec4(0.97f, 0.97f, 0.98f, 1.0f);
+    GTheme.Border_ModernChild   = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
+    GTheme.Text_ModernChild     = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
 
     GTheme.ChildBg_Card = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.Border_Card = ImVec4(0.80f, 0.80f, 0.83f, 1.0f);
-    GTheme.Text_Card = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    GTheme.Border_Card  = ImVec4(0.80f, 0.80f, 0.83f, 1.0f);
+    GTheme.Text_Card    = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
 
-    GTheme.TableRowBg_InfoTable = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable = ImVec4(0, 0, 0, 0.03f);
+    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
+    GTheme.TableRowBgAlt_InfoTable  = ImVec4(0, 0, 0, 0.03f);
 
-    GTheme.Text_ModernTabBar = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    GTheme.Tab_ModernTabBar = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
-    GTheme.TabActive_ModernTabBar = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar = ImVec4(0, 0, 0, 0);
+    GTheme.Text_ModernTabBar               = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.Tab_ModernTabBar                = ImVec4(0, 0, 0, 0);
+    GTheme.TabHovered_ModernTabBar         = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
+    GTheme.TabActive_ModernTabBar          = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
+    GTheme.TabUnfocused_ModernTabBar       = ImVec4(0, 0, 0, 0);
     GTheme.TabUnfocusedActive_ModernTabBar = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
 
-    GTheme.Button_ModernButton = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
-    GTheme.ButtonHovered_ModernButton = ImVec4(0.20f, 0.55f, 1.00f, 1.0f);
-    GTheme.ButtonActive_ModernButton = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
-    GTheme.Text_ModernButton = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.Button_ModernButton              = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
+    GTheme.ButtonHovered_ModernButton       = ImVec4(0.05f, 0.55f, 0.95f, 1.00f);
+    GTheme.ButtonActive_ModernButton        = ImVec4(0.00f, 0.40f, 0.75f, 1.00f);
+    GTheme.Text_ModernButton                = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
 
-    GTheme.Text_SecondaryButton =  ImVec4(0.20f, 0.20f, 0.20f, 1.0f);
-    GTheme.Button_SecondaryButton = ImVec4(0.85f, 0.85f, 0.88f, 0.0f);
-    GTheme.ButtonHovered_SecondaryButton = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
-    GTheme.ButtonActive_SecondaryButton = ImVec4(0.65f, 0.65f, 0.70f, 1.0f);
-    GTheme.Border_SecondaryButton = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
+    GTheme.Text_SecondaryButton             = ImVec4(0.20f, 0.20f, 0.25f, 1.00f);
+    GTheme.Button_SecondaryButton           = ImVec4(0.94f, 0.94f, 0.96f, 0.00f);
+    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
+    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
+    GTheme.Border_SecondaryButton           = ImVec4(0.75f, 0.75f, 0.80f, 1.00f);
 
-    GTheme.FrameBg_ModernCheckbox = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
-    GTheme.FrameBgActive_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
-    GTheme.CheckMark_ModernCheckbox = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
+    GTheme.Text_ModernCheckbox              = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
+    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
+    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
+    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
 
-    GTheme.FrameBg_ModernInputTextMultiline = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline = ImVec4(0.95f, 0.95f, 0.97f, 1.0f);
-    GTheme.FrameBgActive_ModernInputTextMultiline = ImVec4(0.90f, 0.90f, 0.93f, 1.0f);
-    GTheme.Border_ModernInputTextMultiline = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline = ImVec4(0.12f, 0.45f, 0.90f, 0.25f);
+    GTheme.FrameBg_ModernInputTextMultiline          = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    GTheme.FrameBgHovered_ModernInputTextMultiline   = ImVec4(0.95f, 0.95f, 0.97f, 1.0f);
+    GTheme.FrameBgActive_ModernInputTextMultiline    = ImVec4(0.90f, 0.90f, 0.93f, 1.0f);
+    GTheme.Border_ModernInputTextMultiline           = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
+    GTheme.TextSelectedBg_ModernInputTextMultiline   = ImVec4(0.12f, 0.45f, 0.90f, 0.25f);
 
-    GTheme.Header_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.5f);
-    GTheme.HeaderHovered_ModernSelectable = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
-    GTheme.HeaderActive_ModernSelectable = ImVec4(0.12f, 0.45f, 0.90f, 0.8f);
-    GTheme.ImGuiCol_Text_Selected_ModernSelectable = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
-    GTheme.ImGuiCol_Text_UnSelected_ModernSelectable = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.Header_ModernSelectable          = ImVec4(0.12f, 0.45f, 0.90f, 0.5f);
+    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
+    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.12f, 0.45f, 0.90f, 0.8f);
+    GTheme.Text_Selected_ModernSelectable   = ImVec4(0.0f, 0.0f, 0.0f, 1.0f);
+    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.Text_ModernInputTextMultiline    = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
 
-    GTheme.TableHeaderBg_ListTable = ImVec4(0.90f, 0.90f, 0.92f, 1.0f);
-    GTheme.Text_ListTable = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable = ImVec4(0, 0, 0, 0.02f);
+    GTheme.TableHeaderBg_ListTable  = ImVec4(0.90f, 0.90f, 0.92f, 1.0f);
+    GTheme.Text_ListTable           = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+    GTheme.TableRowBgAlt_ListTable  = ImVec4(0, 0, 0, 0.02f);
 
-    GTheme.Header_ModernCollapsingHeader = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
+    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
+    GTheme.HeaderHovered_ModernCollapsingHeader = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
+    GTheme.HeaderActive_ModernCollapsingHeader  = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
+    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.15f, 0.15f, 0.18f, 1.00f);
+
+    GTheme.FrameBg_ModernSearchCombo = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
+    
+    // Light Theme
+    GTheme.FrameBg_NormalCombo        = ImVec4(0.94f, 0.94f, 0.96f, 1.00f); 
+    GTheme.FrameBgHovered_NormalCombo = ImVec4(0.88f, 0.88f, 0.92f, 1.00f); 
+    GTheme.Border_NormalCombo         = ImVec4(0.80f, 0.80f, 0.83f, 1.00f); 
+    GTheme.Text_NormalCombo           = ImVec4(0.15f, 0.15f, 0.18f, 1.00f); 
+    GTheme.TextLaBel_NormalCombo      = ImVec4(0.15f, 0.15f, 0.18f, 1.00f); 
 }
  
 extern std::map<ThemeType, ThemeColors> ThemeLibrary;
@@ -1521,13 +1565,14 @@ namespace CusTomImGui{
         
         // 3. Màu sắc hiện đại (Dark Theme tinh tế)
         ImGui::PushStyleColor(ImGuiCol_WindowBg, GTheme.WindowBg_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernWindowStyle);
         ImGui::PushStyleColor(ImGuiCol_TitleBg, GTheme.TitleBg_ModernWindowStyle);
         ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GTheme.TitleBgActive_ModernWindowStyle);
         ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_ModernWindowStyle);
         ImGui::PushStyleColor(ImGuiCol_Separator, GTheme.Separator_ModernWindowStyle);
     }
     inline void PopModernWindowStyle() {
-        ImGui::PopStyleColor(5);
+        ImGui::PopStyleColor(6);
         ImGui::PopStyleVar(5);
     }
     inline bool ModernButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
@@ -1567,6 +1612,8 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
         //ImGui::PushStyleVar(ImGuiStyleVar_CheckMarkSize, 14.0f); // Dấu tích lớn dễ nhìn
 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernCheckbox);
+
         // Màu nền ô Check
         ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernCheckbox);
         ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernCheckbox);
@@ -1577,7 +1624,7 @@ namespace CusTomImGui{
 
         bool changed = ImGui::Checkbox(label, v);
 
-        ImGui::PopStyleColor(4);
+        ImGui::PopStyleColor(5);
         ImGui::PopStyleVar();
         return changed;
     }
@@ -1596,6 +1643,8 @@ namespace CusTomImGui{
         ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border_ModernInputTextMultiline); 
         ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,   GTheme.TextSelectedBg_ModernInputTextMultiline); // Màu khi bôi đen chữ
 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernInputTextMultiline);
+
         bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
 
         // Kiểm tra nếu đang gõ thì đổi màu viền sang xanh Blue (Accent)
@@ -1606,7 +1655,7 @@ namespace CusTomImGui{
             );
         }
 
-        ImGui::PopStyleColor(5);
+        ImGui::PopStyleColor(6);
         ImGui::PopStyleVar(3);
         return changed;
     }
@@ -1629,8 +1678,8 @@ namespace CusTomImGui{
         ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive_ModernSelectable); // Màu khi nhấn giữ
         
         // Nếu item đang được chọn, có thể đổi màu chữ sang trắng tinh
-        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, GTheme.ImGuiCol_Text_Selected_ModernSelectable);
-        else          ImGui::PushStyleColor(ImGuiCol_Text, GTheme.ImGuiCol_Text_UnSelected_ModernSelectable);
+        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_Selected_ModernSelectable);
+        else          ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_UnSelected_ModernSelectable);
 
         // Gọi hàm gốc của ImGui
         // Sử dụng size.y lớn hơn một chút để tạo danh sách thoáng đãng
@@ -1704,19 +1753,23 @@ namespace CusTomImGui{
         return ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlapped) && ImGui::IsMouseReleased(0);
     }
 
-    inline bool ModernCollapsingHeader( const char* id ,ImGuiTreeNodeFlags flags = 0){
-
+    inline bool ModernCollapsingHeader(const char* id, ImGuiTreeNodeFlags flags = 0) {
+        // Bo góc nhẹ cho header nếu muốn đồng bộ với Combo
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
-        ImGui::PushStyleColor(ImGuiCol_Header, GTheme.Header_ModernCollapsingHeader);
+        
+        // Push bảng màu từ GTheme
+        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header_ModernCollapsingHeader);
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered_ModernCollapsingHeader);
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive_ModernCollapsingHeader);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernCollapsingHeader); // Dùng chung màu text cho đồng bộ
 
         bool res = ImGui::CollapsingHeader(id, flags);
 
-        ImGui::PopStyleVar();
-        ImGui::PopStyleColor();
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(2);
 
-        if (!res)
-            return false;
-        return true;
+        return res;
     }
     // --- HELPER 2: MODERN SEARCH COMBO (Nâng cao: Search + Max Height + Scroll) ---
     inline bool ModernSearchCombo(const char* label, std::string& current_value, const std::vector<std::string>& options, int max_items_visible = 6) {
@@ -1728,7 +1781,8 @@ namespace CusTomImGui{
         // 1. Ô Input Text
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg_ModernInputTextMultiline);
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg_ModernSearchCombo);
         
         char buf[128];
         snprintf(buf, sizeof(buf), "%s", current_value.c_str());
@@ -1790,19 +1844,33 @@ namespace CusTomImGui{
 
     inline bool NormalCombo(const char* label, std::string& current_item, const std::vector<std::string>& options, int max_items_visible = 5) {
         bool changed = false;
+        
+        // 1. Style cho Label (Text phía trên)
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.TextLaBel_NormalCombo); // Màu chữ nhãn
         ImGui::TextDisabled("%s", label);
+        ImGui::PopStyleColor();
 
+        // 2. Push Style Vars (Bo góc và Khoảng cách)
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Đảm bảo có viền
+
+        // 3. Push Style Colors (Background, Border, Text bên trong combo)
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg_NormalCombo);       // Nền box
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, GTheme.FrameBgHovered_NormalCombo);   // Nền khi di chuột
+        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_NormalCombo);             // Màu viền
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_NormalCombo);               // Màu chữ hiện tại
         
-        // Tính toán chiều cao tối đa dựa trên số lượng item muốn hiển thị
-        // 1 item = LineHeight + ItemSpacing
+        // Tính toán chiều cao tối đa
         float item_height = ImGui::GetTextLineHeightWithSpacing() + 8.0f; 
         ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(FLT_MAX, item_height * max_items_visible));
 
+        // Lưu ý: "##" giúp ẩn label mặc định của BeginCombo vì bạn đã vẽ label riêng ở trên
         if (ImGui::BeginCombo("##normal_combo", current_item.c_str(), ImGuiComboFlags_HeightLarge)) {
             for (const auto& opt : options) {
                 bool is_selected = (current_item == opt);
+                
+                // Nếu muốn tùy chỉnh Selectable (list bên trong), bạn có thể push tiếp ở đây
                 if (CusTomImGui::ModernSelectable(opt.c_str(), is_selected)) {
                     current_item = opt;
                     changed = true;
@@ -1811,10 +1879,13 @@ namespace CusTomImGui{
             }
             ImGui::EndCombo();
         }
-        ImGui::PopStyleVar(2);
+
+        // Dọn dẹp Stack (Quan trọng: Số lượng Pop phải khớp với Push)
+        ImGui::PopStyleColor(4); // Pop FrameBg, FrameBgHovered, Border, Text
+        ImGui::PopStyleVar(3);   // Pop Rounding, Padding, BorderSize
+        
         return changed;
     }
-
     // --- HELPER: MODERN POPUP (Dùng cho Modal/Dialog) ---
     inline bool BeginModernPopup(const char* name, bool* open = NULL, ImGuiWindowFlags flags = 0) {
         // Áp dụng Style Window hiện đại cho Popup

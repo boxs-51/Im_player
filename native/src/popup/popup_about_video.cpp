@@ -53,7 +53,7 @@ void ShowMediaInfo() {
         ImGui::Spacing();
 
         // Buttons
-        if (CusTomImGui::ModernButton(showFullUrl ? "Hide Full" : "Show Full", ImVec2(80, 0))) {
+        if (CusTomImGui::ModernButton(showFullUrl ? "Hide Full" : "Show Full", ImVec2(90, 0))) {
             showFullUrl = !showFullUrl;
         }
 
