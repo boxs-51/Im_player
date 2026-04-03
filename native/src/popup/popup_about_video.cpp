@@ -301,9 +301,9 @@ void ShowTrackInfo() {
         }
 
         // ====== DETAILS (Phần mở rộng) ======
-        
-        if (ImGui::TreeNode(("Full Details##" + std::to_string(track.common.id)).c_str())){
-            if (ImGui::BeginTable("track_details_full", 2, ImGuiTableFlags_BordersInnerV)) {
+
+        if (CusTomImGui::ModernTreeNode(("Full Details##" + std::to_string(track.common.id)).c_str())){
+            if(CusTomImGui::BeginInfoTable("track_details_full")){
                 
                 // Common Details
                 CusTomImGui::InfoRow("Codec Desc", "%s", track.common.codec_desc.c_str());
@@ -331,9 +331,9 @@ void ShowTrackInfo() {
                         track.access.visual_impaired ? "[Visual]" : "");
                 }
 
-                ImGui::EndTable();
+                CusTomImGui::EndInfoTable();
             }
-            ImGui::TreePop();
+            CusTomImGui::EndModernTreeNode();
         }
 
         ImGui::EndChild();

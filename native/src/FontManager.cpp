@@ -793,7 +793,8 @@ bool FontManager::LoadFontsSpecific(float size, const std::string& fontDir) {
     #endif
     // Cập nhật trạng thái
     FontEntry fe;
-    fe.family = "CombinedFont";
+    fe.family = "Default";
+    fe.style  = "Default";
     fe.imFont = mainFont;
     m_fonts.push_back(fe);
     m_activeFont = mainFont;

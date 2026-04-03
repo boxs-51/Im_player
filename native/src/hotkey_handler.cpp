@@ -50,7 +50,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
             {   
                 double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
                 if (key == SDLK_DOWN) step = -step;
-                double audio_delay = std::clamp(mpv_get_audio_delay(mpv) + step , -10.0, 10.0);
+                double audio_delay = std::clamp(g_videoInfo.audio_delay + step , -10.0, 10.0);
                 mpv_command_set_audio_delay(mpv, audio_delay);
                 v_Settings.audiodelay = audio_delay;
                 SaveSettings_Video();
@@ -61,7 +61,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
             {
                 double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
                 if (key == SDLK_LEFT) step = -step;
-                double speed = std::clamp(mpv_get_speed(mpv) + step, 0.2, 3.0);
+                double speed = std::clamp(g_playbackStatus.speed + step, 0.2, 3.0);
                 mpv_command_set_speed(mpv, speed);
                 v_Settings.playbackSpeed = speed;
                 SaveSettings_Video();
@@ -76,7 +76,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
     if (isPlayable) {
         switch (key) {
             case SDLK_SPACE:
-                if (mpv_is_paused(mpv)) {
+                if (g_playbackStatus.isPaused) {
                     mpv_command_play(mpv);
                 } else {
                     mpv_command_pause(mpv);
@@ -98,7 +98,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
             {
                 float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
                 if (key == SDLK_DOWN) step = -step;
-                float newVol = std::clamp(mpv_get_volume(mpv) + step,0.0f,130.0f);
+                float newVol = std::clamp(g_playbackStatus.volume + step,0.0f,130.0f);
                 mpv_command_set_volume(mpv, newVol);
                 v_Settings.defaultVolume = newVol;
                 SaveSettings_Video();
@@ -106,7 +106,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
             }
 
             case SDLK_m:
-                mpv_command_set_mute(mpv, !mpv_is_muted(mpv));
+                mpv_command_set_mute(mpv, !g_playbackStatus.isMuted);
                 return true;
 
             default:

@@ -38,48 +38,40 @@ void ShaderManager::Register(const std::string& name, const std::string& path) {
 }
 
 void ShaderManager::ApplyPipeline() {
-    if (!mpv) {
+    if (!mpv) return;
 
-        return;
-    }
+    // Tạo thư mục tạm nếu chưa có (ví dụ trong thư mục shader_cache)
+    fs::path tempDir = fs::current_path() / "shader_cache";
+    if (!fs::exists(tempDir)) fs::create_directory(tempDir);
 
-    // 1. Tạo danh sách các shader đang bật
-    std::vector<Shader*> activeShaders;
-    for (auto& [name, s] : shaders) {
-        if (s.enabled) {
-            activeShaders.push_back(&s);
-        }
-    }
-
-    // 2. Sắp xếp theo ưu tiên (Hook -> Order -> Name)
-    std::sort(activeShaders.begin(), activeShaders.end(),
-    [this](Shader* a, Shader* b) {
-        int ha = HookPriority(a->hook);
-        int hb = HookPriority(b->hook);
-        if (ha != hb) return ha < hb;
-        if (a->order != b->order) return a->order < b->order;
-        return a->name < b->name;
-    });
-
-    // 3. Xây dựng chuỗi command cho mpv
     std::string list;
     #ifdef _WIN32
         char sep = ';';
     #else
         char sep = ':';
     #endif
-    for (Shader* s : activeShaders) {
-        list += s->path + sep; // mpv dùng ':' hoặc ';' tùy OS, thường ':' là chuẩn
+
+    for (auto& [name, s] : shaders) {
+        if (s.enabled) {
+            // 1. Tạo nội dung shader đã chèn thông số (Dùng hàm GenerateTempShader bạn đã có)
+            std::string processedCode = GenerateTempShader(s);
+
+            // 2. Ghi ra file tạm (Ví dụ: shader_cache/bloom_active.glsl)
+            fs::path tempFile = tempDir / (s.name + "_active.glsl");
+            std::ofstream out(tempFile);
+            out << processedCode;
+            out.close();
+
+            // 3. Thêm đường dẫn file TẠM vào danh sách nạp của mpv
+            list += tempFile.string() + sep;
+        }
     }
 
     if (!list.empty()) list.pop_back();
 
-    // Dùng mpv_command thay vì string để an toàn hơn với khoảng trắng
+    // 4. Gửi danh sách file tạm cho mpv
     const char* cmd[] = {"set", "glsl-shaders", list.c_str(), nullptr};
-    int res = mpv_command(mpv, cmd);
-
-    if (res < 0) {
-    }
+    mpv_command(mpv, cmd);
 }
 
 void ShaderManager::LoadMeta(const std::string& path, Shader& s) {
@@ -94,81 +86,98 @@ void ShaderManager::LoadMeta(const std::string& path, Shader& s) {
         // Log error hoặc bỏ qua nếu file meta lỗi format
     }
 }
+std::string ShaderManager::HookStageToString(HookStage hook){
+    switch(hook){
+        case HookStage::MAIN:        return "MAIN";
+        case HookStage::POSTKERNEL:  return "POSTKERNEL";
+        case HookStage::PREKERNEL:   return "PREKERNEL";
+        case HookStage::OUTPUT:      return "OUTPUT";
+        default:                     return "MAIN";
+    }
+}
+std::string ShaderManager::GenerateTempShader(const Shader& s) {
+    std::stringstream ss;
 
+    // 1. Chèn các chỉ thị bắt buộc cho mpv (Mpv Header)
+    ss << "//!HOOK " << HookStageToString(s.hook) << "\n";
+    ss << "//!BIND HOOKED\n";
+    ss << "//!DESC " << s.name << " (Generated)\n\n";
+
+    // 2. Chèn các giá trị Runtime dưới dạng #define
+    // Điều này thay thế hoàn toàn việc truyền glsl-shader-opts
+    for (const auto& p : s.params) {
+        ss << "#define " << p.name << " " << std::fixed << std::setprecision(4) << p.value << "\n";
+    }
+    ss << "\n";
+
+    // 3. Đọc và chèn phần code gốc (bỏ qua phần meta comment)
+    std::ifstream f(s.path);
+    std::string line;
+    bool inMeta = false;
+    while (std::getline(f, line)) {
+        if (line.find("/*") != std::string::npos) { inMeta = true; continue; }
+        if (line.find("*/") != std::string::npos) { inMeta = false; continue; }
+        if (!inMeta) {
+            ss << line << "\n";
+        }
+    }
+
+    return ss.str();
+}
 void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
     std::ifstream f(path);
     if (!f.is_open()) return;
 
     std::string line;
-    ShaderParam currentParam;
-    bool hasParam = false;
+    ShaderParam* currentParam = nullptr;
 
     while (std::getline(f, line)) {
-        // Xóa khoảng trắng thừa ở đầu dòng (trim)
+        // Xóa khoảng trắng
         line.erase(0, line.find_first_not_of(" \t"));
-        if (line.empty() || line.find("//!") != 0) continue;
+        
+        if (line.find("@DESC:") == 0) s.description = line.substr(6);
+        else if (line.find("@HOOK:") == 0) {
+            std::string h = line.substr(6);
+            if (h.find("MAIN") != std::string::npos) s.hook = HookStage::MAIN;
+            else if (line.find("POSTKERNEL") != std::string::npos) s.hook = HookStage::POSTKERNEL;
+            else if (line.find("PREKERNEL") != std::string::npos) s.hook = HookStage::PREKERNEL;
+            else if (line.find("OUTPUT") != std::string::npos) s.hook = HookStage::OUTPUT;
 
-        // 1. Lấy mô tả: //!DESC <text>
-        if (line.find("//!DESC") == 0) {
-            s.description = line.substr(7); 
-            s.description.erase(0, s.description.find_first_not_of(" ")); // trim left
+        }
+        else if (line.find("@PARAM:") == 0) {
+            ShaderParam p;
+            p.name = line.substr(7);
+            // Xóa khoảng trắng thừa trong tên biến
+            p.name.erase(std::remove(p.name.begin(), p.name.end(), ' '), p.name.end());
+            s.params.push_back(p);
+            currentParam = &s.params.back();
+        }
+        else if (currentParam) {
+            if (line.find("@LABEL:") == 0) currentParam->label = line.substr(7);
+            else if (line.find("@MIN:") == 0) currentParam->min = std::stof(line.substr(5));
+            else if (line.find("@MAX:") == 0) currentParam->max = std::stof(line.substr(5));
+            else if (line.find("@DEFAULT:") == 0) currentParam->value = std::stof(line.substr(9));
         }
         
-        // 2. Lấy Hook Stage: //!HOOK <STAGE>
-        else if (line.find("//!HOOK") == 0) {
-            if (line.find("PREKERNEL") != std::string::npos) s.hook = HookStage::PREKERNEL;
-            else if (line.find("POSTKERNEL") != std::string::npos) s.hook = HookStage::POSTKERNEL;
-            else if (line.find("OUTPUT") != std::string::npos) s.hook = HookStage::OUTPUT;
-            else if (line.find("MAIN") != std::string::npos) s.hook = HookStage::MAIN;
-        }
-
-        // 3. Lấy Parameter: //!PARAM <name> <desc>
-        else if (line.find("//!PARAM") == 0) {
-            // Lưu param cũ nếu có
-            if (hasParam) s.params.push_back(currentParam);
-            
-            currentParam = {}; 
-            // Cắt chuỗi để lấy tên biến và mô tả
-            std::string content = line.substr(8);
-            content.erase(0, content.find_first_not_of(" "));
-            
-            size_t spacePos = content.find_first_of(" \t");
-            if (spacePos != std::string::npos) {
-                currentParam.name = content.substr(0, spacePos);
-                // Phần còn lại là mô tả để hiển thị UI
-                currentParam.label = content.substr(spacePos + 1); 
-            } else {
-                currentParam.name = content;
-            }
-            hasParam = true;
-        }
-
-        // 4. Lấy các thuộc tính của Param (Min, Max, Default)
-        else if (hasParam) {
-            if (line.find("//!MINIMUM") == 0) currentParam.min = std::stof(line.substr(10));
-            else if (line.find("//!MAXIMUM") == 0) currentParam.max = std::stof(line.substr(10));
-            else if (line.find("//!DEFAULT") == 0) currentParam.value = std::stof(line.substr(11));
-        }
+        // Nếu gặp dấu kết thúc comment khối và đã parse xong meta thì dừng để tiết kiệm CPU
+        if (line.find("*/") != std::string::npos) break;
     }
-
-    // Đẩy param cuối cùng vào list
-    if (hasParam) s.params.push_back(currentParam);
 }
 
 
 
-void ShaderManager::UpdateParams(const Shader& s) {
-    if (!mpv || s.params.empty()) return;
-
-    // Định dạng: param1=value1,param2=value2
-    std::string opts;
-    for (size_t i = 0; i < s.params.size(); ++i) {
-        opts += s.params[i].name + "=" + std::to_string(s.params[i].value);
-        if (i < s.params.size() - 1) opts += ",";
+void ShaderManager::UpdateParams(const std::string& shaderName, const std::string& paramName, float value) {
+    auto it = shaders.find(shaderName);
+    if (it != shaders.end()) {
+        for (auto& p : it->second.params) {
+            if (p.name == paramName) {
+                p.value = value;
+                break;
+            }
+        }
+        // Sau khi đổi thông số, render lại file tạm và bắt mpv load lại
+        ApplyPipeline(); 
     }
-
-    // Gửi toàn bộ options của shader hiện tại vào mpv
-    mpv_set_property_string(mpv, "glsl-shader-opts", opts.c_str());
 }
 void ShaderManager::LoadShadersFromFolder(const std::vector<std::string>& folder) {
     for (const auto& folderPath : folder) {

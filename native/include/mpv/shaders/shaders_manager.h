@@ -5,6 +5,8 @@
 #include <unordered_map>
 #include <algorithm>
 
+
+
 // forward declaration cho mpv
 struct mpv_handle;
 struct ShaderParam {
@@ -63,11 +65,22 @@ public:
     void Disable(const std::string& name);
     void Toggle(const std::string& name);
 
-    void UpdateParams(const Shader& s) ;
+    void UpdateParams(const std::string& shaderName, const std::string& paramName, float value) ;
     void DisableAll();
 
     // Logic xử lý pipeline
     void ApplyPipeline();
+
+    std::unordered_map<std::string, Shader>& GetShaders() { return shaders; }
+
+    const std::vector<std::string>& GetPipeline() { return pipeline; }
+
+    Shader* GetShaderByName(const std::string& name) {
+        if (shaders.find(name) != shaders.end()) {
+            return &shaders[name];
+        }
+        return nullptr;
+    }
 
 private:
     ShaderManager() = default; // Private constructor cho Singleton
@@ -76,7 +89,10 @@ private:
     int HookPriority(HookStage h);
     void LoadMeta(const std::string& path, Shader& s);
 
+
+    std::string HookStageToString(HookStage h);
     void ParseShaderFile(const std::string& path, Shader& s) ;
+    std::string GenerateTempShader(const Shader& s);
 
 
     mpv_handle* mpv = nullptr;

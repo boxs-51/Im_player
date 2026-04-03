@@ -80,6 +80,7 @@ public:
     ImFont* GetCurrentFont() const;
     ImFont* GetFontByName(const std::string& family, const std::string& style);
     ImFont* GetFontByFamily(const std::string& family);
+    
     ImFont* GetFont(const std::string& family, const std::string& style, float scale = 1.0f);
 
     int GetCurrentFontIndex() const { return m_currentFontIndex; };

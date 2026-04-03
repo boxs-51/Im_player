@@ -48,6 +48,8 @@ static Uint32 flags;
 
 static Uint32 fpsTimer;
 
+static bool redrawoneframe = false;
+
 std::atomic<bool> running(true);
 
 Uint32 frameDelay = 1000 / 60;
@@ -244,23 +246,7 @@ bool InitMainWindow() {
 
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
-    /*
-    FontManager::Instance().LoadFontsSmartMultiAtlas(c_Settings.fontsize,
-                                                     500 , 200 , 4080,
-                                                    c_Settings.defaultFamily,
-                                                    c_Settings.defaultStyle 
-                                                    {
-                                                    AutoPath<std::string>("C:/Windows/Fonts"),
-                                                    AutoPath<std::string>("%ROOT%","fonts")
-                                                    });
-    FontManager::Instance().LoadFontsSmartAuto(c_Settings.fontsize,
-                                                500,c_Settings.defaultFamily,
-                                                c_Settings.defaultStyle,
-                                                {
-                                                AutoPath<std::string>("C:/Windows/Fonts"),
-                                                AutoPath<std::string>("%ROOT%","fonts")
-                                                });
-    */
+
     FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%","fonts"));
 
     ImGui::StyleColorsDark();
@@ -349,12 +335,17 @@ void RenderPushFont(PlaybackState state){
 void RenderFrame(){
     if (!g_WindowVisible) {
         mpv_disable_video(mpv.mpv);
-        //return;
+        if(!redrawoneframe)
+            redrawoneframe = true ;
+        else return;
+            
     } else {
         if (audio_Theme)
             mpv_disable_video(mpv.mpv);
         else 
             mpv_enable_video(mpv.mpv);
+        
+        redrawoneframe = false;
     }
 
     mpv_update_seek_pending( mpv.mpv );

@@ -87,19 +87,12 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     // Nếu đã hoàn toàn ẩn thì bỏ qua render để tiết kiệm
     if (uiAlpha <= 0.01f)
         return; 
-    //bool endfile = mpv_is_endfile(mpv);
     bool endfile = g_playbackStatus.isCoreIdle;
-    //bool paused = mpv_is_paused(mpv);
     bool paused = g_playbackStatus.isPaused;
-    //float playbackTime = mpv_get_playback_time(mpv);
     float playbackTime = (float)g_playbackStatus.playbackTime;
-    //float time_show_ui = mpv_get_playback_time(mpv);
     float time_show_ui = (float)g_playbackStatus.timePos;
-    //float duration = mpv_get_duration(mpv);
     float duration = (float)g_playbackStatus.duration;
-    //int volume = mpv_get_volume(mpv);
     int volume = (int)g_playbackStatus.volume;
-    //bool isMuted = mpv_is_muted(mpv);
     bool isMuted = g_playbackStatus.isMuted;
     
 
@@ -726,7 +719,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;
             else {
-                if(mpv_is_paused(mpv))
+                if(paused)
                     mpv_command_play(mpv);
                 else 
                     mpv_command_pause(mpv);
