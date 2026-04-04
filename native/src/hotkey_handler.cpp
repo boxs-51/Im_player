@@ -116,7 +116,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
 
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
     if (key == SDLK_F11) {
-        BW.isFullscreen_video = SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+        ToggleFullscreen = true;
         return true;
     }
 

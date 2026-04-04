@@ -3,6 +3,7 @@
 #include "mpv/mpv_controller.h"
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_ui.h"
+#include "mpv/mpv_custom_ui.h"
 
 #include "globals.h"
 #include "utils.h"
@@ -25,85 +26,63 @@ static OptionsPage current_options_page = OptionsPage::Main;
 void UI_MenuItem(const char* label, const char* current_value, float scale, std::function<void()> on_click) {
     ImGui::PushID(label);
     
-    // 1. Tính toán kích thước dựa trên scale
     float full_width = ImGui::GetContentRegionAvail().x;
-    float item_height = 40.0f * scale; // Chiều cao dòng co giãn theo video
+    float item_height = 40.0f * scale;
     ImVec2 size = ImVec2(full_width, item_height); 
-    
-    // Tạo vùng tương tác
-    if (ImGui::Selectable("##item", false, 0, size)) {
+
+    // Tận dụng logic bo góc và padding của ModernSelectable
+    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f * scale);
+    if (CusTomImGui::ModernSelectable("##item", false, 0, size)) {
         on_click();
     }
-    
+    ImGui::PopStyleVar();
+
     ImVec2 p_min = ImGui::GetItemRectMin();
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    // Hiệu ứng Hover
-    if (ImGui::IsItemHovered()) {
-        draw_list->AddRectFilled(p_min, p_max, IM_COL32(255, 255, 255, 15), 4.0f * scale);
-    }
-
-    // 2. Thiết lập "Bức tường ảo" (Ví dụ: Label chiếm 55%, Value chiếm 45%)
     float margin_left = 12.0f * scale;
     float arrow_space = 35.0f * scale;
-    float center_split = full_width * 0.55f; // Điểm chia giữa 2 vùng text
+    float center_split = full_width * 0.55f;
 
-    // --- XỬ LÝ VÀ VẼ LABEL (Bên trái) ---
+    // Vẽ Label - Dùng màu Text từ Theme
     float max_label_w = center_split - margin_left - (5.0f * scale);
     std::string safe_label = TextUtils::TruncateToWidth(label, max_label_w);
-    
-    draw_list->AddText(ImVec2(p_min.x + margin_left, p_min.y + (item_height * 0.25f)), 
-                       IM_COL32(240, 240, 240, 255), safe_label.c_str());
+    draw_list->AddText(ImVec2(p_min.x + margin_left, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
+                       ToCol32(GTheme.Text_ModernChild), safe_label.c_str());
 
-    // --- XỬ LÝ VÀ VẼ VALUE (Bên phải) ---
+    // Vẽ Value - Dùng màu TextDisabled hoặc màu nhạt hơn
     if (current_value && strlen(current_value) > 0) {
-        // Vùng khả dụng cho value nằm giữa center_split và arrow_space
         float max_val_w = (full_width - center_split) - arrow_space - (5.0f * scale);
-        
         std::string safe_value = TextUtils::TruncateToWidth(current_value, max_val_w);
         float val_text_width = ImGui::CalcTextSize(safe_value.c_str()).x;
         
-        // Căn lề phải: p_max.x trừ đi khoảng cách mũi tên và độ rộng chữ
-        draw_list->AddText(ImVec2(p_max.x - val_text_width - arrow_space, p_min.y + (item_height * 0.25f)), 
-                           IM_COL32(160, 160, 160, 255), safe_value.c_str());
+        draw_list->AddText(ImVec2(p_max.x - val_text_width - arrow_space, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
+                           ToCol32(GTheme.Text_Selected_ModernSelectable), safe_value.c_str());
     }
     
-    // --- VẼ MŨI TÊN ĐIỀU HƯỚNG ---
-    draw_list->AddText(ImVec2(p_max.x - (20.0f * scale), p_min.y + (item_height * 0.25f)), 
+    // Mũi tên
+    draw_list->AddText(ImVec2(p_max.x - (20.0f * scale), p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
                        IM_COL32(100, 100, 100, 255), ">");
     
-    // Spacing cũng phải scale để không bị dính cục khi thu nhỏ
-    ImGui::Dummy(ImVec2(0.0f, 5.0f * scale));
     ImGui::PopID();
-
 }
 
-void UI_Toggle(const char* label, bool* v, float scale, bool enabled , std::function<void(bool)> on_change) {
+void UI_Toggle(const char* label, bool* v, float scale, bool enabled, std::function<void(bool)> on_change) {
     ImGui::PushID(label);
     
-    // --- QUẢN LÝ ANIMATION ---
+    // Giữ nguyên logic Animation của bạn
     static std::map<ImGuiID, float> anim_states;
     ImGuiID id = ImGui::GetID(label);
     if (anim_states.find(id) == anim_states.end()) anim_states[id] = (*v ? 1.0f : 0.0f);
-
-    // Tốc độ mượt (0.1f - 0.2f tùy sở thích)
     float target = *v ? 1.0f : 0.0f;
     anim_states[id] += (target - anim_states[id]) * 0.15f; 
-    float t = anim_states[id]; // t chạy từ 0 -> 1
+    float t = anim_states[id];
 
-    // --- THIẾT LẬP KÍCH THƯỚC SCALE ---
     float width = ImGui::GetContentRegionAvail().x;
     float row_height = 35.0f * scale;
     float sw_w = 36.0f * scale;
     float sw_h = 18.0f * scale;
-    float knob_r = 7.0f * scale;
-
-    // Thiết lập độ trong suốt dựa trên trạng thái enabled
-    // Nếu disabled, dùng alpha thấp (vd: 100), nếu enabled dùng full alpha (255)
-    float alpha_mult = enabled ? 1.0f : 0.4f; 
-    ImU32 text_col = IM_COL32(240, 240, 240, (int)(255 * alpha_mult));
-    ImU32 knob_col = IM_COL32(255, 255, 255, (int)(255 * alpha_mult));
 
     if (ImGui::InvisibleButton("##toggle_btn", ImVec2(width, row_height)) && enabled) {
         *v = !*v;
@@ -114,46 +93,37 @@ void UI_Toggle(const char* label, bool* v, float scale, bool enabled , std::func
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    // 1. Background khi hover
-    if ( enabled && ImGui::IsItemHovered()) {
-        draw_list->AddRectFilled(p_min, p_max, IM_COL32(255, 255, 255, 10), 4.0f * scale);
+    // 1. Hover Background - Dùng màu HeaderHovered từ Theme
+    if (enabled && ImGui::IsItemHovered()) {
+        draw_list->AddRectFilled(p_min, p_max, ToCol32(GTheme.HeaderHovered_ModernSelectable), 4.0f * scale);
     }
 
-    // 2. Label (Sử dụng TruncateTextByPixels để tránh đè lên switch)
+    // 2. Label - Dùng màu Text của Checkbox
     float max_label_w = width - sw_w - (30.0f * scale);
     std::string safe_label = TextUtils::TruncateTextByPixels(label, max_label_w);
     draw_list->AddText(ImVec2(p_min.x + 12 * scale, p_min.y + (row_height - ImGui::GetFontSize()) * 0.5f), 
-                       text_col, safe_label.c_str());
+                       enabled ? ToCol32(GTheme.Text_ModernCheckbox) : ToCol32(GTheme.Text_ModernChild), safe_label.c_str());
 
-    // 3. Switch Background (Nội suy màu sắc - Interpolation)
+    // 3. Switch Background - Nội suy từ màu FrameBg sang màu CheckMark (Accent Color)
     ImVec2 sw_pos = ImVec2(p_max.x - sw_w - 12 * scale, p_min.y + (row_height - sw_h) * 0.5f);
     
-    // Màu OFF (70,70,70) -> Màu ON (50,205,50)
-    int r, g, b;
+    ImVec4 col_off = GTheme.FrameBg_ModernCheckbox;
+    ImVec4 col_on  = GTheme.CheckMark_ModernCheckbox;
+    
+    ImVec4 current_col = ImVec4(
+        col_off.x + (col_on.x - col_off.x) * t,
+        col_off.y + (col_on.y - col_off.y) * t,
+        col_off.z + (col_on.z - col_off.z) * t,
+        enabled ? 1.0f : 0.4f
+    );
 
-    if (enabled) {
-        r = (int)(70 + (50 - 70) * t);
-        g = (int)(70 + (205 - 70) * t);
-        b = (int)(70 + (50 - 70) * t);
-    } else {
-        // Khi disable, ta cho nó một màu xám tối và nhạt hơn
-        r = g = b = 45; 
-    }
+    draw_list->AddRectFilled(sw_pos, ImVec2(sw_pos.x + sw_w, sw_pos.y + sw_h), ImGui::GetColorU32(current_col), 10.0f * scale);
 
-    ImU32 col_bg = IM_COL32(r, g, b, 255);
-
-    draw_list->AddRectFilled(sw_pos, ImVec2(sw_pos.x + sw_w, sw_pos.y + sw_h), col_bg, 10.0f * scale);
-
-    // 4. Knob (Nội suy vị trí)
-    // t = 0: sát lề trái, t = 1: sát lề phải
-    float start_x = sw_pos.x + (sw_h * 0.5f);
-    float end_x = sw_pos.x + sw_w - (sw_h * 0.5f);
-    float knob_x = start_x + (end_x - start_x) * t;
-
-    draw_list->AddCircleFilled(ImVec2(knob_x, sw_pos.y + sw_h * 0.5f), knob_r, knob_col);
+    // 4. Knob
+    float knob_x = (sw_pos.x + sw_h * 0.5f) + (sw_w - sw_h) * t;
+    draw_list->AddCircleFilled(ImVec2(knob_x, sw_pos.y + sw_h * 0.5f), 7.0f * scale, ToCol32(GTheme.Text_ModernCheckbox));
 
     ImGui::PopID();
-    ImGui::Dummy(ImVec2(0.0f, 2.0f * scale)); // Khoảng cách nhỏ giữa các dòng
 }
 
 void UI_GroupHeader(const char* title) {
@@ -167,50 +137,43 @@ void UI_GroupHeader(const char* title) {
 void UI_SliderSpeed(const char* label, float* value, float min, float max, float scale, std::function<void(float)> on_change) {
     ImGui::PushID(label);
     
-    // 1. Lấy toàn bộ chiều rộng khả dụng
-    float width = ImGui::GetContentRegionAvail().x;
-    
-    // 2. Thiết lập Style "Mảnh" (Slim)
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 12.0f * scale);
-    ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 2.0f * scale)); // Hẹp lại (giảm từ 5 xuống 2)
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabMinSize, 12.0f * scale);          // Nút kéo nhỏ lại cho tinh tế
-    ImGui::PushStyleVar(ImGuiStyleVar_GrabRounding, 12.0f * scale);
+    // Tính toán kích thước dựa trên scale để đồng nhất với giao diện chung
+    float slider_height = 4.0f * scale;    // Độ dày thanh trượt
+    float grab_size = 7.0f * scale;      // Bán kính nút kéo
+    float full_width = ImGui::GetContentRegionAvail().x;
 
-    // 3. Màu sắc Modern
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, IM_COL32(45, 45, 48, 255));          // Nền thanh trượt tối
-    ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, IM_COL32(55, 55, 58, 255));
-    ImGui::PushStyleColor(ImGuiCol_FrameBgActive, IM_COL32(65, 65, 68, 255));
-    ImGui::PushStyleColor(ImGuiCol_SliderGrab, IM_COL32(50, 205, 50, 255));      // Nút kéo màu xanh lá
-    ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, IM_COL32(80, 255, 80, 255));
-
-    // Đặt chiều rộng cho item tiếp theo (Slider)
-    ImGui::PushItemWidth(width); 
-    
-    // Vẽ Slider không có Label bên cạnh (dùng ## để ẩn label mặc định của ImGui)
-    if (ImGui::SliderFloat("##speed_slider", value, min, max, "%.2fx")) {
+    // Sử dụng helper ModernSliderFloat đã nâng cấp ở trên
+    // Chúng ta truyền thêm slider_height và grab_size để nó co giãn theo tỷ lệ video
+    if (CusTomImGui::ModernSliderFloat(
+            label,           // Tên hiển thị phía trên slider
+            value,           // Giá trị float*
+            min,             // Giá trị tối thiểu
+            max,             // Giá trị tối đa
+            slider_height,   // Chiều cao thanh trượt (Tham số mới)
+            grab_size,       // Kích thước nút kéo (Tham số mới)
+            "%.2fx",         // Định dạng hiển thị
+            full_width       // Chiều rộng full vùng chứa
+        )) 
+    {
         if (on_change) on_change(*value);
     }
     
-    ImGui::PopItemWidth();
-    ImGui::PopStyleColor(5);
-    ImGui::PopStyleVar(4);
-    
     ImGui::PopID();
-    ImGui::Dummy(ImVec2(0, 10.0f * scale)); // Khoảng cách dưới
+    
+    // Khoảng cách đệm phía dưới để không bị dính vào danh sách chọn nhanh
+    ImGui::Dummy(ImVec2(0, 15.0f * scale));
 }
 
 void UI_SelectableItem(const char* label, bool is_active, float scale, std::function<void()> on_click) {
     ImGui::PushID(label);
     
     float full_width = ImGui::GetContentRegionAvail().x;
-    float item_height = 35.0f * scale; // Scale theo video
+    float item_height = 35.0f * scale;
     ImVec2 size = ImVec2(full_width, item_height);
 
-    // Bắt đầu một Group để xử lý click và hover
-    ImGui::BeginGroup();
-    
-    // InvisibleButton để bắt tương tác
-    if (ImGui::InvisibleButton("##item_btn", size)) {
+    // Sử dụng ModernSelectable để lấy hiệu ứng Hover/Active chuẩn từ Theme
+    // Chúng ta truyền is_active vào để hàm tự đổi màu background/border
+    if (CusTomImGui::ModernSelectable("##item_btn", is_active, 0, size)) {
         on_click();
     }
 
@@ -219,37 +182,27 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    // --- VẼ BACKGROUND ---
-    if (is_active) {
-        // Màu khi đang được chọn (Xanh nhẹ)
-        draw_list->AddRectFilled(p_min, p_max, IM_COL32(50, 205, 50, 40), 4.0f * scale);
-    } else if (is_hovered) {
-        // Màu khi hover (Trắng mờ)
-        draw_list->AddRectFilled(p_min, p_max, IM_COL32(255, 255, 255, 15), 4.0f * scale);
-    }
+    // Tooltip vẫn giữ nguyên
+    ShowTooltipDelayed(label, is_hovered, 1.5f, label);
 
-    ShowTooltipDelayed(label, is_hovered, 1.5f, label); // Hiển thị tooltip sau 0.5s hover
-
-    // --- VẼ TEXT (Cắt chữ nếu quá dài) ---
-    float text_max_w = full_width - (40.0f * scale); // Trừa chỗ cho icon check
+    // --- VẼ TEXT ---
+    float text_max_w = full_width - (40.0f * scale); 
     std::string display_text = TextUtils::TruncateTextByPixels(label, text_max_w);
     
-    ImVec2 text_pos = ImVec2(p_min.x + 10 * scale, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);
-    draw_list->AddText(text_pos, is_active ? IM_COL32(50, 255, 150, 255) : IM_COL32(230, 230, 230, 255), display_text.c_str());
+    // Màu text lấy từ Theme: Nếu active dùng màu xanh lá, ngược lại dùng màu text mặc định
 
-    // --- VẼ ICON CHECKMARK (Nếu active) ---
+    ImVec2 text_pos = ImVec2(p_min.x + 10 * scale, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);
+    draw_list->AddText(text_pos, is_active ? ToCol32(GTheme.Text_Selected_ModernSelectable) : ToCol32(GTheme.Text_ModernChild), display_text.c_str());
+
+    // --- VẼ ICON CHECKMARK ---
     if (is_active) {
         float check_size = 6.0f * scale;
         ImVec2 check_pos = ImVec2(p_max.x - 20 * scale, p_min.y + item_height * 0.5f);
-        // Vẽ dấu chấm tròn hoặc icon check nhỏ
-        draw_list->AddCircleFilled(check_pos, check_size * 0.5f, IM_COL32(50, 255, 150, 255));
+        // Dùng màu CheckMark từ theme để đồng bộ với Checkbox/Toggle
+        draw_list->AddCircleFilled(check_pos, check_size * 0.5f, ToCol32(GTheme.CheckMark_ModernCheckbox));
     }
 
-    ImGui::EndGroup();
     ImGui::PopID();
-    
-    // Tạo khoảng cách giữa các dòng
-    ImGui::Dummy(ImVec2(0, 0));
 }
 
 void ResolutionQualityPage(mpv_handle *mpv, VideoAudioFormats &formats, VideoType videotype, float scale) {
@@ -352,6 +305,7 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
         v_Settings.playbackSpeed = (double)new_speed;
         // Gửi lệnh trực tiếp đến mpv
         mpv_command_set_speed( mpv, (double)new_speed);
+        SaveSettings_Video();
     });
 
     ImGui::Separator();
@@ -377,6 +331,7 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
             UI_SelectableItem(buf, is_active, scale, [&]() {
                 v_Settings.playbackSpeed = (double)s;
                 mpv_command_set_speed(mpv, (double)s);
+                SaveSettings_Video();
             });
 
             if (is_active && ImGui::IsWindowAppearing()) {
@@ -424,9 +379,8 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
     ImGui::SetNextWindowBgAlpha(0.92f * anim);
 
     // Style cho Window
+    CusTomImGui::PushModernWindowStyle();
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 12.0f);
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
 
     if (ImGui::Begin("##SettingsSidebar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar)) {
         
@@ -543,7 +497,8 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
         }
     if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
     ImGui::End();
-    ImGui::PopStyleVar(3);
+    CusTomImGui::PopModernWindowStyle();
+    ImGui::PopStyleVar();
     }
 }
 

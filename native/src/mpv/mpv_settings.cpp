@@ -24,40 +24,6 @@ static std::string ytdl_json_buffer;
 
 AppSettings v_Settings;  
 CommonSettings c_Settings;  
-std::string CleanUrl(const std::string& url) {
-    std::string cleaned = url;
-
-    // Ví dụ đơn giản: loại bỏ dấu '/' cuối cùng nếu có
-    if (!cleaned.empty() && cleaned.back() == '/')
-        cleaned.pop_back();
-
-    // TODO: Thêm các bước chuẩn hóa khác nếu cần, vd:
-//    - Loại bỏ các tham số query không cần thiết
-//    - Chuyển hostname về chữ thường
-//    - Sắp xếp tham số query
-//    - Chuẩn hóa http/https, v.v.
-
-    return cleaned;
-}
-
-
-std::string Sha1Hash(const std::string& input) {
-    unsigned char hash[SHA_DIGEST_LENGTH];
-    SHA1(reinterpret_cast<const unsigned char*>(input.c_str()), input.size(), hash);
-
-    std::stringstream ss;
-    for (int i = 0; i < SHA_DIGEST_LENGTH; ++i)
-        ss << std::hex << std::setw(2) << std::setfill('0') << (int)hash[i];
-    return ss.str();
-}
-
-std::string CreateGroupIDFromFormats(const std::vector<std::string>& formats) {
-    std::stringstream ss;
-    for (const auto& f : formats) {
-        ss << f << "|";
-    }
-    return Sha1Hash(ss.str());
-}
 
 void LoadSettings_Video() {
     std::ifstream file(SETTINGS_PATH_VIDEO);

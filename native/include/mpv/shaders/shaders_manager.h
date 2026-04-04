@@ -13,6 +13,8 @@ struct mpv_handle;
 struct ShaderParam {
     std::string name;   // Tên biến để #define (ví dụ: SHARPEN_STR)
     std::string label;  // Tên hiển thị trên UI
+    std::string info;   
+
     float value = 0.0f;
     float min = 0.0f;
     float max = 1.0f;

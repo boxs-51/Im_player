@@ -31,8 +31,8 @@
 
 NOTIFYICONDATA nid = {};
 
-//static std::unique_ptr<DWMAnimator> g_animator;
-DragResizeState g_DragResizeState{};
+
+DragResizeState g_DragResizeState;
 // -------------------- Helpers --------------------
 static ResizeEdge DetectResizeEdge(int localX, int localY, int winW, int winH, int margin) {
 
@@ -53,90 +53,7 @@ static ResizeEdge DetectResizeEdge(int localX, int localY, int winW, int winH, i
     if (top) return ResizeEdge::TOP;
     if (bottom) return ResizeEdge::BOTTOM;
     return ResizeEdge::NONE;
-}
-static HCURSOR GetCursorForEdge(ResizeEdge edge) {
-    switch(edge) {
-        case ResizeEdge::LEFT:
-        case ResizeEdge::RIGHT:        return LoadCursor(NULL, IDC_SIZEWE);
-        case ResizeEdge::TOP:
-        case ResizeEdge::BOTTOM:       return LoadCursor(NULL, IDC_SIZENS);
-        case ResizeEdge::TOPLEFT:
-        case ResizeEdge::BOTTOMRIGHT:  return LoadCursor(NULL, IDC_SIZENWSE);
-        case ResizeEdge::TOPRIGHT:
-        case ResizeEdge::BOTTOMLEFT:   return LoadCursor(NULL, IDC_SIZENESW);
-        default:                       return LoadCursor(NULL, IDC_ARROW);
-    }
-}
-struct EnumMonCtx { int want; int idx; HMONITOR result; };
-static BOOL CALLBACK EnumMonProc(HMONITOR hMon, HDC, LPRECT, LPARAM lp)
-{
-    auto* ctx = (EnumMonCtx*)lp;
-    if (ctx->idx == ctx->want) { ctx->result = hMon; return FALSE; }
-    ctx->idx++; return TRUE;
-}
-static inline bool SDLX_MoveWindowToMonitor(SDL_Window* window, int monitorIndex, bool center)
-{
-    if (!window) return false;
-    SDL_SysWMinfo wmInfo{}; SDL_VERSION(&wmInfo.version);
-    if (!SDL_GetWindowWMInfo(window, &wmInfo)) return false;
-    HWND hwnd = wmInfo.info.win.window;
-
-    EnumMonCtx ctx{ monitorIndex, 0, nullptr };
-    EnumDisplayMonitors(NULL, NULL, EnumMonProc, (LPARAM)&ctx);
-    if (!ctx.result) return false;
-
-    MONITORINFO mi{ sizeof(MONITORINFO) };
-    if (!GetMonitorInfo(ctx.result, &mi)) return false;
-    RECT wa = mi.rcWork;
-
-    RECT rc; GetWindowRect(hwnd, &rc);
-    int w = rc.right - rc.left;
-    int h = rc.bottom - rc.top;
-
-    int x = center ? wa.left + ((wa.right - wa.left) - w) / 2 : wa.left;
-    int y = center ? wa.top  + ((wa.bottom - wa.top) - h) / 2 : wa.top;
-
-    SetWindowPos(hwnd, HWND_TOP, x, y, w, h, SWP_SHOWWINDOW);
-    SDL_SetWindowPosition(window, x, y);
-    return true;
-}
-static inline void SDLX_SetTitlebarMetrics(int titleHeight, int resizeMargin)
-{
-    g_DragResizeState.TitleHeight  = titleHeight;
-    g_DragResizeState.resizeMargin = resizeMargin;
-}
-static inline void KeepAspectRatio(RECT* rc, int edge)
-{
-    if (!g_DragResizeState.aspectLock || g_DragResizeState.aspectDen == 0) return;
-
-    int  num = g_DragResizeState.aspectNum;
-    int  den = g_DragResizeState.aspectDen;
-    LONG w = rc->right - rc->left;
-    LONG h = rc->bottom - rc->top;
-
-    // Tính theo bề rộng, cập nhật chiều cao cho khớp tỉ lệ
-    LONG targetH = (LONG)((double)w * den / num + 0.5);
-
-    switch (edge) {
-        // resize theo chiều ngang → chỉnh lại height
-        case WMSZ_LEFT: case WMSZ_RIGHT:
-        case WMSZ_TOPLEFT: case WMSZ_TOPRIGHT:
-        case WMSZ_BOTTOMLEFT: case WMSZ_BOTTOMRIGHT: {
-            if (edge == WMSZ_TOPLEFT || edge == WMSZ_TOP || edge == WMSZ_TOPRIGHT)
-                rc->top = rc->bottom - targetH;
-            else
-                rc->bottom = rc->top + targetH;
-            break;
-        }
-        // resize theo chiều dọc → chỉnh lại width
-        case WMSZ_TOP: case WMSZ_BOTTOM: {
-            LONG targetW = (LONG)((double)h * num / den + 0.5);
-            if (edge == WMSZ_TOP || edge == WMSZ_BOTTOM)
-                rc->right = rc->left + targetW;
-            break;
-        }
-    }
-}
+};
 static inline void AddTrayIcon(HWND hwnd)
 {
     ZeroMemory(&nid, sizeof(nid));
@@ -151,11 +68,11 @@ static inline void AddTrayIcon(HWND hwnd)
     wcscpy_s(nid.szTip, L"My App Running");
 
     Shell_NotifyIcon(NIM_ADD, &nid);
-}
+};
 static inline void RemoveTrayIcon()
 {
     Shell_NotifyIcon(NIM_DELETE, &nid);
-}
+};
 
 // -------------------- WndProc hook: min/max từ SDL --------------------
 LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, SDL_Window* sdlWindow)
@@ -174,24 +91,6 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
-        /*
-        case WM_CREATE:
-        {   
-            BOOL disable = FALSE;
-            DwmSetWindowAttribute(hwnd, DWMWA_TRANSITIONS_FORCEDISABLED, &disable, sizeof(disable));
-            
-            MARGINS m = {0,0,0,0};
-            DwmExtendFrameIntoClientArea(hwnd, &m);
-
-            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
-            //SyncSDLWithWinAPI(sdlWindow);
-
-            //g_animator = std::make_unique<DWMAnimator>();
-            //g_animator->Init(hwnd);
-            
-            return 0;
-        }
-        */
         case WM_APPCOMMAND: 
         {
             int cmd = GET_APPCOMMAND_LPARAM(lParam);
@@ -277,45 +176,39 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             
             // Control buttons
-            if (PtInRect(&g_DragResizeState.rcClose, pt)) {
-                g_DragResizeState.debugInfo = "HTCUSTOM_CLOSE";
-                return HTCUSTOM_CLOSE;
-            }
-            if (PtInRect(&g_DragResizeState.rcMax, pt)) {
-                if (g_DragResizeState.IsMax) {
-                    g_DragResizeState.debugInfo = "HTCUSTOM_RETORE";
-                    return HTCUSTOM_RETORE; // 
-                } else {
-                    g_DragResizeState.debugInfo = "HTCUSTOM_MAX";
-                    return HTCUSTOM_MAX; // maximize
+            if (pt.y <= g_DragResizeState.TitleHeight) {
+                
+                // 1. Kiểm tra các nút điều khiển (tính từ phải sang trái)
+                if (pt.x >= rc.right - g_DragResizeState.btnSize) {
+                    g_DragResizeState.debugInfo = "HTCUSTOM_CLOSE";
+                    return HTCUSTOM_CLOSE;
+                } 
+                else if (pt.x >= rc.right - g_DragResizeState.btnSize * 2) {
+                    if (g_DragResizeState.IsMax) {
+                        g_DragResizeState.debugInfo = "HTCUSTOM_RETORE";
+                        return HTCUSTOM_RETORE;
+                    } else {
+                        g_DragResizeState.debugInfo = "HTCUSTOM_MAX";
+                        return HTCUSTOM_MAX;
+                    }
+                } 
+                else if (pt.x >= rc.right - g_DragResizeState.btnSize * 3) {
+                    g_DragResizeState.debugInfo = "HTCUSTOM_MIN";
+                    return HTCUSTOM_MIN;
                 }
-            }
-            if (PtInRect(&g_DragResizeState.rcMin, pt)) {
-                g_DragResizeState.debugInfo = "HTCUSTOM_MIN";
-                return HTCUSTOM_MIN;
-            }
 
-            // Title bar
-            if (pt.y - rc.top <= g_DragResizeState.TitleHeight &&
-                pt.x - rc.left < g_DragResizeState.ControlWidth) {
-                g_DragResizeState.debugInfo = "HTCAPTION";
-                return HTCAPTION;
+                // 2. Nếu không trúng nút, kiểm tra xem có nằm trong vùng Title bar không
+                // (Vùng còn lại bên trái các nút bấm)
+                if (pt.x < rc.right - g_DragResizeState.btnSize * 3) {
+                    g_DragResizeState.debugInfo = "HTCAPTION";
+                    return HTCAPTION;
+                }
             }
 
             g_DragResizeState.debugInfo = "HTCLIENT";
             return HTCLIENT;
         }
-        //case WM_PAINT:{
-            //SyncSDLWithWinAPI(sdlWindow);
-            //PAINTSTRUCT ps;
-           // HDC hdc = BeginPaint(hwnd, &ps);
-            //RenderFrame();
-            //EndPaint(hwnd, &ps);
-        //    return 0;
-        //}
-        //case WM_NCACTIVATE:
-        //    return 0; 
-        
+
         case WM_NCCALCSIZE:
         {   
             
@@ -339,22 +232,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 p->rgrc[0] = mi.rcWork;
             }
             else {
-                
-                /*
-                UINT dpi = GetDpiForWindow(hwnd);
-
-                int frameX = GetSystemMetricsForDpi(SM_CXFRAME, dpi)
-                        + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi);
-
-                int frameY = GetSystemMetricsForDpi(SM_CYFRAME, dpi)
-                        + GetSystemMetricsForDpi(SM_CXPADDEDBORDER, dpi); // FIX
-
-                
-                InflateRect(&p->rgrc[0],- frameX , - frameY);
-                
-                p->rgrc[0] = p->rgrc[0];
-                */
-                
+            
             }
             return 0;
         }
@@ -362,55 +240,29 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         
         case WM_NCLBUTTONDOWN: {
             // wParam chính là hit-test code
-            
             LRESULT hit = wParam;
-
             g_DragResizeState.lastHit = wParam;
 
+            if (hit == HTCUSTOM_CLOSE) g_DragResizeState.mouseDownClose = true;
+            else if (hit == HTCUSTOM_MAX) g_DragResizeState.mouseDownMax = true;
+            else if (hit == HTCUSTOM_RETORE) g_DragResizeState.mouseDownRestore = true;
+            else if ( hit == HTCUSTOM_MIN) g_DragResizeState.mouseDownMin = true;
 
-            if (hit == HTCUSTOM_CLOSE) {
-                g_DragResizeState.mouseDownClose = true;
-            }
-            else if (hit == HTCUSTOM_MAX) {
-                g_DragResizeState.mouseDownMax = true;
-            } 
-            else if (hit == HTCUSTOM_RETORE){
-                g_DragResizeState.mouseDownRestore = true;
-            }
-            else if ( hit == HTCUSTOM_MIN) {
-                g_DragResizeState.mouseDownMin = true;
-            }else{
-
-            }
-            
-            
             break;
         }
 
 
         case WM_NCLBUTTONUP:
         {
-            
             LRESULT hit = wParam;
 
             if(hit == g_DragResizeState. lastHit){
-                if (hit == HTCUSTOM_CLOSE) {
-                    SendMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
-                    
-                }
-                else if (hit == HTCUSTOM_MAX) {
-                    SendMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
-                    
-                } 
-                else if (hit == HTCUSTOM_RETORE){
-                    SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
-                    
-                }
-                else if ( hit == HTCUSTOM_MIN) {
-                    SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);  
-                    
-                }
+                if (hit == HTCUSTOM_CLOSE) SendMessage(hwnd, WM_SYSCOMMAND, SC_CLOSE, 0);
+                else if (hit == HTCUSTOM_MAX) SendMessage(hwnd, WM_SYSCOMMAND, SC_MAXIMIZE, 0);
+                else if (hit == HTCUSTOM_RETORE) SendMessage(hwnd, WM_SYSCOMMAND, SC_RESTORE, 0);
+                else if ( hit == HTCUSTOM_MIN) SendMessage(hwnd, WM_SYSCOMMAND, SC_MINIMIZE, 0);  
             }
+
             g_DragResizeState.mouseDownClose = false;
             g_DragResizeState.mouseDownMax = false;
             g_DragResizeState.mouseDownRestore = false;
@@ -432,83 +284,6 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             break;
         }
         
-        
-        /*
-        case WM_ENTERSIZEMOVE:
-        {
-            
-            if (sdlWindow) {
-                SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_ENTER);
-            }
-            g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
-            RenderFrame();
-            
-            break;
-            
-        }
-        
-        case WM_EXITSIZEMOVE: {
-        
-            if (!g_DragResizeState.snapEnabled) break;
-            if (sdlWindow) {
-                SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_LEAVE);
-            }
-            
-            break;
-        }
-        
-        // ===== Di chuyển =====
-        case WM_MOVE:{
-            //SyncSDLWithWinAPI(sdlWindow);
-            //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MOVED, GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam));
-            break;
-        }
-        
-        case WM_MOVING: {
-            
-            RECT rc; GetWindowRect(hwnd, &rc);
-            if (sdlWindow) {
-                SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MOVED, rc.left, rc.top);
-            }
-            break;
-        }
-        
-        
-        // ===== Thay đổi kích thước / DPI =====
-        case WM_SIZE: {
-            
-            if (!sdlWindow) break;
-            SetWindowPos(hwnd, nullptr, 0, 0, 0, 0, SWP_FRAMECHANGED | SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER);
-            SyncSDLWithWinAPI(sdlWindow);
-            int w = LOWORD(lParam), h = HIWORD(lParam);
-
-            if (wParam == SIZE_MAXIMIZED) {
-                SDLX_SavePlacement(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MAXIMIZED, w, h);
-            } else if (wParam == SIZE_MINIMIZED) {
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED, w, h);
-            } else if (wParam == SIZE_RESTORED) {
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESTORED, w, h);
-            }else{
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESIZED, w, h);
-            }
-            break;
-        }
-        
-        case WM_SIZING: {
-        
-            RECT* rc = (RECT*)lParam;
-            KeepAspectRatio(rc, (int)wParam);
-            SyncSDLWithWinAPI(sdlWindow);
-            SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESIZED,
-                           rc->right - rc->left, rc->bottom - rc->top);
-
-            break;
-        }
-        */
         case WM_DPICHANGED: {
             g_DragResizeState.dpiX = LOWORD(wParam);
             g_DragResizeState.dpiY = HIWORD(wParam);
@@ -524,84 +299,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             return 0;
         }
 
-        // ===== System commands / Timer =====
-        /*
-        case WM_SYSCOMMAND:
-        {   
-            switch (wParam & 0xFFF0) 
-            {
-            case SC_CLOSE:{
-                //AnimateWindow(hwnd, 150, AW_BLEND | AW_HIDE);
-                //g_animator->Animate(DWMAnimType::FadeOut, 150);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_CLOSE, 0, 0);
-                return  DefWindowProc( hwnd, msg, wParam, lParam);
-            }
-            case SC_MINIMIZE:{
-                //g_animator->Animate(DWMAnimType::FadeOut, 150);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED, 0, 0);
-                return  DefWindowProc( hwnd, msg, wParam, lParam);
-            }
-            case SC_RESTORE:{
-                //g_animator->Animate(DWMAnimType::FadeIn, 200);
-                //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_RESTORED, 0, 0);
-                SyncSDLWithWinAPI(sdlWindow);
-                return  DefWindowProc( hwnd, msg, wParam, lParam);
-            }
-            case SC_MAXIMIZE:{
-               // g_animator->Animate(DWMAnimType::SlideIn, 180);
-                //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MAXIMIZED, 0, 0);
-                SyncSDLWithWinAPI(sdlWindow);
-                return DefWindowProc( hwnd, msg, wParam, lParam);
-                         
-            }
-            case SC_MOVE:      // Di chuyển cửa sổ
-                return  DefWindowProc( hwnd, msg, wParam, lParam);
-            case SC_SIZE:      // Resize cửa sổ
-                return  DefWindowProc( hwnd, msg, wParam, lParam);
-            }
-            
-            break;
-            
-        }
-        case WM_TIMER:{
-
-            //if (wParam == 1) {
-            //    if (sdlWindow) {
-            //        SyncSDLWithWinAPI(sdlWindow);
-            //    }
-            //    KillTimer(hwnd, 1);
-            //}
-            break;
-        }
-        // ===== Focus / Hiển thị =====
-        case WM_SETFOCUS: {
-            if (sdlWindow) 
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_FOCUS_GAINED); 
-            break;
-        }
-        case WM_KILLFOCUS: {
-            if (sdlWindow) 
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_FOCUS_LOST); 
-            break;
-        }
-        case WM_SHOWWINDOW:{
-            if (sdlWindow) {
-                //SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, wParam ? SDL_WINDOWEVENT_SHOWN : SDL_WINDOWEVENT_HIDDEN);
-            }
-            break;
-        }
-        // ===== Khác =====
-        case WM_DISPLAYCHANGE:
-            if (sdlWindow) {
-                //SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_DISPLAY_CHANGED);
-            }
-            break;
-        case WM_WINDOWPOSCHANGED:
-            g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
-            break;
-        */
+ 
         case WM_TRAYICON:
         {
             switch (lParam)
@@ -643,7 +341,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         }
         break;
         case WM_CLOSE:{
-        //    if (sdlWindow) SDLX_PushClose(sdlWindow);
+
             if(g_DragResizeState.trayiconAdded){
                 ShowWindow(hwnd, SW_HIDE);
                 AddTrayIcon(hwnd);
@@ -655,15 +353,13 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
         break;
         }
-        //case WM_DESTROY:
-            //if (sdlWindow) SDLX_PushClose(sdlWindow);
-        //    break;
+
     }
 
     return CallWindowProc(g_DragResizeState.g_OldWndProc ?
                           g_DragResizeState.g_OldWndProc : DefWindowProc,
                           hwnd, msg, wParam, lParam);
-}
+};
 
 
 void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
@@ -685,11 +381,8 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
     
     LONG style = GetWindowLong(hwnd, GWL_STYLE);
     style |= (  WS_MINIMIZEBOX  |
-                  //WS_OVERLAPPED | 
-                  WS_THICKFRAME  |
-                    //WS_SYSMENU |
+                  WS_THICKFRAME |
                     WS_CAPTION 
-           //WS_OVERLAPPEDWINDOW
     );
     if (g_DragResizeState.snapEnabled )
     {
@@ -697,16 +390,11 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
     }
     g_DragResizeState.style = style;
     SetWindowLong(hwnd, GWL_STYLE, style);
-    
-    /*LONG exStyle = GetWindowLong(hwnd, GWL_EXSTYLE);
-    exStyle &= ~(WS_EX_DLGMODALFRAME | WS_EX_CLIENTEDGE | WS_EX_STATICEDGE);
-    SetWindowLong(hwnd, GWL_EXSTYLE, exStyle);*/
 
     SetWindowPos(hwnd, NULL, 0,0,0,0,
                 SWP_NOZORDER | SWP_NOMOVE | SWP_NOSIZE | SWP_FRAMECHANGED);
 
     // Hook WndProc nếu chưa
-    //SetWindowLongPtr(hwnd, GWLP_WNDPROC, (LONG_PTR)CustomWndProc);
     if (!g_DragResizeState.g_OldWndProc) {
         g_DragResizeState.g_OldWndProc = (WNDPROC)SetWindowLongPtr(
             hwnd, GWLP_WNDPROC,
@@ -716,22 +404,8 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
             }
         );
     }
-    // Cập nhật workArea & DPI ban đầu
-    //g_DragResizeState.workArea = GetMonitorRectForWindow(hwnd);
-    //UINT dpi = GetDpiForWindow ? GetDpiForWindow(hwnd) : 96;
-    //g_DragResizeState.dpiX = dpi; g_DragResizeState.dpiY = dpi;
-
-    //SDL_SetWindowBordered(window,SDL_FALSE);
-}
+};
 
 
-// -------------------- UI: Titlebar + Control Buttons --------------------
-
-// =================== Cách dùng ===================
-// 1) Sau khi tạo SDL_Window* win:
-//      HookSDLWindowProc(win);
-// 2) Mỗi frame:
-//      RenderBorderlessWindow(win, "Your Title", state);
-//      SyncWinAPI_SDL(win, state);
 
 

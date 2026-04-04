@@ -196,6 +196,7 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
 
     std::string line;
     ShaderParam* currentParam = nullptr;
+    bool collectingInfo = false;
 
     while (std::getline(f, line)) {
         line = Trim(line);
@@ -235,12 +236,22 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
                 }
             }
             else if (currentParam) {
-                if (line.compare(0, 7, "@LABEL:") == 0)      currentParam->label = val;
-                else if (line.compare(0, 5, "@MIN:") == 0)   currentParam->min = ToFloat(val, 0.0f);
-                else if (line.compare(0, 5, "@MAX:") == 0)   currentParam->max = ToFloat(val, 1.0f);
+                if (line.compare(0, 6, "@INFO:") == 0) {
+                    currentParam->info = val;
+                    collectingInfo = true; // Bắt đầu chế độ thu thập cho các dòng tiếp theo
+                }
+                else if (line.compare(0, 7, "@LABEL:") == 0)   currentParam->label = val;
+                else if (line.compare(0, 5, "@MIN:") == 0)     currentParam->min = ToFloat(val, 0.0f);
+                else if (line.compare(0, 5, "@MAX:") == 0)     currentParam->max = ToFloat(val, 1.0f);
                 else if (line.compare(0, 9, "@DEFAULT:") == 0) currentParam->value = ToFloat(val, 0.0f);
             }
         }
+        else if (collectingInfo && currentParam) {
+            // Nếu dòng không bắt đầu bằng @ và đang trong chế độ INFO
+            // thì cộng dồn vào chuỗi info hiện tại
+            currentParam->info += "\n" + line;
+        }
+        
     }
 }
 

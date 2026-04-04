@@ -5,6 +5,7 @@
 
 #include "mpv/mpv_settings.h"
 
+#include <windows/windows_borderless_state.h>
 #include <string>
 #include <vector>
 #include <SDL.h>
@@ -292,27 +293,6 @@ struct WindowContext {
     ImGuiContext* sidebar_ImGuiCtx = nullptr;
 };
 
-struct BorderlessWindowState {
-    ImVec2 videoOffset = ImVec2(0,0);
-    bool isFullscreen_video = false;
-    
-    #ifdef CUSTOM_TITLEBAR
-        float titleHeight = 25.0f;
-    #else
-        float titleHeight = 0.0f;
-    #endif
-    int resizeMargin = 5; // vùng nhạy resize
-    int minWidth = 100 ;
-    int minHeight = 100 ;
-    int WinHeight = 600 ;
-    int WinWidth = 800 ;
-
-    RECT  fullscreenRestoreRect_temp;
-
-    float  controlWidth = 0.0f;
-
-};
-
 struct WindowLayout {
 
     int WinW;
@@ -327,6 +307,12 @@ struct WindowLayout {
 
     ImVec2 VideoPos;
     ImVec2 VideoSize;
+
+    ImVec2 WinDowPos;
+    ImVec2 WinDowSize;
+
+    ImVec2 TitlePos;
+    ImVec2 TitleSize;
 
 };
 
@@ -349,14 +335,14 @@ extern WindowLayout Windowlayout;
 extern WindowContext ctx;
 extern MPVPlaybackStatus g_playbackStatus;
 extern VideoInfo g_videoInfo;
-extern BorderlessWindowState BW;
+
 
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, const BorderlessWindowState& state ,WindowLayout& w);
+void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState state , WindowLayout& w);
 void InitMPVObservers(mpv_handle* mpv);
 void InitPlaybackStatus(mpv_handle* mpv);
 void ProcessMPVEvents(mpv_handle* mpv );
@@ -580,5 +566,24 @@ namespace TextUtils {
         }
         return s + "...";
     }
+    inline std::string Format(const char* format, ...) {
+        va_list args;
+        va_start(args, format);
+        // Lấy kích thước cần thiết (không bao gồm ký tự null)
+        int size = vsnprintf(nullptr, 0, format, args);
+        va_end(args);
+
+        if (size <= 0) return "";
+
+        std::vector<char> buf(size + 1);
+        va_start(args, format);
+        vsnprintf(buf.data(), buf.size(), format, args);
+        va_end(args);
+
+        return std::string(buf.data());
+    }
+}
+inline ImU32 ToCol32(const ImVec4& c) {
+    return IM_COL32((int)(c.x*255.0f), (int)(c.y*255.0f), (int)(c.z*255.0f), (int)(c.w*255.0f));
 }
 #endif

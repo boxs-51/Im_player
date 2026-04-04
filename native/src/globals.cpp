@@ -34,6 +34,7 @@ std::mutex g_mutex;
 std::string g_nextPageToken;
 std::string g_searchQuery;
 
+bool ToggleFullscreen = false;
 bool Disabehotkey = false;
 bool playImmediately = true;
 bool audio_Theme = false;

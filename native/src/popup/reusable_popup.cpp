@@ -47,10 +47,10 @@ void ReusablePopup::Render() {
 
         if (open)
             lastPopupPos = ImGui::GetWindowPos();
+
+        ImGui::End();
     }
     
-    ImGui::End();
-
     // --- KẾT THÚC STYLE HIỆN ĐẠI ---
     CusTomImGui::PopModernWindowStyle();
 

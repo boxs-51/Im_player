@@ -153,7 +153,6 @@ void ShaderSettingsPage() {
                 };
                 
                 if (CusTomImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
-                    std::lock_guard<std::mutex> lock();
                     for (auto& [name, shader] : sm.GetShaders()) {
                         CusTomImGui::BeginListRow();
                         
@@ -193,14 +192,15 @@ void ShaderSettingsPage() {
                 ImGui::TextDisabled("ĐANG CHẠY");
                 static std::string selectedName = "";
 
-                CusTomImGui::BeginModernChild("PipeList", ImVec2(0, 0), false);
-                for (const auto& name : sm.GetPipeline()) {
-                    bool is_selected = (selectedName == name);
-                    if (CusTomImGui::ModernSelectable(name.c_str(), is_selected)) {
-                        selectedName = name;
+                if(CusTomImGui::BeginModernChild("PipeList", ImVec2(0, 0), false)){
+                    for (const auto& name : sm.GetPipeline()) {
+                        bool is_selected = (selectedName == name);
+                        if (CusTomImGui::ModernSelectable(name.c_str(), is_selected)) {
+                            selectedName = name;
+                        }
                     }
+                    CusTomImGui::EndModernChild();
                 }
-                CusTomImGui::EndModernChild();
 
                 ImGui::NextColumn();
 
@@ -225,7 +225,7 @@ void ShaderSettingsPage() {
                         ImGui::Text("%s", p.label.empty() ? p.name.c_str() : p.label.c_str());
                         ImGui::SameLine();
                         ImGui::TextDisabled("(?)");
-                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Tên biến nội bộ: %s", p.name.c_str());
+                        if (ImGui::IsItemHovered()) ImGui::SetTooltip("Thông tin chi tiết: %s", p.info.c_str());
 
                         ImGui::SetNextItemWidth(-1);
                         if (ImGui::SliderFloat(("##" + p.name).c_str(), &p.value, p.min, p.max, "%.2f")) {
@@ -291,8 +291,6 @@ void ShowSettingsPopup(bool& closePopup_setting) {
             // Tạo một vùng Child bên phải để nội dung có thể cuộn độc lập
             if (CusTomImGui::BeginModernChild("##SettingContent", ImVec2(-1, -1), false)) {
                 
-                
-
                 if (selectedItem == 0) {
                     ImGui::TextDisabled("General Settings");
                     ImGui::Separator();
@@ -312,10 +310,9 @@ void ShowSettingsPopup(bool& closePopup_setting) {
                     ImGui::Spacing();
                     
                 }
-
-              
+                CusTomImGui::EndModernChild();
             }
-            CusTomImGui::EndModernChild();
+            
 
             CusTomImGui::EndInfoTable();
         }

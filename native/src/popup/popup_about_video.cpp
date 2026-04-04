@@ -27,6 +27,8 @@ void ShowMediaInfo() {
         CusTomImGui::InfoRow("Media Title :", "%s", g_playbackStatus.mediaTitle.c_str());
         CusTomImGui::InfoRow("File :", "%s", g_playbackStatus.filename.c_str());
         CusTomImGui::InfoRow("Format :", "%s", g_playbackStatus.fileFormat.c_str());
+        CusTomImGui::InfoRow("Working Directory :", "%s", g_playbackStatus.working_directory.c_str());
+        
 
         CusTomImGui::EndInfoTable();
     }
@@ -78,6 +80,7 @@ void ShowVideoInfo() {
     CusTomImGui::InfoRow("Pixel Format :", "%s", g_videoInfo.g_videoparams.vpixfmt.c_str());
     CusTomImGui::InfoRow("Format :", "%s", g_videoInfo.video_format.c_str());
     CusTomImGui::InfoRow("HW Decode :", "%s", g_videoInfo.hwdec.c_str());
+    CusTomImGui::InfoRow("Video OutPut :", "%s", g_videoInfo.v_out.c_str());
 
     CusTomImGui::EndInfoTable();
     }
@@ -216,10 +219,13 @@ void ShowAudioInfo() {
     ImGui::Separator();
     if(CusTomImGui::BeginInfoTable("audio_info")){
 
-        CusTomImGui::InfoRow("Client", "%s", g_playbackStatus.audio_client_name.c_str());
-        CusTomImGui::InfoRow("Device", "%s", g_videoInfo.audio_device.c_str());
-        CusTomImGui::InfoRow("Codec", "%s", g_videoInfo.acodec.c_str());
-        CusTomImGui::InfoRow("Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
+        CusTomImGui::InfoRow("Audio Client", "%s", g_playbackStatus.audio_client_name.c_str());
+        CusTomImGui::InfoRow("Audio Device", "%s", g_videoInfo.audio_device.c_str());
+        CusTomImGui::InfoRow("Audio Codec", "%s", g_videoInfo.acodec.c_str());
+        CusTomImGui::InfoRow("Audio Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
+        CusTomImGui::InfoRow("Audio OutPut", "%s", g_videoInfo.a_out.c_str());
+        CusTomImGui::InfoRow("Audio Fillter", "%s", g_videoInfo.a_filter.c_str());
+
 
         CusTomImGui::EndInfoTable();
     }
@@ -227,7 +233,7 @@ void ShowAudioInfo() {
 
     // ====== Audio Properties ======
     ImGui::Spacing();
-    ImGui::Text("Properties");
+    ImGui::Text("Audio Properties");
     ImGui::Separator();
 
     if(CusTomImGui::BeginInfoTable("audio_props")){
@@ -377,6 +383,7 @@ void ShowPlaybackInfo() {
     if(CusTomImGui::BeginInfoTable("playback_time")){
 
         CusTomImGui::InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
+        CusTomImGui::InfoRow("Stream Pos :", "%d Bytes", g_playbackStatus.stream_pos);
         CusTomImGui::InfoRow("Remaining :", "%.2f s", g_playbackStatus.time_remaining);
         CusTomImGui::InfoRow("Percent :", "%.2f%%", g_playbackStatus.percent_pos);
 
@@ -417,6 +424,8 @@ void ShowNetworkInfo() {
 
     if(CusTomImGui::BeginInfoTable("network_info")){
 
+        
+        CusTomImGui::InfoRow("Cache Buffer State:", "%d s", g_playbackStatus.cache_buffering_state);
         CusTomImGui::InfoRow("Cache Duration :", "%.2f s", g_playbackStatus.demuxer_cache_duration);
         CusTomImGui::InfoRow("Cache Time :", "%.2f s", g_playbackStatus.demuxer_cache_time);
         CusTomImGui::InfoRow("Audio Buffer :", "%.2f s", g_playbackStatus.audio_buffer);

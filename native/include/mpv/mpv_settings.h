@@ -9,9 +9,11 @@
 #include <optional>
 
 struct AppSettings {
+    
     std::string selectedFormat = "";
     std::string selectedAudio = "";
     std::string selectedResolution = "";     // VD: "bestvideo[height<=720]+bestaudio"
+
     bool enableSubtitles = false;
     float playbackSpeed = 1.0f;
     float audiodelay = 0.0f;
@@ -56,12 +58,6 @@ struct CommonSettings {
 
     int fontsize = 20;
 };
-
-
-std::string CleanUrl(const std::string& url);
-std::string Sha1Hash(const std::string& input);
-std::string CreateGroupIDFromFormats(const std::vector<std::string>& formats);
-
 
 extern AppSettings v_Settings;
 extern CommonSettings c_Settings;  

@@ -2251,24 +2251,98 @@ namespace CusTomImGui{
         ImGui::PopStyleColor(4);
         ImGui::PopStyleVar(2);
     }
-    inline bool ModernTreeNode(const char* id){
-
+    inline bool ModernTreeNode(const char* id) {
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 6)); 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
 
+        ImGui::PushStyleColor(ImGuiCol_Header,         GTheme.Header_ModernTreeNode); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  GTheme.HeaderHovered_ModernTreeNode); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,   GTheme.HeaderActive_ModernTreeNode); 
+        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_ModernTreeNode); 
 
-        ImGui::PushStyleColor(ImGuiCol_Header ,         GTheme.Header_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered ,  GTheme.HeaderHovered_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,    GTheme.HeaderActive_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_ModernTreeNode); 
-
-        if(ImGui::TreeNode(id)){
-            return true;
+        bool open = ImGui::TreeNode(id);
+        
+        if (!open) {
+            // Nếu không mở, chúng ta phải Pop ngay tại đây
+            ImGui::PopStyleColor(4);
+            ImGui::PopStyleVar(2);
         }
-        ImGui::PopStyleColor(4);
-        ImGui::PopStyleVar(2);
-
-        return false;
+        // Nếu mở, việc Pop sẽ do EndModernTreeNode đảm nhận
+        return open;
     }
+    inline bool ModernSliderFloat(const char* label, float* v, float v_min, float v_max, 
+                                float height = 4.0f, float grab_radius = 8.0f, 
+                                const char* format = "%.3f", float custom_width = -1.0f)
+    {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+
+        // --- 1. Label ---
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernChild);
+        ImGui::TextDisabled("%s: %s", label, TextUtils::Format(format, *v).c_str());
+        ImGui::PopStyleColor();
+
+        // --- 2. Tính vùng tương tác ---
+        const float w = (custom_width > 0) ? custom_width : ImGui::CalcItemWidth();
+        float interaction_height = grab_radius * 2.5f;
+        ImVec2 pos = window->DC.CursorPos;
+        ImVec2 size(w, interaction_height);
+
+        ImGui::InvisibleButton(label, size);
+        bool hovered = ImGui::IsItemHovered();
+        bool active = ImGui::IsItemActive();
+        bool clicked = ImGui::IsItemClicked();
+
+        ImGuiID id = window->GetID(label);
+        ImVec2 mouse_pos = ImGui::GetIO().MousePos;
+
+        bool changed = false;
+
+        // --- 3. Cập nhật giá trị khi kéo ---
+        if (active) {
+            float t = (mouse_pos.x - pos.x) / size.x;
+            t = ImClamp(t, 0.0f, 1.0f);
+            float new_v = v_min + t * (v_max - v_min);
+            if (new_v != *v) {
+                *v = new_v;
+                changed = true;
+            }
+        }
+
+        // --- 4. Vẽ track ---
+        ImDrawList* draw_list = window->DrawList;
+        float center_y = pos.y + size.y * 0.5f;
+        ImVec2 track_p1(pos.x, center_y - height * 0.5f);
+        ImVec2 track_p2(pos.x + size.x, center_y + height * 0.5f);
+
+        // Track nền
+        draw_list->AddRectFilled(track_p1, track_p2, ToCol32(GTheme.FrameBg_NormalCombo), height * 0.5f);
+
+        // Track active
+        float t_fill = (*v - v_min) / (v_max - v_min);
+        t_fill = ImClamp(t_fill, 0.0f, 1.0f);
+        ImVec2 active_p2(track_p1.x + t_fill * size.x, track_p2.y);
+        draw_list->AddRectFilled(track_p1, active_p2, ToCol32(GTheme.CheckMark_ModernCheckbox), height * 0.5f);
+
+        // --- 5. Border track ---
+        draw_list->AddRect(track_p1, track_p2, ToCol32(GTheme.Border_ModernChild), height * 0.5f, 0, 1.0f);
+
+        // --- 6. Vẽ Grab ---
+        ImVec2 grab_center(track_p1.x + t_fill * size.x, center_y);
+        float visual_radius = grab_radius;
+        if (active) visual_radius *= 1.2f;
+        else if (hovered) visual_radius *= 1.1f;
+        
+        draw_list->AddCircleFilled(grab_center, visual_radius + 1.0f, IM_COL32(0,0,0,40));
+        draw_list->AddCircleFilled(grab_center, visual_radius, ToCol32(GTheme.Text_Selected_ModernSelectable));
+        draw_list->AddCircle(grab_center, visual_radius, ToCol32(GTheme.CheckMark_ModernCheckbox), 0, 2.0f);
+
+        return changed;
+    }
+
+
 
 }

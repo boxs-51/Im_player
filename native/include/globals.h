@@ -71,6 +71,7 @@ extern std::string g_searchQuery;
 
 extern Uint32 lastInteractionTime;
 
+extern bool ToggleFullscreen ;
 extern bool Disabehotkey;
 extern bool playImmediately;
 

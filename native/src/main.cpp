@@ -39,7 +39,6 @@ static bool render_video = false;
 static bool show_ui_video = false;
 static bool g_WindowVisible = false;
 
-static int frameCount = 0;
 static int currentFPS = 0;
 
 static Uint32 frameTime;
@@ -127,26 +126,15 @@ void Cleanup() {
 void HandleMainWindowEvent(const SDL_Event& e) {
     if (!g_WindowVisible) {
         // Khi cửa sổ ẩn → chỉ quan tâm đến sự kiện QUIT và USEREVENT
-        if (e.type == SDL_QUIT) {
-            running = false;
-        }
-
-        if (e.type == SDL_MPV_RENDER_UPDATE) {
-            render_video = true;  
-        }
-        if (e.type == SDL_MPV_EVENT){
-            ProcessMPVEvents(mpv.mpv);
-        }
-
+        if (e.type == SDL_QUIT) running = false;
+        if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
+        if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
     }else{
         ImGui_ImplSDL2_ProcessEvent(&e);
         // 1. Xử lý phím nóng → VD: Ctrl+U mở popup, Space để pause
-        bool hotkeyHandled = HandleHotkeys(e , mpv.mpv);
-        if (hotkeyHandled){
-            return;
-        }
+        if (HandleHotkeys(e , mpv.mpv))return;
         // 2. Phân loại tương tác người dùng
-
+        /*
         bool isMousePressOrRelease =
             (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP);
         bool isMouseInteraction =
@@ -164,18 +152,11 @@ void HandleMainWindowEvent(const SDL_Event& e) {
             e.window.event == SDL_WINDOWEVENT_SHOWN ||
             e.window.event == SDL_WINDOWEVENT_MOVED  );
 
-        if(isMouseInteraction || isMousePressOrRelease ) NotifyActivity(show_ui_video);
-        
-        if (e.type == SDL_MPV_RENDER_UPDATE) {
-            render_video = true;  
-        }
-        if (e.type == SDL_MPV_EVENT){
-            ProcessMPVEvents(mpv.mpv);
-        }
-
-        if (e.type == SDL_QUIT){
-            running = false;
-        }
+        //if(isMouseInteraction || isMousePressOrRelease ) NotifyActivity(show_ui_video);
+        */
+        if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
+        if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
+        if (e.type == SDL_QUIT)running = false;
     }
 }
 bool InitMainWindow() {
@@ -189,14 +170,14 @@ bool InitMainWindow() {
     #endif
     ctx.mainWindow = SDL_CreateWindow("Media Video Control",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-        BW.WinWidth, BW.WinHeight, windowFlags);
+        800, 600, windowFlags);
 
     if (!ctx.mainWindow) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-        SetWindowSDL(ctx.mainWindow,720,360,0, 0,0,0,true ,32 );
+        SetWindowSDL(ctx.mainWindow,720,360);
     #else 
         SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
@@ -273,9 +254,9 @@ void RenderUI( PlaybackState state ){
     );
 
     UpdateUIState( show_ui_video );
-    #ifdef CUSTOM_TITLEBAR
-        RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",BW);
-    #endif
+    
+    RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",g_DragResizeState ,Windowlayout.WinDowPos, Windowlayout.WinDowSize);
+
     
     ShowAllWindows();
 
@@ -305,7 +286,7 @@ void RenderUI( PlaybackState state ){
             Windowlayout.VideoPos, 
             Windowlayout.VideoSize,
             ctx.mainWindow, 
-            BW.isFullscreen_video,
+            g_DragResizeState.IsFullscreen_video,
             show_ui_video);
 
 
@@ -333,6 +314,7 @@ void RenderPushFont(PlaybackState state){
     }
 }
 void RenderFrame(){
+
     if (!g_WindowVisible) {
         mpv_disable_video(mpv.mpv);
         if(!redrawoneframe)
@@ -348,9 +330,6 @@ void RenderFrame(){
         redrawoneframe = false;
     }
 
-    mpv_update_seek_pending( mpv.mpv );
-
-    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
     
     PlaybackState state = GetPlaybackState();
 
@@ -385,28 +364,6 @@ void RenderFrame(){
             
     
     SDL_GL_SwapWindow(ctx.mainWindow);
-    frameCount++;
-    Uint32 now = SDL_GetTicks();
-    if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
-        g_videoInfo.currentFPS = frameCount;
-    
-    static bool fpsInited  = false;
-
-    if (!fpsInited) {
-        g_videoInfo.minFPS = g_videoInfo.currentFPS;
-        g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-        fpsInited = true;
-    } else {
-        if (g_videoInfo.currentFPS < g_videoInfo.minFPS) g_videoInfo.minFPS = g_videoInfo.currentFPS;
-        if (g_videoInfo.currentFPS > g_videoInfo.maxFPS) g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-    }
-
-        frameCount = 0;
-        fpsTimer = now;
-
-        // (Tùy chọn) log ra console:
-        // std::cout << "FPS: " << currentFPS << std::endl;
-    }
 
 }
 int main(int argc, char** argv) {
@@ -460,7 +417,7 @@ int main(int argc, char** argv) {
     }
     
     InitPlaybackStatus(mpv.mpv);
-    UpdateGlobalWindowLayout(ctx.mainWindow, BW , Windowlayout);
+    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
     //WaitForServicesReady();
     if (argc >= 2) {
         std::string Url = argv[1];
@@ -468,19 +425,11 @@ int main(int argc, char** argv) {
     }
     fpsTimer = SDL_GetTicks();
     while (running) {
-
         UpdateTheme(ImGui::GetIO().DeltaTime);
-
         frameStart = SDL_GetTicks();
-
         flags = SDL_GetWindowFlags(ctx.mainWindow);
-
-        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED);
-        
-
+        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
         SDL_Event e;
-
-        
         while (SDL_PollEvent(&e)) {
             Uint32 eventWindowID = 0;
             Uint32 mainWindowID = 0;
@@ -496,24 +445,49 @@ int main(int argc, char** argv) {
             else {
                 if(g_WindowVisible){
                     ImGui_ImplSDL2_ProcessEvent(&e);
-                    bool hotkeyHandled = HandleHotkeys(e, mpv.mpv);
-                    if (hotkeyHandled) continue;
+                    if (HandleHotkeys(e, mpv.mpv)) continue;
                 }
                 
             }
             
         }
     
-
         
-        //ImGui::SetCurrentContext(ctx.mainImGuiCtx);
+        mpv_update_seek_pending( mpv.mpv );
+
+        UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
+
+        if(ToggleFullscreen){
+            SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+            ToggleFullscreen =false;
+        }
 
         RenderFrame() ;
+
+        static int frameCount = 0;
+        frameCount++;
+        Uint32 now = SDL_GetTicks();
+        if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
+            g_videoInfo.currentFPS = frameCount;
         
+        static bool fpsInited  = false;
+
+        if (!fpsInited) {
+            g_videoInfo.minFPS = g_videoInfo.currentFPS;
+            g_videoInfo.maxFPS = g_videoInfo.currentFPS;
+            fpsInited = true;
+        } else {
+            if (g_videoInfo.currentFPS < g_videoInfo.minFPS) g_videoInfo.minFPS = g_videoInfo.currentFPS;
+            if (g_videoInfo.currentFPS > g_videoInfo.maxFPS) g_videoInfo.maxFPS = g_videoInfo.currentFPS;
+        }
+            frameCount = 0;
+            fpsTimer = now;
+        }
         frameTime = SDL_GetTicks() - frameStart;
         if (frameDelay > frameTime) {
             SDL_Delay(frameDelay - frameTime);
         }
+        
     }
 
     Cleanup();

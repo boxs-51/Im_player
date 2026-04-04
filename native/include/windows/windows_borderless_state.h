@@ -13,12 +13,6 @@ using namespace Microsoft::WRL;
 
 
 // ================== Enums ==================
-enum class SnapState {
-    NONE,
-    MAXIMIZED,
-    LEFT,
-    RIGHT
-};
 enum class ResizeEdge {
     NONE,
     LEFT, RIGHT, TOP, BOTTOM,
@@ -29,52 +23,33 @@ enum class ResizeEdge {
 
 struct DragResizeState {
 
-    int             resizeMargin            = 0;
+    int             resizeMargin            = 8;
+    #ifdef CUSTOM_TITLEBAR
+    int             TitleHeight             = 28;
+    #else
     int             TitleHeight             = 0;
+    #endif
     int             sdlMinW                 = 0,                    sdlMinH     =0,        sdlMaxW      =0,     sdlMaxH     =0;
     int             restoreW                = 0;
     int             restoreH                = 0;
-    int             aspectNum               = 0,                    aspectDen   = 0;    
-    int             snapThreshold           = 10;  
 
-    float           ControlWidth            = 0;
-    float           dragRatioX              = 0.5f;  // tỉ lệ chuột trong cửa sổ (X)
-    float           dragRatioY              = 0.0f;  // nếu cần Y
-
-    bool            inTitle                 = false;
     bool            IsMax                   = false;
     bool            showDebug               = true;
     bool            IsFullscreen_video      = false;
-    bool            isResizing              = false;
-    bool            isDragging              = false;
-    bool            aspectLock              = false;
-    bool            actionSnap              = false;
+
     bool            snapEnabled             = true;
-    bool            hasRestore              = false;
 
     WINDOWPLACEMENT placement               ={};
 
     LONG            style                   ={};
 
     HWND            hwnd_windown_main       = nullptr;
-    HWND            hwndOverlay             = nullptr;
 
     WNDPROC         g_OldWndProc            = nullptr;
 
-    ImVec2          dragStart               = ImVec2(0.0f, 0.0f);
 
     ResizeEdge      resizeEdge              = ResizeEdge::NONE;
-
-    SnapState       snapState               = SnapState::NONE;
-
-    RECT            winStart                = {};
-    RECT            restoreRect             = {};
-    RECT            fullscreenRestoreRect   = BW.fullscreenRestoreRect_temp;
-    RECT            workArea                = {};            
-    RECT            rcMin                   = {},                  rcMax        = {},         rcClose           = {};
-
-    POINT           dragStartCursor         = {};
-
+        
     UINT            dpiX                    = 96,                   dpiY        = 96;             
     
     std::string     debugInfo               = "None";
@@ -87,6 +62,9 @@ struct DragResizeState {
     bool           mouseDownRestore        = false;
 
     bool           trayiconAdded           = true;
+
+    int btnSize = 30;
+
 };
 
 extern DragResizeState g_DragResizeState;
