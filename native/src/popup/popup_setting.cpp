@@ -153,6 +153,7 @@ void ShaderSettingsPage() {
                 };
                 
                 if (CusTomImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
+                    std::lock_guard<std::mutex> lock();
                     for (auto& [name, shader] : sm.GetShaders()) {
                         CusTomImGui::BeginListRow();
                         
@@ -165,7 +166,7 @@ void ShaderSettingsPage() {
                         ImGui::TextUnformatted(name.c_str());
 
                         ImGui::TableNextColumn();
-                        const char* stages[] = {"PRE", "MAIN", "POST", "OUT"};
+                        const char* stages[] = {"NATIVE", "PREKERNEL", "POSTKERNEL", "LINEAR", "MAIN", "OUTPUT" ,"UNKNOWN"};
                         ImGui::TextDisabled("[%s]", stages[(int)shader.hook]);
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("Giai đoạn Hook: Xác định thời điểm shader can thiệp vào luồng render của MPV.");
@@ -176,7 +177,9 @@ void ShaderSettingsPage() {
 
                         CusTomImGui::EndListRow();
                     }
+                        
                     CusTomImGui::EndListTable();
+                    
                 }
                 
                 ImGui::EndTabItem();

@@ -25,11 +25,13 @@ void ShaderManager::Init(mpv_handle* mpvHandle) {
 }
 int ShaderManager::HookPriority(HookStage h) {
     switch (h) {
-        case HookStage::PREKERNEL: return 0;
-        case HookStage::MAIN:      return 100;
-        case HookStage::POSTKERNEL:return 200;
-        case HookStage::OUTPUT:    return 300;
-        default:                  return 1000;
+        case HookStage::NATIVE:     return 0;   // Khử nhiễu, xử lý gốc
+        case HookStage::PREKERNEL:  return 100; // Upscale (như FSRCNNX)
+        case HookStage::POSTKERNEL: return 200; // Làm nét sau scale
+        case HookStage::LINEAR:     return 300; // Chỉnh màu vật lý
+        case HookStage::MAIN:       return 400; // Blend, hậu kỳ
+        case HookStage::OUTPUT:     return 500; // Deband, Color mapping
+        default:                    return 1000;
     }
 }
 
@@ -40,38 +42,65 @@ void ShaderManager::Register(const std::string& name, const std::string& path) {
 void ShaderManager::ApplyPipeline() {
     if (!mpv) return;
 
-    // Tạo thư mục tạm nếu chưa có (ví dụ trong thư mục shader_cache)
     fs::path tempDir = fs::current_path() / "shader_cache";
-    if (!fs::exists(tempDir)) fs::create_directory(tempDir);
+    if (!fs::exists(tempDir)) fs::create_directories(tempDir);
 
+    // 1. Lọc và Sắp xếp (giữ nguyên logic Hook và Order)
+    std::vector<Shader*> activeShaders;
+    for (auto& [name, s] : shaders) {
+        if (s.enabled) activeShaders.push_back(&s);
+    }
+
+    std::sort(activeShaders.begin(), activeShaders.end(), [this](Shader* a, Shader* b) {
+        int pA = HookPriority(a->hook);
+        int pB = HookPriority(b->hook);
+        if (pA != pB) return pA < pB;
+        return a->order < b->order;
+    });
+
+    // 2. Xử lý nội dung và Ghi file có chọn lọc
     std::string list;
+    bool needsMpvUpdate = false; // Biến kiểm soát việc gửi lệnh cho mpv
+    
     #ifdef _WIN32
         char sep = ';';
     #else
         char sep = ':';
     #endif
 
-    for (auto& [name, s] : shaders) {
-        if (s.enabled) {
-            // 1. Tạo nội dung shader đã chèn thông số (Dùng hàm GenerateTempShader bạn đã có)
-            std::string processedCode = GenerateTempShader(s);
+    for (Shader* s : activeShaders) {
+        std::string currentCode = GenerateTempShader(*s);
+        fs::path tempFile = tempDir / (s->name + "_active.glsl");
+        std::string tempFilePath = tempFile.generic_string();
 
-            // 2. Ghi ra file tạm (Ví dụ: shader_cache/bloom_active.glsl)
-            fs::path tempFile = tempDir / (s.name + "_active.glsl");
+        // CHỈ GHI FILE NẾU NỘI DUNG THAY ĐỔI
+        if (currentCode != s->last_generated_code || !fs::exists(tempFile)) {
             std::ofstream out(tempFile);
-            out << processedCode;
-            out.close();
-
-            // 3. Thêm đường dẫn file TẠM vào danh sách nạp của mpv
-            list += tempFile.string() + sep;
+            if (out.is_open()) {
+                out << currentCode;
+                out.close();
+                s->last_generated_code = currentCode; // Cập nhật cache
+                needsMpvUpdate = true; // Đánh dấu cần reload mpv
+            }
         }
+
+        list += tempFilePath + sep;
     }
 
     if (!list.empty()) list.pop_back();
 
-    // 4. Gửi danh sách file tạm cho mpv
-    const char* cmd[] = {"set", "glsl-shaders", list.c_str(), nullptr};
-    mpv_command(mpv, cmd);
+    // 3. Chỉ gửi lệnh cho mpv nếu có ít nhất 1 shader thay đổi nội dung 
+    // hoặc danh sách shader (pipeline) bị thay đổi số lượng/thứ tự
+    static std::string lastFullList; 
+    if (needsMpvUpdate || list != lastFullList) {
+        std::string currentList = list; // Copy ra một bản tạm
+        const char* cmd[] = {"set", "glsl-shaders", currentList.c_str(), nullptr};
+        int status = mpv_command(mpv, cmd);
+        if (status < 0) {
+            // Log lỗi từ mpv: mpv_error_string(status)
+        }
+        lastFullList = currentList;
+    }
 }
 
 void ShaderManager::LoadMeta(const std::string& path, Shader& s) {
@@ -86,13 +115,15 @@ void ShaderManager::LoadMeta(const std::string& path, Shader& s) {
         // Log error hoặc bỏ qua nếu file meta lỗi format
     }
 }
-std::string ShaderManager::HookStageToString(HookStage hook){
-    switch(hook){
-        case HookStage::MAIN:        return "MAIN";
-        case HookStage::POSTKERNEL:  return "POSTKERNEL";
-        case HookStage::PREKERNEL:   return "PREKERNEL";
-        case HookStage::OUTPUT:      return "OUTPUT";
-        default:                     return "MAIN";
+std::string ShaderManager::HookStageToString(HookStage hook) {
+    switch (hook) {
+        case HookStage::NATIVE:     return "NATIVE";
+        case HookStage::PREKERNEL:  return "PREKERNEL";
+        case HookStage::POSTKERNEL: return "POSTKERNEL";
+        case HookStage::LINEAR:     return "LINEAR";
+        case HookStage::MAIN:       return "MAIN";
+        case HookStage::OUTPUT:     return "OUTPUT";
+        default:                    return "UNKNOWN";
     }
 }
 std::string ShaderManager::GenerateTempShader(const Shader& s) {
@@ -124,6 +155,41 @@ std::string ShaderManager::GenerateTempShader(const Shader& s) {
 
     return ss.str();
 }
+// Loại bỏ khoảng trắng và ký tự điều hướng (\r, \n) ở hai đầu chuỗi
+static std::string Trim(const std::string& s) {
+    auto start = s.find_first_not_of(" \t\r\n");
+    if (start == std::string::npos) return "";
+    auto end = s.find_last_not_of(" \t\r\n");
+    return s.substr(start, end - start + 1);
+}
+
+// Lấy giá trị sau dấu ':' một cách an toàn
+static std::string GetValue(const std::string& line) {
+    size_t colonPos = line.find(':');
+    if (colonPos == std::string::npos || colonPos + 1 >= line.length()) {
+        return "";
+    }
+    return Trim(line.substr(colonPos + 1));
+}
+
+// Chuyển đổi số an toàn với giá trị mặc định (Fallback)
+static float ToFloat(const std::string& val, float fallback = 0.0f) {
+    if (val.empty()) return fallback;
+    try {
+        return std::stof(val);
+    } catch (...) {
+        return fallback;
+    }
+}
+
+static int ToInt(const std::string& val, int fallback = 0) {
+    if (val.empty()) return fallback;
+    try {
+        return std::stoi(val);
+    } catch (...) {
+        return fallback;
+    }
+}
 void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
     std::ifstream f(path);
     if (!f.is_open()) return;
@@ -132,35 +198,49 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
     ShaderParam* currentParam = nullptr;
 
     while (std::getline(f, line)) {
-        // Xóa khoảng trắng
-        line.erase(0, line.find_first_not_of(" \t"));
-        
-        if (line.find("@DESC:") == 0) s.description = line.substr(6);
-        else if (line.find("@HOOK:") == 0) {
-            std::string h = line.substr(6);
-            if (h.find("MAIN") != std::string::npos) s.hook = HookStage::MAIN;
-            else if (line.find("POSTKERNEL") != std::string::npos) s.hook = HookStage::POSTKERNEL;
-            else if (line.find("PREKERNEL") != std::string::npos) s.hook = HookStage::PREKERNEL;
-            else if (line.find("OUTPUT") != std::string::npos) s.hook = HookStage::OUTPUT;
+        line = Trim(line);
+        if (line.empty()) continue;
 
-        }
-        else if (line.find("@PARAM:") == 0) {
-            ShaderParam p;
-            p.name = line.substr(7);
-            // Xóa khoảng trắng thừa trong tên biến
-            p.name.erase(std::remove(p.name.begin(), p.name.end(), ' '), p.name.end());
-            s.params.push_back(p);
-            currentParam = &s.params.back();
-        }
-        else if (currentParam) {
-            if (line.find("@LABEL:") == 0) currentParam->label = line.substr(7);
-            else if (line.find("@MIN:") == 0) currentParam->min = std::stof(line.substr(5));
-            else if (line.find("@MAX:") == 0) currentParam->max = std::stof(line.substr(5));
-            else if (line.find("@DEFAULT:") == 0) currentParam->value = std::stof(line.substr(9));
-        }
-        
-        // Nếu gặp dấu kết thúc comment khối và đã parse xong meta thì dừng để tiết kiệm CPU
+        // Dừng khi hết khối comment meta (thường dùng trong mpv shader)
         if (line.find("*/") != std::string::npos) break;
+
+        // Chỉ xử lý các dòng bắt đầu bằng @
+        if (line[0] == '@') {
+            std::string val = GetValue(line);
+
+            if (line.compare(0, 6, "@DESC:") == 0) {
+                s.description = val.empty() ? "No description" : val;
+            }
+            else if (line.compare(0, 7, "@ORDER:") == 0) {
+                s.order = ToInt(val, 0);
+            }
+            else if (line.compare(0, 6, "@HOOK:") == 0) {
+                if (val.find("PREKERNEL") != std::string::npos) s.hook = HookStage::PREKERNEL;
+                else if (val.find("POSTKERNEL") != std::string::npos) s.hook = HookStage::POSTKERNEL;
+                else if (val.find("NATIVE") != std::string::npos) s.hook = HookStage::NATIVE;
+                else if (val.find("LINEAR") != std::string::npos) s.hook = HookStage::LINEAR;
+                else if (val.find("OUTPUT") != std::string::npos) s.hook = HookStage::OUTPUT;
+                else if (val.find("MAIN") != std::string::npos) s.hook = HookStage::MAIN;
+                else s.hook = HookStage::UNKNOWN;
+            }
+            else if (line.compare(0, 7, "@PARAM:") == 0) {
+                ShaderParam p;
+                p.name = val;
+                // Xóa khoảng trắng trong tên biến kỹ thuật
+                p.name.erase(std::remove_if(p.name.begin(), p.name.end(), ::isspace), p.name.end());
+                
+                if (!p.name.empty()) {
+                    s.params.push_back(p);
+                    currentParam = &s.params.back();
+                }
+            }
+            else if (currentParam) {
+                if (line.compare(0, 7, "@LABEL:") == 0)      currentParam->label = val;
+                else if (line.compare(0, 5, "@MIN:") == 0)   currentParam->min = ToFloat(val, 0.0f);
+                else if (line.compare(0, 5, "@MAX:") == 0)   currentParam->max = ToFloat(val, 1.0f);
+                else if (line.compare(0, 9, "@DEFAULT:") == 0) currentParam->value = ToFloat(val, 0.0f);
+            }
+        }
     }
 }
 
