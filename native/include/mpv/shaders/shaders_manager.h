@@ -15,7 +15,8 @@ struct ShaderParam {
     std::string label;  // Tên hiển thị trên UI
     std::string info;   
 
-    
+    float temp_value;
+    float default_value;
     float value = 0.0f;
     float min = 0.0f;
     float max = 1.0f;
@@ -84,8 +85,11 @@ public:
     // Logic xử lý pipeline & mpv communication
     void ApplyPipeline();
 
+    void ResetToDefault(const std::string& shaderName);
+    void Reload(const std::vector<std::string>& folders);
+    void ApplyChanges(const std::string& name);
+
     // Getters
-    std::lock_guard<std::mutex> Lock() { return std::lock_guard<std::mutex>(mtx); }
     std::unordered_map<std::string, Shader>& GetShaders() { return shaders; }
     const std::vector<std::string>& GetPipeline() { return pipeline; }
     
@@ -94,6 +98,11 @@ public:
         return (it != shaders.end()) ? &it->second : nullptr;
     }
     std::string HookStageToString(HookStage h);
+    void AddFolder(const std::string& path) ;
+    void RemoveFolder(const std::string& path);
+    void SaveState();
+    void LoadState();
+    void DiscardChanges();
 private:
     ShaderManager() = default; 
 
@@ -113,5 +122,7 @@ private:
     // Danh sách lưu đúng THỨ TỰ các shader đang được bật
     std::vector<std::string> pipeline; 
 
-    std::mutex mtx;
+    std::recursive_mutex mtx;
+    std::string configPath = "shader_config.json";
+    std::vector<std::string> searchPaths;
 };

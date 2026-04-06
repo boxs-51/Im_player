@@ -41,7 +41,7 @@ void ShaderManager::Register(const std::string& name, const std::string& path) {
 
 void ShaderManager::ApplyPipeline() {
     if (!mpv) return;
-
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     fs::path tempDir = fs::current_path() / "shader_cache";
     if (!fs::exists(tempDir)) fs::create_directories(tempDir);
 
@@ -243,7 +243,12 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
                 else if (line.compare(0, 7, "@LABEL:") == 0)   currentParam->label = val;
                 else if (line.compare(0, 5, "@MIN:") == 0)     currentParam->min = ToFloat(val, 0.0f);
                 else if (line.compare(0, 5, "@MAX:") == 0)     currentParam->max = ToFloat(val, 1.0f);
-                else if (line.compare(0, 9, "@DEFAULT:") == 0) currentParam->value = ToFloat(val, 0.0f);
+                else if (line.compare(0, 9, "@DEFAULT:") == 0) {
+                    float val_temp = ToFloat(val, 0.0f);
+                    currentParam->value = val_temp;
+                    currentParam->default_value = val_temp; 
+                    currentParam->temp_value = val_temp;
+                }
             }
         }
         else if (collectingInfo && currentParam) {
@@ -258,6 +263,7 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
 
 
 void ShaderManager::UpdateParams(const std::string& shaderName, const std::string& paramName, float value) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     auto it = shaders.find(shaderName);
     if (it != shaders.end()) {
         for (auto& p : it->second.params) {
@@ -271,6 +277,7 @@ void ShaderManager::UpdateParams(const std::string& shaderName, const std::strin
     }
 }
 void ShaderManager::LoadShadersFromFolder(const std::vector<std::string>& folder) {
+
     for (const auto& folderPath : folder) {
         if (!fs::exists(folderPath) || !fs::is_directory(folderPath)) {
             continue; 
@@ -305,7 +312,121 @@ void ShaderManager::LoadShadersFromFolder(const std::vector<std::string>& folder
         
     }
 }
+void ShaderManager::Reload(const std::vector<std::string>& folders) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    
+    // Lưu lại danh sách các shader đang bật để phục hồi sau khi reload
+    std::map<std::string, bool> enabledStates;
+    for (const auto& [name, s] : shaders) {
+        if (s.enabled) enabledStates[name] = true;
+    }
 
+    shaders.clear();
+    pipeline.clear();
+
+    // Nạp lại từ đầu
+    LoadShadersFromFolder(folders);
+
+    // Phục hồi trạng thái enabled
+    for (auto& [name, s] : shaders) {
+        if (enabledStates.count(name)) {
+            s.enabled = true;
+            pipeline.push_back(name);
+        }
+    }
+
+    ApplyPipeline();
+}
+void ShaderManager::AddFolder(const std::string& path) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (std::find(searchPaths.begin(), searchPaths.end(), path) == searchPaths.end()) {
+        searchPaths.push_back(path);
+        LoadShadersFromFolder({path}); // Chỉ nạp thêm từ folder mới
+    }
+}
+
+void ShaderManager::RemoveFolder(const std::string& path) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    searchPaths.erase(std::remove(searchPaths.begin(), searchPaths.end(), path), searchPaths.end());
+    // Lưu ý: Tùy bạn chọn có muốn xóa các shader thuộc folder này khỏi danh sách hiện tại hay không
+}
+void ShaderManager::SaveState() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    json j;
+
+    j["folders"] = searchPaths;
+    
+    for (auto& [name, s] : shaders) {
+        if (s.enabled) {
+            json s_json;
+            s_json["name"] = name;
+            for (auto& p : s.params) {
+                s_json["params"][p.name] = p.value;
+            }
+            j["active_shaders"].push_back(s_json);
+        }
+    }
+
+    std::ofstream o(configPath);
+    o << j.dump(4);
+}
+void ShaderManager::LoadState() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    if (!fs::exists(configPath)) return;
+
+    try {
+        std::ifstream i(configPath);
+        json j = json::parse(i);
+
+        // 1. Khôi phục folder và nạp file
+        if (j.contains("folders")) {
+            searchPaths = j["folders"].get<std::vector<std::string>>();
+            LoadShadersFromFolder({}); // Nạp shader từ các folder này
+        }
+
+        // 2. Khôi phục trạng thái bật và thông số
+        if (j.contains("active_shaders")) {
+            for (auto& s_json : j["active_shaders"]) {
+                std::string name = s_json["name"];
+                if (shaders.count(name)) {
+                    shaders[name].enabled = true;
+                    pipeline.push_back(name); // Khôi phục thứ tự
+
+                    if (s_json.contains("params")) {
+                        for (auto& p : shaders[name].params) {
+                            if (s_json["params"].contains(p.name)) {
+                                float savedVal = s_json["params"][p.name];
+                                p.value = savedVal;
+                                p.temp_value = savedVal; // Đồng bộ luôn UI
+                            }
+                        }
+                    }
+                }
+            }
+        }
+        ApplyPipeline();
+    } catch (...) { /* Log lỗi đọc file */ }
+}
+void ShaderManager::ResetToDefault(const std::string& shaderName) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+    auto it = shaders.find(shaderName);
+    if (it != shaders.end()) {
+        for (auto& p : it->second.params) {
+            p.value = p.default_value;
+            p.temp_value = p.default_value;
+        }
+        ApplyPipeline();
+    }
+}
+void ShaderManager::ApplyChanges(const std::string& name) {
+        std::lock_guard<std::recursive_mutex> lock(mtx);
+        if (shaders.count(name)) {
+            for (auto& p : shaders[name].params) {
+                p.value = p.temp_value;
+            }
+            ApplyPipeline();
+        }
+    }
 void ShaderManager::EnableAll() {
     pipeline.clear(); // Xóa để nạp lại từ đầu theo đúng danh sách hiện có
 
@@ -319,6 +440,7 @@ void ShaderManager::EnableAll() {
 }
 
 void ShaderManager::Enable(const std::string& name) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     auto it = shaders.find(name);
     if (it == shaders.end()) return;
 
@@ -334,6 +456,7 @@ void ShaderManager::Enable(const std::string& name) {
 }
 
 void ShaderManager::Disable(const std::string& name) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     auto it = shaders.find(name);
     if (it == shaders.end()) return;
 
@@ -349,6 +472,7 @@ void ShaderManager::Disable(const std::string& name) {
 }
 
 void ShaderManager::Toggle(const std::string& name) {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     auto it = shaders.find(name);
     if (it == shaders.end()){
 
@@ -364,6 +488,7 @@ void ShaderManager::Toggle(const std::string& name) {
 }
 
 void ShaderManager::DisableAll() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     for (auto& [k, s] : shaders)
         s.enabled = false;
 

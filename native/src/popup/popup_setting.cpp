@@ -118,6 +118,7 @@ void GeneralSettingsPage() {
 }
 
 void ShaderSettingsPage() {
+    static bool wasConfigTabOpen = false;
 
     ImVec2 avail = ImGui::GetContentRegionAvail();
     auto& sm = ShaderManager::Instance();
@@ -125,17 +126,17 @@ void ShaderSettingsPage() {
     if (CusTomImGui::BeginModernChild("ShaderSettingsPanel", avail, true)) {
         
         // --- HEADER & GIỚI THIỆU CHUNG ---
-        ImGui::TextColored(ImVec4(0.4f, 0.8f, 1.0f, 1.0f), "VIDEO POST-PROCESSING (GLSL)");
+        ImGui::Text("VIDEO POST-PROCESSING (GLSL)");
         ImGui::SameLine();
         ImGui::TextDisabled("(?)");
         if (ImGui::IsItemHovered()) {
             ImGui::SetTooltip("Shader là các bộ lọc xử lý hình ảnh trực tiếp bằng GPU.\n"
                               "Giúp tăng chất lượng video, khử nhiễu hoặc làm nét hình ảnh.");
         }
+
         ImGui::Separator();
 
         if (CusTomImGui::BeginModernTabBar("ShaderChildTabs")) {
-                
             // --- TAB 1: THƯ VIỆN (LIBRARY) ---
             if (ImGui::BeginTabItem("Library")) {
                 ImGui::TextWrapped("Chọn các Shader bên dưới để nạp vào Pipeline. Thứ tự nạp sẽ quyết định kết quả cuối cùng.");
@@ -144,6 +145,8 @@ void ShaderSettingsPage() {
                 if (CusTomImGui::ModernButton("Enable All")) sm.EnableAll();
                 ImGui::SameLine();
                 if (CusTomImGui::SecondaryButton("Disable All")) sm.DisableAll();
+                ImGui::SameLine();
+                if (CusTomImGui::ModernButton("Reload All")) sm.Reload({{AutoPath<std::string>("%ROOT%","shaders")}}); 
 
                 std::vector<CusTomImGui::TableCol> cols = {
                     {"", 40.0f}, 
@@ -189,10 +192,17 @@ void ShaderSettingsPage() {
                 ImGui::SetColumnWidth(0, 160.0f);
 
                 ImGui::TextDisabled("ĐANG CHẠY");
+                wasConfigTabOpen = true;
                 static std::string selectedName = "";
 
+                const auto& pipeline = sm.GetPipeline();
+                auto it = std::find(pipeline.begin(), pipeline.end(), selectedName);
+                if (it == pipeline.end()) {
+                    selectedName = ""; // Reset nếu shader không còn hoạt động
+                }
+
                 if(CusTomImGui::BeginModernChild("PipeList", ImVec2(0, 0), false)){
-                    for (const auto& name : sm.GetPipeline()) {
+                    for (const auto& name : pipeline) {
                         bool is_selected = (selectedName == name);
                         if (CusTomImGui::ModernSelectable(name.c_str(), is_selected)) {
                             selectedName = name;
@@ -219,7 +229,6 @@ void ShaderSettingsPage() {
                     ImGui::Separator();
                     ImGui::Spacing();
                     
-                    bool changed = false;
                     for (auto& p : s.params) {
                         ImGui::Text("%s", p.label.empty() ? p.name.c_str() : p.label.c_str());
                         ImGui::SameLine();
@@ -227,15 +236,36 @@ void ShaderSettingsPage() {
                         if (ImGui::IsItemHovered()) ImGui::SetTooltip("Thông tin chi tiết: %s", p.info.c_str());
 
                         ImGui::SetNextItemWidth(-1);
-                        if (ImGui::SliderFloat(("##" + p.name).c_str(), &p.value, p.min, p.max, "%.2f")) {
-                            changed = true;
-                        }
+                        // Tính toán kích thước dựa trên scale để đồng nhất với giao diện chung
+                        float slider_height = 5.0f ;    // Độ dày thanh trượt
+                        float grab_size = 10.0f  ;      // Bán kính nút kéo
+                        float full_width = ImGui::GetContentRegionAvail().x;
+
+                        if (CusTomImGui::ModernSliderFloat(
+                                p.name.c_str(),            // Tên hiển thị phía trên slider
+                                &p.temp_value,                      // Giá trị float*
+                                p.min,                              // Giá trị tối thiểu
+                                p.max,                              // Giá trị tối đa
+                                slider_height,                      // Chiều cao thanh trượt (Tham số mới)
+                                grab_size,                          // Kích thước nút kéo (Tham số mới)
+                                "%.2fx",                            // Định dạng hiển thị
+                                full_width                          // Chiều rộng full vùng chứa
+                        ));
                     }
 
-                    //if (changed) sm.UpdateParams(s);
-                    
-                    if (CusTomImGui::SecondaryButton("Reset mặc định", ImVec2(-1, 0))) {
-                        // Logic reset ở đây nếu cần
+                    ImGui::Spacing();
+                    ImGui::Separator();
+                    ImGui::Spacing();
+
+                    // --- CÁC NÚT ĐIỀU KHIỂN ---
+                    // 1. Nút Apply: Lưu thiết lập mới
+                    if (CusTomImGui::ModernButton("Apply", ImVec2(80, 0))) {
+                        sm.ApplyChanges(selectedName);
+                    }
+                    ImGui::SameLine();
+                    // 2. Nút Reset: Về mặc định
+                    if (CusTomImGui::SecondaryButton("Reset Default", ImVec2(160, 0))) {
+                        sm.ResetToDefault(selectedName);
                     }
                     
                     CusTomImGui::EndCard();
@@ -246,6 +276,14 @@ void ShaderSettingsPage() {
                 }
                 ImGui::Columns(1);
                 ImGui::EndTabItem();
+            }else{
+                // 2. TỰ ĐỘNG RESET KHI RỜI TAB:
+                // Nếu frame trước tab đang mở (wasConfigTabOpen == true) 
+                // mà frame này ImGui::BeginTabItem trả về false -> Người dùng đã chuyển Tab.
+                if (wasConfigTabOpen) {
+                    //sm.DiscardChanges(""); // Gọi hàm reset toàn bộ temp_value về value
+                    wasConfigTabOpen = false;
+                }
             }
             CusTomImGui::EndModernTabBar();
         }
