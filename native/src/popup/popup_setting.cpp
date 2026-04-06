@@ -165,8 +165,7 @@ void ShaderSettingsPage() {
                         ImGui::TextUnformatted(name.c_str());
 
                         ImGui::TableNextColumn();
-                        const char* stages[] = {"NATIVE", "PREKERNEL", "POSTKERNEL", "LINEAR", "MAIN", "OUTPUT" ,"UNKNOWN"};
-                        ImGui::TextDisabled("[%s]", stages[(int)shader.hook]);
+                        ImGui::TextDisabled("[%s]", (sm.HookStageToString(shader.hook)).c_str());
                         if (ImGui::IsItemHovered()) {
                             ImGui::SetTooltip("Giai đoạn Hook: Xác định thời điểm shader can thiệp vào luồng render của MPV.");
                         }

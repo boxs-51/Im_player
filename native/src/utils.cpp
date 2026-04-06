@@ -289,7 +289,7 @@ void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::s
 }
 void ApplyStaticMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
-    
+
     SetMPVOptions(mpv, {
         {"log-level", "v"},
         {"input-media-keys", "yes"},
@@ -304,20 +304,19 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         // Cấu hình âm thanh an toàn
         {"audio-buffer", "0.2"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
         {"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
+
+        {"cookies", "yes"},
+        {"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
     });
+    SetMPVOptions(mpv, {
+        {"framedrop", "vo"},
 
-    // Framedrop nên để mặc định là yes để tránh lệch tiếng khi máy lag
-    mpv_set_option_string(mpv, "cookies", "yes");
-    mpv_set_option_string(mpv, "ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/");
-    mpv_set_property_string(mpv, "framedrop", "vo");
-    // Kích hoạt tính năng deband
-    mpv_set_property_string(mpv, "deband", "yes");
-
-    // Tinh chỉnh thông số (tùy chọn để đạt chất lượng tốt hơn)
-    mpv_set_property_string(mpv, "deband-iterations", "2"); // Số lần lặp, mặc định là 1
-    mpv_set_property_string(mpv, "deband-threshold", "48"); // Độ nhạy (mặc định 32)
-    mpv_set_property_string(mpv, "deband-range", "16");     // Phạm vi lấy mẫu (mặc định 16)
-    mpv_set_property_string(mpv, "deband-grain", "24");     // Lượng nhiễu hạt để che vết rổ
+        {"deband", "yes"},
+        {"deband-iterations", "2"}, // Số lần lặp, mặc định là 1
+        {"deband-threshold", "48"}, // Độ nhạy (mặc định 32)
+        {"deband-range", "16"},     // Phạm vi lấy mẫu (mặc định 16)
+        {"deband-grain", "24"},     // Lượng nhiễu hạt để che vết rổ
+    }, true);  
 }
 void ApplyDynamicMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
@@ -517,6 +516,7 @@ static void InitMPVObservers_Cache(mpv_handle* mpv) {
         {"demuxer-cache-time", MPV_FORMAT_DOUBLE},
         {"demuxer-bitrate", MPV_FORMAT_DOUBLE},
         {"demuxer-via-network", MPV_FORMAT_FLAG},
+        {"audio-demuxer", MPV_FORMAT_DOUBLE},
         {"cache-buffering-state", MPV_FORMAT_INT64},
         {"cache", MPV_FORMAT_DOUBLE},
         {"stream-path", MPV_FORMAT_STRING},
@@ -809,10 +809,10 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
                 HandleYTDLLog(mpv,msg->text);
             
-            if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
-                                      strcmp(msg->level, "warn")  == 0 ))
+            //if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
+            //                          strcmp(msg->level, "warn")  == 0 ))
 
-                PushMpvError(msg->level, msg->text);
+                //PushMpvError(msg->level, msg->text);
             break;
         }
         case MPV_EVENT_GET_PROPERTY_REPLY: break;
@@ -1017,7 +1017,8 @@ void ProcessMPVEvents(mpv_handle* mpv) {
                     else if (strcmp(name, "demuxer-cache-duration") == 0)   {g_playbackStatus.demuxer_cache_duration = *(double*)prop->data;                         RATE_LIMITED_COUT(demuxer_cache_duration, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Cache Duration updated: " << g_playbackStatus.demuxer_cache_duration << " seconds");}
                     else if (strcmp(name, "demuxer-cache-time") == 0)       {g_playbackStatus.demuxer_cache_time = *(double*)prop->data;                             RATE_LIMITED_COUT(demuxer_cache_time, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Cache Time updated: " << g_playbackStatus.demuxer_cache_time << " seconds");}
                     else if (strcmp(name, "demuxer-bitrate") == 0)          {g_playbackStatus.demuxer_bitrate = *(double*)prop->data;                                RATE_LIMITED_COUT(demuxer_bitrate, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Bitrate updated: " << g_playbackStatus.demuxer_bitrate << " kbps");}
-
+                    else if (strcmp(name, "audio-demuxer") == 0)            {g_playbackStatus.audio_demuxer = *(double*)prop->data;}  
+                    
                     break;
                 }
                 case MPV_FORMAT_NODE:{

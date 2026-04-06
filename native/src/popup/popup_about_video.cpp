@@ -429,6 +429,7 @@ void ShowNetworkInfo() {
         CusTomImGui::InfoRow("Cache Duration :", "%.2f s", g_playbackStatus.demuxer_cache_duration);
         CusTomImGui::InfoRow("Cache Time :", "%.2f s", g_playbackStatus.demuxer_cache_time);
         CusTomImGui::InfoRow("Audio Buffer :", "%.2f s", g_playbackStatus.audio_buffer);
+        CusTomImGui::InfoRow("Audio Buffer1 :", "%.2f s", g_playbackStatus.audio_demuxer);
         CusTomImGui::InfoRow("Bitrate :", "%.2f kbps", g_playbackStatus.demuxer_bitrate);
         CusTomImGui::InfoRow("Via Network :", "%s", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
 

@@ -15,6 +15,7 @@ struct ShaderParam {
     std::string label;  // Tên hiển thị trên UI
     std::string info;   
 
+    
     float value = 0.0f;
     float min = 0.0f;
     float max = 1.0f;
@@ -92,7 +93,7 @@ public:
         auto it = shaders.find(name);
         return (it != shaders.end()) ? &it->second : nullptr;
     }
-
+    std::string HookStageToString(HookStage h);
 private:
     ShaderManager() = default; 
 
@@ -100,7 +101,6 @@ private:
     std::string Quote(const std::string& s);
     int HookPriority(HookStage h);
     void LoadMeta(const std::string& path, Shader& s);
-    std::string HookStageToString(HookStage h);
     void ParseShaderFile(const std::string& path, Shader& s);
     std::string GenerateTempShader(const Shader& s);
 

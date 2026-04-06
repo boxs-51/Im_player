@@ -172,6 +172,7 @@ struct MPVPlaybackStatus {
     double demuxer_cache_time = 0.0;
     double audio_buffer = 0.0;
     double time_remaining = 0.0;
+    double audio_demuxer = 0.0;
 
     bool idle_active = false;
     bool hasTime = false;    
