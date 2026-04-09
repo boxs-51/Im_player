@@ -39,6 +39,7 @@ enum class PlaybackState {
     Paused,
     EndOfFile
 };
+
 struct CardHoleStyle
 {
     float rounding = 6.0f;
@@ -289,9 +290,6 @@ struct WindowContext {
     SDL_GLContext mainGLContext = nullptr;
     ImGuiContext* mainImGuiCtx = nullptr;
 
-    SDL_Window* sidebar_Window = nullptr;
-    SDL_GLContext sidebar_GLContext = nullptr;
-    ImGuiContext* sidebar_ImGuiCtx = nullptr;
 };
 
 struct WindowLayout {
@@ -317,21 +315,6 @@ struct WindowLayout {
 
 };
 
-inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) {
-    return ImVec2(lhs.x + rhs.x, lhs.y + rhs.y);
-}
-
-inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) {
-    return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y);
-}
-
-inline ImVec2 operator*(const ImVec2& lhs, float scalar) {
-    return ImVec2(lhs.x * scalar, lhs.y * scalar);
-}
-
-inline ImVec2 operator/(const ImVec2& lhs, float scalar) {
-    return ImVec2(lhs.x / scalar, lhs.y / scalar);
-}
 extern WindowLayout Windowlayout;
 extern WindowContext ctx;
 extern MPVPlaybackStatus g_playbackStatus;

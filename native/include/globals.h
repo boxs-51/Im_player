@@ -2,7 +2,6 @@
 #pragma once
 #include "reusable_popup.h"
 #include "utils.h"
-#include "reusable_window.h"
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -79,10 +78,8 @@ extern bool audio_Theme;
 
 extern std::vector<std::wstring> playlist;
 
-extern ReusableWindow g_urlWindow;
 extern ReusablePopup Popup_Url;   
 extern ReusablePopup videoInfoPopup;
-extern ReusableWindow SidebarWindow;
 extern ReusablePopup SettingPopup;
 extern ReusablePopup SidarBarPopup;
 

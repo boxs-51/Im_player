@@ -4,7 +4,6 @@
 #include "popup.h"
 #include <string>
 #include <vector>
-#include "reusable_window.h"
 #include <atomic>
 #include <thread>
 #include <condition_variable>
@@ -57,13 +56,8 @@ std::vector<ReusablePopup*> allReusablePopups = {
     &SidarBarPopup
 };
 
-std::vector<ReusableWindow*> allReusableWindows = {
-    &SidebarWindow,
-};
 
 
-ReusableWindow g_urlWindow;
-ReusableWindow SidebarWindow;
 std::vector<std::wstring> playlist;
 
 bool IsAnyPopupOpen() {

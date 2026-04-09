@@ -34,8 +34,6 @@ add_executable(imgui_player WIN32
     native/src/mpv/shaders/shader_manager.cpp
     native/src/mpv/scripts/script_manager.cpp
 
-    native/src/UIStyleManager.cpp
-
     native/src/windows/windows_borderless.cpp
     native/src/windows/windows_custom_titlebar.cpp
 

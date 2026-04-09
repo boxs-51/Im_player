@@ -153,8 +153,6 @@ void SDLX_PushClose(SDL_Window* /*win*/) {
 
 void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 winPos ,ImVec2 winSize) {
     
-    g_DragResizeState.IsMax = (SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_MAXIMIZED) != 0;
-
     #ifdef CUSTOM_TITLEBAR
 
     if (!sdlWindow || state.IsFullscreen_video) return;
@@ -168,7 +166,7 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImGui::InvisibleButton("TitleBarRegion", titleSize);
     //bool hoveredTitle = ImGui::IsItemHovered();
     //ImU32 btnBgColor = hoveredTitle ? IM_COL32(60,60,60,255) : IM_COL32(35,35,35,255);
-    ImU32 btnBgColor = /*hoveredTitle ? IM_COL32(60,60,60,255) : */IM_COL32(35,35,35,255);
+    ImU32 btnBgColor = IM_COL32(35,35,35,255);
     dl->AddRectFilled(titlePos, titlePos + titleSize, btnBgColor);
 
     dl->AddText(
@@ -312,7 +310,7 @@ void SetWindowSDL(SDL_Window* window,
     if (!window) return;
 
     // 1. Hook WndProc + Init borderless
-    SDLX_InitBorderless(window, g_DragResizeState.TitleHeight, g_DragResizeState.resizeMargin);
+    SDLX_InitBorderless(window);
 
     // 2. Thiết lập Min/Max size
     SDLX_SetMinMax(window, minW, minH, maxW, maxH);

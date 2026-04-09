@@ -304,20 +304,24 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         // Cấu hình âm thanh an toàn
         {"audio-buffer", "0.2"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
         {"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
+
+        {"cookies", "yes"},
+        {"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
+
     });
 
-    // Framedrop nên để mặc định là yes để tránh lệch tiếng khi máy lag
-    mpv_set_option_string(mpv, "cookies", "yes");
-    mpv_set_option_string(mpv, "ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/");
-    mpv_set_property_string(mpv, "framedrop", "vo");
-    // Kích hoạt tính năng deband
-    mpv_set_property_string(mpv, "deband", "yes");
+    SetMPVOptions(mpv, {
+        // Framedrop nên để mặc định là yes để tránh lệch tiếng khi máy lag
+        {"framedrop", "vo"},
+        // Kích hoạt tính năng deband
+        {"deband", "yes"},
+        // Tinh chỉnh thông số (tùy chọn để đạt chất lượng tốt hơn)
+        {"deband-iterations", "2"}, // Số lần lặp, mặc định là 1
+        {"deband-threshold", "48"}, // Độ nhạy (mặc định 32)
+        {"deband-range", "16"},     // Phạm vi lấy mẫu (mặc định 16)
+        {"deband-grain", "24"},     // Lượng nhiễu hạt để che vết rổ
+    }, true);
 
-    // Tinh chỉnh thông số (tùy chọn để đạt chất lượng tốt hơn)
-    mpv_set_property_string(mpv, "deband-iterations", "2"); // Số lần lặp, mặc định là 1
-    mpv_set_property_string(mpv, "deband-threshold", "48"); // Độ nhạy (mặc định 32)
-    mpv_set_property_string(mpv, "deband-range", "16");     // Phạm vi lấy mẫu (mặc định 16)
-    mpv_set_property_string(mpv, "deband-grain", "24");     // Lượng nhiễu hạt để che vết rổ
 }
 void ApplyDynamicMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
@@ -809,8 +813,8 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
                 HandleYTDLLog(mpv,msg->text);
             
-            if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
-                                      strcmp(msg->level, "warn")  == 0 ))
+            if (msg && msg->level && (strcmp(msg->level, "error")  == 0 /*||
+                                      strcmp(msg->level, "warn")  == 0 */))
 
                 PushMpvError(msg->level, msg->text);
             break;

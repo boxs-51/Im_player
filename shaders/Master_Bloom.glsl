@@ -59,13 +59,42 @@ Khuyên dùng: 0.2–0.4.
 
 #define LUMA vec3(0.2126,0.7152,0.0722)
 
-float bright(vec3 c){
-    return smoothstep(THRESHOLD, THRESHOLD+0.25, dot(c,LUMA));
+// ----- Adaptive Brightness Mask -----
+float adaptiveBright(vec2 pos){
+    float lumCenter = dot(HOOKED_tex(pos).rgb, LUMA);
+    float lumMax = 0.0;
+
+    // Lấy max luminance xung quanh 3x3 pixel
+    for(int i=-1;i<=1;i++){
+        for(int j=-1;j<=1;j++){
+            vec2 offset = vec2(float(i),float(j)) * HOOKED_pt;
+            lumMax = max(lumMax, dot(HOOKED_tex(pos+offset).rgb,LUMA));
+        }
+    }
+
+    // Adaptive threshold: pixel chỉ glow nếu đủ sáng so với vùng lân cận
+    float adaptiveThreshold = max(THRESHOLD, lumMax*0.8);
+    return smoothstep(adaptiveThreshold, adaptiveThreshold+0.2, lumCenter);
 }
 
-vec3 sampleBloom(vec2 pos, vec2 offset){
-    vec3 c = HOOKED_tex(pos + offset).rgb;
-    return c * bright(c);
+// ----- Sample Bloom với adaptive weight -----
+vec3 sampleAdaptiveBloom(vec2 pos, vec2 offset){
+    vec2 uv = clamp(pos + offset, vec2(0.0), vec2(1.0));
+    vec3 c = HOOKED_tex(uv).rgb;
+    float brightMask = adaptiveBright(uv);
+
+    // Giảm weight theo khoảng cách để glow mềm dần scale xa
+    float dist = length(offset)/RANGE;
+    float weight = 1.0 / (1.0 + dist*dist);
+    return c * brightMask * weight;
+}
+
+// ----- Bloom Color Shift (Warm highlight cinematic) -----
+vec3 bloomColorShift(vec3 bloom){
+    vec3 warm = vec3(1.05,1.0,0.95);
+    float lum = dot(bloom,LUMA);
+    float factor = smoothstep(0.0,1.0,lum);
+    return mix(bloom, bloom*warm, factor*0.3);
 }
 
 vec4 hook(){
@@ -74,57 +103,55 @@ vec4 hook(){
 
     vec3 base = HOOKED_tex(pos).rgb;
 
-    // ===== SCALE =====
+    // ===== Scale offsets =====
     vec2 r1 = px * RANGE;
     vec2 r2 = px * RANGE * 2.0;
     vec2 r3 = px * RANGE * 4.0;
 
-    // ===== ANAMORPHIC SCALE (horizontal stretch) =====
+    // Anamorphic horizontal stretch
     vec2 ax = vec2(px.x * ANAMORPHIC, px.y);
 
-    // ===== NEAR =====
+    // ===== NEAR SCALE =====
     vec3 near =
-        sampleBloom(pos, vec2(0,0))*0.3 +
-        sampleBloom(pos, vec2(ax.x,0))*0.175 +
-        sampleBloom(pos, vec2(-ax.x,0))*0.175 +
-        sampleBloom(pos, vec2(0,r1.y))*0.175 +
-        sampleBloom(pos, vec2(0,-r1.y))*0.175;
+        sampleAdaptiveBloom(pos, vec2(0,0))*0.3 +
+        sampleAdaptiveBloom(pos, vec2(ax.x,0))*0.175 +
+        sampleAdaptiveBloom(pos, vec2(-ax.x,0))*0.175 +
+        sampleAdaptiveBloom(pos, vec2(0,r1.y))*0.175 +
+        sampleAdaptiveBloom(pos, vec2(0,-r1.y))*0.175;
 
-    // ===== MID =====
+    // ===== MID SCALE =====
     vec3 mid =
-        sampleBloom(pos, vec2(r2.x,r2.y))*0.25 +
-        sampleBloom(pos, vec2(-r2.x,r2.y))*0.25 +
-        sampleBloom(pos, vec2(r2.x,-r2.y))*0.25 +
-        sampleBloom(pos, vec2(-r2.x,-r2.y))*0.25;
+        sampleAdaptiveBloom(pos, vec2(r2.x,r2.y))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(-r2.x,r2.y))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(r2.x,-r2.y))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(-r2.x,-r2.y))*0.25;
 
-    // ===== FAR =====
+    // ===== FAR SCALE =====
     vec3 far =
-        sampleBloom(pos, vec2(r3.x,0))*0.25 +
-        sampleBloom(pos, vec2(-r3.x,0))*0.25 +
-        sampleBloom(pos, vec2(0,r3.y))*0.25 +
-        sampleBloom(pos, vec2(0,-r3.y))*0.25;
+        sampleAdaptiveBloom(pos, vec2(r3.x,0))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(-r3.x,0))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(0,r3.y))*0.25 +
+        sampleAdaptiveBloom(pos, vec2(0,-r3.y))*0.25;
 
     vec3 bloom = near*0.6 + mid*0.3 + far*0.1;
 
-    // ===== HDR ROLLOFF =====
+    // ===== HDR Roll-off =====
     bloom = bloom / (1.0 + bloom);
 
-    // ===== COLOR SHIFT (film warm highlight) =====
-    vec3 warm = vec3(1.05, 1.0, 0.95);
-    bloom *= mix(vec3(1.0), warm, 0.2);
+    // ===== Color shift cinematic -----
+    bloom = bloomColorShift(bloom);
 
-    // ===== LENS DIRT (procedural fake) =====
+    // ===== Smart Lens Dirt =====
     vec2 uv = pos;
     float dirtMask = fract(sin(dot(floor(uv*vec2(240.0,180.0)), vec2(12.9898,78.233))) * 43758.5453);
-    dirtMask = pow(dirtMask, 3.0);
+    dirtMask = pow(dirtMask,3.0);
 
-    bloom += bloom * dirtMask * DIRT * 0.5;
+    // Chỉ áp dụng dirt lên highlight
+    float brightMask = adaptiveBright(uv);
+    bloom += bloom * dirtMask * DIRT * 0.5 * brightMask;
 
-    // ===== FINAL BLEND =====
+    // ===== Final Blend =====
     vec3 result = base + bloom * STRENGTH;
 
-    // tone-map tránh cháy
-    result = base + bloom * STRENGTH;
-
-    return vec4(result, 1.0);
+    return vec4(result,1.0);
 }

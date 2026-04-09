@@ -124,40 +124,13 @@ void Cleanup() {
     SDL_Quit();
 }
 void HandleMainWindowEvent(const SDL_Event& e) {
-    if (!g_WindowVisible) {
-        // Khi cửa sổ ẩn → chỉ quan tâm đến sự kiện QUIT và USEREVENT
-        if (e.type == SDL_QUIT) running = false;
-        if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
-        if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
-    }else{
-        ImGui_ImplSDL2_ProcessEvent(&e);
-        // 1. Xử lý phím nóng → VD: Ctrl+U mở popup, Space để pause
-        if (HandleHotkeys(e , mpv.mpv))return;
-        // 2. Phân loại tương tác người dùng
-        /*
-        bool isMousePressOrRelease =
-            (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP);
-        bool isMouseInteraction =
-            e.type == SDL_MOUSEMOTION ||
-            e.type == SDL_MOUSEWHEEL;
 
-        bool isWindowInteraction =
-            e.type == SDL_WINDOWEVENT &&
-            (e.window.event == SDL_WINDOWEVENT_FOCUS_GAINED ||
-            e.window.event == SDL_WINDOWEVENT_RESIZED ||
-            e.window.event == SDL_WINDOWEVENT_SIZE_CHANGED ||
-            e.window.event == SDL_WINDOWEVENT_EXPOSED ||
-            e.window.event == SDL_WINDOWEVENT_MAXIMIZED ||
-            e.window.event == SDL_WINDOWEVENT_RESTORED||
-            e.window.event == SDL_WINDOWEVENT_SHOWN ||
-            e.window.event == SDL_WINDOWEVENT_MOVED  );
+    if (HandleHotkeys(e , mpv.mpv))return;
 
-        //if(isMouseInteraction || isMousePressOrRelease ) NotifyActivity(show_ui_video);
-        */
-        if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
-        if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
-        if (e.type == SDL_QUIT)running = false;
-    }
+    if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
+    if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
+    if (e.type == SDL_QUIT)running = false;
+    
 }
 bool InitMainWindow() {
 
@@ -424,35 +397,17 @@ int main(int argc, char** argv) {
         CallThread_URLFetch(Url,true);
     }
     fpsTimer = SDL_GetTicks();
+    SDL_Event e;
     while (running) {
         UpdateTheme(ImGui::GetIO().DeltaTime);
         frameStart = SDL_GetTicks();
         flags = SDL_GetWindowFlags(ctx.mainWindow);
         g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
-        SDL_Event e;
         while (SDL_PollEvent(&e)) {
-            Uint32 eventWindowID = 0;
-            Uint32 mainWindowID = 0;
-            if (e.type == SDL_WINDOWEVENT || e.type == SDL_MOUSEMOTION || e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEWHEEL || e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
-                eventWindowID = e.window.windowID;  // Hoặc lấy windowID tương ứng
-                mainWindowID = SDL_GetWindowID(ctx.mainWindow);
-            }
-
-            if (eventWindowID == mainWindowID) {
-                // Xử lý sự kiện cho mainWindow
-                HandleMainWindowEvent(e);
-            } 
-            else {
-                if(g_WindowVisible){
-                    ImGui_ImplSDL2_ProcessEvent(&e);
-                    if (HandleHotkeys(e, mpv.mpv)) continue;
-                }
-                
-            }
-            
+            ImGui_ImplSDL2_ProcessEvent(&e);
+            HandleMainWindowEvent(e);
         }
     
-        
         mpv_update_seek_pending( mpv.mpv );
 
         UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
@@ -461,6 +416,7 @@ int main(int argc, char** argv) {
             SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
             ToggleFullscreen =false;
         }
+        g_DragResizeState.IsMax = (flags & SDL_WINDOW_MAXIMIZED) != 0;
 
         RenderFrame() ;
 

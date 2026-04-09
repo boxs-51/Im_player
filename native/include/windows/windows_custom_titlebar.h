@@ -10,7 +10,7 @@
 // Vẽ title bar tùy chỉnh cho SDL borderless window
 // Chỉ vùng title bar nhận input, nội dung bên dưới ignore input
 
-void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin);
+void SDLX_InitBorderless(SDL_Window* window);
 
 
 

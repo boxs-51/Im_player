@@ -362,7 +362,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 };
 
 
-void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
+void SDLX_InitBorderless(SDL_Window* window)
 {
     if (!window) return;
     
@@ -373,8 +373,6 @@ void SDLX_InitBorderless(SDL_Window* window, int titleHeight, int resizeMargin)
     HWND hwnd = wmInfo.info.win.window;
 
     g_DragResizeState.hwnd_windown_main = hwnd;
-    g_DragResizeState.TitleHeight = titleHeight;
-    g_DragResizeState.resizeMargin = resizeMargin;
 
     // Lưu SDL_Window để WndProc lấy lại
     SetProp(hwnd, L"SDLWIN", (HANDLE)window);
