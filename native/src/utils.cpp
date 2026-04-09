@@ -24,8 +24,8 @@
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
-//#undef RATE_LIMITED_COUT
-//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+#undef RATE_LIMITED_COUT
+#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 using json = nlohmann::json;
 
@@ -191,15 +191,15 @@ static void InitMPVObservers_AllNode(mpv_handle* mpv) {
     mpv_observe_property(mpv, 0, "/*", MPV_FORMAT_NODE);
 }
 void PrintMPVNode(const mpv_node* node, int indent = 0) {
-    //
-    //mpv_node result;
-    //if (mpv_get_property(mpv, "config", MPV_FORMAT_NODE, &result) >= 0) {
-    //    std::cout << "[DEBUG] Dump config:\n";
-    //    PrintMPVNode(&result);
-    //    std::cout << std::endl;
-    //    mpv_free_node_contents(&result);
-    //}
-    //
+    /*
+    mpv_node result;
+    if (mpv_get_property(mpv, "config", MPV_FORMAT_NODE, &result) >= 0) {
+        std::cout << "[DEBUG] Dump config:\n";
+        PrintMPVNode(&result);
+        std::cout << std::endl;
+        mpv_free_node_contents(&result);
+    }
+    */
     if (!node) return;
 
     std::string pad(indent, ' ');
@@ -266,7 +266,7 @@ static void HandlePropertyChange(mpv_event* event) {
     if (prop->format == MPV_FORMAT_NODE && prop->data) {
         PrintMPVNode((mpv_node*)prop->data, 2);
     } else if (prop->format == MPV_FORMAT_STRING) {
-        std::cout << "\"" << (char*)prop->data << "\"";
+        std::cout << "\"" << *(const char**)prop->data << "\"";
     } else if (prop->format == MPV_FORMAT_INT64) {
         std::cout << *(int64_t*)prop->data;
     } else if (prop->format == MPV_FORMAT_DOUBLE) {
@@ -430,6 +430,7 @@ static void InitMPVObservers_Audio(mpv_handle* mpv) {
         {"mute", MPV_FORMAT_FLAG},
         {"volume", MPV_FORMAT_INT64},
         {"audio-params", MPV_FORMAT_NODE},
+        {"audio-out-params", MPV_FORMAT_NODE},
         {"audio-device", MPV_FORMAT_STRING},
         {"audio-device-list", MPV_FORMAT_NODE},
         {"audio-channels", MPV_FORMAT_INT64},
@@ -597,6 +598,7 @@ static void UpdateAudioParams(const mpv_node* node) {
     if ((n = mpv_node_dict_find(node, "channels")) && n->format == MPV_FORMAT_STRING)       g_videoInfo.g_audioarams.achannels_str = n->u.string;        RATE_LIMITED_COUT(audio_channels_str, 1,std::cout << "[DEBUG] [INFO] [AudioParams] Channels: " << g_videoInfo.g_audioarams.achannels_str << "");
     if ((n = mpv_node_dict_find(node, "hr-channels")) && n->format == MPV_FORMAT_STRING)    g_videoInfo.g_audioarams.ahr_channels = n->u.string;         RATE_LIMITED_COUT(audio_hr_channels, 1,std::cout << "[DEBUG] [INFO] [AudioParams] HR Channels: " << g_videoInfo.g_audioarams.ahr_channels << "");
 }
+
 static void UpdateTrackList(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_ARRAY || !node->u.list) {
         g_videoInfo.g_tracks.clear();
@@ -816,7 +818,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             if (msg && msg->level && (strcmp(msg->level, "error")  == 0 /*||
                                       strcmp(msg->level, "warn")  == 0 */))
 
-                PushMpvError(msg->level, msg->text);
+                //PushMpvError(msg->level, msg->text);
             break;
         }
         case MPV_EVENT_GET_PROPERTY_REPLY: break;
@@ -834,12 +836,7 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             switch (data->reason) {
             // --- Phát hết file bình thường ---
             case MPV_END_FILE_REASON_EOF: 
-                //if (v_Settings.repeatVideo) {
-                //   mpv_command_seek_abs(mpv, 0, g_playbackStatus.duration);
-                //    mpv_command_string(mpv, "set pause no");
-                //    std::cout << "[DEBUG] [MPV] Repeating video as per settings.\n";
-                //    break;
-                //}
+
                 RATE_LIMITED_COUT(end_of_file, 1,std::cout << "[DEBUG] [INFO] [MPV] Playback reached end of file.");
                 break;
             
@@ -1029,14 +1026,12 @@ void ProcessMPVEvents(mpv_handle* mpv) {
                     if (strcmp(name, "track-list") == 0)                      UpdateTrackList((const mpv_node*)prop->data); 
                     else if (strcmp(name, "metadata") == 0)                   UpdateMetadata((const mpv_node*)prop->data);
                     else if (strcmp(name, "playlist") == 0)                   UpdatePlayList((const mpv_node*)prop->data);
-                        
                     else if (strcmp(name, "chapter-list") == 0)               UpdateChapterList((const mpv_node*)prop->data);
-    
                     else if (strcmp(name, "video-params") == 0)               UpdateVideoParams((const mpv_node*)prop->data);
-                    else if (strcmp(name, "video-out-params") == 0);
-                    else if (strcmp(name, "edition-list") == 0);
+                    else if (strcmp(name, "video-out-params") == 0);          
+                    else if (strcmp(name, "edition-list") == 0);               
                     else if (strcmp(name, "audio-params") == 0)               UpdateAudioParams((const mpv_node*)prop->data);
-
+                    else if (strcmp(name, "audio-out-params") == 0) ;
                     else if (strcmp(name, "sub-streams") == 0) {
                         const mpv_node* node = (const mpv_node*)prop->data;
                         if (node && node->format == MPV_FORMAT_NODE_ARRAY) {

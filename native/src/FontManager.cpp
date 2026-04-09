@@ -15,8 +15,8 @@
 // For now we disable FreeType to use stb validation only:
 //#define USE_FREETYPE
 #include "utils.h"
-//#undef RATE_LIMITED_COUT
-//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+#undef RATE_LIMITED_COUT
+#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 
 #include <algorithm>

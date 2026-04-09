@@ -2,6 +2,9 @@
 
 #include <log.h>
 
+#undef RATE_LIMITED_COUT
+#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+
 namespace fs = std::filesystem;
 
 ScriptManager& ScriptManager::Instance() {

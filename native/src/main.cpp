@@ -25,8 +25,8 @@
 
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
-//#undef RATE_LIMITED_COUT
-//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+#undef RATE_LIMITED_COUT
+#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 #include <SDL_syswm.h>
 #include <windows.h>
