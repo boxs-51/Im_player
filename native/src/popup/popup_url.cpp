@@ -86,7 +86,7 @@ std::vector<std::wstring> OpenFilePickerW() {
     std::vector<std::wstring> files;
 
     OPENFILENAMEW ofn;
-    wchar_t szFile[1024] = {0};
+    wchar_t szFile[32768] = {0};
     ZeroMemory(&ofn, sizeof(ofn));
     ofn.lStructSize = sizeof(ofn);
     ofn.hwndOwner = NULL;
@@ -232,7 +232,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     //if(ImGui::Checkbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
 
     //if( ImGui::Button("Lấy từ Clipboard")){
-    if( CusTomImGui::ModernButton("Lấy từ Clipboard" ,ImVec2(150, 0))){
+    if( CusTomImGui::ModernButton("Lấy từ Clipboard")){
         if(OpenClipboard(NULL)){
             HANDLE hData=GetClipboardData(CF_UNICODETEXT);
             if(hData){
@@ -249,7 +249,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     }
 
     ImGui::SameLine(0.0f,30.0f);
-    if( CusTomImGui::ModernButton("Thêm từ file local" ,ImVec2(150, 0))){
+    if( CusTomImGui::ModernButton("Thêm từ file local")){
     //if(ImGui::Button("Thêm từ file local")){
         auto files=OpenFilePickerW();
         if(!files.empty()){
@@ -267,7 +267,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     ImGui::TextWrapped("%ls",lastURL.c_str());
 
     // --- Buttons OK/Cancel ---
-    if( CusTomImGui::ModernButton("OK" ,ImVec2(80, 0))){
+    if( CusTomImGui::ModernButton("OK")){
     //if(ImGui::Button("OK")){
 
     if( IsValidLocalFile(urlInput)){
@@ -291,7 +291,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     }
 
     ImGui::SameLine();
-    if( CusTomImGui::ModernButton("Hủy" ,ImVec2(80, 0))){
+    if( CusTomImGui::ModernButton("Hủy")){
     //if(ImGui::Button("Hủy")){
         closePopup_url=true;
         pendingLocalFilesLocal.clear();

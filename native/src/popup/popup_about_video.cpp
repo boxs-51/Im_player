@@ -560,18 +560,20 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
             for (auto& tab : tabs) {
                 if (ImGui::BeginTabItem(tab.Name)) {
                     ImGui::Dummy(ImVec2(0, 10)); // Thêm khoảng trống trên đầu mỗi card
-                    CusTomImGui::BeginCard(); 
-                    tab.Func();
-                    CusTomImGui::EndCard();
+                    if(CusTomImGui::BeginCard()){
+                        tab.Func();
+                        CusTomImGui::EndCard();
+                    }
                     ImGui::EndTabItem();
                 }
             }
 
             // Tab Debug đặc biệt
             if (g_DragResizeState.showDebug && ImGui::BeginTabItem("Debug")) {
-                CusTomImGui::BeginCard();
-                ShowDuBugInFo();
-                CusTomImGui::EndCard();
+                if(CusTomImGui::BeginCard()){
+                    ShowDuBugInFo();
+                    CusTomImGui::EndCard();
+                }
                 ImGui::EndTabItem();
             }
 

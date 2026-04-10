@@ -4,6 +4,7 @@
 
 #include "mpv/shaders/shaders_manager.h"
 #include "mpv/scripts/script_manager.h"
+#include "mpv/fillter/audio_fillter_manager.h"
 
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
@@ -39,10 +40,13 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
 
     ScriptManager::Instance().Init(mpv_ptr);
     ShaderManager::Instance().Init(mpv_ptr);
+    AudioFilterManager::Instance().Init(mpv_ptr);
 
     ScriptManager::Instance().LoadScriptFromFolder({ AutoPath<std::string>("%ROOT%","scripts")});
-    //ShaderManager::Instance().LoadShadersFromFolder({AutoPath<std::string>("%ROOT%","shaders")});
+
     ShaderManager::Instance().LoadState();
+
+    AudioFilterManager::Instance().LoadFromFile();
 
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);

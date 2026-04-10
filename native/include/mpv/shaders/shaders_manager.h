@@ -49,6 +49,7 @@ struct Shader {
     ShaderType type = ShaderType::OTHER;
     HookStage hook = HookStage::UNKNOWN;
 
+    int loadIndex = 0;
     int order = 0;           
     bool enabled = false;
     std::string last_generated_code = "";
@@ -84,6 +85,7 @@ public:
     void MoveUp(const std::string& name);
     void MoveDown(const std::string& name);
     void MoveShader(int from, int to);
+    void MoveShaderByName(const std::string& fromName, const std::string& toName);
 
     // Logic xử lý pipeline & mpv communication
     void ApplyPipeline();
@@ -95,7 +97,7 @@ public:
     // Getters
     std::unordered_map<std::string, Shader>& GetShaders() { return shaders; }
     const std::vector<std::string>& GetPipeline() { return pipeline; }
-    std::vector<Shader*> GetActivePipeline();
+    std::vector<Shader*>& GetActivePipeline() {return activeShaders;}
     const std::vector<std::string>& GetSearchPaths() { return searchPaths; }
     
     Shader* GetShaderByName(const std::string& name) {
@@ -116,6 +118,7 @@ private:
     int HookPriority(HookStage h);
     void LoadMeta(const std::string& path, Shader& s);
     void ParseShaderFile(const std::string& path, Shader& s);
+    void NormalizeOrders() ;
     std::string GenerateTempShader(const Shader& s);
 
     // Dọn dẹp file tạm khi thoát
@@ -128,6 +131,11 @@ private:
     std::vector<std::string> pipeline; 
 
     std::recursive_mutex mtx;
+
+    std::vector<Shader*> activeShaders;
+
+    int globalLoadCounter = 0;
+
     std::string configPath = AutoPath<std::string>("%ROOT%", "data", "shader_config.json");
     std::vector<std::string> searchPaths = {AutoPath<std::string>("%ROOT%","shaders")};
 };

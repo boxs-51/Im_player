@@ -37,22 +37,61 @@ void ShaderManager::Register(const std::string& name, const std::string& path) {
     shaders[name] = { name, path, false };
 }
 
+void ShaderManager::NormalizeOrders() {
+    // Group shader theo hook
+    std::unordered_map<HookStage, std::vector<Shader*>> groups;
+
+    for (Shader* s : activeShaders) {
+        groups[s->hook].push_back(s);
+    }
+
+    // Xử lý từng group
+    for (auto& [hook, vec] : groups) {
+
+        // sort theo (order, loadIndex)
+        std::sort(vec.begin(), vec.end(), [](Shader* a, Shader* b) {
+            if (a->order != b->order)
+                return a->order < b->order;
+            return a->loadIndex < b->loadIndex; // 👈 cần có field này
+        });
+
+        int current = 1;
+        int lastOrder = -1;
+
+        for (Shader* s : vec) {
+            int original = s->order;
+
+            if (original <= 0 || original == lastOrder) {
+                s->order = current;
+            } else {
+                current = std::max(current, original);
+                s->order = current;
+            }
+
+            lastOrder = original;
+            current++;
+        }
+    }
+}
 void ShaderManager::ApplyPipeline() {
     if (!mpv) return;
     std::lock_guard<std::recursive_mutex> lock(mtx);
     fs::path tempDir = fs::current_path() / "shader_cache";
     if (!fs::exists(tempDir)) fs::create_directories(tempDir);
-
+    activeShaders.clear(); 
     // 1. Lọc và Sắp xếp (giữ nguyên logic Hook và Order)
-    std::vector<Shader*> activeShaders;
     for (auto& [name, s] : shaders) {
         if (s.enabled) activeShaders.push_back(&s);
     }
+    NormalizeOrders();
 
-    std::sort(activeShaders.begin(), activeShaders.end(), [this](Shader* a, Shader* b) {
+    std::sort(activeShaders.begin(), activeShaders.end(), [&](Shader* a, Shader* b) {
         int pA = HookPriority(a->hook);
         int pB = HookPriority(b->hook);
-        if (pA != pB) return pA < pB;
+
+        if (pA != pB)
+            return pA < pB;
+
         return a->order < b->order;
     });
 
@@ -197,6 +236,8 @@ void ShaderManager::ParseShaderFile(const std::string& path, Shader& s) {
     ShaderParam* currentParam = nullptr;
     bool collectingInfo = false;
 
+    s.loadIndex = globalLoadCounter++;
+
     while (std::getline(f, line)) {
         line = Trim(line);
         if (line.empty()) continue;
@@ -311,6 +352,7 @@ void ShaderManager::LoadShadersFromFolder(const std::vector<std::string>& folder
         
     }
 }
+/*
 std::vector<Shader*> ShaderManager::GetActivePipeline() {
     std::lock_guard<std::recursive_mutex> lock(mtx);
     std::vector<Shader*> activeShaders;
@@ -333,6 +375,7 @@ std::vector<Shader*> ShaderManager::GetActivePipeline() {
 
     return activeShaders;
 }
+*/
 void ShaderManager::Reload() {
     std::lock_guard<std::recursive_mutex> lock(mtx);
     
@@ -384,7 +427,7 @@ void ShaderManager::SaveState() {
             auto& s = shaders[name];
             json s_json;
             s_json["name"] = name;
-            
+            s_json["order"] = s.order;
             // Lưu các thông số của shader
             for (auto& p : s.params) {
                 s_json["params"][p.name] = p.value;
@@ -443,6 +486,10 @@ void ShaderManager::LoadState() {
                     Shader& s = shaders[name];
                     s.enabled = true;
                     pipeline.push_back(name); // Khôi phục đúng thứ tự mảng trong JSON
+                    
+                    if (s_json.contains("order")) {
+                        s.order = s_json["order"].get<int>();
+                    }
 
                     // Khôi phục giá trị tham số người dùng đã chỉnh
                     if (s_json.contains("params")) {
@@ -485,41 +532,62 @@ void ShaderManager::ApplyChanges(const std::string& name) {
 }
 void ShaderManager::MoveUp(const std::string& name) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
-    auto it = std::find(pipeline.begin(), pipeline.end(), name);
-    if (it != pipeline.begin() && it != pipeline.end()) {
-        std::iter_swap(it, it - 1);
-        // Cập nhật lại thuộc tính order dựa trên vị trí mới trong pipeline
-        for (int i = 0; i < pipeline.size(); i++) {
-            shaders[pipeline[i]].order = i;
+
+    auto it = shaders.find(name);
+    if (it == shaders.end()) return;
+
+    Shader& current = it->second;
+    int currentOrder = current.order;
+    HookStage currentHook = current.hook;
+
+    Shader* target = nullptr;
+
+    // 🔍 tìm shader cùng hook có order nhỏ hơn gần nhất
+    for (auto& [k, s] : shaders) {
+        if (s.hook != currentHook) continue;
+
+        if (s.order < currentOrder) {
+            if (!target || s.order > target->order) {
+                target = &s;
+            }
         }
+    }
+
+    if (target) {
+        std::swap(current.order, target->order);
         ApplyPipeline();
     }
 }
 void ShaderManager::MoveDown(const std::string& name) {
     std::lock_guard<std::recursive_mutex> lock(mtx);
-    
-    // Tìm vị trí hiện tại của shader trong pipeline
-    auto it = std::find(pipeline.begin(), pipeline.end(), name);
-    
-    // Kiểm tra: Shader phải tồn tại và không được ở vị trí cuối cùng
-    if (it != pipeline.end() && it != std::prev(pipeline.end())) {
-        // Hoán đổi với shader đứng sau nó
-        std::iter_swap(it, std::next(it));
-        
-        // Cập nhật lại thuộc tính 'order' cho tất cả shader trong pipeline 
-        // để đồng bộ hóa với Map
-        for (int i = 0; i < pipeline.size(); i++) {
-            const std::string& shaderName = pipeline[i];
-            if (shaders.count(shaderName)) {
-                shaders[shaderName].order = i;
+
+    auto it = shaders.find(name);
+    if (it == shaders.end()) return;
+
+    Shader& current = it->second;
+    int currentOrder = current.order;
+    HookStage currentHook = current.hook;
+
+    Shader* target = nullptr;
+
+    // 🔍 tìm shader cùng hook có order lớn hơn gần nhất
+    for (auto& [k, s] : shaders) {
+        if (s.hook != currentHook) continue;
+
+        if (s.order > currentOrder) {
+            if (!target || s.order < target->order) {
+                target = &s;
             }
         }
-        
-        // Cập nhật xuống mpv
+    }
+
+    if (target) {
+        std::swap(current.order, target->order);
         ApplyPipeline();
     }
 }
 void ShaderManager::EnableAll() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
     pipeline.clear(); // Xóa để nạp lại từ đầu theo đúng danh sách hiện có
 
     for (auto& [name, s] : shaders) {
@@ -609,6 +677,52 @@ void ShaderManager::MoveShader(int from, int to)
 
     // ===== UPDATE ORDER =====
     for (int i = 0; i < pipeline.size(); i++) {
+        const std::string& shaderName = pipeline[i];
+
+        if (shaders.count(shaderName)) {
+            shaders[shaderName].order = i;
+        }
+    }
+
+    // ===== APPLY =====
+    ApplyPipeline();
+}
+void ShaderManager::DiscardChanges() {
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+
+    for (auto& [name, shader] : shaders) {
+        for (auto& p : shader.params) {
+            p.temp_value = p.value;
+        }
+    }
+}
+void ShaderManager::MoveShaderByName(const std::string& fromName, const std::string& toName)
+{
+    std::lock_guard<std::recursive_mutex> lock(mtx);
+
+    auto fromIt = std::find(pipeline.begin(), pipeline.end(), fromName);
+    auto toIt   = std::find(pipeline.begin(), pipeline.end(), toName);
+
+    if (fromIt == pipeline.end() || toIt == pipeline.end())
+        return;
+
+    if (fromIt == toIt)
+        return;
+
+    // Lưu item
+    std::string item = *fromIt;
+
+    // Xóa khỏi vị trí cũ
+    pipeline.erase(fromIt);
+
+    // ⚠️ Quan trọng: sau erase, iterator có thể bị invalid → tìm lại
+    toIt = std::find(pipeline.begin(), pipeline.end(), toName);
+
+    // Chèn vào vị trí mới
+    pipeline.insert(toIt, item);
+
+    // ===== UPDATE ORDER =====
+    for (int i = 0; i < (int)pipeline.size(); i++) {
         const std::string& shaderName = pipeline[i];
 
         if (shaders.count(shaderName)) {

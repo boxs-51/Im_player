@@ -1708,7 +1708,7 @@ namespace CusTomImGui{
         ImGui::PopStyleVar(); // Pop CellPadding
     }
 
-    inline void BeginCard() {
+    inline bool BeginCard() {
         // Sử dụng màu nền Card nhẹ nhàng, tiệp với tông Dark của Window
         ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg_Card); 
         ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border_Card); // Viền mảnh
@@ -1719,7 +1719,13 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
 
         // Dùng ID động để tránh trùng lặp nếu có nhiều Card
-        ImGui::BeginChild(ImGui::GetID("##card_inner"), ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysUseWindowPadding);
+        if(ImGui::BeginChild(ImGui::GetID("##card_inner"), ImVec2(0, 0), true, ImGuiWindowFlags_AlwaysUseWindowPadding)){
+            return true;
+        }
+
+        ImGui::PopStyleColor(3);
+        ImGui::PopStyleVar(3);
+        return false;
     }
 
     inline void EndCard() {
@@ -1808,19 +1814,30 @@ namespace CusTomImGui{
         ImGui::PopStyleVar(5);
     }
     inline bool ModernButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
+        // 1. Kiểm tra xem người dùng có truyền size cố định hay không
+        bool has_custom_size = (size.x != 0.0f || size.y != 0.0f);
+
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8)); // Nút dày dặn hơn
         
-        // Màu sắc nút Primary (Accent)
+        // 2. Nếu có size, reset Padding để ImGui tự căn giữa text trong không gian đó
+        // Nếu không có size, dùng Padding mặc định để nút trông "dày dặn"
+        if (has_custom_size) {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+        } else {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8));
+        }
+        
+        // 3. Setup Màu sắc
         ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_ModernButton);
         ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_ModernButton);
         ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_ModernButton);
 
+        // 4. Gọi hàm Button gốc
         bool pressed = ImGui::Button(label, size);
 
         ImGui::PopStyleColor(4);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleVar(2); // Pop FrameRounding và FramePadding
 
         return pressed;
     }
@@ -2386,23 +2403,49 @@ namespace CusTomImGui{
         ImGui::PopStyleVar(2);
         return pressed;
     }
-    inline bool ModernArrowButton(const char* str_id, ImGuiDir dir) {
-        // 1. Setup style tương tự SmallButton để tạo sự đồng nhất
+    inline bool ModernArrowButton(const char* str_id, ImGuiDir dir, ImVec2 size = ImVec2(0, 0)) {
+        // 1. Setup Style
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4)); // Padding cân đối cho mũi tên
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+        
+        bool custom_size = (size.x != 0.0f || size.y != 0.0f);
+        if (!custom_size) {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4));
+        } else {
+            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
+        }
 
-        // 2. Sử dụng màu từ GTheme (Secondary style)
-        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_SecondaryButton);
+        // 2. Setup Colors
+        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_SecondaryButton);
 
-        // 3. Gọi hàm gốc của ImGui
-        bool pressed = ImGui::ArrowButton(str_id, dir);
+        // 3. Render Button
+        // Sử dụng Button với label rỗng để lấy hitbox
+        bool pressed = ImGui::Button(str_id, size);
+
+        // 4. Vẽ mũi tên lên trên Button vừa tạo
+        if (ImGui::IsItemVisible()) {
+            // Thay thế LastItemRect bằng các hàm an toàn hơn:
+            ImVec2 pos_min = ImGui::GetItemRectMin();
+            ImVec2 pos_max = ImGui::GetItemRectMax();
+            
+            float arrow_size = ImGui::GetFontSize();
+            // Tính toán tâm của nút
+            ImVec2 center = ImVec2(pos_min.x + (pos_max.x - pos_min.x) * 0.5f, 
+                                pos_min.y + (pos_max.y - pos_min.y) * 0.5f);
+            
+            // Vẽ mũi tên căn giữa
+            ImGui::RenderArrow(ImGui::GetWindowDrawList(), 
+                            ImVec2(center.x - arrow_size * 0.45f, center.y - arrow_size * 0.45f), 
+                            ImGui::GetColorU32(ImGuiCol_Text), 
+                            dir);
+        }
 
         ImGui::PopStyleColor(4);
         ImGui::PopStyleVar(3);
+        
         return pressed;
     }
 
