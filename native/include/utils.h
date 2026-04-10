@@ -253,8 +253,6 @@ struct VideoInfo {
     double aspect = 0.0;        // aspect ratio
     double estimated_vf_fps_mpv = 0.0; // fps ước lượng từ filter graph   
     double currentFPS = 0.0;    // fps thực tế (rendered, lấy từ mpv stats)
-    double minFPS = 0.0;        // fps thấp nhất đo được
-    double maxFPS = 0.0;        // fps cao nhất đo được    
     std::string video_format;  // video format/container (vd: "mp4", "mkv")    
     std::string vcodec;         // codec video (vd: "h264")
     std::string description;   // mô tả chung (vd: "1920x1080 [SAR 1:1 DAR 16:9] fps 23.976")

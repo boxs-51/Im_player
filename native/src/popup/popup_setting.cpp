@@ -146,7 +146,7 @@ void ShaderSettingsPage() {
                 ImGui::SameLine();
                 if (CusTomImGui::SecondaryButton("Disable All")) sm.DisableAll();
                 ImGui::SameLine();
-                if (CusTomImGui::ModernButton("Reload All")) sm.Reload({{AutoPath<std::string>("%ROOT%","shaders")}}); 
+                if (CusTomImGui::ModernButton("Reload All")) sm.Reload(); 
 
                 std::vector<CusTomImGui::TableCol> cols = {
                     {"", 40.0f}, 
@@ -182,7 +182,55 @@ void ShaderSettingsPage() {
                     CusTomImGui::EndListTable();
                     
                 }
-                
+                /*
+                // --- PHẦN QUẢN LÝ THƯ MỤC TRONG TAB LIBRARY ---
+                ImGui::Spacing();
+                ImGui::Separator();
+                ImGui::Spacing();
+
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 0.6f, 1.0f), "SHADERS SOURCE DIRECTORIES");
+                ImGui::Spacing();
+
+                // Khu vực Input chân trang
+                static char folderPath[512] = "";
+                float availWidth = ImGui::GetContentRegionAvail().x;
+                float buttonWidth = 120.0f;
+                float spacing = ImGui::GetStyle().ItemSpacing.x;
+
+                ImGui::SetNextItemWidth(availWidth - buttonWidth - spacing);
+                CusTomImGui::ModernInputText("##path", folderPath, IM_ARRAYSIZE(folderPath));
+                ImGui::SameLine();
+
+                if (CusTomImGui::ModernButton("Add Folder", ImVec2(buttonWidth, 0))) {
+                    if (strlen(folderPath) > 0) {
+                        sm.AddFolder(folderPath);
+                        memset(folderPath, 0, sizeof(folderPath));
+                    }
+                }
+
+                ImGui::Spacing();
+
+                // Danh sách folder hiện đại (Dùng ChildWindow cố định chiều cao để tránh đẩy UI đi quá xa)
+                if (CusTomImGui::BeginModernChild("FolderList", ImVec2(0, 120.0f), true)) {
+                    for (const auto& path : sm.GetSearchPaths()) {
+                        ImGui::PushID(path.c_str());
+                        
+                        // Vẽ một dòng Folder sạch sẽ
+                        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 5);
+                        ImGui::TextDisabled("- %s", path.c_str());
+                        
+                        ImGui::SameLine(ImGui::GetContentRegionAvail().x - 30);
+                        ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.8f, 0.2f, 0.2f, 0.8f));
+                        if (CusTomImGui::ModernSmallButton("x")) {
+                            sm.RemoveFolder(path);
+                        }
+                        ImGui::PopStyleColor();
+                        
+                        ImGui::PopID();
+                    }
+                    CusTomImGui::EndModernChild();
+                }
+                */
                 ImGui::EndTabItem();
             }
 
@@ -284,6 +332,88 @@ void ShaderSettingsPage() {
                     //sm.DiscardChanges(""); // Gọi hàm reset toàn bộ temp_value về value
                     wasConfigTabOpen = false;
                 }
+            }
+            // --- TAB 3: PIPELINE (MODERN REORDERABLE) ---
+            if (ImGui::BeginTabItem("Pipeline")) {
+                ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 6));
+                
+                auto activePipeline = sm.GetActivePipeline();
+                const float rowHeight = 45.0f; // Độ cao cố định cho mọi item
+
+                if (CusTomImGui::BeginModernChild("PipelineList", ImVec2(0, 0), false)) {
+                    HookStage lastStage = HookStage::UNKNOWN;
+
+                    for (int i = 0; i < (int)activePipeline.size(); ++i) {
+                        Shader* s = activePipeline[i];
+
+                        if (s->hook != lastStage) {
+                            lastStage = s->hook;
+                            ImGui::Spacing();
+                            ImGui::TextDisabled("STAGE: %s", sm.HookStageToString(s->hook).c_str());
+                            ImGui::Separator();
+                        }
+
+                        ImGui::PushID(s->name.c_str());
+
+                        // 1. Tọa độ bắt đầu của Row
+                        ImVec2 p_min = ImGui::GetCursorScreenPos();
+                        ImVec2 size = ImVec2(ImGui::GetContentRegionAvail().x, rowHeight);
+                        ImVec2 p_max = ImVec2(p_min.x + size.x, p_min.y + size.y);
+
+                        // 2. Sử dụng ModernSelectable làm nền (Layer dưới cùng)
+                        bool is_selected = false;
+                        if (CusTomImGui::ModernSelectable("##row_selectable", is_selected, ImGuiSelectableFlags_AllowItemOverlap, size)) {
+                            // Click vào row
+                        }
+
+                        // 3. Zone quản lý ACTION (Nút Xóa chiếm full độ cao bên phải)
+                        float actionZoneWidth = 40.0f;
+                        ImVec2 action_min = ImVec2(p_max.x - actionZoneWidth, p_min.y);
+                        ImVec2 action_max = p_max;
+                        
+                        // Chuyển Cursor đến vùng Action để vẽ nút xóa
+                        ImGui::SetCursorScreenPos(action_min);
+                        if (ImGui::Button("X", ImVec2(actionZoneWidth, rowHeight))) {
+                            sm.Disable(s->name);
+                            ImGui::PopStyleColor(3); ImGui::PopStyleVar(); ImGui::PopID();
+                            break;
+                        }
+
+                        // 4. Vẽ Text và Icon (Layer trên cùng)
+                        // Căn giữa theo chiều dọc
+                        float textOffsetY = (rowHeight - ImGui::GetTextLineHeightWithSpacing()) * 0.5f;
+
+                        // Icon kéo (Handle)
+                        ImGui::GetWindowDrawList()->AddText(ImVec2(p_min.x + 12, p_min.y + rowHeight * 0.35f), 
+                            ImGui::GetColorU32(ImGuiCol_TextDisabled), "≡");
+
+                        // Tên Shader & Info
+                        ImGui::SetCursorScreenPos(ImVec2(p_min.x + 35, p_min.y + textOffsetY));
+                        ImGui::BeginGroup();
+                            ImGui::TextUnformatted(s->name.c_str());
+                            ImGui::TextDisabled("Order: %02d", s->order);
+                        ImGui::EndGroup();
+
+                        // 5. Drag & Drop Logic
+                        if (ImGui::BeginDragDropSource(ImGuiDragDropFlags_None)) {
+                            ImGui::SetDragDropPayload("PIPELINE_ITEM", &i, sizeof(int));
+                            ImGui::Text("Moving %s", s->name.c_str());
+                            ImGui::EndDragDropSource();
+                        }
+                        if (ImGui::BeginDragDropTarget()) {
+                            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("PIPELINE_ITEM")) {
+                                int srcIndex = *(int*)payload->Data;
+                                sm.MoveShader(srcIndex, i);
+                            }
+                            ImGui::EndDragDropTarget();
+                        }
+
+                        ImGui::PopID();
+                    }
+                    CusTomImGui::EndModernChild();
+                }
+                ImGui::PopStyleVar();
+                ImGui::EndTabItem();
             }
             CusTomImGui::EndModernTabBar();
         }

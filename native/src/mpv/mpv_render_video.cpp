@@ -41,7 +41,8 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
     ShaderManager::Instance().Init(mpv_ptr);
 
     ScriptManager::Instance().LoadScriptFromFolder({ AutoPath<std::string>("%ROOT%","scripts")});
-    ShaderManager::Instance().LoadShadersFromFolder({AutoPath<std::string>("%ROOT%","shaders")});
+    //ShaderManager::Instance().LoadShadersFromFolder({AutoPath<std::string>("%ROOT%","shaders")});
+    ShaderManager::Instance().LoadState();
 
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);

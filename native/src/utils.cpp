@@ -1285,7 +1285,7 @@ void UpdateUIState( bool& show_ui_video ) {
     //SDL_GetMouseState(&mouseX, &mouseY);
     //SDL_Point mousePos = { mouseX, mouseY };
 
-    Uint32 currentTime = SDL_GetTicks();
+    Uint64 currentTime = SDL_GetTicks64();
     
     // 1. Kiểm tra vị trí chuột
     
@@ -1348,7 +1348,7 @@ void NotifyActivity(bool& show_ui_video) {
             SDL_ShowCursor(SDL_ENABLE);
         }
     }
-    lastInteractionTime = SDL_GetTicks();
+    lastInteractionTime = SDL_GetTicks64();
 }
 static std::unordered_map<std::string, GLuint> iconCache;
 
@@ -1400,11 +1400,11 @@ bool SetDelayHover( bool isHovering, double delaySeconds ,const char* id) {
     if (isHovering) {
         // Nếu chưa tồn tại ID này trong danh sách đang hover
         if (hoverTimers.find(key) == hoverTimers.end()) {
-            hoverTimers[key] = SDL_GetTicks();
+            hoverTimers[key] = SDL_GetTicks64();
         }
 
-        Uint32 elapsed = SDL_GetTicks() - hoverTimers[key];
-        if (elapsed >= (Uint32)(delaySeconds * 1000)) {
+        Uint64 elapsed = SDL_GetTicks64() - hoverTimers[key];
+        if (elapsed >= (Uint64)(delaySeconds * 1000)) {
             return true;
         }
     } else {

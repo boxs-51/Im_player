@@ -79,8 +79,13 @@ target_compile_definitions(imgui_player PRIVATE
 )
 # Include path
 target_include_directories(imgui_player PRIVATE
-    native/include        
+    native/include    
+
     native/include/mpv      
+    native/include/mpv/shaders
+    native/include/mpv/scripts
+    native/include/mpv/fillter
+
     native/include/nlohmann  
     native/include/KHR
     native/include/GL
@@ -93,14 +98,11 @@ target_include_directories(imgui_player PRIVATE
     native/include/windows
     native/include/popup
     native/include/threads
-    native/include/mpv/shaders
-    native/include/mpv/scripts
     native/include/services
 
     native/imgui/misc/freetype
     native/imgui/backends
     native/imgui
-
 )
 
 target_link_libraries(imgui_player PRIVATE

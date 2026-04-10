@@ -4,8 +4,13 @@
             "name": "Win32",
             "includePath": [
                 
-                "${workspaceFolder}/native/include",        
+                "${workspaceFolder}/native/include",  
+
                 "${workspaceFolder}/native/include/mpv",      
+                "${workspaceFolder}/native/include/mpv/shaders",      
+                "${workspaceFolder}/native/include/mpv/scripts", 
+                "${workspaceFolder}/native/include/mpv/fillter", 
+
                 "${workspaceFolder}/native/include/nlohmann",  
                 "${workspaceFolder}/native/include/KHR",
                 "${workspaceFolder}/native/include/GL",
@@ -18,9 +23,8 @@
                 "${workspaceFolder}/native/include/windows",
                 "${workspaceFolder}/native/include/popup",
                 "${workspaceFolder}/native/include/threads",
-                "${workspaceFolder}/native/include/mpv/shaders",
-                "${workspaceFolder}/native/include/mpv/scripts",
                 "${workspaceFolder}/native/include/services",
+                
                 "${workspaceFolder}/native/imgui/misc/freetype",
                 "${workspaceFolder}/native/imgui/backends",
                 "${workspaceFolder}/native/imgui"

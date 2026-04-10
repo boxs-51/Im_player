@@ -1,4 +1,6 @@
 #pragma once
+#include "globals.h"
+#include "utils.h"
 
 #include <string>
 #include <vector>
@@ -81,17 +83,20 @@ public:
     // Thay đổi thứ tự ưu tiên (Quan trọng cho pipeline)
     void MoveUp(const std::string& name);
     void MoveDown(const std::string& name);
+    void MoveShader(int from, int to);
 
     // Logic xử lý pipeline & mpv communication
     void ApplyPipeline();
 
     void ResetToDefault(const std::string& shaderName);
-    void Reload(const std::vector<std::string>& folders);
+    void Reload();
     void ApplyChanges(const std::string& name);
 
     // Getters
     std::unordered_map<std::string, Shader>& GetShaders() { return shaders; }
     const std::vector<std::string>& GetPipeline() { return pipeline; }
+    std::vector<Shader*> GetActivePipeline();
+    const std::vector<std::string>& GetSearchPaths() { return searchPaths; }
     
     Shader* GetShaderByName(const std::string& name) {
         auto it = shaders.find(name);
@@ -123,6 +128,6 @@ private:
     std::vector<std::string> pipeline; 
 
     std::recursive_mutex mtx;
-    std::string configPath = "shader_config.json";
-    std::vector<std::string> searchPaths;
+    std::string configPath = AutoPath<std::string>("%ROOT%", "data", "shader_config.json");
+    std::vector<std::string> searchPaths = {AutoPath<std::string>("%ROOT%","shaders")};
 };

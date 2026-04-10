@@ -22,11 +22,6 @@ MPV mpv;
 
 std::map<ThemeType, ThemeColors> ThemeLibrary;
 
-const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "data","settings_common.json");
-const std::string SETTINGS_PATH_VIDEO     = AutoPath<std::string>("%ROOT%", "data","settings_video.json");
-const std::string SETTINGS_PATH_POPUP_URL = AutoPath<std::string>("%ROOT%", "data","popup_data.json");
-
-
 std::vector<std::string> g_keywords;
 
 std::mutex g_mutex;
@@ -40,7 +35,7 @@ bool audio_Theme = false;
 
 double pendingSeekTime = -1.0;
 
-Uint32 lastInteractionTime = 0;
+Uint64 lastInteractionTime = 0;
 
 std::queue<std::string> g_errorQueue;
 
@@ -72,10 +67,10 @@ std::vector<ReusablePopup*>& GetAllPopups() {
     return allReusablePopups;
 }
 
-void RenderAllPopups(mpv_handle* mpv) {
+void RenderAllPopups() {
     // Nếu vẫn còn dùng popup cũ (dạng ReusablePopup)
     if (Popup_Url.IsOpen()){
-        RenderPopupOverlay_Url(mpv);
+        RenderPopupOverlay_Url();
     }
     if (videoInfoPopup.IsOpen()) {
         RenderVideoInfoPopup(); 

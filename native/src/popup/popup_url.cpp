@@ -24,6 +24,8 @@ static bool urlConfirmed = false;
 static std::wstring result;
 
 static char buffer[2048] = {};
+
+const std::string SETTINGS_PATH_POPUP_URL = AutoPath<std::string>("%ROOT%", "data","popup_data.json");
 // --- Lịch sử URL ---
 PopupData LoadPopupData() {
     std::filesystem::path path = SETTINGS_PATH_POPUP_URL;
@@ -199,7 +201,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
                             ImVec2(popupWidth-1, maxInputHeight-1),
                             ImGuiInputTextFlags_AllowTabInput);
  
-    Disabehotkey = ImGui::IsItemActive()||ImGui::IsItemFocused();
+    Disabehotkey = ImGui::IsItemActive();
 
     urlInput = UTF8ToWide(buffer);
 
@@ -333,7 +335,7 @@ void OpenURLPopup(ReusablePopup& popup ) {
 }
 
 
-void RenderPopupOverlay_Url(mpv_handle* mpv) {
+void RenderPopupOverlay_Url() {
     // Hiển thị popup nhập URL
     Popup_Url.Render();
 

@@ -80,7 +80,7 @@ bool HandleBasicHotkeys(const SDL_Event& e, mpv_handle* mpv) {
                     mpv_command_play(mpv);
                 } else {
                     mpv_command_pause(mpv);
-                    lastInteractionTime = SDL_GetTicks();
+                    lastInteractionTime = SDL_GetTicks64();
                 }
                 return true;
 

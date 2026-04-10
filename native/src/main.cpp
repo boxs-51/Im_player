@@ -41,17 +41,14 @@ static bool g_WindowVisible = false;
 
 static int currentFPS = 0;
 
-static Uint32 frameTime;
-static Uint32 frameStart;
+static Uint64 frameTime;
+static Uint64 frameStart;
 static Uint32 flags;
-
-static Uint32 fpsTimer;
-
-static bool redrawoneframe = false;
+static Uint64 fpsTimer;
 
 std::atomic<bool> running(true);
 
-Uint32 frameDelay = 1000 / 60;
+Uint64 frameDelay = 1000 / 60;
 
 // NVIDIA GPU
 extern "C" {
@@ -276,34 +273,49 @@ void RenderUI( PlaybackState state ){
     ImGui::End();
 
 }
-void RenderPushFont(PlaybackState state){
+void RenderPushFont(PlaybackState state ,bool g_WindowVisible){
     RenderUI(state);
     if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-    if (( IsAnyPopupOpen()) ) {
-        RenderAllPopups(mpv.mpv);
-
-    }else{
-        Disabehotkey = false;
-    }
+    if (( IsAnyPopupOpen()) ) RenderAllPopups();
+    else Disabehotkey = false;
 }
-void RenderFrame(){
+void RenderFrame(bool g_WindowVisible){
+    static Uint64 lastVisibleTime = 0;
+    static bool isRenderingPaused = false;
 
     if (!g_WindowVisible) {
-        mpv_disable_video(mpv.mpv);
-        if(!redrawoneframe)
-            redrawoneframe = true ;
-        else return;
-            
+        // Nếu vừa mới ẩn, ghi lại thời điểm cuối cùng còn nhìn thấy
+        if (lastVisibleTime == 0) {
+            lastVisibleTime = SDL_GetTicks64();
+        }
+
+        // Kiểm tra xem đã quá 1 giây chưa
+        if (SDL_GetTicks64() - lastVisibleTime > 1000) { 
+            if (!isRenderingPaused) {
+                mpv_disable_video(mpv.mpv);
+                isRenderingPaused = true;
+                // LOG: "Video rendering paused after timeout"
+            }
+            return; // Dừng xử lý loop render ở đây để tiết kiệm CPU/GPU
+        }
     } else {
-        if (audio_Theme)
-            mpv_disable_video(mpv.mpv);
-        else 
-            mpv_enable_video(mpv.mpv);
-        
-        redrawoneframe = false;
+        // Khi cửa sổ hiện trở lại: Reset ngay lập tức
+        lastVisibleTime = 0;
+        if (isRenderingPaused) {
+            if (!audio_Theme) {
+                mpv_enable_video(mpv.mpv);
+            }
+            isRenderingPaused = false;
+        }
     }
 
-    
+    // Logic render chính vẫn chạy nếu chưa quá 1s hoặc đang Visible
+    if (audio_Theme) {
+        mpv_disable_video(mpv.mpv);
+    } else if (!isRenderingPaused) {
+        mpv_enable_video(mpv.mpv);
+    }
+
     PlaybackState state = GetPlaybackState();
 
     ImFont* cur = FontManager::Instance().GetCurrentFont();
@@ -316,10 +328,10 @@ void RenderFrame(){
 
     if (cur) {
         ImGui::PushFont(cur);
-        RenderPushFont(state);
+        RenderPushFont(state,g_WindowVisible);
         ImGui::PopFont();
     }else{
-        RenderPushFont(state);
+        RenderPushFont(state,g_WindowVisible);
     }
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -391,18 +403,24 @@ int main(int argc, char** argv) {
     
     InitPlaybackStatus(mpv.mpv);
     UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
-    //WaitForServicesReady();
+
     if (argc >= 2) {
         std::string Url = argv[1];
         CallThread_URLFetch(Url,true);
     }
-    fpsTimer = SDL_GetTicks();
+
+    fpsTimer = SDL_GetTicks64();
     SDL_Event e;
     while (running) {
         UpdateTheme(ImGui::GetIO().DeltaTime);
-        frameStart = SDL_GetTicks();
+        frameStart = SDL_GetTicks64();
         flags = SDL_GetWindowFlags(ctx.mainWindow);
+        if(ToggleFullscreen){
+            SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+            ToggleFullscreen =false;
+        }
         g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
+        g_DragResizeState.IsMax = (flags & SDL_WINDOW_MAXIMIZED) != 0;
         while (SDL_PollEvent(&e)) {
             ImGui_ImplSDL2_ProcessEvent(&e);
             HandleMainWindowEvent(e);
@@ -412,34 +430,17 @@ int main(int argc, char** argv) {
 
         UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
 
-        if(ToggleFullscreen){
-            SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-            ToggleFullscreen =false;
-        }
-        g_DragResizeState.IsMax = (flags & SDL_WINDOW_MAXIMIZED) != 0;
-
-        RenderFrame() ;
+        RenderFrame(g_WindowVisible) ;
 
         static int frameCount = 0;
         frameCount++;
-        Uint32 now = SDL_GetTicks();
+        Uint64 now = SDL_GetTicks64();
         if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
             g_videoInfo.currentFPS = frameCount;
-        
-        static bool fpsInited  = false;
-
-        if (!fpsInited) {
-            g_videoInfo.minFPS = g_videoInfo.currentFPS;
-            g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-            fpsInited = true;
-        } else {
-            if (g_videoInfo.currentFPS < g_videoInfo.minFPS) g_videoInfo.minFPS = g_videoInfo.currentFPS;
-            if (g_videoInfo.currentFPS > g_videoInfo.maxFPS) g_videoInfo.maxFPS = g_videoInfo.currentFPS;
-        }
             frameCount = 0;
             fpsTimer = now;
         }
-        frameTime = SDL_GetTicks() - frameStart;
+        frameTime = SDL_GetTicks64() - frameStart;
         if (frameDelay > frameTime) {
             SDL_Delay(frameDelay - frameTime);
         }

@@ -72,7 +72,7 @@ void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
     dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
     dataseek.pulse = 1.0f;
 
-    Uint32 now = SDL_GetTicks();
+    Uint64 now = SDL_GetTicks64();
 
     // Nếu chưa đủ delay -> chỉ cập nhật target, đánh dấu pending
     if (now - g_lastSeekRequestTime < SEEK_DELAY_MS) {
@@ -110,7 +110,7 @@ void mpv_command_seek_clamped(mpv_handle* mpv, float targetTime, float playbackT
     dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
     dataseek.pulse = 1.0f;
 
-    Uint32 now = SDL_GetTicks();
+    Uint64 now = SDL_GetTicks64();
 
     // Nếu chưa đủ delay -> lưu pending
     if (now - g_lastSeekRequestTime < SEEK_DELAY_MS) {
@@ -135,7 +135,7 @@ void mpv_update_seek_pending(mpv_handle* mpv) {
     if (!g_isSeekPending)
         return;
 
-    Uint32 now = SDL_GetTicks();
+    Uint64 now = SDL_GetTicks64();
     if (now - g_lastSeekRequestTime >= SEEK_DELAY_MS) {
         // Thực hiện seek
         char buffer[32];

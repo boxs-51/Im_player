@@ -16,7 +16,7 @@
 
 static int g_lastVolumeBeforeMute = 50;
 
-uint64_t volumeSliderVisibleUntil = 0;
+Uint64 volumeSliderVisibleUntil = 0;
 
 bool showSettings = false;
 bool showOptionMenu = false;
@@ -512,7 +512,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             }
         }
         // === Hiệu ứng xuất hiện / biến mất (fade + trượt ngang) ===
-        bool showSlider = SDL_GetTicks() < volumeSliderVisibleUntil;
+        bool showSlider = SDL_GetTicks64() < volumeSliderVisibleUntil;
 
         static float easedAnim = 0.0f; // giá trị từ 0 -> 1
         UpdateHoverAnim(easedAnim,showSlider,10.0f);
@@ -541,7 +541,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         static bool isActive_Slider = false;
         // Cập nhật thời gian hiển thị nếu đang hover icon hoặc slider
         if (hoverIcon || hoverSlider || knobHovered || knobActive || isActive_Slider)
-            volumeSliderVisibleUntil = SDL_GetTicks() + 1000;  // 1 giây
+            volumeSliderVisibleUntil = SDL_GetTicks64() + 1000;  // 1 giây
 
         if (showSlider) {
             ImGui::SameLine();

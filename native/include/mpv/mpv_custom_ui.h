@@ -2342,7 +2342,69 @@ namespace CusTomImGui{
 
         return changed;
     }
+    inline bool ModernInputText(const char* label, char* buf, size_t buf_size, ImGuiInputTextFlags flags = 0) {
+        // 1. Setup Style tương tự Multiline nhưng padding dọc nhỏ hơn để cân đối
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8)); 
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
+        // 2. Màu sắc từ Theme
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernInputTextMultiline); 
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernInputTextMultiline);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernInputTextMultiline);
+        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border_ModernInputTextMultiline); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernInputTextMultiline);
+
+        bool changed = ImGui::InputText(label, buf, buf_size, flags);
+
+        // 3. Hiệu ứng viền Accent khi active
+        if (ImGui::IsItemActive()) {
+            ImGui::GetWindowDrawList()->AddRect(
+                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), 
+                ImColor(40, 110, 230, 255), 6.0f, 0, 1.5f
+            );
+        }
+
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(3);
+        return changed;
+    }
+    inline bool ModernSmallButton(const char* label) {
+        // Nút nhỏ cần bo góc ít hơn một chút hoặc giữ nguyên để đồng bộ
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 2)); // Padding cực nhỏ cho Small Button
+        
+        // Sử dụng màu của SecondaryButton hoặc một màu Neutral hơn
+        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered_ModernButton); // Hover vẫn cho màu chính
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_SecondaryButton);
+
+        bool pressed = ImGui::Button(label);
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(2);
+        return pressed;
+    }
+    inline bool ModernArrowButton(const char* str_id, ImGuiDir dir) {
+        // 1. Setup style tương tự SmallButton để tạo sự đồng nhất
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 4)); // Padding cân đối cho mũi tên
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 0.0f);
+
+        // 2. Sử dụng màu từ GTheme (Secondary style)
+        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive_ModernButton);
+        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_SecondaryButton);
+
+        // 3. Gọi hàm gốc của ImGui
+        bool pressed = ImGui::ArrowButton(str_id, dir);
+
+        ImGui::PopStyleColor(4);
+        ImGui::PopStyleVar(3);
+        return pressed;
+    }
 
 
 }

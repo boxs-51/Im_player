@@ -1,12 +1,9 @@
 #pragma once
-#include "globals.h"
 #include "utils.h"
-#include <GL/gl3w.h> 
-#include <unordered_map>
+#include "json.hpp"
+
 #include <string>
-#include <vector>
-#include <filesystem>
-#include <optional>
+#include <fstream>
 
 struct AppSettings {
     

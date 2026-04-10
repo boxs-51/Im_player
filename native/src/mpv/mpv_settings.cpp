@@ -1,29 +1,14 @@
 #include "mpv/mpv_settings.h"
-#include "globals.h"
-#include "utils.h"
-#include "json.hpp"
-#include "cpr.h"
-
-
-#include <string>
-#include <Windows.h>
-#include <codecvt>
-#include <algorithm>
-#include <mpv/client.h>
-#include <iostream>
-#include <fstream>
-#include <sstream>
-#include <openssl/sha.h>   
-#include <unordered_map>
-#include <filesystem>
-#include <optional>
-#include <regex>
 
 using json = nlohmann::json;
 static std::string ytdl_json_buffer;
 
 AppSettings v_Settings;  
 CommonSettings c_Settings;  
+
+
+const std::string SETTINGS_PATH_VIDEO     = AutoPath<std::string>("%ROOT%", "data","settings_video.json");
+const std::string SETTINGS_PATH_COMMOM    = AutoPath<std::string>("%ROOT%", "data","settings_common.json");
 
 void LoadSettings_Video() {
     std::ifstream file(SETTINGS_PATH_VIDEO);

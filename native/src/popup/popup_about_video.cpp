@@ -95,7 +95,6 @@ void ShowVideoInfo() {
 
     CusTomImGui::InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
     CusTomImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
-    CusTomImGui::InfoRow("Min / Max FPS :", "%.2f / %.2f" ,g_videoInfo.minFPS, g_videoInfo.maxFPS);
     CusTomImGui::EndInfoTable();
     }
 

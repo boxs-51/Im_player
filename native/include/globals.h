@@ -57,18 +57,13 @@ extern MPV mpv;
 extern SeekingData dataseek;
 extern UiWindowsState uiState;
 
-extern const std::string SETTINGS_PATH_COMMOM  ;
-extern const std::string SETTINGS_PATH_VIDEO   ;
-extern const std::string SETTINGS_PATH_POPUP_URL ;
-
-
 extern std::vector<std::string> g_keywords;
 
 extern std::mutex g_mutex;
 extern std::string g_nextPageToken;
 extern std::string g_searchQuery;
 
-extern Uint32 lastInteractionTime;
+extern Uint64 lastInteractionTime;
 
 extern bool ToggleFullscreen ;
 extern bool Disabehotkey;
@@ -92,7 +87,7 @@ std::vector<ReusablePopup*>& GetAllPopups();
 
 bool IsAnyPopupOpen();
 
-void RenderAllPopups(struct mpv_handle* mpv);
+void RenderAllPopups();
 
 void OffPopup();
 
