@@ -27,4 +27,6 @@ private:
     // Vị trí popup
     ImVec2 lastPopupPos = {0,0};
     bool positionInitialized = false;
+
+    
 };

@@ -7,23 +7,26 @@
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_custom_ui.h"
 
+#include "thread.h"
+
+#include <commdlg.h>  
 #include <vector>
 #include <string>
-#include <algorithm>
-#include <Windows.h>
 #include <imgui.h>
 #include "reusable_popup.h"
 #include <filesystem>
-#include <commdlg.h>  
-#include "thread.h"
 
 using json = nlohmann::json;
 
 static bool urlConfirmed = false;
-
-static std::wstring result;
-
-static char buffer[2048] = {};
+static bool bufferInitialized = false;
+static char buffer[32768] = {};
+// --- State tồn tại suốt vòng đời popup ---
+static PopupData data;
+static std::wstring urlInput;
+static std::wstring lastURLCopy;
+static std::vector<std::wstring> pendingLocalFilesLocal;
+static std::wstring outResultURL;
 
 const std::string SETTINGS_PATH_POPUP_URL = AutoPath<std::string>("%ROOT%", "data","popup_data.json");
 // --- Lịch sử URL ---
@@ -154,8 +157,8 @@ void HistoryUrlPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
                 selectedUrlIndex = (int)i;
                 std::wstring wLabel = UTF8ToWide(labelUtf8);
                 strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
+                buffer[sizeof(buffer) - 1] = '\0';
                 urlInput = wLabel;
-                buffer[2047] = 0;
             }
             ImGui::Separator();
         }
@@ -174,20 +177,20 @@ void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
                 selectedFileIndex = (int)i;
                 std::wstring wLabel = UTF8ToWide(labelUtf8);
                 strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
+                buffer[sizeof(buffer) - 1] = '\0';
                 urlInput = wLabel;
-                buffer[2047] = 0;
             }
         }
         CusTomImGui::EndModernChild();
     }
 }
-void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
+void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
                          PopupData& data, std::wstring& lastURL,std::wstring& urlInput ,
                          std::vector<std::wstring>& pendingLocalFilesLocal) {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     float popupWidth = avail.x;
     float lineHeight = ImGui::GetTextLineHeight();
-    float maxInputHeight = lineHeight*3;
+    float maxInputHeight = lineHeight*2;
     float historyHeight = lineHeight*10;
     static bool invalidUrl = false; // local
 
@@ -196,7 +199,13 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 
     ImGui::Text("Vui lòng nhập URL hoặc chọn file local:");
 
-    if (!urlInput.empty())strncpy(buffer, WideToUTF8(urlInput).c_str(), sizeof(buffer)-1);
+
+    if (!bufferInitialized) {
+        std::string utf8 = WideToUTF8(urlInput);
+        strncpy(buffer, utf8.c_str(), sizeof(buffer) - 1);
+        buffer[sizeof(buffer) - 1] = '\0';
+        bufferInitialized = true;
+    }      
     CusTomImGui::ModernInputTextMultiline("##URLInput", buffer, sizeof(buffer),
                             ImVec2(popupWidth-1, maxInputHeight-1),
                             ImGuiInputTextFlags_AllowTabInput);
@@ -206,7 +215,6 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
     urlInput = UTF8ToWide(buffer);
 
     if(CusTomImGui::ModernCheckbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);
-    //if(ImGui::Checkbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);;
     ImGui::Separator();
 
     // --- History tabs ---
@@ -229,18 +237,14 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 
     ImGui::Separator();
     if(CusTomImGui::ModernCheckbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
-    //if(ImGui::Checkbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
 
-    //if( ImGui::Button("Lấy từ Clipboard")){
     if( CusTomImGui::ModernButton("Lấy từ Clipboard")){
         if(OpenClipboard(NULL)){
             HANDLE hData=GetClipboardData(CF_UNICODETEXT);
             if(hData){
                 LPCWSTR clipText=(LPCWSTR)GlobalLock(hData);
                 if(clipText && *clipText && wcsstr(clipText,L"http")){
-                    //strncpy(urlInput,clipUtf8.c_str(),sizeof(urlInput)-1);
                     urlInput = clipText;
-                    //urlInput[sizeof(urlInput)-1]=0;
                 }
                 GlobalUnlock(hData);
             }
@@ -250,12 +254,9 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 
     ImGui::SameLine(0.0f,30.0f);
     if( CusTomImGui::ModernButton("Thêm từ file local")){
-    //if(ImGui::Button("Thêm từ file local")){
         auto files=OpenFilePickerW();
         if(!files.empty()){
             std::wstring firstFileUtf8=files[0];
-            //strncpy(urlInput,firstFileUtf8.c_str(),sizeof(urlInput)-1);
-            //urlInput[sizeof(urlInput)-1]=0;
             urlInput = firstFileUtf8;
             pendingLocalFilesLocal.clear();
             for(auto &f:files) pendingLocalFilesLocal.push_back(f);
@@ -264,25 +265,26 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 
     ImGui::Separator();
     ImGui::Text("URL trước đó:");
-    ImGui::TextWrapped("%ls",lastURL.c_str());
+    
+    std::string lasturltrum = TextUtils::TruncateTextByPixels(WideToUTF8(lastURL).c_str(),popupWidth - 20.0f);
+    ImGui::Text("%s",lasturltrum.c_str());
+
 
     // --- Buttons OK/Cancel ---
     if( CusTomImGui::ModernButton("OK")){
-    //if(ImGui::Button("OK")){
-
-    if( IsValidLocalFile(urlInput)){
+        if( IsValidLocalFile(urlInput)){
             outResultURL = urlInput;
             if(data.saveHistory) AddLocalToHistory(data, urlInput);
             pendingLocalFilesLocal.clear();
             SetVideoTypeLocal();
             urlConfirmed = true;
-            closePopup_url = true;
+            closePopup = true;
             invalidUrl = false;
         }else if(IsLikelyVideoURL(WideToUTF8(urlInput))){
             outResultURL =urlInput;
             if(data.saveHistory) AddURLToHistory(data, urlInput);
             urlConfirmed = true;
-            closePopup_url = true;
+            closePopup = true;
             invalidUrl = false;
         }else{
             invalidUrl = true;
@@ -292,8 +294,7 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 
     ImGui::SameLine();
     if( CusTomImGui::ModernButton("Hủy")){
-    //if(ImGui::Button("Hủy")){
-        closePopup_url=true;
+        closePopup=true;
         pendingLocalFilesLocal.clear();
     }
 
@@ -302,13 +303,6 @@ void ShowURLPopupContent(bool& closePopup_url, std::wstring& outResultURL,
 }
 
 void OpenURLPopup(ReusablePopup& popup ) {
-    // --- State tồn tại suốt vòng đời popup ---
-    static PopupData data;
-    static std::wstring urlInput;
-    static std::wstring lastURLCopy;
-    static std::vector<std::wstring> pendingLocalFilesLocal;
-    std::wstring& outResultURL = result;
-
 
     // Chỉ load dữ liệu khi popup chưa mở
     if(!popup.IsOpen()) {
@@ -316,35 +310,28 @@ void OpenURLPopup(ReusablePopup& popup ) {
         lastURLCopy = data.lastURL;
         urlInput = data.autoLoadLastURL ? data.lastURL : L"https://";
         pendingLocalFilesLocal.clear();
+        bufferInitialized = false;
     }
 
-    // Lambda capture **copy các static** để ImGui safe và không warning
-    popup.Open("Popup Url",
-        [dataCopy = data,
-         urlInputCopy = urlInput,
-         lastURLCopyCopy = lastURLCopy,
-         pendingCopy = pendingLocalFilesLocal,
-         &outResultURL](bool& closePopup) mutable {
-            ShowURLPopupContent(closePopup,
-                                outResultURL,
-                                dataCopy,
-                                lastURLCopyCopy,
-                                urlInputCopy,
-                                pendingCopy);
-        });
+    popup.Open("Popup Url", [] (bool& closePopup) {
+        ShowURLPopupContent(closePopup,outResultURL,
+                            data,lastURLCopy,
+                            urlInput,
+                            pendingLocalFilesLocal); 
+    });
 }
 
 
-void RenderPopupOverlay_Url() {
+void RenderPopupOverlay_Url(ReusablePopup& popup) {
     // Hiển thị popup nhập URL
-    Popup_Url.Render();
+    popup.Render();
 
     // Nếu đã xác nhận URL từ popup
-    if (urlConfirmed && !result.empty()) {
+    if (urlConfirmed && !outResultURL.empty()) {
 
-        CallThread_URLFetch(WideToUTF8(result),true); // Giao luôn việc cho thread
+        CallThread_URLFetch(WideToUTF8(outResultURL),true); // Giao luôn việc cho thread
         urlConfirmed = false;
-        result.clear();
+        outResultURL.clear();
     }
 
 }

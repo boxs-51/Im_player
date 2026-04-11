@@ -1,7 +1,8 @@
 #include "globals.h"
-#include "reusable_popup.h"
+
+#include <popup/reusable_popup.h>
 #include "windows/windows_borderless_state.h"
-#include "mpv/mpv_custom_ui.h"
+#include <mpv/mpv_custom_ui.h>
 #include <imgui.h>
 
 void ReusablePopup::Open(const std::string& title, std::function<void(bool&)> contentFunc) {

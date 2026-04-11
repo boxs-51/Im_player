@@ -8,6 +8,8 @@
 #include <mpv/mpv_custom_ui.h>
 #include <mpv/render_gl.h>
 
+#include <popup/popup.h>
+
 #include "utils.h"
 #include "hotkey_handler.h"
 #include "globals.h"

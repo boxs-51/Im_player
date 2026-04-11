@@ -16,12 +16,10 @@ static int tempFontIndex = 0; // font chọn tạm thời
 static std::string tempFamily;
 static std::string tempStyle;
 static int selectedItem = 0; 
-static bool temprunPopup_setting = false;
 static bool isDirty = false;
 // Mở popup settings
-void OpenSettingPopup() {
-    temprunPopup_setting = true;
-    SettingPopup.Open("Settings", [](bool& closePopup_setting) {
+void OpenSettingPopup(ReusablePopup& popup) {
+    popup.Open("Settings", [](bool& closePopup_setting) {
         ShowSettingsPopup(closePopup_setting);
     });
 }
@@ -587,6 +585,6 @@ void ShowSettingsPopup(bool& closePopup_setting) {
 }
 
 // Render popup mỗi frame
-void RenderSettingPopup() {
-    SettingPopup.Render();
+void RenderSettingPopup(ReusablePopup& popup) {
+    popup.Render();
 }

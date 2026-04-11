@@ -17,14 +17,14 @@
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
 
-void OpenSidarBarPopup() {
-    SidarBarPopup.Open("Sidebar", [](bool& closePopup_siderbar) {
+void OpenSidarBarPopup(ReusablePopup& popup) {
+    popup.Open("Sidebar", [](bool& closePopup_siderbar) {
         ShowSidarBarPopup(closePopup_siderbar);
     });
 }
 
-void RenderSidarBarPopup() {
-    SidarBarPopup.Render();
+void RenderSidarBarPopup(ReusablePopup& popup) {
+    popup.Render();
 }
 
 void ShowSidarBarPopup(bool& closePopup_siderbar) {

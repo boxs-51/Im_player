@@ -73,23 +73,10 @@ extern bool audio_Theme;
 
 extern std::vector<std::wstring> playlist;
 
-extern ReusablePopup Popup_Url;   
-extern ReusablePopup videoInfoPopup;
-extern ReusablePopup SettingPopup;
-extern ReusablePopup SidarBarPopup;
-
 extern std::queue<std::string> g_errorQueue;
 
 extern double pendingSeekTime ;
 
-
-std::vector<ReusablePopup*>& GetAllPopups();
-
-bool IsAnyPopupOpen();
-
-void RenderAllPopups();
-
-void OffPopup();
 
 
 

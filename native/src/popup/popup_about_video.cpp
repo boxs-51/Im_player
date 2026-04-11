@@ -531,8 +531,8 @@ void ShowDuBugInFo(){
     
 }
 
-void OpenVideoInfoPopup() {
-    videoInfoPopup.Open("Video Info", [](bool& closePopup_VideoInFo) {
+void OpenVideoInfoPopup(ReusablePopup& popup) {
+    popup.Open("Video Info", [](bool& closePopup_VideoInFo) {
         ShowVideoInfoPopup(closePopup_VideoInFo);  // truyền ref
     });
 }
@@ -583,7 +583,7 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
     //    EndModernChild();
     //}
 }
-void RenderVideoInfoPopup(){
+void RenderVideoInfoPopup(ReusablePopup& popup){
     // Render popup mỗi frame
-    videoInfoPopup.Render();
+    popup.Render();
 }

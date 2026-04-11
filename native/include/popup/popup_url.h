@@ -29,4 +29,4 @@ void ShowURLPopupContent(bool& closePopup_url,
                          std::vector<std::wstring>& pendingLocalFilesLocal);
 
 void OpenURLPopup(class ReusablePopup& popup );
-void RenderPopupOverlay_Url() ;
+void RenderPopupOverlay_Url(class ReusablePopup& popup) ;

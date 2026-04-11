@@ -7,7 +7,7 @@
 
 #include "windows/windows_borderless.h"
 
-#include "popup/sidebar_popup.h"
+#include "popup/popup.h"
 
 #include "utils.h"
 #include "SDL.h"
@@ -709,7 +709,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (SidarBarPopup.IsOpen()){
                 SidarBarPopup.Close();
             }else{
-                OpenSidarBarPopup();
+                OpenSidarBarPopup(SidarBarPopup);
             }
             showOptionMenu = !showOptionMenu;
         }

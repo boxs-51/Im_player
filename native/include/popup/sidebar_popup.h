@@ -5,8 +5,8 @@
 #include <mpv/client.h>
 
 
-void OpenSidarBarPopup() ;
-void RenderSidarBarPopup();
+void OpenSidarBarPopup(class ReusablePopup& popup) ;
+void RenderSidarBarPopup(class ReusablePopup& popup);
 void ShowSidarBarPopup(bool&  closePopup_siderbar) ;
 void RenderVideoList();
 void RenderListVideoMPV(mpv_handle* mpv);

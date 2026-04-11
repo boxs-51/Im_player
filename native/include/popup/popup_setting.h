@@ -1,7 +1,7 @@
 #include "reusable_popup.h"
 
 
-void OpenSettingPopup();
+void OpenSettingPopup(class ReusablePopup& popup);
 void ShowSettingsPopup(bool& closePopup_setting);
-void RenderSettingPopup();
+void RenderSettingPopup(class ReusablePopup& popup);
 void RenderFontSettingsContent();

@@ -159,19 +159,19 @@ bool HandlePopupHotkeys(const SDL_Event& e) {
             case SDLK_a:
             {
                 if (videoInfoPopup.IsOpen()) {videoInfoPopup.Close();
-                } else {OpenVideoInfoPopup();}    
+                } else {OpenVideoInfoPopup(videoInfoPopup);}    
                 return true;
             }
             case SDLK_l:
             {
                 if (SidarBarPopup.IsOpen()){SidarBarPopup.Close();
-                } else {OpenSidarBarPopup();}  
+                } else {OpenSidarBarPopup(SidarBarPopup);}  
                 return true; 
             }
             case SDLK_s:
             {
                 if (SettingPopup.IsOpen()) {SettingPopup.Close();
-                } else {OpenSettingPopup();}    
+                } else {OpenSettingPopup(SettingPopup);}    
                 return true; 
             }
             default:

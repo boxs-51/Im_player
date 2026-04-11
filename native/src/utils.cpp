@@ -2,13 +2,15 @@
 #include "globals.h"
 #include "utils.h"
 #include "json.hpp"
-#include "windows/windows_borderless.h"
+#include <windows/windows_borderless.h>
 #include "thread.h"
 #include "notification.h"
 
-#include "mpv/mpv_basic_formats.h"
-#include "mpv/mpv_custom_ui.h"
-#include "services/services_services.h"
+#include <popup/popup.h>
+
+#include <mpv/mpv_basic_formats.h>
+#include <mpv/mpv_custom_ui.h>
+#include <services/services_services.h>
 
 #include <filesystem>
 #include <vector>
