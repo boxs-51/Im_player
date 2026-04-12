@@ -117,7 +117,7 @@ void GeneralSettingsPage() {
 
 void ShaderSettingsPage() {
     static bool wasConfigTabOpen = false;
-
+    float scale = ImGui::GetStyle().FontScaleMain;
     ImVec2 avail = ImGui::GetContentRegionAvail();
     auto& sm = ShaderManager::Instance();
     
@@ -147,10 +147,10 @@ void ShaderSettingsPage() {
                 if (CusTomImGui::ModernButton("Reload All")) sm.Reload(); 
 
                 std::vector<CusTomImGui::TableCol> cols = {
-                    {"", 40.0f}, 
-                    {"Tên Shader", 180.0f},
-                    {"Giai đoạn", 80.0f},
-                    {"Công dụng & Chi tiết", 0.0f}
+                    {"", 40.0f * scale}, 
+                    {"Tên Shader", 180.0f * scale},
+                    {"Giai đoạn", 80.0f * scale},
+                    {"Công dụng & Chi tiết", 0.0f * scale}
                 };
                 
                 if (CusTomImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
@@ -192,8 +192,8 @@ void ShaderSettingsPage() {
                 // Khu vực Input chân trang
                 static char folderPath[512] = "";
                 float availWidth = ImGui::GetContentRegionAvail().x;
-                float buttonWidth = 120.0f;
-                float spacing = 10.0f;
+                float buttonWidth = 120.0f * scale;
+                float spacing = 10.0f * scale;
 
                 ImGui::SetNextItemWidth(availWidth - buttonWidth - spacing);
                 CusTomImGui::ModernInputText("##path", folderPath, IM_ARRAYSIZE(folderPath));
@@ -265,8 +265,9 @@ void ShaderSettingsPage() {
             // --- TAB 2: CẤU HÌNH (CONFIGURATION) ---
             bool isConfigOpen = CusTomImGui::ModernTabItem("Configuration");
             if (isConfigOpen) {
+                float Selectablewight = 160.0f * scale;
                 ImGui::Columns(2, "ConfigSplit", true);
-                ImGui::SetColumnWidth(0, 160.0f);
+                ImGui::SetColumnWidth(0, Selectablewight + 40.0f);
 
                 ImGui::TextDisabled("ĐANG CHẠY");
                 wasConfigTabOpen = true;
@@ -280,8 +281,9 @@ void ShaderSettingsPage() {
 
                 if(CusTomImGui::BeginModernChild("PipeList", ImVec2(0, 0), false)){
                     for (const auto& name : pipeline) {
+                        std::string text_trum = TextUtils::TruncateTextByPixels(name.c_str(),Selectablewight );
                         bool is_selected = (selectedName == name);
-                        if (CusTomImGui::ModernSelectable(name.c_str(), is_selected)) {
+                        if (CusTomImGui::ModernSelectable(text_trum.c_str(), is_selected)) {
                             selectedName = name;
                             sm.DiscardChanges();
                             isDirty = false;
@@ -299,7 +301,7 @@ void ShaderSettingsPage() {
                         ImGui::Text("Tùy chỉnh: %s", s.name.c_str());
                         ImGui::TextDisabled("Điều chỉnh các tham số bên dưới để thay đổi hiệu ứng hiển thị.");
 
-                        if (CusTomImGui::BeginInfoTable("Meta", 2, 80.0f)) {
+                        if (CusTomImGui::BeginInfoTable("Meta", 2, 80.0f * scale)) {
                             CusTomImGui::InfoRow("Đường dẫn", "%s", s.path.c_str());
                             CusTomImGui::InfoRow("Thứ tự", "Ưu tiên: %d", s.order);
                             CusTomImGui::EndInfoTable();
@@ -316,8 +318,8 @@ void ShaderSettingsPage() {
 
                             ImGui::SetNextItemWidth(-1);
                             // Tính toán kích thước dựa trên scale để đồng nhất với giao diện chung
-                            float slider_height = 5.0f ;    // Độ dày thanh trượt
-                            float grab_size = 10.0f  ;      // Bán kính nút kéo
+                            float slider_height = 5.0f * scale ;    // Độ dày thanh trượt
+                            float grab_size = 10.0f * scale;      // Bán kính nút kéo
                             float full_width = ImGui::GetContentRegionAvail().x;
 
                             if (CusTomImGui::ModernSliderFloat(
@@ -371,10 +373,10 @@ void ShaderSettingsPage() {
             // --- TAB 3: PIPELINE (MODERN REORDERABLE) ---
             if (CusTomImGui::ModernTabItem("Pipeline")) {
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 4));
-                
+
                 auto activePipeline = sm.GetActivePipeline();
-                const float rowHeight = 28.0f; // Độ cao dòng cố định để dễ căn chỉnh
-                const ImVec2 btnSize = ImVec2(24, 24); // Nút nhỏ hơn rowHeight một chút để tạo khoảng thở
+                const float rowHeight = 32.0f * scale; // Tăng nhẹ độ cao để thoải mái hơn
+                const ImVec2 btnSize = ImVec2(24, 24);
 
                 std::string moveUp = "", moveDown = "", toRemove = "";
 
@@ -383,7 +385,7 @@ void ShaderSettingsPage() {
                     int index = 0;
 
                     for (auto* s : activePipeline) {
-
+                        // Hiển thị Stage Header
                         if (s->hook != lastStage) {
                             lastStage = s->hook;
                             ImGui::Spacing();
@@ -393,86 +395,53 @@ void ShaderSettingsPage() {
 
                         ImGui::PushID(s->name.c_str());
 
+                        // 1. Lấy tọa độ bắt đầu dòng
                         ImVec2 p_min = ImGui::GetCursorScreenPos();
                         float fullWidth = ImGui::GetContentRegionAvail().x;
-                        ImVec2 p_max = ImVec2(p_min.x + fullWidth, p_min.y + rowHeight);
+                        float rightPadding = 10.0f * scale;
+                        float btnSpacing = 4.0f * scale;
+                        float buttonsWidth = (btnSize.x * 3) + (btnSpacing * 2) + rightPadding;
+                        float selectableWidth = fullWidth - buttonsWidth - 6.0f; // trừ thêm 6px khoảng hở an toàn
 
-                        // ===== BG =====
-                        CusTomImGui::ModernSelectable("##row", false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(fullWidth, rowHeight));
+                        // 2. Định dạng chuỗi hiển thị (Order | Icon | Name)
+                        char label[256];
+                        snprintf(label, sizeof(label), "%02d | %02d  ◆  %s", index + 1, s->order, s->name.c_str());
 
-                        // ===== CENTERING =====
-                        float textY = p_min.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
-                        float btnY  = p_min.y + (rowHeight - btnSize.y) * 0.5f;
+                        // 3. Vẽ Selectable làm nền và chứa text luôn
+                        // Lưu ý: Dùng ## để ID không bị trùng nếu s->name giống nhau, 
+                        // nhưng ở đây ta dùng s->name làm ID chính qua PushID rồi.
+                        CusTomImGui::ModernSelectable(label, false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(selectableWidth, rowHeight));
+                        
+                        // QUAN TRỌNG: Cho phép các nút bấm vẽ sau đây chiếm quyền ưu tiên click
+                        ImGui::SetItemAllowOverlap();
 
-                        float paddingX = 10.0f;
-                        float spacing  = 6.0f;
+                        // 4. Vẽ các nút bấm đè lên trên Selectable
+                        float btnY = p_min.y + (rowHeight - btnSize.y) * 0.5f;
+                        float cursorX = p_min.x + fullWidth - rightPadding; // Lùi vào 10px từ lề phải
 
-                        // ===== RIGHT SIDE (BUTTONS) =====
-                        float cursorX = p_max.x - paddingX;
-
-                        // X
+                        // Nút X (Xóa)
                         cursorX -= btnSize.x;
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
                         if (CusTomImGui::ModernButton("X", btnSize)) {
                             toRemove = s->name;
                         }
 
-                        // Down
-                        cursorX -= (btnSize.x + spacing);
+                        // Nút Down
+                        cursorX -= (btnSize.x + btnSpacing);
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
                         if (CusTomImGui::ModernArrowButton("##down", ImGuiDir_Down, btnSize)) {
                             moveDown = s->name;
                         }
 
-                        // Up
-                        cursorX -= (btnSize.x + spacing);
+                        // Nút Up
+                        cursorX -= (btnSize.x + btnSpacing);
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
                         if (CusTomImGui::ModernArrowButton("##up", ImGuiDir_Up, btnSize)) {
                             moveUp = s->name;
                         }
 
-                        float buttonsStartX = cursorX;
-
-                        // ===== LEFT SIDE =====
-
-                        float x = p_min.x + paddingX;
-
-                        // 🔢 ORDER
-                        char orderBuf[16];
-                        snprintf(orderBuf, sizeof(orderBuf), "%02d | %02d", index + 1, s->order);
-
-                        ImGui::GetWindowDrawList()->AddText(
-                            ImVec2(x, textY),
-                            ImGui::GetColorU32(ImGuiCol_TextDisabled),
-                            orderBuf
-                        );
-
-                        x += 48.0f; // width order
-
-                        // 🔷 ICON
-                        ImGui::GetWindowDrawList()->AddText(
-                            ImVec2(x, textY),
-                            ImGui::GetColorU32(ImGuiCol_TextDisabled),
-                            "◆"
-                        );
-
-                        x += 18.0f;
-
-                        // ===== TEXT (TRUNCATE) =====
-
-                        float textMaxWidth = buttonsStartX - x - 6.0f;
-
-                        std::string truncated = TextUtils::TruncateTextByPixels(
-                            s->name.c_str(),
-                            textMaxWidth
-                        );
-
-                        ImGui::SetCursorScreenPos(ImVec2(x, textY));
-                        ImGui::TextUnformatted(truncated.c_str());
-
-                        // ===== LAYOUT FIX =====
+                        // 5. Kết thúc dòng: Đưa cursor xuống dưới hàng vừa vẽ
                         ImGui::SetCursorScreenPos(ImVec2(p_min.x, p_min.y + rowHeight));
-                        ImGui::Dummy(ImVec2(fullWidth, rowHeight));
 
                         ImGui::PopID();
                         index++;
@@ -480,7 +449,7 @@ void ShaderSettingsPage() {
                     CusTomImGui::EndModernChild();
                 }
 
-                // Apply Actions
+                // Apply Actions (Xử lý logic sau khi vẽ xong để tránh lỗi iterator)
                 if (!moveUp.empty())   sm.MoveUp(moveUp);
                 if (!moveDown.empty()) sm.MoveDown(moveDown);
                 if (!toRemove.empty()) sm.Disable(toRemove);

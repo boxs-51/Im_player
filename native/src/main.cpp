@@ -134,8 +134,11 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         bool isMouseInteraction =
             e.type == SDL_MOUSEMOTION ||
             e.type == SDL_MOUSEWHEEL;
-
-        if (isMousePressOrRelease) {
+        int mouseX, mouseY;
+        SDL_GetMouseState(&mouseX, &mouseY);
+        SDL_Point mousePos = { mouseX, mouseY };
+        bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
+        if (isMousePressOrRelease && isMouseInsideVideo) {
             NotifyActivity(show_ui_video);
         }
     }
