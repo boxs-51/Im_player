@@ -31,7 +31,7 @@ std::string g_searchQuery;
 bool ToggleFullscreen = false;
 bool Disabehotkey = false;
 bool playImmediately = true;
-bool audio_Theme = false;
+bool Audio_visualizers = false;
 
 double pendingSeekTime = -1.0;
 

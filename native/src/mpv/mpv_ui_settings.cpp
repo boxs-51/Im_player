@@ -21,6 +21,18 @@ enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;
 static OptionsPage current_options_page = OptionsPage::Main;
 
+// Thêm biến global hoặc static bên trong RenderIOCHSidebar
+static float page_anim = 1.0f; 
+static SettingsPage last_page = SettingsPage::Main;
+
+// Helper để đổi trang với hiệu ứng reset animation
+auto ChangePage = [&](SettingsPage next) {
+    if (current_page != next) {
+        last_page = current_page;
+        current_page = next;
+        page_anim = 0.0f; // Reset animation về 0 để bắt đầu fade in
+    }
+};
 
 // Thêm màu sắc và khoảng cách chuẩn
 void UI_MenuItem(const char* label, const char* current_value, float scale, std::function<void()> on_click) {
@@ -30,107 +42,123 @@ void UI_MenuItem(const char* label, const char* current_value, float scale, std:
     float item_height = 40.0f * scale;
     ImVec2 size = ImVec2(full_width, item_height); 
 
-    // Tận dụng logic bo góc và padding của ModernSelectable
-    ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f * scale);
+    // 1. Gọi ModernSelectable nâng cao
+    // Lưu ý: Chúng ta không truyền nhãn vào đây để tránh nó vẽ chữ mặc định ở giữa
+    // Hoặc truyền "" và tự vẽ để kiểm soát vị trí chính xác của label và value
     if (CusTomImGui::ModernSelectable("##item", false, 0, size)) {
         on_click();
     }
-    ImGui::PopStyleVar();
+
+    // Lấy ID và Storage để lấy giá trị animation đồng bộ với ModernSelectable
+    ImGuiID id = ImGui::GetItemID();
+    float tHover = ImGui::GetStateStorage()->GetFloat(id, 0.0f);
 
     ImVec2 p_min = ImGui::GetItemRectMin();
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    float margin_left = 12.0f * scale;
+    // 2. Tính toán hiệu ứng trượt (Slide) đồng bộ
+    float slide_offset = tHover * (4.0f * scale);
+    float margin_left = (12.0f * scale) + slide_offset;
     float arrow_space = 35.0f * scale;
     float center_split = full_width * 0.55f;
 
-    // Vẽ Label - Dùng màu Text từ Theme
+    // 3. Vẽ Label (Có hiệu ứng trượt)
     float max_label_w = center_split - margin_left - (5.0f * scale);
     std::string safe_label = TextUtils::TruncateToWidth(label, max_label_w);
     draw_list->AddText(ImVec2(p_min.x + margin_left, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
-                       ToCol32(GTheme.Text_ModernChild), safe_label.c_str());
+                       ToCol32(GTheme.Text), safe_label.c_str());
 
-    // Vẽ Value - Dùng màu TextDisabled hoặc màu nhạt hơn
+    // 4. Vẽ Value (Màu nhạt)
     if (current_value && strlen(current_value) > 0) {
         float max_val_w = (full_width - center_split) - arrow_space - (5.0f * scale);
         std::string safe_value = TextUtils::TruncateToWidth(current_value, max_val_w);
         float val_text_width = ImGui::CalcTextSize(safe_value.c_str()).x;
         
         draw_list->AddText(ImVec2(p_max.x - val_text_width - arrow_space, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
-                           ToCol32(GTheme.Text_Selected_ModernSelectable), safe_value.c_str());
+                           ToCol32(GTheme.TextDisabled), safe_value.c_str());
     }
     
-    // Mũi tên
+    // 5. Mũi tên (Dùng màu nhấn khi hover)
+    ImU32 arrow_col = tHover > 0.5f ? ToCol32(GTheme.Button) : IM_COL32(100, 100, 100, 255);
     draw_list->AddText(ImVec2(p_max.x - (20.0f * scale), p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
-                       IM_COL32(100, 100, 100, 255), ">");
+                       arrow_col, ">");
     
     ImGui::PopID();
 }
-
 void UI_Toggle(const char* label, bool* v, float scale, bool enabled, std::function<void(bool)> on_change) {
     ImGui::PushID(label);
     
-    // Giữ nguyên logic Animation của bạn
-    static std::map<ImGuiID, float> anim_states;
-    ImGuiID id = ImGui::GetID(label);
-    if (anim_states.find(id) == anim_states.end()) anim_states[id] = (*v ? 1.0f : 0.0f);
-    float target = *v ? 1.0f : 0.0f;
-    anim_states[id] += (target - anim_states[id]) * 0.15f; 
-    float t = anim_states[id];
-
-    float width = ImGui::GetContentRegionAvail().x;
+    float full_width = ImGui::GetContentRegionAvail().x;
     float row_height = 35.0f * scale;
-    float sw_w = 36.0f * scale;
-    float sw_h = 18.0f * scale;
+    float spacing_y = 2.0f * scale; // Khoảng cách giữa các hàng
+    
+    ImVec2 size = ImVec2(full_width, row_height);
 
-    if (ImGui::InvisibleButton("##toggle_btn", ImVec2(width, row_height)) && enabled) {
+    // 1. Trước khi vẽ, hãy đảm bảo Cursor ở đúng vị trí
+    ImVec2 p_min = ImGui::GetCursorScreenPos();
+
+    // 2. Gọi ModernSelectable (Hàm này đã có ItemSize bên trong nên nó sẽ đăng ký vùng chiếm chỗ)
+    if (CusTomImGui::ModernSelectable("##bg", false, 0, size , enabled) && enabled) {
         *v = !*v;
         if (on_change) on_change(*v);
     }
 
-    ImVec2 p_min = ImGui::GetItemRectMin();
+    // Lấy ID và thông số animation sau khi Selectable đã chạy
+    ImGuiID id = ImGui::GetItemID();
+    float tHover = ImGui::GetStateStorage()->GetFloat(id, 0.0f);
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    // 1. Hover Background - Dùng màu HeaderHovered từ Theme
-    if (enabled && ImGui::IsItemHovered()) {
-        draw_list->AddRectFilled(p_min, p_max, ToCol32(GTheme.HeaderHovered_ModernSelectable), 4.0f * scale);
-    }
-
-    // 2. Label - Dùng màu Text của Checkbox
-    float max_label_w = width - sw_w - (30.0f * scale);
-    std::string safe_label = TextUtils::TruncateTextByPixels(label, max_label_w);
-    draw_list->AddText(ImVec2(p_min.x + 12 * scale, p_min.y + (row_height - ImGui::GetFontSize()) * 0.5f), 
-                       enabled ? ToCol32(GTheme.Text_ModernCheckbox) : ToCol32(GTheme.Text_ModernChild), safe_label.c_str());
-
-    // 3. Switch Background - Nội suy từ màu FrameBg sang màu CheckMark (Accent Color)
-    ImVec2 sw_pos = ImVec2(p_max.x - sw_w - 12 * scale, p_min.y + (row_height - sw_h) * 0.5f);
+    // 3. Vẽ Label (Slide offset)
+    float slide_offset = tHover * (4.0f * scale);
+    float sw_w = 36.0f * scale;
+    float sw_h = 18.0f * scale;
     
-    ImVec4 col_off = GTheme.FrameBg_ModernCheckbox;
-    ImVec4 col_on  = GTheme.CheckMark_ModernCheckbox;
+    float text_y_pos = p_min.y + (row_height - ImGui::GetFontSize()) * 0.5f;
+    ImU32 text_col = enabled ? ToCol32(GTheme.Text) : ToCol32(GTheme.TextDisabled);
     
-    ImVec4 current_col = ImVec4(
-        col_off.x + (col_on.x - col_off.x) * t,
-        col_off.y + (col_on.y - col_off.y) * t,
-        col_off.z + (col_on.z - col_off.z) * t,
-        enabled ? 1.0f : 0.4f
-    );
+    draw_list->AddText(ImVec2(p_min.x + (12.0f * scale) + slide_offset, text_y_pos), 
+                       text_col, label);
 
-    draw_list->AddRectFilled(sw_pos, ImVec2(sw_pos.x + sw_w, sw_pos.y + sw_h), ImGui::GetColorU32(current_col), 10.0f * scale);
-
-    // 4. Knob
-    float knob_x = (sw_pos.x + sw_h * 0.5f) + (sw_w - sw_h) * t;
-    draw_list->AddCircleFilled(ImVec2(knob_x, sw_pos.y + sw_h * 0.5f), 7.0f * scale, ToCol32(GTheme.Text_ModernCheckbox));
+    // 4. Vẽ ModernToggle (Dùng tọa độ tuyệt đối để không làm lệch Cursor của ImGui)
+    ImVec2 sw_pos = ImVec2(p_max.x - sw_w - 12.0f * scale, p_min.y + (row_height - sw_h) * 0.5f);
+    
+    // Lưu vị trí cũ để khôi phục sau khi vẽ Toggle
+    ImVec2 backup_cursor = ImGui::GetCursorScreenPos();
+    ImGui::SetCursorScreenPos(sw_pos);
+    
+    // Gọi ModernToggle (Lưu ý dùng ID khác để tránh xung đột input với Selectable)
+    CusTomImGui::ModernToggle("##sw_internal", v, enabled, scale);
+    
+    // 5. QUAN TRỌNG: Khôi phục Cursor và thêm khoảng cách dọc
+    ImGui::SetCursorScreenPos(backup_cursor); 
+    ImGui::Dummy(ImVec2(0.0f, spacing_y)); // Tạo khoảng trống giả để đẩy item tiếp theo xuống
 
     ImGui::PopID();
 }
+void UI_GroupHeader(const char* title, float scale = 1.0f) {
+    ImGui::Spacing();
+    ImVec2 p = ImGui::GetCursorScreenPos();
+    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    float height = ImGui::GetFontSize() + (4.0f * scale);
 
-void UI_GroupHeader(const char* title) {
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.5f, 0.5f, 0.5f, 1.0f));
+    // Vẽ thanh chỉ báo dọc (Indicator bar)
+    draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToCol32(GTheme.CheckMark), 2.0f);
+
+    // Vẽ Title
+    ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.0f * scale);
+    ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
     ImGui::Text(title);
     ImGui::PopStyleColor();
+
+    // Separator mờ dần hoặc màu mỏng
+    ImVec4 sep_col = GTheme.Separator;
+    sep_col.w = 0.3f; // Giảm độ đậm của gạch ngang
+    ImGui::PushStyleColor(ImGuiCol_Separator, sep_col);
     ImGui::Separator();
+    ImGui::PopStyleColor();
+    
     ImGui::Spacing();
 }
 
@@ -171,35 +199,50 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     float item_height = 35.0f * scale;
     ImVec2 size = ImVec2(full_width, item_height);
 
-    // Sử dụng ModernSelectable để lấy hiệu ứng Hover/Active chuẩn từ Theme
-    // Chúng ta truyền is_active vào để hàm tự đổi màu background/border
+    // 1. Gọi ModernSelectable nâng cao
     if (CusTomImGui::ModernSelectable("##item_btn", is_active, 0, size)) {
         on_click();
     }
+
+    // Lấy trạng thái animation
+    ImGuiID id = ImGui::GetItemID();
+    float tHover = ImGui::GetStateStorage()->GetFloat(id, 0.0f);
+    float tSelect = ImGui::GetStateStorage()->GetFloat(id + 1, 0.0f);
 
     bool is_hovered = ImGui::IsItemHovered();
     ImVec2 p_min = ImGui::GetItemRectMin();
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    // Tooltip vẫn giữ nguyên
-    ShowTooltipDelayed(label, is_hovered, 1.5f, label);
+    CusTomImGui::ShowTooltipDelayed(label, is_hovered, 1.5f, label);
 
-    // --- VẼ TEXT ---
-    float text_max_w = full_width - (40.0f * scale); 
+    // 2. Vẽ Text với hiệu ứng trượt và màu sắc động
+    float slide_offset = tHover * (4.0f * scale);
+    float text_max_w = full_width - (45.0f * scale); 
     std::string display_text = TextUtils::TruncateTextByPixels(label, text_max_w);
     
-    // Màu text lấy từ Theme: Nếu active dùng màu xanh lá, ngược lại dùng màu text mặc định
+    // Mix màu chữ mượt mà giữa màu thường và màu được chọn
+    ImVec4 textColor = GTheme.Text;
+    if (tSelect > 0.0f) {
+        textColor.x = ImLerp(GTheme.Text.x, GTheme.TextSelected.x, tSelect);
+        textColor.y = ImLerp(GTheme.Text.y, GTheme.TextSelected.y, tSelect);
+        textColor.z = ImLerp(GTheme.Text.z, GTheme.TextSelected.z, tSelect);
+        textColor.w = ImLerp(GTheme.Text.w, GTheme.TextSelected.w, tSelect);
+    }
 
-    ImVec2 text_pos = ImVec2(p_min.x + 10 * scale, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);
-    draw_list->AddText(text_pos, is_active ? ToCol32(GTheme.Text_Selected_ModernSelectable) : ToCol32(GTheme.Text_ModernChild), display_text.c_str());
+    ImVec2 text_pos = ImVec2(p_min.x + (10.0f * scale) + slide_offset, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);
+    draw_list->AddText(text_pos, ToCol32(textColor), display_text.c_str());
 
-    // --- VẼ ICON CHECKMARK ---
-    if (is_active) {
-        float check_size = 6.0f * scale;
+    // 3. Icon Checkmark (Fade in/out theo tSelect)
+    if (tSelect > 0.1f) {
+        float check_size = (6.0f * scale) * tSelect; // Phóng to dần
         ImVec2 check_pos = ImVec2(p_max.x - 20 * scale, p_min.y + item_height * 0.5f);
-        // Dùng màu CheckMark từ theme để đồng bộ với Checkbox/Toggle
-        draw_list->AddCircleFilled(check_pos, check_size * 0.5f, ToCol32(GTheme.CheckMark_ModernCheckbox));
+        
+        ImU32 check_col = ToCol32(GTheme.CheckMark);
+        // Làm mờ checkmark theo tSelect
+        check_col = (check_col & 0x00FFFFFF) | ((uint32_t)(tSelect * 255) << 24);
+        
+        draw_list->AddCircleFilled(check_pos, check_size * 0.5f, check_col);
     }
 
     ImGui::PopID();
@@ -358,22 +401,71 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
     scaleFactor = std::max(scaleFactor, 1.0f);
     scaleFactor = std::min(scaleFactor, 2.0f);
 
-    ImVec2 windowSize(260 * scaleFactor, 350 * scaleFactor);
+    // Tính toán kích thước mục tiêu dựa trên trang hiện tại
+    float targetWidth = 260.0f * scaleFactor;
+    float targetHeight = 350.0f * scaleFactor;
 
+    if (current_page == SettingsPage::ResolutionQuality || 
+        current_page == SettingsPage::AudioQuality ) {
+        targetWidth = 300.0f * scaleFactor;  // Phình rộng thêm một chút cho rõ chữ
+        targetHeight = 370.0f * scaleFactor; // Phình to chiều cao cho danh sách dài
+    }
+
+    // Nội suy kích thước cửa sổ để có hiệu ứng co giãn mượt mà
+    static ImVec2 current_window_size = ImVec2(targetWidth, targetHeight);
+    current_window_size.x += (targetWidth - current_window_size.x) * ImGui::GetIO().DeltaTime * 8.0f;
+    current_window_size.y += (targetHeight - current_window_size.y) * ImGui::GetIO().DeltaTime * 8.0f;
+
+    ImVec2 windowSize(current_window_size);
+
+    //GIỚI HẠN KÍCH THƯỚC (Không được to hơn video trừ đi padding)
     float padding = 30.0f * scaleFactor;
-    ImVec2 windowPos(
+    float maxAllowedW = videoSize.x - (padding * 2.0f);
+    float maxAllowedH = videoSize.y - (padding * 2.0f);
 
+    // Nếu windowSize hiện tại (đang nội suy) to hơn mức cho phép, hãy ép nó lại
+    if (windowSize.x > maxAllowedW) windowSize.x = maxAllowedW;
+    if (windowSize.y > maxAllowedH) windowSize.y = maxAllowedH;
+
+    // Cập nhật lại biến nội suy để không bị "đấu đá" với logic phình to
+    current_window_size.x = ImMin(current_window_size.x, maxAllowedW);
+    current_window_size.y = ImMin(current_window_size.y, maxAllowedH);
+
+    // Tính toán vị trí lý tưởng (Mặc định: Phía trên Icon, sát lề phải)
+    ImVec2 windowPos(
         videoPos.x + videoSize.x - windowSize.x - padding, // X: Sát mép phải video (có padding)
         iconPos.y - windowSize.y - padding                 // Y: Ngay phía trên Icon
     );
 
-    // Nếu Sidebar bị tràn khỏi đỉnh video, đẩy nó xuống dưới Icon
+    // 2. Logic ưu tiên: Nếu tràn đỉnh video, đẩy xuống dưới Icon
     if (windowPos.y < videoPos.y) {
-        windowPos.y = iconPos.y + 40 * scaleFactor; 
+        windowPos.y = iconPos.y + 40.0f * scaleFactor; 
+    }
+
+    // 3. --- GIỚI HẠN BIÊN (BOUNDARIES CHECK) ---
+    // Đảm bảo không vượt quá giới hạn trái/phải của Video
+    float minX = videoPos.x + padding;
+    float maxX = videoPos.x + videoSize.x - windowSize.x - padding;
+    windowPos.x = ImClamp(windowPos.x, minX, maxX);
+
+    // Đảm bảo không vượt quá giới hạn trên/dưới của Video
+    float minY = videoPos.y + padding;
+    float maxY = videoPos.y + videoSize.y - windowSize.y - padding;
+
+    windowPos.y = ImClamp(windowPos.y, minY, maxY);
+
+    // Sau khi đã Clamp windowPos.y ở bước 3 của bạn:
+    ImRect iconRect(iconPos, iconPos + ImVec2(40 * scaleFactor, 40 * scaleFactor));
+    ImRect windowRect(windowPos, windowPos + windowSize);
+
+    if (windowRect.Overlaps(iconRect)) {
+        // Nếu đè lên icon, đẩy sidebar sang trái icon 1 chút
+        windowPos.x = iconPos.x - windowSize.x - padding;
+        // Và tiếp tục Clamp X lại để không lòi ra khỏi lề trái video
+        windowPos.x = ImClamp(windowPos.x, videoPos.x + padding, maxX);
     }
 
     // Thiết lập cửa sổ
-
     ImGui::SetNextWindowPos(windowPos);
     ImGui::SetNextWindowSize(windowSize);
     ImGui::SetNextWindowBgAlpha(0.92f * anim);
@@ -383,11 +475,18 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
     ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim);
 
     if (ImGui::Begin("##SettingsSidebar", nullptr, ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoResize | ImGuiWindowFlags_NoMove | ImGuiWindowFlags_NoScrollbar)) {
-        
         // --- HEADER ---
+        // Cập nhật tiến trình animation trang (0.0 -> 1.0)
+        page_anim = ImMin(page_anim + ImGui::GetIO().DeltaTime * 6.0f, 1.0f);
+
+        // Hiệu ứng Slide: Trang mới sẽ trượt từ dưới lên hoặc từ phải sang
+        float slide_up = (1.0f - page_anim) * 20.0f * scaleFactor;
+        ImGui::SetCursorPosY(ImGui::GetCursorPosY() + slide_up);
+
+        // Áp dụng Alpha cho nội dung trang
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim * page_anim);
 
         VideoType videotype = GetVideoType();
-
         // --- NỘI DUNG ---
         switch (current_page) {
             case SettingsPage::Main:
@@ -395,18 +494,18 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 UI_GroupHeader("Chất lượng");
                 if (videotype != VideoType::File_Local) {
                     const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
-                    UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { current_page = SettingsPage::ResolutionQuality; });
+                    UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { ChangePage(SettingsPage::ResolutionQuality); });
                 }
                 if (videotype != VideoType::File_Local) {
                     const char* res_label = all_formats.audio.short_labels.empty() ? "N/A" : all_formats.audio.short_labels[all_formats.audio_index].c_str();
-                    UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { current_page = SettingsPage::AudioQuality; });
+                    UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { ChangePage(SettingsPage::AudioQuality); });
                 }
     
                 char speed_buf[16];
                 snprintf(speed_buf, sizeof(speed_buf), "%.2fx", v_Settings.playbackSpeed);
-                UI_MenuItem("Tốc độ phát", speed_buf, scaleFactor, [&]() { current_page = SettingsPage::PlaybackSpeed; });
+                UI_MenuItem("Tốc độ phát", speed_buf, scaleFactor, [&]() { ChangePage(SettingsPage::PlaybackSpeed); });
 
-                UI_MenuItem("Tùy chọn nâng cao", "Thiết lập", scaleFactor, [&]() { current_page = SettingsPage::Options; });
+                UI_MenuItem("Tùy chọn nâng cao", "Thiết lập", scaleFactor, [&]() { ChangePage(SettingsPage::Options); });
 
                 ImGui::Spacing();
                 UI_GroupHeader("Tùy chọn");
@@ -426,13 +525,16 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                     mpv_set_property_string(mpv, "playlist-auto-advance", s ? "yes" : "no");
                     SaveSettings_Video();
                 });
+
+                UI_Toggle("Trình chiếu âm thanh ", &Audio_visualizers, scaleFactor, true, [&](bool s) {
+                });
                 break;
             }
         
             // --- TRANG CON: RESOLUTION ---
             case SettingsPage::ResolutionQuality:
             {
-                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                if (CusTomImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
                 ImGui::Separator();
                 ImGui::Spacing();
 
@@ -442,7 +544,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
 
             case SettingsPage::AudioQuality:
             {
-                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                if (CusTomImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
                 ImGui::Separator();
                 ImGui::Spacing();
 
@@ -453,7 +555,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
             // --- TRANG CHỌN TỐC ĐỘ ---
             case SettingsPage::PlaybackSpeed:
             {
-                if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                if (CusTomImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
                 ImGui::Separator();
                 ImGui::Spacing();
 
@@ -466,7 +568,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 {
                     case OptionsPage::Main:
                     {
-                        if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_page = SettingsPage::Main;
+                        if (CusTomImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
                         ImGui::Separator();
                         ImGui::Spacing();
 
@@ -475,7 +577,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                     }
                     case OptionsPage::Subtitles:
                     {
-                        if (ImGui::Selectable("< Quay lại", false, 0, ImVec2(0, 25))) current_options_page = OptionsPage::Main;
+                        if (CusTomImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) current_options_page = OptionsPage::Main;
                         ImGui::Separator();
                         ImGui::Spacing();
 
@@ -495,11 +597,12 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 break;
             }
         }
-    if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
-    ImGui::End();
+        if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
+        ImGui::PopStyleVar();
+        ImGui::End();
+    }
     CusTomImGui::PopModernWindowStyle();
     ImGui::PopStyleVar();
-    }
 }
 
 

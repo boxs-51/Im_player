@@ -195,12 +195,12 @@ bool mpv_is_paused(mpv_handle *mpv) {
 void mpv_disable_video(mpv_handle* mpv) {
     if (!mpv) return;
     //mpv_set_property_string(mpv, "video-aspect-override", "0");
-    mpv_set_property_string(mpv, "vid", "no");
+    mpv_set_property_string(mpv, "video", "no");
 }
 void mpv_enable_video(mpv_handle* mpv) {
     if (!mpv) return;
     //mpv_set_property_string(mpv, "video-aspect-override", "-2");
-    mpv_set_property_string(mpv, "vid", "auto");
+    mpv_set_property_string(mpv, "video", "auto");
 }
 void mpv_command_set_shader(mpv_handle* mpv, const std::string& path) {
     if (!mpv || path.empty()) return;

@@ -101,7 +101,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     float spacing = videoSize.x * 0.05;
     ImVec2 iconSize(35 * scale, 35 * scale);
     const float minWidthForControls = 750.0f ;
-    const float minWHegthForControls = 424.0f ;
+    const float minWHegthForControls = 450.0f ;
     bool onlyShowSeekBar = (videoSize.x <= minWidthForControls || videoSize.y  <= minWHegthForControls );
     // === CONTROL WINDOW (bao gồm cả SEEKBAR) ===
 
@@ -157,7 +157,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
+    CusTomImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -453,7 +453,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
-            ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
+            CusTomImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
         }
         // Nút PLAY/PAUSE
         static  PlayPauseData playData;
@@ -466,7 +466,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
         }
 
-        ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
+        CusTomImGui::ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
@@ -474,7 +474,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
                 mpv_command_next_video(mpv);
             }
 
-            ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
+            CusTomImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
         }
 
         ImGui::BeginGroup();
@@ -495,7 +495,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
 
-        ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
+        CusTomImGui::ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
 
         bool active = ImGui::IsItemActive();
 
@@ -682,7 +682,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         ImVec2 iconPos = ImGui::GetItemRectMin();
         ImVec2 iconSize = ImGui::GetItemRectSize(); // Lấy kích thước nút
 
-        ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
+        CusTomImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
 
         RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video ,iconPos);
 
@@ -699,7 +699,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
             ToggleFullscreen = true;
         }
 
-        ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
+        CusTomImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
 
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
@@ -715,7 +715,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         }
         optdata.hovered = ImGui::IsItemHovered();
 
-        ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
+        CusTomImGui::ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
     
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;
@@ -736,23 +736,15 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
 }
 
-void RenderIdleBackground(ImTextureID texID , ImVec2 videopos, ImVec2 videoSize) {
-    if (!texID) return;
+void RenderIdleBackground(ImTextureID texID, ImVec2 videopos, ImVec2 videoSize) {
+    if (!texID || videoSize.x <= 0 || videoSize.y <= 0) return;
 
-    // Lấy pos + size của window hiện tại (ví dụ: VideoRegion)
-    ImVec2 winPos  = videopos;
-    ImVec2 winSize = videoSize;
+    ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
 
-    // Lấy drawlist của window này
-    ImDrawList* draw_list = ImGui::GetWindowDrawList();
+    const ImVec2 p_min = videopos;
+    const ImVec2 p_max = ImVec2(videopos.x + videoSize.x, videopos.y + videoSize.y);
 
-    // Vẽ ảnh phủ toàn bộ vùng window
-    draw_list->AddImage(
-        texID,
-        winPos,                          // top-left
-        ImVec2(winPos.x + winSize.x, 
-               winPos.y + winSize.y)     // bottom-right
-    );
+    draw_list->AddImage(texID, p_min, p_max);
 }
 void CleanupIcons(){
     
@@ -816,36 +808,5 @@ void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data) 
     }
 }
 
-void ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds, const char* id)
-{
-    // 1. Xử lý delay
-    bool shouldShow = SetDelayHover(hovering, delaySeconds, id);
 
-    // 2. Quản lý Alpha riêng biệt cho từng tooltip bằng Storage ID của ImGui
-    // Điều này giúp nhiều tooltip không bị dùng chung 1 biến alpha tĩnh
-    ImGuiID storage_id = ImGui::GetID(id);
-    float* pAlpha = ImGui::GetStateStorage()->GetFloatRef(storage_id, 0.0f);
-
-    // 3. Cập nhật hiệu ứng Fade (Tăng tốc độ fade ra để cảm giác nhạy hơn)
-    float fadeSpeed = 12.0f; 
-    UpdateHoverAnim(*pAlpha, shouldShow, fadeSpeed);
-
-    // Ngắt sớm nếu alpha quá nhỏ để tiết kiệm hiệu năng
-    if (*pAlpha <= 0.001f)
-        return;
-
-    // 4. Thiết lập Style trước khi Begin
-    // Sử dụng ImGuiWindowFlags_AlwaysAutoResize để giữ kích thước ổn định
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);
-    ImGui::SetNextWindowBgAlpha(*pAlpha); 
-
-    // Render Tooltip
-    if (ImGui::BeginTooltip())
-    {
-        ImGui::TextUnformatted(text);
-        ImGui::EndTooltip();
-    }
-
-    ImGui::PopStyleVar();
-}
 

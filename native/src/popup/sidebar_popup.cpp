@@ -1,11 +1,12 @@
 #include "globals.h"
 #include "utils.h"
-#include "thread.h"
-#include "mpv/mpv_settings.h"
-#include "sidebar_popup.h"
-#include "imgui_internal.h"
 
-#include "services/services_client_backend.h"
+#include <threads/thread.h>
+#include <mpv/mpv_settings.h>
+#include "sidebar_popup.h"
+#include <imgui_internal.h>
+
+#include <services/services_client_backend.h>
 
 #include "FontManager.h"
 

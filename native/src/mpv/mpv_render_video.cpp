@@ -40,13 +40,13 @@ bool InitMPV(mpv_handle*& mpv_ptr) {
 
     ScriptManager::Instance().Init(mpv_ptr);
     ShaderManager::Instance().Init(mpv_ptr);
-    AudioFilterManager::Instance().Init(mpv_ptr);
+    //AudioFilterManager::Instance().Init(mpv_ptr);
 
     ScriptManager::Instance().LoadScriptFromFolder({ AutoPath<std::string>("%ROOT%","scripts")});
 
     ShaderManager::Instance().LoadState();
 
-    AudioFilterManager::Instance().LoadFromFile();
+    //AudioFilterManager::Instance().LoadFromFile();
 
     mpv_request_log_messages(mpv_ptr, "v");
     InitMPVObservers(mpv_ptr);

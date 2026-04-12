@@ -32,7 +32,7 @@ void GeneralSettingsPage() {
     {
         static float scale = 1.0f;
         // --- TIÊU ĐỀ PHÂN ĐOẠN ---
-        ImGui::TextColored(GTheme.TextLaBel_NormalCombo, " CẤU HÌNH GIAO DIỆN HỆ THỐNG");
+        ImGui::TextColored(GTheme.Text, " CẤU HÌNH GIAO DIỆN HỆ THỐNG");
         
         ImGui::TextDisabled("Thay đổi giao diện và kích thước hiển thị để phù hợp với trải nghiệm của bạn.");
         ImGui::Separator();
@@ -136,7 +136,7 @@ void ShaderSettingsPage() {
 
         if (CusTomImGui::BeginModernTabBar("ShaderChildTabs")) {
             // --- TAB 1: THƯ VIỆN (LIBRARY) ---
-            if (ImGui::BeginTabItem("Library")) {
+            if (CusTomImGui::ModernTabItem("Library")) {
                 ImGui::TextWrapped("Chọn các Shader bên dưới để nạp vào Pipeline. Thứ tự nạp sẽ quyết định kết quả cuối cùng.");
                 
                 ImGui::Spacing();
@@ -235,7 +235,7 @@ void ShaderSettingsPage() {
                         ImGui::SetCursorScreenPos(ImVec2(p_min.x + 20, textY));
                         std::string texttrum = TextUtils::TruncateTextByPixels(path.c_str(),fullWidth - 60);
                         ImGui::TextUnformatted(texttrum.c_str());
-                        ShowTooltipDelayed(path.c_str(),ImGui::IsItemHovered(),3.0f,path.c_str());
+                        CusTomImGui::ShowTooltipDelayed(path.c_str(),ImGui::IsItemHovered(),3.0f,path.c_str());
 
                         // 3. Nút xóa (Căn phải tuyệt đối)
                         ImVec2 btnSize = ImVec2(20, 20);
@@ -259,11 +259,11 @@ void ShaderSettingsPage() {
                     }
                     CusTomImGui::EndModernChild();
                 }*/
-                ImGui::EndTabItem();
+                CusTomImGui::EndModernTabItem();
             }           
 
             // --- TAB 2: CẤU HÌNH (CONFIGURATION) ---
-            bool isConfigOpen = ImGui::BeginTabItem("Configuration");
+            bool isConfigOpen = CusTomImGui::ModernTabItem("Configuration");
             if (isConfigOpen) {
                 ImGui::Columns(2, "ConfigSplit", true);
                 ImGui::SetColumnWidth(0, 160.0f);
@@ -359,7 +359,7 @@ void ShaderSettingsPage() {
                     ImGui::TextDisabled("Vui lòng chọn một Shader từ danh sách bên trái\nđể bắt đầu hiệu chỉnh thông số.");
                 }
                 ImGui::Columns(1);
-                ImGui::EndTabItem();
+                CusTomImGui::EndModernTabItem();
             }
             if (!isConfigOpen && wasConfigTabOpen) {
                 if (isDirty ) {
@@ -369,7 +369,7 @@ void ShaderSettingsPage() {
                 wasConfigTabOpen = false;
             }
             // --- TAB 3: PIPELINE (MODERN REORDERABLE) ---
-            if (ImGui::BeginTabItem("Pipeline")) {
+            if (CusTomImGui::ModernTabItem("Pipeline")) {
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 4));
                 
                 auto activePipeline = sm.GetActivePipeline();
@@ -486,7 +486,7 @@ void ShaderSettingsPage() {
                 if (!toRemove.empty()) sm.Disable(toRemove);
 
                 ImGui::PopStyleVar();
-                ImGui::EndTabItem();
+                CusTomImGui::EndModernTabItem();
             }
             CusTomImGui::EndModernTabBar();
         }

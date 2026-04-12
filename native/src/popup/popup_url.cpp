@@ -1,13 +1,15 @@
 
 #include "globals.h"
 #include "utils.h"
-#include "popup_url.h"
 #include "json.hpp"
 
-#include "mpv/mpv_basic_formats.h"
-#include "mpv/mpv_custom_ui.h"
+#include <popup/popup_url.h>
 
-#include "thread.h"
+#include <mpv/mpv_basic_formats.h>
+#include <mpv/mpv_custom_ui.h>
+#include <mpv/mpv_ui.h>
+
+#include <threads/thread.h>
 
 #include <commdlg.h>  
 #include <vector>
@@ -20,7 +22,6 @@ using json = nlohmann::json;
 
 static bool urlConfirmed = false;
 static bool bufferInitialized = false;
-static char buffer[32768] = {};
 // --- State tồn tại suốt vòng đời popup ---
 static PopupData data;
 static std::wstring urlInput;
@@ -28,7 +29,17 @@ static std::wstring lastURLCopy;
 static std::vector<std::wstring> pendingLocalFilesLocal;
 static std::wstring outResultURL;
 
+
 const std::string SETTINGS_PATH_POPUP_URL = AutoPath<std::string>("%ROOT%", "data","popup_data.json");
+
+static int StringResizeCallback(ImGuiInputTextCallbackData* data) {
+    if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+        std::string* str = (std::string*)data->UserData;
+        str->resize(data->BufTextLen);
+        data->Buf = (char*)str->c_str();
+    }
+    return 0;
+}
 // --- Lịch sử URL ---
 PopupData LoadPopupData() {
     std::filesystem::path path = SETTINGS_PATH_POPUP_URL;
@@ -83,6 +94,36 @@ void SavePopupData( const PopupData& data){
     
     std::ofstream o(path);
     o << j.dump(4); // indent 4 spaces
+}
+
+bool IsValidURLOrPath(const wchar_t* text) {
+    if (!text || !*text) return false;
+
+    // URL
+    if (wcsncmp(text, L"http://", 7) == 0 ||
+        wcsncmp(text, L"https://", 8) == 0) {
+        return true;
+    }
+
+    // File URI
+    if (wcsncmp(text, L"file://", 7) == 0) {
+        return true;
+    }
+
+    // Windows absolute path: C:\...
+    if (wcslen(text) > 2 &&
+        iswalpha(text[0]) &&
+        text[1] == L':' &&
+        (text[2] == L'\\' || text[2] == L'/')) {
+        return true;
+    }
+
+    // UNC path: \\server\share
+    if (wcsncmp(text, L"\\\\", 2) == 0) {
+        return true;
+    }
+
+    return false;
 }
 
 std::vector<std::wstring> OpenFilePickerW() {
@@ -141,46 +182,135 @@ bool IsValidLocalFile(const std::wstring& path) {
     DWORD attrib = GetFileAttributesW(path.c_str());
     return (attrib != INVALID_FILE_ATTRIBUTES) && !(attrib & FILE_ATTRIBUTE_DIRECTORY);
 }
-
-// --- Popup chính ---
-
-void HistoryUrlPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
+void RebuildUrlCache(PopupData& data, float maxWidth)
 {
-    if(CusTomImGui::BeginModernChild("##URLHistoryTable",size,true,ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    data.urlCache.clear();
+    data.urlCache.reserve(data.urlHistory.size());
+
+    for (auto& w : data.urlHistory)
     {
-        static int selectedUrlIndex=-1;
+        UrlCacheItem item;
+        item.utf8 = WideToUTF8(w);
+        item.truncated = TextUtils::TruncateTextByPixels(item.utf8.c_str(), maxWidth - 10.0f);
+        data.urlCache.push_back(std::move(item));
+    }
+}
+void RebuildLocalCache(PopupData& data, float maxWidth)
+{
+    data.localCache.clear();
+    data.localCache.reserve(data.localHistory.size());
+
+    for (auto& w : data.localHistory)
+    {
+        FileCacheItem item;
+        item.utf8 = WideToUTF8(w);
+        item.truncated = TextUtils::TruncateTextByPixels(item.utf8.c_str(), maxWidth - 10.0f);
+        data.localCache.push_back(std::move(item));
+    }
+}
+// --- Popup chính ---
+void HistoryUrlPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
+{
+    if (CusTomImGui::BeginModernChild(
+        "##URLHistoryTable",
+        size,
+        true,
+        ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    {
+        static int selectedUrlIndex = -1;
+        static float lastWidth = 0.0f;
+
         auto& urlHistory = data.urlHistory;
-        for(size_t i=0; i<urlHistory.size(); ++i){
-            std::string labelUtf8 = WideToUTF8(urlHistory[i]);
-            if (CusTomImGui::ModernSelectable(labelUtf8.c_str(), selectedUrlIndex==(int)i)) {
-            //if(ImGui::Selectable(labelUtf8.c_str(), selectedUrlIndex==(int)i)){
-                selectedUrlIndex = (int)i;
-                std::wstring wLabel = UTF8ToWide(labelUtf8);
-                strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
-                buffer[sizeof(buffer) - 1] = '\0';
-                urlInput = wLabel;
-            }
-            ImGui::Separator();
+        auto& cache = data.urlCache;
+
+        float maxWidth = ImGui::GetContentRegionAvail().x;
+
+        // 👉 Rebuild cache khi cần
+        if (cache.size() != urlHistory.size() || fabs(lastWidth - maxWidth) > 1.0f)
+        {
+            RebuildUrlCache(data, maxWidth);
+            lastWidth = maxWidth;
         }
+
+        // 👉 Clip list (QUAN TRỌNG NHẤT)
+        ImGuiListClipper clipper;
+        clipper.Begin((int)urlHistory.size());
+
+        while (clipper.Step())
+        {
+            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+            {
+                const auto& item = cache[i];
+                bool isSelected = (selectedUrlIndex == i);
+
+                if (CusTomImGui::ModernSelectable(item.truncated.c_str(), isSelected))
+                {
+                    selectedUrlIndex = i;
+
+                    urlInput = urlHistory[i];
+                }
+
+                // 👉 Tooltip chỉ khi hover
+
+                CusTomImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
+                                                ("url_tooltip_" + std::to_string(i)).c_str());
+ 
+                ImGui::Separator();
+            }
+        }
+
         CusTomImGui::EndModernChild();
     }
 }
-void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput ,ImVec2 size )
+void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 {
-    if(CusTomImGui::BeginModernChild("##LocalFilesTable",size,true,ImGuiWindowFlags_AlwaysVerticalScrollbar))
+    if (CusTomImGui::BeginModernChild(
+        "##LocalFilesTable",
+        size,
+        true,
+        ImGuiWindowFlags_AlwaysVerticalScrollbar))
     {
-        static int selectedFileIndex=-1;
+        static int selectedFileIndex = -1;
+        static float lastWidth = 0.0f;
+
         auto& localHistory = data.localHistory;
-        for(size_t i=0; i<localHistory.size(); ++i){
-            std::string labelUtf8 = WideToUTF8(localHistory[i]);
-            if(ImGui::Selectable(labelUtf8.c_str(), selectedFileIndex==(int)i)){
-                selectedFileIndex = (int)i;
-                std::wstring wLabel = UTF8ToWide(labelUtf8);
-                strncpy(buffer, WideToUTF8(wLabel).c_str(), sizeof(buffer)-1);
-                buffer[sizeof(buffer) - 1] = '\0';
-                urlInput = wLabel;
+        auto& cache = data.localCache;
+
+        float maxWidth = ImGui::GetContentRegionAvail().x;
+
+        // 👉 Rebuild cache khi cần
+        if (cache.size() != localHistory.size() || fabs(lastWidth - maxWidth) > 1.0f)
+        {
+            RebuildLocalCache(data, maxWidth);
+            lastWidth = maxWidth;
+        }
+
+        // 👉 Clip list (QUAN TRỌNG)
+        ImGuiListClipper clipper;
+        clipper.Begin((int)localHistory.size());
+
+        while (clipper.Step())
+        {
+            for (int i = clipper.DisplayStart; i < clipper.DisplayEnd; i++)
+            {
+                const auto& item = cache[i];
+                bool isSelected = (selectedFileIndex == i);
+
+                if (CusTomImGui::ModernSelectable(item.truncated.c_str(), isSelected))
+                {
+                    selectedFileIndex = i;
+
+                    urlInput = localHistory[i];
+                }
+
+                // 👉 Tooltip chỉ khi hover
+
+                CusTomImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
+                                                ("file_tooltip_" + std::to_string(i)).c_str());
+
             }
         }
+
         CusTomImGui::EndModernChild();
     }
 }
@@ -198,21 +328,13 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
     ImGui::Separator();
 
     ImGui::Text("Vui lòng nhập URL hoặc chọn file local:");
-
-
-    if (!bufferInitialized) {
-        std::string utf8 = WideToUTF8(urlInput);
-        strncpy(buffer, utf8.c_str(), sizeof(buffer) - 1);
-        buffer[sizeof(buffer) - 1] = '\0';
-        bufferInitialized = true;
-    }      
-    CusTomImGui::ModernInputTextMultiline("##URLInput", buffer, sizeof(buffer),
-                            ImVec2(popupWidth-1, maxInputHeight-1),
-                            ImGuiInputTextFlags_AllowTabInput);
- 
+    
+    std::string urlInpututf8 = WideToUTF8(urlInput);
+    if(CusTomImGui::ModernInputTextMultiline("##URLInput", urlInpututf8,
+                            ImVec2(popupWidth, maxInputHeight),
+                            ImGuiInputTextFlags_AllowTabInput))
+  
     Disabehotkey = ImGui::IsItemActive();
-
-    urlInput = UTF8ToWide(buffer);
 
     if(CusTomImGui::ModernCheckbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);
     ImGui::Separator();
@@ -221,15 +343,15 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
     if (CusTomImGui::BeginModernTabBar("##HistoryTabs")) {
         // URL Tab
         ImVec2 size = ImVec2(popupWidth,historyHeight);
-        if(ImGui::BeginTabItem("URL")){
+        if(CusTomImGui::ModernTabItem("URL")){
             HistoryUrlPage(data , urlInput ,size);
-            ImGui::EndTabItem();
+            CusTomImGui::EndModernTabItem();
         }
 
         // Local Tab
-        if(ImGui::BeginTabItem("File local")){
+        if(CusTomImGui::ModernTabItem("File local")){
             HistoryFileLocalPage(data , urlInput ,size);
-            ImGui::EndTabItem();
+            CusTomImGui::EndModernTabItem();
         }
 
         CusTomImGui::EndModernTabBar();
@@ -239,18 +361,25 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
     if(CusTomImGui::ModernCheckbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
 
     if( CusTomImGui::ModernButton("Lấy từ Clipboard")){
+        if (!IsClipboardFormatAvailable(CF_UNICODETEXT))
+            return;
         if(OpenClipboard(NULL)){
             HANDLE hData=GetClipboardData(CF_UNICODETEXT);
             if(hData){
                 LPCWSTR clipText=(LPCWSTR)GlobalLock(hData);
-                if(clipText && *clipText && wcsstr(clipText,L"http")){
-                    urlInput = clipText;
+                if (clipText && *clipText) {
+
+                    // Check URL hợp lệ cơ bản
+                    if (IsValidURLOrPath(clipText)) {
+                        urlInput = clipText;
+                    }
                 }
                 GlobalUnlock(hData);
             }
             CloseClipboard();
         }
     }
+
 
     ImGui::SameLine(0.0f,30.0f);
     if( CusTomImGui::ModernButton("Thêm từ file local")){

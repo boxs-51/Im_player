@@ -33,6 +33,15 @@ void UpdateVideoType(VideoInfoResult info) {
 void SetVideoTypeLocal(){
     g_videoType = VideoType::File_Local;
 }
+void SetVideoTypeLive(){
+    g_videoType = VideoType::Live;
+}
+void SetVideoTypeVio(){
+    g_videoType = VideoType::Vio;
+}
+void SetVideoType(VideoType videotype){
+    g_videoType = videotype;
+}
 
 void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup &videoGroup)
 {

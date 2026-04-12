@@ -1,4 +1,4 @@
-#include "thread_manager.h"
+#include <threads/thread_manager.h>
 #include "globals.h"
 
 #include <iostream>
@@ -11,6 +11,7 @@ void ThreadManager::Run(ThreadID id, std::function<void()> task, bool allowDupli
     std::lock_guard<std::mutex> lock(mutex_);
 
     if (!allowDuplicate && activeIDs_.count(id)) {
+
         std::cout << "[⚠️] Thread [" << ThreadIDToString(id) << "] is already running\n";
         return;
     }

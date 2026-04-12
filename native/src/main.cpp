@@ -14,16 +14,16 @@
 #include "hotkey_handler.h"
 #include "globals.h"
 
-#include "services/services_services.h"
-#include "thread.h"
+#include <services/services_services.h>
+#include <threads/thread.h>
 
 #include "main.h"
 #include "notification.h"
 
 
-#include "windows/windows_custom_titlebar.h"
-#include "windows/windows_borderless.h"
-#include "windows/windows_borderless_state.h"
+#include <windows/windows_custom_titlebar.h>
+#include <windows/windows_borderless.h>
+#include <windows/windows_borderless_state.h>
 
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
@@ -124,11 +124,21 @@ void Cleanup() {
 }
 void HandleMainWindowEvent(const SDL_Event& e) {
 
-    if (HandleHotkeys(e , mpv.mpv))return;
-
     if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
     if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
     if (e.type == SDL_QUIT)running = false;
+    if (HandleHotkeys(e , mpv.mpv))return;
+    if(g_WindowVisible) {
+        bool isMousePressOrRelease =
+            (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP);
+        bool isMouseInteraction =
+            e.type == SDL_MOUSEMOTION ||
+            e.type == SDL_MOUSEWHEEL;
+
+        if (isMousePressOrRelease) {
+            NotifyActivity(show_ui_video);
+        }
+    }
     
 }
 bool InitMainWindow() {
@@ -304,7 +314,7 @@ void RenderFrame(bool g_WindowVisible){
         // Khi cửa sổ hiện trở lại: Reset ngay lập tức
         lastVisibleTime = 0;
         if (isRenderingPaused) {
-            if (!audio_Theme) {
+            if (!Audio_visualizers) {
                 mpv_enable_video(mpv.mpv);
             }
             isRenderingPaused = false;
@@ -312,7 +322,7 @@ void RenderFrame(bool g_WindowVisible){
     }
 
     // Logic render chính vẫn chạy nếu chưa quá 1s hoặc đang Visible
-    if (audio_Theme) {
+    if (Audio_visualizers) {
         mpv_disable_video(mpv.mpv);
     } else if (!isRenderingPaused) {
         mpv_enable_video(mpv.mpv);

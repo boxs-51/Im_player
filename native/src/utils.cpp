@@ -311,19 +311,7 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         {"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
 
     });
-
-    SetMPVOptions(mpv, {
-        // Framedrop nên để mặc định là yes để tránh lệch tiếng khi máy lag
-        {"framedrop", "vo"},
-        // Kích hoạt tính năng deband
-        {"deband", "yes"},
-        // Tinh chỉnh thông số (tùy chọn để đạt chất lượng tốt hơn)
-        {"deband-iterations", "2"}, // Số lần lặp, mặc định là 1
-        {"deband-threshold", "48"}, // Độ nhạy (mặc định 32)
-        {"deband-range", "16"},     // Phạm vi lấy mẫu (mặc định 16)
-        {"deband-grain", "24"},     // Lượng nhiễu hạt để che vết rổ
-    }, true);
-
+    
 }
 void ApplyDynamicMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
@@ -333,6 +321,7 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
         case VideoType::Live:
             config = {
                 {"profile", "low-latency"},
+                {"untimed", "yes"},
                 {"cache", "yes"},
                 {"cache-pause", "no"},         // Quan trọng: Không dừng hình khi mất kết nối tạm thời
                 {"cache-secs", "5"},           // Giảm xuống 5s để giảm độ trễ thực tế
@@ -349,7 +338,6 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
                 {"cache-pause", "yes"},
                 {"demuxer-max-bytes", "500M"},     // Tăng lên để đọc file 4K mượt hơn
                 {"demuxer-max-back-bytes", "100M"}, // Cho phép tua ngược trong RAM mượt mà
-                {"hr-seek", "yes"},                // Tua chính xác từng frame
                 {"video-sync", "display-resample"},// Mượt hình trên màn hình (Sync theo tần số quét)
                 {"interpolation", "yes"},          // Chống giật hình (judder)
                 {"tscale", "oversample"},          // Đi kèm với interpolation
@@ -367,7 +355,6 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
                 {"demuxer-max-bytes", "250M"},     // Buffer thoải mái cho mạng yếu
                 {"demuxer-readahead-secs", "120"},
                 {"demuxer-max-back-bytes", "50M"},
-                {"hr-seek", "yes"},
                 {"video-sync", "audio"},           // An toàn nhất cho video online
                 {"network-timeout", "30"},         // Đợi mạng lâu hơn một chút
             };
@@ -379,7 +366,18 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
                 {"cache-pause", "yes"},
                 {"cache-secs", "10"},
                 {"hr-seek", "yes"},
-                {"vd-lavc-skipframe", "default"}
+                {"hr-seek-framedrop", "yes"},
+                {"initial-audio-sync", "no"},
+                {"vd-lavc-skipframe", "default"},
+                // Framedrop nên để mặc định là yes để tránh lệch tiếng khi máy lag
+                {"framedrop", "vo"},
+                // Kích hoạt tính năng deband
+                {"deband", "yes"},
+                // Tinh chỉnh thông số (tùy chọn để đạt chất lượng tốt hơn)
+                {"deband-iterations", "2"}, // Số lần lặp, mặc định là 1
+                {"deband-threshold", "48"}, // Độ nhạy (mặc định 32)
+                {"deband-range", "16"},     // Phạm vi lấy mẫu (mặc định 16)
+                {"deband-grain", "24"},     // Lượng nhiễu hạt để che vết rổ
             };
             break;
         }

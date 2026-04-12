@@ -1,10 +1,12 @@
 
-#include "mpv/mpv_settings.h"
-#include "mpv/mpv_ui_settings.h"
-#include "mpv_controller.h"
+#include <mpv/mpv_settings.h>
+#include <mpv/mpv_ui_settings.h>
+#include <mpv_controller.h>
+
+#include <threads/thread.h>
 
 #include "utils.h"
-#include "thread_manager.h"
+#include <threads/thread_manager.h>
 
 #include <log.h>
 #include <mutex>

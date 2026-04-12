@@ -49,7 +49,7 @@ void ShowMediaInfo() {
             ImGui::TextWrapped("%s", display.c_str());
 
             // Hover → hiện full
-            ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0, "Stream_URL_Hover");
+            CusTomImGui::ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0, "Stream_URL_Hover");
         }
         ImGui::EndChild();
         ImGui::Spacing();
@@ -558,23 +558,23 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
             };
 
             for (auto& tab : tabs) {
-                if (ImGui::BeginTabItem(tab.Name)) {
+                if (CusTomImGui::ModernTabItem(tab.Name)) {
                     ImGui::Dummy(ImVec2(0, 10)); // Thêm khoảng trống trên đầu mỗi card
                     if(CusTomImGui::BeginCard()){
                         tab.Func();
                         CusTomImGui::EndCard();
                     }
-                    ImGui::EndTabItem();
+                    CusTomImGui::EndModernTabItem();
                 }
             }
 
             // Tab Debug đặc biệt
-            if (g_DragResizeState.showDebug && ImGui::BeginTabItem("Debug")) {
+            if (g_DragResizeState.showDebug && CusTomImGui::ModernTabItem("Debug")) {
                 if(CusTomImGui::BeginCard()){
                     ShowDuBugInFo();
                     CusTomImGui::EndCard();
                 }
-                ImGui::EndTabItem();
+                CusTomImGui::EndModernTabItem();
             }
 
             CusTomImGui::EndModernTabBar();

@@ -69,7 +69,7 @@ extern bool ToggleFullscreen ;
 extern bool Disabehotkey;
 extern bool playImmediately;
 
-extern bool audio_Theme;
+extern bool Audio_visualizers;
 
 extern std::vector<std::wstring> playlist;
 

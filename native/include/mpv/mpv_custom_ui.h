@@ -1137,444 +1137,197 @@ inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
 // Khai báo biến toàn cục để các Helper sử dụng
 
 struct ThemeColors {
-    
-    //Theme Modern Window Style
-    ImVec4 Text_ModernWindowStyle;
-    ImVec4 WindowBg_ModernWindowStyle;
-    ImVec4 TitleBg_ModernWindowStyle;
-    ImVec4 TitleBgActive_ModernWindowStyle;
-    ImVec4 Border_ModernWindowStyle;
-    ImVec4 Separator_ModernWindowStyle;
+    // --- 1. Window & Layout (Nền tảng chính) ---
+    ImVec4 WindowBg;            // Nền cửa sổ chính
+    ImVec4 ChildBg;             // Nền các vùng con (Child Window)
+    ImVec4 PopupBg;             // Nền Tooltip, Combo, Context Menu
+    ImVec4 Border;              // Màu viền (Borders)
+    ImVec4 Separator;           // Đường kẻ phân cách
 
-    //Theme _Modern Child
-    ImVec4 ChildBg_ModernChild;
-    ImVec4 Border_ModernChild;
-    ImVec4 Text_ModernChild;
+    // --- 2. Title Bar (Thanh tiêu đề) ---
+    ImVec4 TitleBg;             // Nền tiêu đề khi không hoạt động
+    ImVec4 TitleBgActive;       // Nền tiêu đề khi đang tập trung (Focus)
 
-    //Theme Card
-    ImVec4 ChildBg_Card;
-    ImVec4 Border_Card;
-    ImVec4 Text_Card;
+    // --- 3. Typography (Chữ & Lựa chọn) ---
+    ImVec4 Text;                // Chữ chính (Main text)
+    ImVec4 TextDisabled;        // Chữ bị vô hiệu hóa, label phụ, placeholder
+    ImVec4 TextSelected;        // Màu chữ khi được bôi đen (Highlight)
+    ImVec4 TextSelectedBg;      // Màu nền khi chữ được bôi đen
 
-    //Theme Info Table
-    ImVec4 TableRowBg_InfoTable;
-    ImVec4 TableRowBgAlt_InfoTable;
+    // --- 4. Widgets & Frames (Input, Checkbox, Card) ---
+    ImVec4 FrameBg;             // Nền mặc định cho Input, Box, Panel
+    ImVec4 FrameBgHovered;      // Khi di chuột qua Input/Frame
+    ImVec4 FrameBgActive;       // Khi đang tương tác/nhập liệu
+    ImVec4 CheckMark;           // Màu dấu tích Checkbox, Radio button
 
-    //Theme Modern TabBar
-    ImVec4 Text_ModernTabBar;
-    ImVec4 Tab_ModernTabBar;
-    ImVec4 TabHovered_ModernTabBar;
-    ImVec4 TabActive_ModernTabBar;
-    ImVec4 TabUnfocused_ModernTabBar;
-    ImVec4 TabUnfocusedActive_ModernTabBar;
+    // --- 5. Buttons (Nút bấm) ---
+    ImVec4 Button;              // Màu nút mặc định
+    ImVec4 ButtonHovered;       // Khi di chuột qua nút
+    ImVec4 ButtonActive;        // Khi nhấn giữ nút
 
-    //Theme Modern Button
-    ImVec4 Button_ModernButton;
-    ImVec4 ButtonHovered_ModernButton;
-    ImVec4 ButtonActive_ModernButton;
-    ImVec4 Text_ModernButton;
+    // --- 6. Headers & Trees (Selectable, TreeNode) ---
+    ImVec4 Header;              // Màu khi item được chọn
+    ImVec4 HeaderHovered;       // Khi di chuột qua item
+    ImVec4 HeaderActive;        // Khi nhấn giữ item
 
-    //Theme Secondary Button
-    ImVec4 Button_SecondaryButton;
-    ImVec4 ButtonHovered_SecondaryButton;
-    ImVec4 ButtonActive_SecondaryButton;
-    ImVec4 Border_SecondaryButton;
-    ImVec4 Text_SecondaryButton;
+    // --- 7. Tabs (Thanh tab) ---
+    ImVec4 Tab;                 // Nền tab mặc định
+    ImVec4 TabHovered;          // Khi di chuột qua tab
+    ImVec4 TabActive;           // Tab đang hiển thị
+    ImVec4 TabUnfocused;        // Tab khi cửa sổ không được focus
+    ImVec4 TabUnfocusedActive;  // Tab đang hoạt động nhưng cửa sổ không focus
 
-
-    ImVec4 Text_ModernCheckbox;
-    ImVec4 FrameBg_ModernCheckbox;
-    ImVec4 FrameBgHovered_ModernCheckbox;
-    ImVec4 FrameBgActive_ModernCheckbox;
-    ImVec4 CheckMark_ModernCheckbox;
-
-    ImVec4 FrameBg_ModernInputTextMultiline;
-    ImVec4 FrameBgHovered_ModernInputTextMultiline;
-    ImVec4 FrameBgActive_ModernInputTextMultiline;
-    ImVec4 Border_ModernInputTextMultiline;
-    ImVec4 TextSelectedBg_ModernInputTextMultiline;
-    ImVec4 Text_ModernInputTextMultiline;
-
-    ImVec4 Header_ModernSelectable;
-    ImVec4 HeaderHovered_ModernSelectable;
-    ImVec4 HeaderActive_ModernSelectable;
-    ImVec4 Text_Selected_ModernSelectable;
-    ImVec4 Text_UnSelected_ModernSelectable;
-
-    ImVec4 TableHeaderBg_ListTable;
-    ImVec4 Text_ListTable;
-    ImVec4 TableRowBgAlt_ListTable;
-    ImVec4 HeaderActive_ListTable;
-    ImVec4 HeaderHovered_ListTable;
-
-    ImVec4 Header_ModernCollapsingHeader;
-    ImVec4 HeaderHovered_ModernCollapsingHeader;
-    ImVec4 HeaderActive_ModernCollapsingHeader;
-    ImVec4 Text_ModernCollapsingHeader;
-
-
-    //Theme Normal Combo
-    ImVec4 FrameBg_NormalCombo;             
-    ImVec4 FrameBgHovered_NormalCombo;
-    ImVec4 Border_NormalCombo;
-    ImVec4 Text_NormalCombo;
-    ImVec4 TextLaBel_NormalCombo;
-    ImVec4 PopupBg_NormalCombo;
-
-    ImVec4 Header_ModernTreeNode;
-    ImVec4 HeaderHovered_ModernTreeNode;
-    ImVec4 HeaderActive_ModernTreeNode;
-    ImVec4 Text_ModernTreeNode;
+    // --- 8. Tables (Bảng dữ liệu) ---
+    ImVec4 TableHeaderBg;       // Nền dòng tiêu đề bảng
+    ImVec4 TableRowBg;          // Nền dòng lẻ (hoặc nền mặc định dòng)
+    ImVec4 TableRowBgAlt;       // Nền dòng chẵn (Zebra striping)
 };
 extern ThemeColors GTheme;
+extern ThemeColors GTheme;
 static inline void SetDarkTheme() {
- 
-    GTheme.Text_ModernWindowStyle           = ImVec4(1.0f, 1.0f, 1.0f, 0.95f);
-    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
-    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.Border_ModernWindowStyle         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.Separator_ModernWindowStyle      = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    // --- Nền & Viền ---
+    GTheme.WindowBg          = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
+    GTheme.FrameBg           = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.FrameBgHovered    = ImVec4(0.18f, 0.18f, 0.21f, 1.00f);
+    GTheme.FrameBgActive     = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
+    GTheme.PopupBg           = ImVec4(0.08f, 0.08f, 0.09f, 0.98f);
+    GTheme.ChildBg           = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.Border            = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
+    GTheme.Separator         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
 
-    GTheme.ChildBg_ModernChild  = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
-    GTheme.Border_ModernChild   = ImVec4(0.25f, 0.25f, 0.25f, 1.0f);
-    GTheme.Text_ModernChild     = ImVec4(1.0f,1.0f,1.0f,1.0f);
+    // --- Chữ & Title ---
+    GTheme.Text              = ImVec4(1.00f, 1.00f, 1.00f, 0.95f);
+    GTheme.TextDisabled      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    GTheme.TextSelected      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    GTheme.TextSelectedBg    = ImVec4(0.12f, 0.45f, 0.90f, 0.35f);
+    GTheme.TitleBg           = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
+    GTheme.TitleBgActive     = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
 
-    GTheme.ChildBg_Card = ImVec4(0.18f, 0.18f, 0.20f, 1.0f);
-    GTheme.Border_Card  = ImVec4(0.30f, 0.30f, 0.33f, 1.0f);
-    GTheme.Text_Card    = ImVec4(0.95f, 0.95f, 0.95f, 1.0f);
+    // --- Tương tác (Buttons / Checkbox) ---
+    GTheme.Button            = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
+    GTheme.ButtonHovered     = ImVec4(0.15f, 0.55f, 1.00f, 1.00f);
+    GTheme.ButtonActive      = ImVec4(0.10f, 0.35f, 0.80f, 1.00f);
+    GTheme.CheckMark         = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
 
-    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable  = ImVec4(1, 1, 1, 0.04f);
+    // --- Headers & Tabs ---
+    GTheme.Header            = ImVec4(0.18f, 0.21f, 0.25f, 1.00f);
+    GTheme.HeaderHovered     = ImVec4(0.24f, 0.27f, 0.32f, 1.00f);
+    GTheme.HeaderActive      = ImVec4(0.28f, 0.33f, 0.40f, 1.00f);
+    GTheme.Tab               = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
+    GTheme.TabHovered        = ImVec4(0.18f, 0.18f, 0.21f, 1.00f);
+    GTheme.TabActive         = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
+    GTheme.TabUnfocused      = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
+    GTheme.TabUnfocusedActive = ImVec4(0.12f, 0.45f, 0.90f, 0.40f);
 
-    GTheme.Text_ModernTabBar                = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-    GTheme.Tab_ModernTabBar                 = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar          = ImVec4(0.25f, 0.25f, 0.27f, 1.0f);
-    GTheme.TabActive_ModernTabBar           = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar        = ImVec4(0, 0, 0, 0);
-    GTheme.TabUnfocusedActive_ModernTabBar  = ImVec4(0.1f, 0.45f, 0.9f, 0.7f);
-
-    GTheme.Button_ModernButton              = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
-    GTheme.ButtonHovered_ModernButton       = ImVec4(0.15f, 0.55f, 1.00f, 1.0f);
-    GTheme.ButtonActive_ModernButton        = ImVec4(0.10f, 0.35f, 0.80f, 1.0f);
-    GTheme.Text_ModernButton                = ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
-
-    GTheme.Text_SecondaryButton             = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
-    GTheme.Button_SecondaryButton           = ImVec4(0.15f, 0.15f, 0.17f, 0.00f);
-    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.22f, 0.22f, 0.25f, 0.80f);
-    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.18f, 0.18f, 0.20f, 1.00f);
-    GTheme.Border_SecondaryButton           = ImVec4(0.35f, 0.35f, 0.38f, 1.0f);
-
-    GTheme.Text_ModernCheckbox              = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.20f, 0.20f, 0.22f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.25f, 0.25f, 0.28f, 1.0f);
-    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.15f, 0.45f, 0.90f, 0.5f);
-    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
-
-    GTheme.FrameBg_ModernInputTextMultiline         = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline  = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
-    GTheme.FrameBgActive_ModernInputTextMultiline   = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
-    GTheme.Border_ModernInputTextMultiline          = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline  = ImVec4(0.10f, 0.40f, 0.75f, 0.50f);
-    GTheme.Text_ModernInputTextMultiline            = ImVec4(0.9f, 0.9f, 0.9f, 1.0f);
-
-    GTheme.Header_ModernSelectable          = ImVec4(0.18f, 0.21f, 0.25f, 1.00f);
-    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.24f, 0.27f, 0.32f, 1.00f);
-    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.28f, 0.33f, 0.40f, 1.00f);
-    GTheme.Text_Selected_ModernSelectable   = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.70f, 0.70f, 0.70f, 1.00f);
-
-    
-    GTheme.TableHeaderBg_ListTable  = ImVec4(0.12f, 0.12f, 0.14f, 1.0f);
-    GTheme.Text_ListTable           = ImVec4(0.6f, 0.6f, 0.6f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable  = ImVec4(1.0f, 1.0f, 1.0f, 0.03f);
-    GTheme.HeaderActive_ListTable   = ImVec4(0.19f, 0.20f, 0.25f, 1.00f);
-    GTheme.HeaderHovered_ListTable  = ImVec4(0.19f, 0.20f, 0.25f, 1.00f);
-    
-    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.15f, 0.15f, 0.17f, 1.0f);
-    GTheme.HeaderHovered_ModernCollapsingHeader = ImVec4(0.22f, 0.22f, 0.25f, 1.00f);
-    GTheme.HeaderActive_ModernCollapsingHeader  = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
-
-    //Theme Normal Combo
-    GTheme.FrameBg_NormalCombo        = ImVec4(0.12f, 0.12f, 0.14f, 1.00f); 
-    GTheme.FrameBgHovered_NormalCombo = ImVec4(0.18f, 0.18f, 0.21f, 1.00f); 
-    GTheme.Border_NormalCombo         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f); 
-    GTheme.Text_NormalCombo           = ImVec4(0.90f, 0.90f, 0.92f, 1.00f); 
-    GTheme.TextLaBel_NormalCombo      = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
-    GTheme.PopupBg_NormalCombo        = ImVec4(0.12f, 0.12f, 0.14f, 0.98f);
-
-    GTheme.Header_ModernTreeNode        = ImVec4(0.20f, 0.25f, 0.29f, 1.00f);
-    GTheme.HeaderHovered_ModernTreeNode = ImVec4(0.26f, 0.31f, 0.35f, 1.00f);
-    GTheme.HeaderActive_ModernTreeNode  = ImVec4(0.06f, 0.05f, 0.07f, 1.00f);
-    GTheme.Text_ModernTreeNode          = ImVec4(0.95f, 0.95f, 0.95f, 1.00f);
+    // --- Tables ---
+    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TableRowBgAlt     = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
+    GTheme.TableHeaderBg     = ImVec4(0.15f, 0.15f, 0.18f, 1.00f);
 }
 static inline void SetLightTheme() {
+    GTheme.WindowBg          = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
+    GTheme.FrameBg           = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    GTheme.FrameBgHovered    = ImVec4(0.95f, 0.95f, 0.97f, 1.00f);
+    GTheme.FrameBgActive     = ImVec4(0.90f, 0.90f, 0.93f, 1.00f);
+    GTheme.PopupBg           = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
+    GTheme.ChildBg           = ImVec4(0.97f, 0.97f, 0.98f, 1.00f);
+    GTheme.Border            = ImVec4(0.75f, 0.75f, 0.80f, 1.00f);
+    GTheme.Separator         = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
 
-    GTheme.Text_ModernWindowStyle           = ImVec4(0.1f, 0.1f, 0.1f, 0.95f);
-    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
-    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
-    GTheme.Border_ModernWindowStyle         = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
-    GTheme.Separator_ModernWindowStyle      = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
+    GTheme.Text              = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    GTheme.TextDisabled      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
+    GTheme.TextSelected      = ImVec4(0.00f, 0.10f, 0.25f, 1.00f);
+    GTheme.TextSelectedBg    = ImVec4(0.00f, 0.47f, 0.83f, 0.25f);
+    GTheme.TitleBg           = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
+    GTheme.TitleBgActive     = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
 
-    GTheme.ChildBg_ModernChild  = ImVec4(0.97f, 0.97f, 0.98f, 1.0f);
-    GTheme.Border_ModernChild   = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
-    GTheme.Text_ModernChild     = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    GTheme.Button            = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
+    GTheme.ButtonHovered     = ImVec4(0.05f, 0.55f, 0.95f, 1.00f);
+    GTheme.ButtonActive      = ImVec4(0.00f, 0.40f, 0.75f, 1.00f);
+    GTheme.CheckMark         = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
 
-    GTheme.ChildBg_Card = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.Border_Card  = ImVec4(0.80f, 0.80f, 0.83f, 1.0f);
-    GTheme.Text_Card    = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
+    GTheme.Header            = ImVec4(0.90f, 0.92f, 0.96f, 1.00f);
+    GTheme.HeaderHovered     = ImVec4(0.85f, 0.88f, 0.94f, 1.00f);
+    GTheme.HeaderActive      = ImVec4(0.80f, 0.84f, 0.90f, 1.00f);
+    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabHovered        = ImVec4(0.80f, 0.80f, 0.85f, 1.00f);
+    GTheme.TabActive         = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
+    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabUnfocusedActive = ImVec4(0.00f, 0.47f, 0.83f, 0.40f);
 
-    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable  = ImVec4(0, 0, 0, 0.03f);
-
-    GTheme.Text_ModernTabBar               = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    GTheme.Tab_ModernTabBar                = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar         = ImVec4(0.80f, 0.80f, 0.85f, 1.0f);
-    GTheme.TabActive_ModernTabBar          = ImVec4(0.70f, 0.70f, 0.75f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar       = ImVec4(0, 0, 0, 0);
-    GTheme.TabUnfocusedActive_ModernTabBar = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
-
-    GTheme.Button_ModernButton              = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
-    GTheme.ButtonHovered_ModernButton       = ImVec4(0.05f, 0.55f, 0.95f, 1.00f);
-    GTheme.ButtonActive_ModernButton        = ImVec4(0.00f, 0.40f, 0.75f, 1.00f);
-    GTheme.Text_ModernButton                = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-
-    GTheme.Text_SecondaryButton             = ImVec4(0.20f, 0.20f, 0.25f, 1.00f);
-    GTheme.Button_SecondaryButton           = ImVec4(0.94f, 0.94f, 0.96f, 0.00f);
-    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.90f, 0.90f, 0.92f, 1.00f);
-    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
-    GTheme.Border_SecondaryButton           = ImVec4(0.75f, 0.75f, 0.80f, 1.00f);
-
-    GTheme.Text_ModernCheckbox              = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
-    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.75f, 0.75f, 0.80f, 1.0f);
-    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.12f, 0.45f, 0.90f, 0.4f);
-    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.12f, 0.45f, 0.90f, 1.0f);
-
-    GTheme.FrameBg_ModernInputTextMultiline          = ImVec4(1.0f, 1.0f, 1.0f, 1.0f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline   = ImVec4(0.95f, 0.95f, 0.97f, 1.0f);
-    GTheme.FrameBgActive_ModernInputTextMultiline    = ImVec4(0.90f, 0.90f, 0.93f, 1.0f);
-    GTheme.Border_ModernInputTextMultiline           = ImVec4(0.75f, 0.75f, 0.78f, 1.0f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline   = ImVec4(0.12f, 0.45f, 0.90f, 0.25f);
-
-    GTheme.Header_ModernSelectable          = ImVec4(0.90f, 0.92f, 0.96f, 1.00f);
-    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.85f, 0.88f, 0.94f, 1.00f);
-    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.80f, 0.84f, 0.90f, 1.00f);
-    GTheme.Text_Selected_ModernSelectable   = ImVec4(0.05f, 0.10f, 0.25f, 1.00f);
-    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.30f, 0.30f, 0.30f, 1.00f);
-
-    GTheme.Text_ModernInputTextMultiline    = ImVec4(0.1f, 0.1f, 0.1f, 1.0f);
-
-    GTheme.TableHeaderBg_ListTable  = ImVec4(0.90f, 0.90f, 0.92f, 1.0f);
-    GTheme.Text_ListTable           = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable  = ImVec4(0, 0, 0, 0.02f);
-    GTheme.HeaderActive_ListTable   = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
-    GTheme.HeaderHovered_ListTable  = ImVec4(0.92f, 0.92f, 0.95f, 1.00f);
-
-    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.85f, 0.85f, 0.88f, 1.0f);
-    GTheme.HeaderHovered_ModernCollapsingHeader = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
-    GTheme.HeaderActive_ModernCollapsingHeader  = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
-    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.15f, 0.15f, 0.18f, 1.00f);
-    
-    GTheme.FrameBg_NormalCombo        = ImVec4(0.94f, 0.94f, 0.96f, 1.00f); 
-    GTheme.FrameBgHovered_NormalCombo = ImVec4(0.88f, 0.88f, 0.92f, 1.00f); 
-    GTheme.Border_NormalCombo         = ImVec4(0.80f, 0.80f, 0.83f, 1.00f); 
-    GTheme.Text_NormalCombo           = ImVec4(0.15f, 0.15f, 0.18f, 1.00f); 
-    GTheme.TextLaBel_NormalCombo      = ImVec4(0.15f, 0.15f, 0.18f, 1.00f); 
-    GTheme.PopupBg_NormalCombo        = ImVec4(0.98f, 0.98f, 0.98f, 1.00f);
-
-    GTheme.Header_ModernTreeNode        = ImVec4(0.90f, 0.90f, 0.90f, 1.00f);
-    GTheme.HeaderHovered_ModernTreeNode = ImVec4(0.85f, 0.85f, 0.85f, 1.00f);
-    GTheme.HeaderActive_ModernTreeNode  = ImVec4(0.80f, 0.80f, 0.80f, 1.00f);
-    GTheme.Text_ModernTreeNode          = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TableRowBgAlt     = ImVec4(0.00f, 0.00f, 0.00f, 0.03f);
+    GTheme.TableHeaderBg     = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
 }
 static inline void SetMidnightTheme() {
-    // --- Modern Window Style (Nền xanh đen sâu, chữ trắng xanh nhạt) ---
-    GTheme.Text_ModernWindowStyle           = ImVec4(0.92f, 0.95f, 0.98f, 1.00f);
-    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.07f, 0.08f, 0.11f, 0.98f);
-    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.09f, 0.11f, 0.15f, 1.00f);
-    GTheme.Border_ModernWindowStyle         = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
-    GTheme.Separator_ModernWindowStyle      = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
+    GTheme.WindowBg          = ImVec4(0.07f, 0.08f, 0.11f, 0.98f);
+    GTheme.FrameBg           = ImVec4(0.09f, 0.11f, 0.16f, 1.00f);
+    GTheme.FrameBgHovered    = ImVec4(0.14f, 0.17f, 0.25f, 1.00f);
+    GTheme.FrameBgActive     = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
+    GTheme.PopupBg           = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
+    GTheme.ChildBg           = ImVec4(0.09f, 0.11f, 0.16f, 1.00f);
+    GTheme.Border            = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
+    GTheme.Separator         = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
 
-    // --- Modern Child (Phân cấp nhẹ hơn nền chính) ---
-    GTheme.ChildBg_ModernChild  = ImVec4(0.09f, 0.11f, 0.16f, 1.0f);
-    GTheme.Border_ModernChild   = ImVec4(0.18f, 0.22f, 0.30f, 1.0f);
-    GTheme.Text_ModernChild     = ImVec4(0.92f, 0.95f, 0.98f, 1.0f);
+    GTheme.Text              = ImVec4(0.92f, 0.95f, 0.98f, 1.00f);
+    GTheme.TextDisabled      = ImVec4(0.40f, 0.45f, 0.55f, 1.00f);
+    GTheme.TextSelected      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+    GTheme.TextSelectedBg    = ImVec4(0.25f, 0.45f, 0.90f, 0.45f);
+    GTheme.TitleBg           = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
+    GTheme.TitleBgActive     = ImVec4(0.09f, 0.11f, 0.15f, 1.00f);
 
-    // --- Cards (Nổi bật trên nền Child) ---
-    GTheme.ChildBg_Card = ImVec4(0.14f, 0.17f, 0.25f, 1.0f);
-    GTheme.Border_Card  = ImVec4(0.22f, 0.28f, 0.40f, 1.0f);
-    GTheme.Text_Card    = ImVec4(0.90f, 0.93f, 0.96f, 1.0f);
+    GTheme.Button            = ImVec4(0.20f, 0.40f, 0.75f, 1.00f);
+    GTheme.ButtonHovered     = ImVec4(0.25f, 0.50f, 0.90f, 1.00f);
+    GTheme.ButtonActive      = ImVec4(0.15f, 0.35f, 0.65f, 1.00f);
+    GTheme.CheckMark         = ImVec4(0.30f, 0.55f, 1.00f, 1.00f);
 
-    // --- Info Table (Hàng xen kẽ) ---
-    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable  = ImVec4(1, 1, 1, 0.03f);
+    GTheme.Header            = ImVec4(0.18f, 0.25f, 0.40f, 1.00f);
+    GTheme.HeaderHovered     = ImVec4(0.22f, 0.30f, 0.50f, 1.00f);
+    GTheme.HeaderActive      = ImVec4(0.28f, 0.38f, 0.60f, 1.00f);
+    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabHovered        = ImVec4(0.20f, 0.25f, 0.40f, 1.00f);
+    GTheme.TabActive         = ImVec4(0.15f, 0.18f, 0.30f, 1.00f);
+    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabUnfocusedActive = ImVec4(0.25f, 0.45f, 0.90f, 0.60f);
 
-    // --- Modern Tab Bar (Tông màu Indigo) ---
-    GTheme.Text_ModernTabBar                = ImVec4(0.55f, 0.60f, 0.70f, 1.0f);
-    GTheme.Tab_ModernTabBar                 = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar          = ImVec4(0.20f, 0.25f, 0.40f, 1.0f);
-    GTheme.TabActive_ModernTabBar           = ImVec4(0.15f, 0.18f, 0.30f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar        = ImVec4(0, 0, 0, 0);
-    GTheme.TabUnfocusedActive_ModernTabBar  = ImVec4(0.25f, 0.45f, 0.90f, 0.6f);
-
-    // --- Modern Button (Màu xanh nước biển đậm - Primary) ---
-    GTheme.Button_ModernButton              = ImVec4(0.20f, 0.40f, 0.75f, 1.00f);
-    GTheme.ButtonHovered_ModernButton       = ImVec4(0.25f, 0.50f, 0.90f, 1.0f);
-    GTheme.ButtonActive_ModernButton        = ImVec4(0.15f, 0.35f, 0.65f, 1.0f);
-    GTheme.Text_ModernButton                = ImVec4(1.00f, 1.00f, 1.00f, 1.0f);
-
-    // --- Secondary Button (Trong suốt có viền) ---
-    GTheme.Text_SecondaryButton             = ImVec4(0.85f, 0.90f, 1.00f, 1.00f);
-    GTheme.Button_SecondaryButton           = ImVec4(0.15f, 0.20f, 0.30f, 0.00f);
-    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.18f, 0.25f, 0.40f, 0.70f);
-    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.14f, 0.18f, 0.25f, 1.00f);
-    GTheme.Border_SecondaryButton           = ImVec4(0.25f, 0.35f, 0.50f, 1.0f);
-
-    // --- Modern Checkbox ---
-    GTheme.Text_ModernCheckbox              = ImVec4(0.92f, 0.95f, 0.98f, 1.00f);
-    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.15f, 0.18f, 0.25f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.20f, 0.25f, 0.35f, 1.00f);
-    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.25f, 0.45f, 0.90f, 0.5f);
-    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.30f, 0.55f, 1.00f, 1.0f);
-
-    // --- Modern Input Text ---
-    GTheme.FrameBg_ModernInputTextMultiline         = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline  = ImVec4(0.12f, 0.15f, 0.20f, 1.00f);
-    GTheme.FrameBgActive_ModernInputTextMultiline   = ImVec4(0.06f, 0.08f, 0.12f, 1.00f);
-    GTheme.Border_ModernInputTextMultiline          = ImVec4(0.20f, 0.25f, 0.35f, 1.00f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline  = ImVec4(0.20f, 0.45f, 0.90f, 0.45f);
-    GTheme.Text_ModernInputTextMultiline            = ImVec4(0.90f, 0.93f, 0.96f, 1.0f);
-
-    // --- Modern Selectable (Vùng chọn) ---
-    GTheme.Header_ModernSelectable          = ImVec4(0.18f, 0.25f, 0.40f, 1.00f);
-    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.22f, 0.30f, 0.50f, 1.00f);
-    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.28f, 0.38f, 0.60f, 1.00f);
-    GTheme.Text_Selected_ModernSelectable   = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.65f, 0.70f, 0.80f, 1.00f);
-
-    // --- List Table ---
-    GTheme.TableHeaderBg_ListTable  = ImVec4(0.09f, 0.11f, 0.16f, 1.0f);
-    GTheme.Text_ListTable           = ImVec4(0.55f, 0.60f, 0.70f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable  = ImVec4(1.0f, 1.0f, 1.0f, 0.02f);
-    GTheme.HeaderActive_ListTable   = ImVec4(0.18f, 0.25f, 0.40f, 1.00f);
-    GTheme.HeaderHovered_ListTable  = ImVec4(0.18f, 0.25f, 0.40f, 1.00f);
-    
-    // --- Modern Collapsing Header ---
-    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.12f, 0.15f, 0.22f, 1.0f);
-    GTheme.HeaderHovered_ModernCollapsingHeader  = ImVec4(0.18f, 0.22f, 0.32f, 1.00f);
-    GTheme.HeaderActive_ModernCollapsingHeader   = ImVec4(0.22f, 0.28f, 0.40f, 1.00f);
-    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.85f, 0.90f, 0.95f, 1.00f);
-
-    // --- Combo Boxes ---
-    GTheme.FrameBg_NormalCombo          = ImVec4(0.08f, 0.10f, 0.14f, 1.00f); 
-    GTheme.FrameBgHovered_NormalCombo   = ImVec4(0.12f, 0.16f, 0.25f, 1.00f); 
-    GTheme.Border_NormalCombo           = ImVec4(0.20f, 0.25f, 0.35f, 1.00f); 
-    GTheme.Text_NormalCombo             = ImVec4(0.90f, 0.93f, 0.96f, 1.00f); 
-    GTheme.TextLaBel_NormalCombo        = ImVec4(0.70f, 0.75f, 0.85f, 1.00f); 
-    GTheme.PopupBg_NormalCombo          = ImVec4(0.09f, 0.11f, 0.16f, 0.98f);
-
-    // --- Modern TreeNode ---
-    GTheme.Header_ModernTreeNode        = ImVec4(0.16f, 0.22f, 0.35f, 1.00f);
-    GTheme.HeaderHovered_ModernTreeNode = ImVec4(0.22f, 0.30f, 0.45f, 1.00f);
-    GTheme.HeaderActive_ModernTreeNode  = ImVec4(0.10f, 0.12f, 0.18f, 1.00f);
-    GTheme.Text_ModernTreeNode          = ImVec4(0.92f, 0.95f, 0.98f, 1.00f);
+    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TableRowBgAlt     = ImVec4(1.00f, 1.00f, 1.00f, 0.02f);
+    GTheme.TableHeaderBg     = ImVec4(0.12f, 0.15f, 0.22f, 1.00f);
 }
 static inline void SetRetroTheme() {
-    // --- Modern Window Style (Tông màu nâu đen sáp, chữ vàng cát) ---
-    GTheme.Text_ModernWindowStyle           = ImVec4(0.92f, 0.86f, 0.70f, 1.00f); // Retro Cream
-    GTheme.WindowBg_ModernWindowStyle       = ImVec4(0.16f, 0.16f, 0.16f, 1.00f); // Dark Charcoal
-    GTheme.TitleBg_ModernWindowStyle        = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
-    GTheme.TitleBgActive_ModernWindowStyle  = ImVec4(0.15f, 0.14f, 0.13f, 1.00f);
-    GTheme.Border_ModernWindowStyle         = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
-    GTheme.Separator_ModernWindowStyle      = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
+    GTheme.WindowBg          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f);
+    GTheme.FrameBg           = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
+    GTheme.FrameBgHovered    = ImVec4(0.20f, 0.19f, 0.18f, 1.00f);
+    GTheme.FrameBgActive     = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
+    GTheme.PopupBg           = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
+    GTheme.ChildBg           = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
+    GTheme.Border            = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    GTheme.Separator         = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
 
-    // --- Modern Child (Màu tối hơn nền chính một chút) ---
-    GTheme.ChildBg_ModernChild  = ImVec4(0.14f, 0.14f, 0.14f, 1.0f);
-    GTheme.Border_ModernChild   = ImVec4(0.25f, 0.24f, 0.23f, 1.0f);
-    GTheme.Text_ModernChild     = ImVec4(0.92f, 0.86f, 0.70f, 1.0f);
+    GTheme.Text              = ImVec4(0.92f, 0.86f, 0.70f, 1.00f);
+    GTheme.TextDisabled      = ImVec4(0.50f, 0.45f, 0.40f, 1.00f);
+    GTheme.TextSelected      = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
+    GTheme.TextSelectedBg    = ImVec4(0.84f, 0.60f, 0.13f, 0.35f);
+    GTheme.TitleBg           = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
+    GTheme.TitleBgActive     = ImVec4(0.15f, 0.14f, 0.13f, 1.00f);
 
-    // --- Cards (Màu nâu nhẹ, ấm) ---
-    GTheme.ChildBg_Card = ImVec4(0.20f, 0.19f, 0.18f, 1.0f);
-    GTheme.Border_Card  = ImVec4(0.31f, 0.29f, 0.27f, 1.0f);
-    GTheme.Text_Card    = ImVec4(0.85f, 0.80f, 0.65f, 1.0f);
+    GTheme.Button            = ImVec4(0.84f, 0.60f, 0.13f, 1.00f);
+    GTheme.ButtonHovered     = ImVec4(0.98f, 0.74f, 0.18f, 1.00f);
+    GTheme.ButtonActive      = ImVec4(0.72f, 0.51f, 0.10f, 1.00f);
+    GTheme.CheckMark         = ImVec4(0.58f, 0.63f, 0.13f, 1.00f);
 
-    // --- Info Table ---
-    GTheme.TableRowBg_InfoTable     = ImVec4(0, 0, 0, 0);
-    GTheme.TableRowBgAlt_InfoTable  = ImVec4(1.0f, 0.90f, 0.70f, 0.02f);
+    GTheme.Header            = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
+    GTheme.HeaderHovered     = ImVec4(0.40f, 0.36f, 0.33f, 1.00f);
+    GTheme.HeaderActive      = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
+    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabHovered        = ImVec4(0.30f, 0.28f, 0.26f, 1.00f);
+    GTheme.TabActive         = ImVec4(0.25f, 0.23f, 0.21f, 1.00f);
+    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TabUnfocusedActive = ImVec4(0.84f, 0.60f, 0.13f, 0.50f);
 
-    // --- Modern Tab Bar (Tông màu Cam cháy / Rỉ sét) ---
-    GTheme.Text_ModernTabBar                = ImVec4(0.65f, 0.60f, 0.50f, 1.0f);
-    GTheme.Tab_ModernTabBar                 = ImVec4(0, 0, 0, 0);
-    GTheme.TabHovered_ModernTabBar          = ImVec4(0.30f, 0.28f, 0.26f, 1.0f);
-    GTheme.TabActive_ModernTabBar           = ImVec4(0.25f, 0.23f, 0.21f, 1.0f);
-    GTheme.TabUnfocused_ModernTabBar        = ImVec4(0, 0, 0, 0);
-    GTheme.TabUnfocusedActive_ModernTabBar  = ImVec4(0.84f, 0.60f, 0.13f, 0.5f);
-
-    // --- Modern Button (Màu vàng mù tạt đặc trưng của Gruvbox) ---
-    GTheme.Button_ModernButton              = ImVec4(0.84f, 0.60f, 0.13f, 1.00f); 
-    GTheme.ButtonHovered_ModernButton       = ImVec4(0.98f, 0.74f, 0.18f, 1.0f);
-    GTheme.ButtonActive_ModernButton        = ImVec4(0.72f, 0.51f, 0.10f, 1.0f);
-    GTheme.Text_ModernButton                = ImVec4(0.11f, 0.11f, 0.11f, 1.0f); // Chữ tối trên nền sáng
-
-    // --- Secondary Button (Trong suốt viền nâu) ---
-    GTheme.Text_SecondaryButton             = ImVec4(0.84f, 0.60f, 0.13f, 1.00f);
-    GTheme.Button_SecondaryButton           = ImVec4(0, 0, 0, 0);
-    GTheme.ButtonHovered_SecondaryButton    = ImVec4(0.25f, 0.24f, 0.23f, 0.80f);
-    GTheme.ButtonActive_SecondaryButton     = ImVec4(0.20f, 0.19f, 0.18f, 1.00f);
-    GTheme.Border_SecondaryButton           = ImVec4(0.40f, 0.35f, 0.30f, 1.0f);
-
-    // --- Modern Checkbox (Màu xanh rêu) ---
-    GTheme.Text_ModernCheckbox              = ImVec4(0.92f, 0.86f, 0.70f, 1.00f);
-    GTheme.FrameBg_ModernCheckbox           = ImVec4(0.20f, 0.19f, 0.18f, 1.0f);
-    GTheme.FrameBgHovered_ModernCheckbox    = ImVec4(0.31f, 0.29f, 0.27f, 1.0f);
-    GTheme.FrameBgActive_ModernCheckbox     = ImVec4(0.58f, 0.63f, 0.13f, 0.5f);
-    GTheme.CheckMark_ModernCheckbox         = ImVec4(0.58f, 0.63f, 0.13f, 1.00f); // Moss Green
-
-    // --- Modern Input Text ---
-    GTheme.FrameBg_ModernInputTextMultiline         = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
-    GTheme.FrameBgHovered_ModernInputTextMultiline  = ImVec4(0.20f, 0.19f, 0.18f, 1.00f);
-    GTheme.FrameBgActive_ModernInputTextMultiline   = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
-    GTheme.Border_ModernInputTextMultiline          = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.TextSelectedBg_ModernInputTextMultiline  = ImVec4(0.40f, 0.35f, 0.30f, 0.50f);
-    GTheme.Text_ModernInputTextMultiline            = ImVec4(0.92f, 0.86f, 0.70f, 1.0f);
-
-    // --- Modern Selectable ---
-    GTheme.Header_ModernSelectable          = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.HeaderHovered_ModernSelectable   = ImVec4(0.40f, 0.36f, 0.33f, 1.00f);
-    GTheme.HeaderActive_ModernSelectable    = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
-    GTheme.Text_Selected_ModernSelectable   = ImVec4(0.98f, 0.74f, 0.18f, 1.00f);
-    GTheme.Text_UnSelected_ModernSelectable = ImVec4(0.65f, 0.60f, 0.50f, 1.00f);
-
-    // --- List Table ---
-    GTheme.TableHeaderBg_ListTable  = ImVec4(0.12f, 0.12f, 0.12f, 1.0f);
-    GTheme.Text_ListTable           = ImVec4(0.60f, 0.55f, 0.45f, 1.0f);
-    GTheme.TableRowBgAlt_ListTable  = ImVec4(1.0f, 0.90f, 0.70f, 0.02f);
-    GTheme.HeaderActive_ListTable   = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.HeaderHovered_ListTable  = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    
-    // --- Modern Collapsing Header ---
-    GTheme.Header_ModernCollapsingHeader        = ImVec4(0.20f, 0.19f, 0.18f, 1.0f);
-    GTheme.HeaderHovered_ModernCollapsingHeader  = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
-    GTheme.HeaderActive_ModernCollapsingHeader   = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.Text_ModernCollapsingHeader          = ImVec4(0.92f, 0.86f, 0.70f, 1.00f);
-
-    // --- Combo Boxes ---
-    GTheme.FrameBg_NormalCombo          = ImVec4(0.12f, 0.12f, 0.12f, 1.00f); 
-    GTheme.FrameBgHovered_NormalCombo   = ImVec4(0.20f, 0.19f, 0.18f, 1.00f); 
-    GTheme.Border_NormalCombo           = ImVec4(0.31f, 0.29f, 0.27f, 1.00f); 
-    GTheme.Text_NormalCombo             = ImVec4(0.92f, 0.86f, 0.70f, 1.00f); 
-    GTheme.TextLaBel_NormalCombo        = ImVec4(0.85f, 0.80f, 0.65f, 1.00f); 
-    GTheme.PopupBg_NormalCombo          = ImVec4(0.16f, 0.16f, 0.16f, 0.98f);
-
-    // --- Modern TreeNode ---
-    GTheme.Header_ModernTreeNode        = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
-    GTheme.HeaderHovered_ModernTreeNode = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.HeaderActive_ModernTreeNode  = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
-    GTheme.Text_ModernTreeNode          = ImVec4(0.92f, 0.86f, 0.70f, 1.00f);
+    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
+    GTheme.TableRowBgAlt     = ImVec4(1.00f, 0.90f, 0.70f, 0.02f);
+    GTheme.TableHeaderBg     = ImVec4(0.18f, 0.17f, 0.16f, 1.00f);
 }
  
 extern std::map<ThemeType, ThemeColors> ThemeLibrary;
@@ -1692,8 +1445,8 @@ namespace CusTomImGui{
                 ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
             }
 
-            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GTheme.TableRowBg_InfoTable);
-            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt_InfoTable); 
+            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GTheme.TableRowBg);
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt); 
             
             return true;
         }
@@ -1710,9 +1463,9 @@ namespace CusTomImGui{
 
     inline bool BeginCard() {
         // Sử dụng màu nền Card nhẹ nhàng, tiệp với tông Dark của Window
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg_Card); 
-        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border_Card); // Viền mảnh
-        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text_Card); // Chữ trắng sáng
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg); 
+        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border); // Viền mảnh
+        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text); // Chữ trắng sáng
 
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
@@ -1744,9 +1497,9 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 12.0f));
         
         // Màu sắc (Sử dụng màu tối nhẹ hoặc trắng tinh khôi)
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg_ModernChild); 
-        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_ModernChild);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernChild);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg); 
+        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
 
         if(ImGui::BeginChild(str_id, size, border, extra_flags | ImGuiWindowFlags_NoScrollbar)) return true;
 
@@ -1766,14 +1519,14 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 10.0f)); // Tab cao hơn nhìn sang hơn
         
         // Màu sắc
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernTabBar);  // Text mặc định hơi tối
-        ImGui::PushStyleColor(ImGuiCol_Tab,           GTheme.Tab_ModernTabBar);              // Trong suốt khi ko chọn
-        ImGui::PushStyleColor(ImGuiCol_TabHovered,    GTheme.TabHovered_ModernTabBar);
-        ImGui::PushStyleColor(ImGuiCol_TabActive,     GTheme.TabActive_ModernTabBar); // Tiệp màu với ChildBg bên dưới
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GTheme.TabUnfocused_ModernTabBar);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text);  // Text mặc định hơi tối
+        ImGui::PushStyleColor(ImGuiCol_Tab,           GTheme.Tab);              // Trong suốt khi ko chọn
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,    GTheme.TabHovered);
+        ImGui::PushStyleColor(ImGuiCol_TabActive,     GTheme.TabActive); // Tiệp màu với ChildBg bên dưới
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GTheme.TabUnfocused);
         
         // Đường kẻ dưới Tab Active (Màu Accent)
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GTheme.TabUnfocused_ModernTabBar);
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GTheme.TabUnfocusedActive);
 
         if(ImGui::BeginTabBar(id, ImGuiTabBarFlags_NoTabListScrollingButtons | ImGuiTabBarFlags_FittingPolicyResizeDown)) {
             return true;
@@ -1783,6 +1536,52 @@ namespace CusTomImGui{
         ImGui::PopStyleVar(2);
 
         return false;
+    }
+    inline bool ModernTabItem(const char* label, bool* p_open = NULL, ImGuiTabItemFlags flags = 0) {
+        ImGuiContext& g = *GImGui;
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        ImGuiID id = window->GetID(label);
+
+        // 1. Tùy chỉnh màu sắc Tab
+        ImGui::PushStyleColor(ImGuiCol_Tab,                ImVec4(0,0,0,0)); // Tab ko chọn thì trong suốt
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,         GTheme.TabHovered);
+        ImGui::PushStyleColor(ImGuiCol_TabActive,          ImVec4(0,0,0,0)); // Active cũng ko nền để hiện thanh bar
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,       ImVec4(0,0,0,0));
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0,0,0,0));
+
+        bool selected = ImGui::BeginTabItem(label, p_open, flags);
+
+        // 2. Logic Animation cho thanh Bar bên dưới
+        // Lưu ý: ImGui quản lý Tab hơi khác, ta cần dùng trạng thái đã chọn của frame trước
+        float* pT = ImGui::GetStateStorage()->GetFloatRef(id, 0.0f);
+        float target = ImGui::IsItemHovered() || selected ? 1.0f : 0.0f;
+        *pT += (target - *pT) * g.IO.DeltaTime * 12.0f;
+
+        // 3. Vẽ thanh chỉ báo (Indicator Bar)
+        if (*pT > 0.01f) {
+            ImVec2 p_min = ImGui::GetItemRectMin();
+            ImVec2 p_max = ImGui::GetItemRectMax();
+            float bar_width = (p_max.x - p_min.x) * 0.8f; // Thanh bar rộng 80% tab
+            float offset = (p_max.x - p_min.x - bar_width) * 0.5f;
+
+            ImVec2 b_min = ImVec2(p_min.x + offset, p_max.y - 2.0f);
+            ImVec2 b_max = ImVec2(p_min.x + offset + (bar_width * *pT), p_max.y); // Dài dần ra
+
+            ImVec4 col = selected ? GTheme.CheckMark : GTheme.TextDisabled;
+            col.w *= *pT;
+
+            window->DrawList->AddRectFilled(b_min, b_max, ImGui::GetColorU32(col), 10.0f);
+        }
+        if(!selected){
+            ImGui::PopStyleColor(5);
+            return selected;
+        }
+
+        return selected;
+    }
+    inline void EndModernTabItem() {
+        ImGui::EndTabItem();
+        ImGui::PopStyleColor(5);
     }
     inline void EndModernTabBar() {
         ImGui::EndTabBar();
@@ -1802,143 +1601,429 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));    // Tăng độ cao title bar
         
         // 3. Màu sắc hiện đại (Dark Theme tinh tế)
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, GTheme.WindowBg_ModernWindowStyle);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernWindowStyle);
-        ImGui::PushStyleColor(ImGuiCol_TitleBg, GTheme.TitleBg_ModernWindowStyle);
-        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GTheme.TitleBgActive_ModernWindowStyle);
-        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_ModernWindowStyle);
-        ImGui::PushStyleColor(ImGuiCol_Separator, GTheme.Separator_ModernWindowStyle);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, GTheme.WindowBg);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, GTheme.TitleBg);
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GTheme.TitleBgActive);
+        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border);
+        ImGui::PushStyleColor(ImGuiCol_Separator, GTheme.Separator);
     }
     inline void PopModernWindowStyle() {
         ImGui::PopStyleColor(6);
         ImGui::PopStyleVar(5);
     }
-    inline bool ModernButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
-        // 1. Kiểm tra xem người dùng có truyền size cố định hay không
-        bool has_custom_size = (size.x != 0.0f || size.y != 0.0f);
-
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        
-        // 2. Nếu có size, reset Padding để ImGui tự căn giữa text trong không gian đó
-        // Nếu không có size, dùng Padding mặc định để nút trông "dày dặn"
-        if (has_custom_size) {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0, 0));
-        } else {
-            ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8));
-        }
-        
-        // 3. Setup Màu sắc
-        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_ModernButton);
-
-        // 4. Gọi hàm Button gốc
-        bool pressed = ImGui::Button(label, size);
-
-        ImGui::PopStyleColor(4);
-        ImGui::PopStyleVar(2); // Pop FrameRounding và FramePadding
-
-        return pressed;
-    }
-    inline bool SecondaryButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(15, 8));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f); // Có viền nhẹ
-
-        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_SecondaryButton); // Trong suốt
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_Border,        GTheme.Border_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_SecondaryButton);
-
-        bool pressed = ImGui::Button(label, size);
-
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar(3);
-        return pressed;
-    }
-    inline bool ModernCheckbox(const char* label, bool* v) {
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-        //ImGui::PushStyleVar(ImGuiStyleVar_CheckMarkSize, 14.0f); // Dấu tích lớn dễ nhìn
-
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernCheckbox);
-
-        // Màu nền ô Check
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernCheckbox);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernCheckbox);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernCheckbox);
-        
-        // Màu dấu tích khi được chọn
-        ImGui::PushStyleColor(ImGuiCol_CheckMark,        GTheme.CheckMark_ModernCheckbox);
-
-        bool changed = ImGui::Checkbox(label, v);
-
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar();
-        return changed;
-    }
-    inline bool ModernInputTextMultiline(const char* label, char* buf, size_t buf_size, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0) {
-        // 1. Bo góc và Padding cho nội dung bên trong ô nhập
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10)); // Tạo khoảng trống cho chữ "thở"
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
-
-        // 2. Màu sắc (Nền tối, Chữ trắng, Viền xanh khi Focus)
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernInputTextMultiline); // Nền ô nhập
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernInputTextMultiline);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernInputTextMultiline);
-        
-        // Màu viền (Rất quan trọng để nhận biết đang gõ)
-        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border_ModernInputTextMultiline); 
-        ImGui::PushStyleColor(ImGuiCol_TextSelectedBg,   GTheme.TextSelectedBg_ModernInputTextMultiline); // Màu khi bôi đen chữ
-
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernInputTextMultiline);
-
-        bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
-
-        // Kiểm tra nếu đang gõ thì đổi màu viền sang xanh Blue (Accent)
-        if (ImGui::IsItemActive()) {
-            ImGui::GetWindowDrawList()->AddRect(
-                ImGui::GetItemRectMin(), ImGui::GetItemRectMax(), 
-                ImColor(40, 110, 230, 255), 6.0f, 0, 1.5f
-            );
-        }
-
-        ImGui::PopStyleColor(6);
-        ImGui::PopStyleVar(3);
-        return changed;
-    }
-    inline bool ModernSelectable(const char* label, bool selected, ImGuiSelectableFlags flags = 0, const ImVec2& size_arg = ImVec2(0, 0)) {
+    inline bool ModernButton(const char* label, const ImVec2& size_arg = ImVec2(0, 0), bool primary = true) {
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         if (window->SkipItems) return false;
 
-        // 1. Tăng khoảng cách (Padding) cho Item
-        // Giúp item cao hơn, dễ nhìn và dễ click hơn
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 8));
-        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        ImGuiContext& g = *GImGui;
+        const ImGuiID id = window->GetID(label);
         
-        // 2. Bo góc cho phần highlight (nền khi chọn hoặc hover)
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
-
-        // 3. Màu sắc hiện đại
-        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header_ModernSelectable); // Màu khi được chọn (Selected)
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered_ModernSelectable); // Màu khi di chuột qua
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive_ModernSelectable); // Màu khi nhấn giữ
+        // Tính toán kích thước
+        ImVec2 padding = ImVec2(15, 8);
+        ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+        ImVec2 size = ImGui::CalcItemSize(size_arg, label_size.x + padding.x * 2.0f, label_size.y + padding.y * 2.0f);
         
-        if (selected) ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_Selected_ModernSelectable);
-        else          ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_UnSelected_ModernSelectable);
+        const ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
+        ImGui::ItemSize(size);
+        if (!ImGui::ItemAdd(bb, id)) return false;
 
-        // Gọi hàm gốc của ImGui
-        // Sử dụng size.y lớn hơn một chút để tạo danh sách thoáng đãng
-        ImVec2 size = size_arg;
-        if (size.y == 0.0f) size.y = ImGui::GetTextLineHeightWithSpacing() + 4.0f;
+        // Tương tác
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
 
-        bool pressed = ImGui::Selectable(label, selected, flags, size);
+        // Animation logic
+        float frameTime = g.IO.DeltaTime * 10.0f;
+        float* pAnim = window->StateStorage.GetFloatRef(id, 0.0f);
+        *pAnim = ImClamp(*pAnim + (hovered ? frameTime : -frameTime), 0.0f, 1.0f);
 
-        // 4. Hoàn trả Style
-        ImGui::PopStyleColor(4);
+        // Hiệu ứng "Phóng to" nhẹ khi hover (Scale)
+        float scale = 1.0f + (*pAnim * 0.02f); 
+        ImVec2 center = bb.GetCenter();
+        
+        // Màu sắc
+        ImVec4 col_base = primary ? GTheme.Button : ImVec4(0,0,0,0);
+        ImVec4 col_hover = GTheme.ButtonHovered;
+        ImVec4 final_bg = ImLerp(col_base, col_hover, *pAnim);
+        if (held) final_bg = GTheme.ButtonActive;
+
+        // Vẽ nền (Sử dụng DrawList để bo góc mượt)
+        window->DrawList->AddRectFilled(bb.Min - ImVec2(2 * *pAnim, 1 * *pAnim), 
+                                        bb.Max + ImVec2(2 * *pAnim, 1 * *pAnim), 
+                                        ImGui::ColorConvertFloat4ToU32(final_bg), 6.0f);
+
+        // Nếu là Secondary, vẽ thêm viền
+        if (!primary) {
+            window->DrawList->AddRect(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(GTheme.Border), 6.0f);
+        }
+
+        // Vẽ chữ căn giữa
+        ImGui::RenderTextClipped(bb.Min, bb.Max, label, NULL, &label_size, ImVec2(0.5f, 0.5f));
+
+        return pressed;
+    }
+
+    // Secondary chỉ là gọi ModernButton với tham số false
+    inline bool SecondaryButton(const char* label, const ImVec2& size = ImVec2(0, 0)) {
+        return ModernButton(label, size, false);
+    }
+    // Thêm biến static để lưu ID đang được hover toàn cục
+    static ImGuiID G_LastHoveredID = 0;
+
+    inline bool ModernButtonEx(const char* label, const ImVec2& size_arg = ImVec2(0, 0)) {
+
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiID id = window->GetID(label);
+        
+        // Tính toán kích thước
+        ImVec2 padding = ImVec2(15, 8);
+        ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+        ImVec2 size = ImGui::CalcItemSize(size_arg, label_size.x + padding.x * 2.0f, label_size.y + padding.y * 2.0f);
+        
+        const ImRect bb(window->DC.CursorPos, window->DC.CursorPos + size);
+        ImGui::ItemSize(size);
+        if (!ImGui::ItemAdd(bb, id)) return false;
+        
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
+        
+        if (hovered) G_LastHoveredID = id;
+
+        float frameTime = g.IO.DeltaTime * 10.0f;
+        float* pAnim = window->StateStorage.GetFloatRef(id, 0.0f);
+        *pAnim = ImClamp(*pAnim + (hovered ? frameTime : -frameTime), 0.0f, 1.0f);
+
+        // Tính toán "Influence" (Sức ảnh hưởng)
+        // Nếu nút này không phải nút đang hover trực tiếp, nhưng là nút lân cận
+        float influence = 0.0f;
+        if (!hovered && G_LastHoveredID != 0) {
+            // Có thể tính khoảng cách giữa các ID hoặc vị trí, 
+            // ở đây đơn giản là dùng một biến trạng thái lân cận
+            influence = 0.2f; // Sáng nhẹ 20%
+        }
+        
+        // Màu nền mix thêm influence
+        ImVec4 final_bg = ImLerp(GTheme.Button, GTheme.ButtonHovered, *pAnim + influence);
+        // ... vẽ tiếp ...
+    }
+
+    enum class CheckboxStyle {
+        Circle,     // Kiểu chấm tròn (như Radio Button nhưng đa chọn)
+        Tick,       // Kiểu dấu tích cổ điển (Vẽ bằng đường thẳng)
+        Square      // Kiểu hình vuông đặc (Fill)
+    };
+    inline bool ModernCheckbox(const char* label, bool* v, CheckboxStyle style = CheckboxStyle::Tick) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& imStyle = g.Style;
+        const ImGuiID id = window->GetID(label);
+
+        // 1. Tính toán kích thước
+        float square_sz = ImGui::GetFrameHeight(); // Kích thước chuẩn của checkbox
+        ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
+        
+        ImVec2 pos = window->DC.CursorPos;
+        // Tổng vùng tương tác bao gồm cả Box và Label
+        const ImRect total_bb(pos, pos + ImVec2(square_sz + (label_size.x > 0 ? imStyle.ItemInnerSpacing.x + label_size.x : 0), square_sz));
+        
+        ImGui::ItemSize(total_bb, imStyle.FramePadding.y);
+        if (!ImGui::ItemAdd(total_bb, id)) return false;
+
+        // 2. Tương tác
+        bool hovered, held;
+        bool pressed = ImGui::ButtonBehavior(total_bb, id, &hovered, &held);
+        if (pressed) *v = !*v;
+
+        // 3. Animation tCheck
+        float* pT = window->StateStorage.GetFloatRef(id, *v ? 1.0f : 0.0f);
+        *pT = ImClamp(*pT + (*v ? g.IO.DeltaTime * 12.0f : -g.IO.DeltaTime * 12.0f), 0.0f, 1.0f);
+
+        // 4. Vẽ Box nền
+        // Bo góc hoàn toàn nếu là Circle, bo nhẹ nếu là kiểu khác
+        float rounding = (style == CheckboxStyle::Circle) ? square_sz * 0.5f : 4.0f;
+        ImU32 col_bg = ImGui::GetColorU32((held && hovered) ? GTheme.FrameBgActive : hovered ? GTheme.FrameBgHovered : GTheme.FrameBg);
+        
+        window->DrawList->AddRectFilled(pos, pos + ImVec2(square_sz, square_sz), col_bg, rounding);
+        
+        // Vẽ viền mỏng để trông sắc nét hơn
+        window->DrawList->AddRect(pos, pos + ImVec2(square_sz, square_sz), ImGui::GetColorU32(ToCol32(GTheme.Border), 0.5f), rounding);
+
+        // 5. Vẽ nội dung Check (Dựa trên enum Style)
+        if (*pT > 0.01f) {
+            ImVec2 center = pos + ImVec2(square_sz * 0.5f, square_sz * 0.5f);
+            ImU32 check_col = ImGui::GetColorU32(GTheme.CheckMark);
+            // Hiệu ứng Fade Alpha theo animation
+            check_col = (check_col & 0x00FFFFFF) | ((uint32_t)(*pT * 255) << 24);
+
+            if (style == CheckboxStyle::Circle) {
+                window->DrawList->AddCircleFilled(center, (square_sz * 0.25f) * *pT, check_col);
+            }
+            else if (style == CheckboxStyle::Square) {
+                float pad = square_sz * 0.25f * (1.0f - *pT + 1.0f); // Nở ra từ tâm
+                window->DrawList->AddRectFilled(pos + ImVec2(pad, pad), pos + ImVec2(square_sz - pad, square_sz - pad), check_col, 2.0f);
+            }
+            else if (style == CheckboxStyle::Tick) {
+                // Vẽ dấu tích bằng đường thẳng (Polyline)
+                float thickness = 2.0f;
+                float size = square_sz * 0.6f * *pT;
+                float x0 = center.x - size * 0.5f, y0 = center.y;
+                float x1 = center.x - size * 0.1f, y1 = center.y + size * 0.4f;
+                float x2 = center.x + size * 0.5f, y2 = center.y - size * 0.4f;
+                
+                window->DrawList->PathLineTo(ImVec2(x0, y0));
+                window->DrawList->PathLineTo(ImVec2(x1, y1));
+                window->DrawList->PathLineTo(ImVec2(x2, y2));
+                window->DrawList->PathStroke(check_col, 0, thickness);
+            }
+        }
+
+        // 6. CĂN GIỮA LABEL THEO CHIỀU DỌC (FIX)
+        if (label_size.x > 0.0f) {
+            // Tính toán offset Y để text nằm chính giữa Box theo pixel-perfect
+            // font_size là chiều cao text, square_sz là chiều cao Box
+            float text_y_offset = (square_sz - g.FontSize) * 0.5f;
+            ImVec2 text_pos = ImVec2(pos.x + square_sz + imStyle.ItemInnerSpacing.x, pos.y + text_y_offset);
+            
+            ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+            ImGui::RenderText(text_pos, label);
+            ImGui::PopStyleColor();
+        }
+
+        return pressed;
+    }
+    // Callback hỗ trợ riêng cho std::string
+    static int StringResizeCallback(ImGuiInputTextCallbackData* data)
+    {
+        if (data->EventFlag == ImGuiInputTextFlags_CallbackResize)
+        {
+            std::string* str = (std::string*)data->UserData;
+
+            // Resize string theo yêu cầu của ImGui
+            str->resize(data->BufTextLen);
+
+            // Cập nhật lại buffer pointer
+            data->Buf = str->data();
+
+            // Cập nhật size buffer
+            data->BufSize = (int)str->capacity() + 1;
+        }
+        return 0;
+    }
+
+    // Hàm bổ trợ để vẽ phần Decor (viền, animation)
+    inline void RenderModernInputEffect(ImGuiID id, float* pFocusAnim) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        float target = ImGui::IsItemActive() ? 1.0f : 0.0f;
+        *pFocusAnim += (target - *pFocusAnim) * ImGui::GetIO().DeltaTime * 10.0f;
+
+        if (*pFocusAnim > 0.01f) {
+            ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            rect.Expand(0.5f);
+            ImVec4 accent_col = GTheme.CheckMark;
+            accent_col.w *= *pFocusAnim;
+            window->DrawList->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(accent_col), 6.0f, 0, 1.5f);
+        }
+    }
+    inline bool ModernInputTextMultiline(const char* label, char* buf, size_t buf_size, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0) {
+        ImGuiID id = ImGui::GetCurrentWindow()->GetID(label);
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
+        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
+
+        bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
+
+        float* pFocusAnim = ImGui::GetStateStorage()->GetFloatRef(id + 1, 0.0f);
+        RenderModernInputEffect(id, pFocusAnim);
+
+        ImGui::PopStyleColor(5);
         ImGui::PopStyleVar(3);
+        return changed;
+    }
+    inline bool ModernInputTextMultiline(const char* label, std::string& str, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0) {
+        ImGuiID id = ImGui::GetCurrentWindow()->GetID(label);
+        
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
+        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
+
+        // Ép thêm flag Resize và dùng Callback
+        flags |= ImGuiInputTextFlags_CallbackResize;
+        bool changed = ImGui::InputTextMultiline(label, (char*)str.c_str(), str.capacity() + 1, size, flags, StringResizeCallback, (void*)&str);
+
+        float* pFocusAnim = ImGui::GetStateStorage()->GetFloatRef(id + 1, 0.0f);
+        RenderModernInputEffect(id, pFocusAnim);
+
+        ImGui::PopStyleColor(5);
+        ImGui::PopStyleVar(3);
+        return changed;
+    }
+    inline bool ModernInputText(const char* label, char* buf, size_t buf_size, float width, ImGuiInputTextFlags flags = 0) {
+        ImGuiID id = ImGui::GetID(label);
+        
+        // Logic Animation & Glow
+        float* pAnim = ImGui::GetStateStorage()->GetFloatRef(id + 500, 0.0f);
+        bool is_active = ImGui::GetActiveID() == id;
+        *pAnim += ((is_active ? 1.0f : 0.0f) - *pAnim) * ImGui::GetIO().DeltaTime * 12.0f;
+
+        // Style cho ô Input
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GTheme.CheckMark : GTheme.Border);
+
+        ImGui::SetNextItemWidth(width);
+        bool changed = ImGui::InputTextEx(label, "Type here...", buf, (int)buf_size, ImVec2(width, 0), flags);
+
+        // Vẽ hiệu ứng Glow khi Active (Focus)
+        if (*pAnim > 0.01f) {
+            ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            rect.Expand(1.5f * (*pAnim));
+            ImVec4 glow_col = GTheme.CheckMark;
+            glow_col.w *= (*pAnim * 0.4f);
+            ImGui::GetWindowDrawList()->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(glow_col), 6.0f, 0, 1.5f);
+        }
+
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(2);
+        return changed;
+    }
+    inline bool ModernInputText(const char* label, std::string& buffer, float width, ImGuiInputTextFlags flags = 0) {
+        ImGuiID id = ImGui::GetID(label);
+        ImGuiStorage* store = ImGui::GetStateStorage();
+        
+        // Animation state
+        float* pAnim = store->GetFloatRef(id + 500, 0.0f);
+        bool is_active = ImGui::GetActiveID() == id;
+        *pAnim += ((is_active ? 1.0f : 0.0f) - *pAnim) * ImGui::GetIO().DeltaTime * 12.0f;
+
+        // Style
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
+        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+        
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg);
+        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GTheme.CheckMark : GTheme.Border);
+
+        ImGui::SetNextItemWidth(width);
+        
+        // Gọi InputText với Callback Resize
+        flags |= ImGuiInputTextFlags_CallbackResize;
+        bool changed = ImGui::InputTextEx(label, "Type to search...", (char*)buffer.data(), (int)buffer.capacity() + 1, ImVec2(width, 0), flags, StringResizeCallback, (void*)&buffer);
+
+        // Vẽ hiệu ứng Glow khi Active
+        if (*pAnim > 0.01f) {
+            ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            rect.Expand(1.5f * (*pAnim));
+            ImVec4 glow_col = GTheme.CheckMark;
+            glow_col.w *= (*pAnim * 0.4f);
+            ImGui::GetWindowDrawList()->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(glow_col), 6.0f, 0, 1.5f);
+        }
+
+        ImGui::PopStyleColor(2);
+        ImGui::PopStyleVar(3);
+        
+        return changed;
+    }
+    
+    inline bool ModernSelectable(const char* label, bool selected, ImGuiSelectableFlags flags = 0, const ImVec2& size_arg = ImVec2(0, 0), bool enabled = true) {
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        if (window->SkipItems) return false;
+
+        const ImGuiID id = window->GetID(label);
+        ImGuiContext& g = *GImGui;
+        const ImGuiStyle& style = g.Style;
+
+        // 1. Tính toán kích thước và vị trí
+        ImVec2 pos = window->DC.CursorPos;
+        ImVec2 size = ImGui::CalcItemSize(size_arg, ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + 8.0f);
+        const ImRect bb(pos, ImVec2(pos.x + size.x, pos.y + size.y));
+
+        // 2. Quản lý Animation qua Storage
+        // tHover: 0.0f -> 1.0f (hiệu ứng di chuột)
+        // tSelect: 0.0f -> 1.0f (hiệu ứng khi được chọn)
+        float* pTHover = window->StateStorage.GetFloatRef(id, 0.0f);
+        float* pTSelect = window->StateStorage.GetFloatRef(id + 1, 0.0f); // Dùng offset ID để tránh trùng
+
+        // 3. Logic tương tác
+        bool hovered, held ;
+        bool pressed = false;
+        if (enabled) {
+            pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held, flags);
+        }
+
+        // Cập nhật giá trị animation (Interpolation)
+        float frameTime = g.IO.DeltaTime * 12.0f; // Tốc độ animation
+        // Nếu bị tắt, ép animation về 0 một cách mượt mà hoặc lập tức
+        if (enabled) {
+            *pTHover = ImClamp(*pTHover + (hovered ? frameTime : -frameTime), 0.0f, 1.0f);
+            *pTSelect = ImClamp(*pTSelect + (selected ? frameTime : -frameTime), 0.0f, 1.0f);
+        } else {
+            *pTHover = 0.0f; // Tắt hoàn toàn hiệu ứng hover
+            *pTSelect = selected ? 1.0f : 0.0f; // Chỉ giữ màu của selected nếu cần, hoặc ép về 0
+        }
+
+        // 4. Vẽ Background (Custom Drawing)
+        if (( *pTHover > 0.0f || *pTSelect > 0.0f) && enabled) {
+            // Màu nền mix giữa Header và HeaderHovered dựa trên tHover
+            if(hovered || selected){
+                ImVec4 bgColor = GTheme.Header; 
+                if (*pTHover > 0.0f) {
+                    bgColor.x = ImLerp(GTheme.Header.x, GTheme.HeaderHovered.x, *pTHover);
+                    bgColor.y = ImLerp(GTheme.Header.y, GTheme.HeaderHovered.y, *pTHover);
+                    bgColor.z = ImLerp(GTheme.Header.z, GTheme.HeaderHovered.z, *pTHover);
+                    bgColor.w = ImLerp(GTheme.Header.w, GTheme.HeaderHovered.w, *pTHover);
+                }
+                
+                // Nếu đang được chọn, ưu tiên hiển thị màu HeaderActive hoặc giữ màu trộn
+                if (selected) bgColor = GTheme.HeaderActive;
+
+                window->DrawList->AddRectFilled(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(bgColor), 4.0f);
+            }
+        }
+
+        // 5. Vẽ Thanh Chỉ Báo (Selection Indicator) ở cạnh trái
+        if (enabled && *pTSelect > 0.0f) {
+            float indicatorHeight = (bb.Max.y - bb.Min.y) * 0.6f; // Cao 60% item
+            float centerY = (bb.Min.y + bb.Max.y) * 0.5f;
+            
+            ImVec2 p1(bb.Min.x + 2.0f, centerY - (indicatorHeight * 0.5f) * *pTSelect);
+            ImVec2 p2(bb.Min.x + 4.5f, centerY + (indicatorHeight * 0.5f) * *pTSelect);
+            
+            window->DrawList->AddRectFilled(p1, p2, ImGui::ColorConvertFloat4ToU32(GTheme.Button), 10.0f);
+        }
+
+
+        // 6. Vẽ Văn Bản với hiệu ứng trượt (Slide)
+        if (label[0] != '#' || (label[1] != '\0' && label[1] != '#')) {
+            float textOffsetX = 10.0f + (*pTHover * 4.0f); // Trượt sang phải 4px khi hover
+            ImVec4 textColor = selected ? GTheme.TextSelected : GTheme.Text;
+            
+            // Mix màu chữ mượt mà nếu cần (Tùy chọn)
+            window->DrawList->AddText(ImVec2(pos.x + textOffsetX, pos.y + (size.y - g.FontSize) * 0.5f), 
+                                    ImGui::ColorConvertFloat4ToU32(textColor), label);
+        }
+
+        // 7. Kết thúc item
+        ImGui::ItemSize(size);
+        ImGui::ItemAdd(bb, id);
 
         return pressed;
     }
@@ -1963,10 +2048,10 @@ namespace CusTomImGui{
             }
 
             // Style cho Header
-            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg,   GTheme.TableHeaderBg_ListTable);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive,    GTheme.HeaderActive_ListTable);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,   GTheme.HeaderHovered_ListTable);
-            ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_ListTable);
+            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg,   GTheme.TableHeaderBg);
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive,    GTheme.HeaderActive);
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,   GTheme.HeaderHovered);
+            ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
             ImGui::TableHeadersRow();
             ImGui::PopStyleColor(4);
 
@@ -2009,10 +2094,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
         
         // Push bảng màu từ GTheme
-        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header_ModernCollapsingHeader);
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered_ModernCollapsingHeader);
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive_ModernCollapsingHeader);
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text_ModernCollapsingHeader); // Dùng chung màu text cho đồng bộ
+        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header);
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered);
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text); // Dùng chung màu text cho đồng bộ
 
         bool res = ImGui::CollapsingHeader(id, flags);
 
@@ -2021,9 +2106,65 @@ namespace CusTomImGui{
 
         return res;
     }
+    // --- HELPER: Vẽ phần thân danh sách cho Combo (Normal & Search) ---
+    inline bool DrawComboPopupBody(
+        const char* label,
+        std::string& current_value, 
+        const std::vector<std::string>& display_options, 
+        float custom_width = 200.0f, 
+        int max_items_visible = 5,
+        std::function<bool(std::string&)> on_validate_confirm = nullptr) 
+    {
+        bool changed = false;
+
+        // Tính toán chiều cao
+        float row_height = ImGui::GetTextLineHeightWithSpacing() + 12.0f; // Khớp với padding của ModernSelectable
+        float display_count = (float)std::min((int)display_options.size(), max_items_visible);
+        
+        // Nếu danh sách trống (thường xảy ra ở Search Combo), cho độ cao 1 dòng để hiện "No results"
+        float child_height = display_options.empty() ? row_height : (display_count * row_height);
+        std::string child_id = "##scrl_" + std::string(label);
+        if (ImGui::BeginChild(child_id.c_str(), ImVec2(0, child_height), false, ImGuiWindowFlags_NoScrollbar)) {
+            if (display_options.empty()) {
+                ImGui::Indent(10);
+                ImGui::TextDisabled("No results found");
+                ImGui::Unindent(10);
+            } else {
+                for (const auto& opt : display_options) {
+                    bool is_selected = (current_value == opt);
+                    
+                    // Truncate text nếu quá dài
+                    std::string truncated_opt = TextUtils::TruncateTextByPixels(opt.c_str(), custom_width - 25.0f);
+
+                    if (CusTomImGui::ModernSelectable(truncated_opt.c_str(), is_selected)) {
+                        // Chạy Validation Callback nếu có (dành cho SearchCombo)
+                        std::string validated_val = opt;
+                        if (on_validate_confirm && on_validate_confirm(validated_val)) {
+                            current_value = validated_val;
+                        } else {
+                            current_value = opt; // Fallback bình thường
+                        }
+                        
+                        changed = true;
+                        ImGui::CloseCurrentPopup(); // Tự động đóng Popup khi chọn xong
+                    }
+                    
+                    // Hiện Tooltip nếu text bị cắt
+                    if (ImGui::IsItemHovered() && truncated_opt != opt) {
+                        ImGui::SetTooltip("%s", opt.c_str());
+                    }
+                    
+                    if (is_selected) ImGui::SetItemDefaultFocus();
+                }
+            }
+        }
+        ImGui::EndChild();
+
+        return changed;
+    }
     // --- HELPER 2: MODERN SEARCH COMBO (Nâng cao: Search + Max Height + Scroll) ---
     inline bool ModernSearchCombo(const char* label,
-         std::string& current_value,
+        std::string& current_value,
         const std::vector<std::string>& options,
         float custom_width = 200.0f,
         int max_items_visible = 6,
@@ -2032,15 +2173,24 @@ namespace CusTomImGui{
         {
 
         bool value_confirmed = false;
-        ImGuiID popup_id = ImGui::GetID(label);
+        ImGuiID popup_id = ImGui::GetID((std::string(label) + "_popup").c_str());
+        ImGuiID anim_id = ImGui::GetID((std::string(label) + "_=searchanim").c_str());
+        ImGuiID active_id_key = ImGui::GetID((std::string(label) + "_active").c_str());
+        ImGuiID buffer_id_key = ImGui::GetID((std::string(label) + "_buffer").c_str());
 
         // 1. Static/Persistent state để lưu giá trị đang gõ (chưa xác nhận)
         // Sử dụng ID của widget để tránh xung đột giữa các combo khác nhau
-        static ImGuiID active_id = 0;
-        static char search_buf[128] = "";
+        ImGuiStorage* store = ImGui::GetStateStorage();
+
+        int* active_id = store->GetIntRef(active_id_key, 0);
+        static std::unordered_map<ImGuiID, std::string> search_buffers;
+        if (search_buffers.find(buffer_id_key) == search_buffers.end()) {
+            search_buffers[buffer_id_key] = current_value; // Chỉ chạy 1 lần duy nhất
+        }
+        std::string& search_buf = search_buffers[buffer_id_key];
 
         // 2. Style cho Label
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.TextLaBel_NormalCombo);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
         ImGui::TextDisabled("%s", label);
         ImGui::PopStyleColor();
 
@@ -2051,44 +2201,55 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,         GTheme.FrameBg_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,  GTheme.FrameBgHovered_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_Border,          GTheme.Border_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_NormalCombo);
-
-        // Nếu ô input này vừa được kích hoạt, copy giá trị hiện tại vào buffer tạm
-        if (ImGui::IsItemDeactivated()) {
-            active_id = 0; 
-        }
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,         GTheme.FrameBg);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,  GTheme.FrameBgHovered);
+        ImGui::PushStyleColor(ImGuiCol_Border,          GTheme.Border);
+        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
 
         // Hiển thị buffer tạm nếu đang focus, ngược lại hiển thị giá trị thật
-        char* display_buf = (active_id == popup_id) ? search_buf : (char*)current_value.c_str();
-        std::string input_to_validate = search_buf;
         // Thêm flag ImGuiInputTextFlags_EnterReturnsTrue để biết khi nào nhấn Enter
-        if (ImGui::InputTextEx("##search_input", "Type to search...", display_buf, 128, ImVec2(custom_width, 0), ImGuiInputTextFlags_EnterReturnsTrue)) {
+        if (ModernInputText((std::string("##input_") + label).c_str(), search_buf, custom_width, ImGuiInputTextFlags_EnterReturnsTrue)) {
             // Nhấn Enter: Xác nhận giá trị trong buffer (nếu muốn cho phép nhập text tự do)
             // Hoặc có thể để trống nếu bạn CHỈ muốn cho phép chọn từ danh sách
             
-            if (on_validate_confirm && on_validate_confirm(input_to_validate)) {
-                current_value = input_to_validate;
+            if (on_validate_confirm && on_validate_confirm(search_buf)) {
+                current_value = search_buf;
                 value_confirmed = true;
                 
             }
-            active_id = 0;
+            *active_id = 0;
             ImGui::CloseCurrentPopup();
             
         }
+
+        float* pSearchAnim = ImGui::GetStateStorage()->GetFloatRef(anim_id, 0.0f);
+        float search_target = (*active_id == (int)popup_id) ? 1.0f : 0.0f;
+        *pSearchAnim += (search_target - *pSearchAnim) * ImGui::GetIO().DeltaTime * 12.0f;
+
+        if (*pSearchAnim > 0.01f) {
+            ImRect input_rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
+            input_rect.Expand(1.0f * (*pSearchAnim)); // Viền nở ra nhẹ khi focus
+            
+            ImVec4 glow_col = GTheme.CheckMark; 
+            glow_col.w *= (*pSearchAnim * 0.4f); // Độ mờ của hiệu ứng Glow
+            
+            // Vẽ viền ngoài cùng mượt mà
+            ImGui::GetWindowDrawList()->AddRect(input_rect.Min, input_rect.Max, 
+                ImGui::GetColorU32(glow_col), 6.0f, 0, 1.5f);
+        }
         if (ImGui::IsItemDeactivated()) {
-            // Khi người dùng click ra ngoài hoặc tab đi chỗ khác
-            // Nếu không phải là do vừa nhấn Enter (đã đóng popup), ta reset buffer
-            active_id = 0; 
+            if (!value_confirmed) {
+                search_buf = current_value;
+            }
+            *active_id = 0;
         }
 
         if (ImGui::IsItemActivated()) {
-            active_id = popup_id;
-            snprintf(search_buf, sizeof(search_buf), "%s", current_value.c_str());
+            *active_id = (int)popup_id;
+            search_buf = current_value;
             ImGui::OpenPopup(popup_id);
         }
+
 
         ImGui::PopStyleColor(4);
         ImGui::PopStyleVar(3);
@@ -2097,7 +2258,7 @@ namespace CusTomImGui{
         ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2));
         ImGui::SetNextWindowSizeConstraints(ImVec2(custom_width, 0), ImVec2(custom_width, FLT_MAX));
 
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg_NormalCombo);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
 
@@ -2134,45 +2295,11 @@ namespace CusTomImGui{
             }
         }
 
-        // --- Tính toán chiều cao Popup ---
-        float row_height = ImGui::GetTextLineHeightWithSpacing() + 12.0f;
-        float display_count = (float)std::min((int)filtered_options.size(), max_items_visible);
-        // Nếu không có kết quả, hiện 1 dòng để báo "No results"
-        float child_height = (filtered_options.empty()) ? row_height : (display_count * row_height);
-
-        if (ImGui::BeginChild("##combo_scroll", ImVec2(0, child_height), false, ImGuiWindowFlags_NoScrollbar)) {
-            if (filtered_options.empty()) {
-                ImGui::Indent(10);
-                ImGui::TextDisabled("No results found");
-                ImGui::Unindent(10);
-            } else {
-                for (const auto& opt : filtered_options) {
-                    bool is_selected = (current_value == opt);
-                    
-                    // Truncate text nếu quá dài
-                    std::string truncated_opt = TextUtils::TruncateTextByPixels(opt.c_str(), custom_width - 25.0f);
-
-                    if (CusTomImGui::ModernSelectable(truncated_opt.c_str(), is_selected)) {
-                        // Sử dụng callback validate để đảm bảo chuẩn hóa dữ liệu trước khi lưu
-                        std::string validated_val = opt;
-                        if (on_validate_confirm && on_validate_confirm(validated_val)) {
-                            current_value = validated_val;
-                        } else {
-                            current_value = opt; // Fallback
-                        }
-                        
-                        value_confirmed = true;
-                        active_id = 0; // Reset trạng thái gõ
-                        ImGui::CloseCurrentPopup();
-                    }
-                    
-                    if (ImGui::IsItemHovered() && truncated_opt != opt) {
-                        ImGui::SetTooltip("%s", opt.c_str());
-                    }
-                }
-            }
+        if (DrawComboPopupBody(label, current_value, filtered_options,  custom_width, max_items_visible, on_validate_confirm)) {
+            value_confirmed = true;
+            *active_id = 0; 
         }
-        ImGui::EndChild();
+ 
         ImGui::EndPopup();
     }
         ImGui::PopStyleVar(2);
@@ -2183,67 +2310,138 @@ namespace CusTomImGui{
 
     inline bool NormalCombo(const char* label, std::string& current_item, const std::vector<std::string>& options, float custom_width = 200.0f, int max_items_visible = 5) {
         bool changed = false;
+        ImGuiID popup_id = ImGui::GetID((std::string(label) + "_popup").c_str());
+        ImGuiID anim_id = ImGui::GetID((std::string(label) + "_anim").c_str());
+        ImGuiID arrow_id = ImGui::GetID((std::string(label) + "_arrow").c_str());
+
+        bool is_open = ImGui::IsPopupOpen(popup_id,ImGuiPopupFlags_None);
 
         // 1. Style cho Label
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.TextLaBel_NormalCombo);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
         ImGui::TextDisabled("%s", label);
         ImGui::PopStyleColor();
 
-        // 2. Cấu hình độ rộng cho Combo tiếp theo
-        // Sử dụng custom_width để giới hạn chiều rộng hiển thị
-        ImGui::SetNextItemWidth(custom_width);
+        // 2. State cho Animation
+        float* pAnim = ImGui::GetStateStorage()->GetFloatRef(anim_id , 0.0f);
+        float* pArrowAnim = ImGui::GetStateStorage()->GetFloatRef(arrow_id , 0.0f);
 
-        // 3. Push Style Vars
+        // 3. Khởi tạo kích thước và Style cho Frame
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
-        ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
+        
+        float frame_height = ImGui::GetFrameHeight();
+        ImVec2 p_min = ImGui::GetCursorScreenPos();
+        ImVec2 p_max = ImVec2(p_min.x + custom_width, p_min.y + frame_height);
 
-        // 4. Push Style Colors
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered, GTheme.FrameBgHovered_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_NormalCombo);
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg_NormalCombo);
+        // --- XÂY DỰNG HEADER (NÚT BẤM) ---
+        // Sử dụng InvisibleButton để nhận tương tác chuột nhưng không bị ImGui vẽ đè
+        ImGui::PushID(label);
+        ImGui::InvisibleButton("##btn", ImVec2(custom_width, frame_height));
+        ImGui::PopID();
+        ImRect rect(p_min, p_max);
+        ImVec2 mouse = ImGui::GetIO().MousePos;
 
-        // Tính toán chiều cao tối đa cho danh sách thả xuống
-        float item_height = ImGui::GetTextLineHeightWithSpacing() + 8.0f;
-        ImGui::SetNextWindowSizeConstraints(ImVec2(0, 0), ImVec2(custom_width, item_height * max_items_visible));
+        // Hover (kể cả khi bị popup block)
+        bool is_hovered =
+            rect.Contains(mouse);
 
-        // --- Xử lý cắt tỉa chữ (Truncate) cho Item đang chọn ---
-        // Trừ đi một khoảng padding và mũi tên của combo (thường khoảng 30-40px)
-        float available_text_width = custom_width - 35.0f; 
-        std::string truncated_display = TextUtils::TruncateTextByPixels(current_item.c_str(), available_text_width);
+        // Click (chuột trái)
+        bool is_clicked =
+            is_hovered && ImGui::IsMouseClicked(ImGuiMouseButton_Left);
 
-        // ID "##" để ẩn nhãn mặc định, dùng truncated_display để hiển thị
-        if (ImGui::BeginCombo("##normal_combo", truncated_display.c_str(), ImGuiComboFlags_HeightLarge)) {
-            for (const auto& opt : options) {
-                bool is_selected = (current_item == opt);
+        if(is_clicked){
+            if (is_open)
+                ImGui::CloseCurrentPopup();
+            else
+                ImGui::OpenPopupEx(popup_id);
+        }
+        is_open = ImGui::IsPopupOpen(popup_id ,ImGuiPopupFlags_None);
+   
+        // Logic Animation
+        float target_anim = (is_hovered || is_open) ? 1.0f : 0.0f;
+        *pAnim += (target_anim - *pAnim) * ImGui::GetIO().DeltaTime * 10.0f;
+        
+        float target_arrow = is_open ? 1.0f : 0.0f;
+        *pArrowAnim += (target_arrow - *pArrowAnim) * ImGui::GetIO().DeltaTime * 12.0f;
 
-                // Cắt tỉa chữ cho từng option trong danh sách thả xuống nếu cần
-                std::string opt_display = TextUtils::TruncateTextByPixels(opt.c_str(), custom_width - 20.0f);
+        // Tự vẽ Frame (Background & Border)
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        ImU32 bg_col = ImGui::GetColorU32(is_open ? GTheme.FrameBg : (is_hovered ? GTheme.FrameBgHovered : GTheme.FrameBg));
+        
+        draw_list->AddRectFilled(p_min, p_max, bg_col, 6.0f);
+        draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(GTheme.Border), 6.0f, 0, 1.0f);
 
-                if (CusTomImGui::ModernSelectable(opt_display.c_str(), is_selected)) {
-                    current_item = opt; // Lưu giá trị gốc, không lưu chuỗi đã cắt
-                    changed = true;
-                }
-                if (is_selected) ImGui::SetItemDefaultFocus();
-            }
-            ImGui::EndCombo();
+        // Vẽ viền sáng Glow (Giống hệt SearchCombo)
+        if (*pAnim > 0.01f) {
+            ImVec4 accent = GTheme.CheckMark;
+            accent.w *= (*pAnim * 0.4f);
+            draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(accent), 6.0f, 0, 1.5f);
         }
 
-        // Dọn dẹp Stack (5 Colors, 3 Vars)
-        ImGui::PopStyleColor(5);
-        ImGui::PopStyleVar(3);
+        // Vẽ Text hiển thị (Đã cắt tỉa)
+        float available_text_width = custom_width - 35.0f; 
+        std::string truncated_display = TextUtils::TruncateTextByPixels(current_item.c_str(), available_text_width);
+        // Cộng thêm FramePadding để text nằm giữa
+        draw_list->AddText(ImVec2(p_min.x + 10.0f, p_min.y + 8.0f), ImGui::GetColorU32(GTheme.Text), truncated_display.c_str());
+
+        // Vẽ mũi tên Vector có khả năng xoay
+        float arrow_size = 5.0f;
+        ImVec2 arrow_center = ImVec2(p_max.x - 18.0f, p_min.y + frame_height * 0.5f);
+        float angle = *pArrowAnim * IM_PI; 
+        auto RotatePt = [](ImVec2 p, ImVec2 center, float ang) {
+            float s = sin(ang), c = cos(ang);
+            p.x -= center.x; p.y -= center.y;
+            return ImVec2(p.x * c - p.y * s + center.x, p.x * s + p.y * c + center.y);
+        };
+        ImVec2 p1 = RotatePt(ImVec2(arrow_center.x - arrow_size, arrow_center.y - arrow_size * 0.4f), arrow_center, angle);
+        ImVec2 p2 = RotatePt(ImVec2(arrow_center.x + arrow_size, arrow_center.y - arrow_size * 0.4f), arrow_center, angle);
+        ImVec2 p3 = RotatePt(ImVec2(arrow_center.x, arrow_center.y + arrow_size * 0.6f), arrow_center, angle);
+        draw_list->AddTriangleFilled(p1, p2, p3, ImGui::GetColorU32(is_open ? GTheme.CheckMark : GTheme.Text));
+
+        ImGui::PopStyleVar(2); // Dọn dẹp Frame Vars
+
+        // --- XÂY DỰNG POPUP DANH SÁCH (Dùng chung logic ModernSearchCombo) ---
+        ImGui::SetNextWindowPos(ImVec2(p_min.x, p_max.y + 2));
+        ImGui::SetNextWindowSizeConstraints(ImVec2(custom_width, 0), ImVec2(custom_width, FLT_MAX));
+
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
+
+        if (ImGui::BeginPopupEx(popup_id, ImGuiWindowFlags_NoTitleBar | 
+                                          ImGuiWindowFlags_NoMove | 
+                                          ImGuiWindowFlags_NoResize |
+                                          ImGuiWindowFlags_ChildWindow )) {
+            // Gọi thẳng Helper truyền list options gốc vào
+            if (DrawComboPopupBody(label, current_item, options,  custom_width, max_items_visible ,nullptr)) {
+                changed = true;
+            }
+
+            ImGui::EndPopup();
+        }
+
+        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor();
 
         return changed;
     }
     // --- HELPER: MODERN POPUP (Dùng cho Modal/Dialog) ---
     inline bool BeginModernPopup(const char* name, bool* open = NULL, ImGuiWindowFlags flags = 0) {
+        
+        ImGuiID id = ImGui::GetID(name);
+        float* appear_anim = ImGui::GetStateStorage()->GetFloatRef(id + 10, 0.0f);
+        
+        // Nếu popup đang mở, tăng dần animation
+        if (ImGui::IsPopupOpen(name))
+            *appear_anim = ImMin(*appear_anim + ImGui::GetIO().DeltaTime * 6.0f, 1.0f);
+        else
+            *appear_anim = 0.0f;
         // Áp dụng Style Window hiện đại cho Popup
         CusTomImGui::PushModernWindowStyle();
         
+        ImVec4 dim_col = ImVec4(0, 0, 0, 0.6f * (*appear_anim));
         // Thêm hiệu ứng làm mờ nền (Dim background)
-        ImGui::PushStyleColor(ImGuiCol_ModalWindowDimBg, ImVec4(0, 0, 0, 0.6f));
+        ImGui::PushStyleColor(ImGuiCol_ModalWindowDimBg, dim_col);
 
         ImVec2 center = ImGui::GetMainViewport()->GetCenter();
         ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
@@ -2272,10 +2470,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 6)); 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
 
-        ImGui::PushStyleColor(ImGuiCol_Header,         GTheme.Header_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  GTheme.HeaderHovered_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,   GTheme.HeaderActive_ModernTreeNode); 
-        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_ModernTreeNode); 
+        ImGui::PushStyleColor(ImGuiCol_Header,         GTheme.Header); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  GTheme.HeaderHovered); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,   GTheme.HeaderActive); 
+        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text); 
 
         bool open = ImGui::TreeNode(id);
         
@@ -2298,7 +2496,7 @@ namespace CusTomImGui{
         const ImGuiStyle& style = g.Style;
 
         // --- 1. Label ---
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text_ModernChild);
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
         ImGui::TextDisabled("%s: %s", label, TextUtils::Format(format, *v).c_str());
         ImGui::PopStyleColor();
 
@@ -2336,16 +2534,16 @@ namespace CusTomImGui{
         ImVec2 track_p2(pos.x + size.x, center_y + height * 0.5f);
 
         // Track nền
-        draw_list->AddRectFilled(track_p1, track_p2, ToCol32(GTheme.FrameBg_NormalCombo), height * 0.5f);
+        draw_list->AddRectFilled(track_p1, track_p2, ToCol32(GTheme.FrameBg), height * 0.5f);
 
         // Track active
         float t_fill = (*v - v_min) / (v_max - v_min);
         t_fill = ImClamp(t_fill, 0.0f, 1.0f);
         ImVec2 active_p2(track_p1.x + t_fill * size.x, track_p2.y);
-        draw_list->AddRectFilled(track_p1, active_p2, ToCol32(GTheme.CheckMark_ModernCheckbox), height * 0.5f);
+        draw_list->AddRectFilled(track_p1, active_p2, ToCol32(GTheme.CheckMark), height * 0.5f);
 
         // --- 5. Border track ---
-        draw_list->AddRect(track_p1, track_p2, ToCol32(GTheme.Border_ModernChild), height * 0.5f, 0, 1.0f);
+        draw_list->AddRect(track_p1, track_p2, ToCol32(GTheme.Border), height * 0.5f, 0, 1.0f);
 
         // --- 6. Vẽ Grab ---
         ImVec2 grab_center(track_p1.x + t_fill * size.x, center_y);
@@ -2354,8 +2552,8 @@ namespace CusTomImGui{
         else if (hovered) visual_radius *= 1.1f;
         
         draw_list->AddCircleFilled(grab_center, visual_radius + 1.0f, IM_COL32(0,0,0,40));
-        draw_list->AddCircleFilled(grab_center, visual_radius, ToCol32(GTheme.Text_Selected_ModernSelectable));
-        draw_list->AddCircle(grab_center, visual_radius, ToCol32(GTheme.CheckMark_ModernCheckbox), 0, 2.0f);
+        draw_list->AddCircleFilled(grab_center, visual_radius, ToCol32(GTheme.TextSelected));
+        draw_list->AddCircle(grab_center, visual_radius, ToCol32(GTheme.CheckMark), 0, 2.0f);
 
         return changed;
     }
@@ -2366,11 +2564,11 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
         // 2. Màu sắc từ Theme
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg_ModernInputTextMultiline); 
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered_ModernInputTextMultiline);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive_ModernInputTextMultiline);
-        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border_ModernInputTextMultiline); 
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text_ModernInputTextMultiline);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg); 
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
+        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
 
         bool changed = ImGui::InputText(label, buf, buf_size, flags);
 
@@ -2392,10 +2590,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 2)); // Padding cực nhỏ cho Small Button
         
         // Sử dụng màu của SecondaryButton hoặc một màu Neutral hơn
-        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered_ModernButton); // Hover vẫn cho màu chính
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered); // Hover vẫn cho màu chính
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive);
+        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
 
         bool pressed = ImGui::Button(label);
 
@@ -2416,10 +2614,10 @@ namespace CusTomImGui{
         }
 
         // 2. Setup Colors
-        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button_SecondaryButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive_ModernButton);
-        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text_SecondaryButton);
+        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive);
+        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text);
 
         // 3. Render Button
         // Sử dụng Button với label rỗng để lấy hitbox
@@ -2446,6 +2644,99 @@ namespace CusTomImGui{
         ImGui::PopStyleColor(4);
         ImGui::PopStyleVar(3);
         
+        return pressed;
+    }
+    inline void ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds, const char* id){
+        // 1. Xử lý delay
+        bool shouldShow = SetDelayHover(hovering, delaySeconds, id);
+
+        // 2. Quản lý Alpha riêng biệt cho từng tooltip bằng Storage ID của ImGui
+        // Điều này giúp nhiều tooltip không bị dùng chung 1 biến alpha tĩnh
+        ImGuiID storage_id = ImGui::GetID(id);
+        float* pAlpha = ImGui::GetStateStorage()->GetFloatRef(storage_id, 0.0f);
+
+        // 3. Cập nhật hiệu ứng Fade (Tăng tốc độ fade ra để cảm giác nhạy hơn)
+        float fadeSpeed = 12.0f; 
+        UpdateHoverAnim(*pAlpha, shouldShow, fadeSpeed);
+
+        // Ngắt sớm nếu alpha quá nhỏ để tiết kiệm hiệu năng
+        if (*pAlpha <= 0.001f)
+            return;
+
+        // 4. Thiết lập Style trước khi Begin
+        // Sử dụng ImGuiWindowFlags_AlwaysAutoResize để giữ kích thước ổn định
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg); // Màu nền Tooltip
+        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border); // Màu viền
+        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text); // Màu chữ
+
+        ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);                      // Giữ hiệu ứng fade in/out
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));  // Căn lề trong (Padding)
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);                // Bo góc (Rounding)
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);              // Độ dày viền
+        ImGui::SetNextWindowBgAlpha(*pAlpha); 
+
+        // Render Tooltip
+        if (ImGui::BeginTooltip())
+        {
+            ImGui::TextUnformatted(text);
+            ImGui::EndTooltip();
+        }
+
+        ImGui::PopStyleVar(4);
+        ImGui::PopStyleColor(3);
+    }
+    inline bool ModernToggle(const char* str_id, bool* v, bool enabled = true, float scale = 1.0f) {
+        ImGuiContext& g = *GImGui;
+        ImGuiWindow* window = ImGui::GetCurrentWindow();
+        ImGuiID id = window->GetID(str_id);
+
+        float height = 18.0f * scale;
+        float width = 36.0f * scale;
+        float radius = height * 0.5f;
+
+        ImVec2 pos = window->DC.CursorPos;
+        const ImRect bb(pos, ImVec2(pos.x + width, pos.y + height));
+        ImGui::ItemSize(bb);
+        if (!ImGui::ItemAdd(bb, id)) return false;
+
+        // 1. Chỉ xử lý Click nếu enabled = true
+        bool hovered, held;
+        bool pressed = false;
+        if (enabled) {
+            pressed = ImGui::ButtonBehavior(bb, id, &hovered, &held);
+            if (pressed) *v = !*v;
+        }
+
+        // 2. Cập nhật Animation
+        float frameTime = g.IO.DeltaTime * 12.0f;
+        float* pT = window->StateStorage.GetFloatRef(id, *v ? 1.0f : 0.0f);
+        
+        // Nếu enabled mới cho phép chạy animation gạt qua lại
+        if (enabled) {
+            *pT = ImClamp(*pT + (*v ? frameTime : -frameTime), 0.0f, 1.0f);
+        } else {
+            // Nếu bị tắt, giữ nguyên vị trí hiện tại (hoặc ép về trạng thái thực của v)
+            *pT = *v ? 1.0f : 0.0f;
+        }
+
+        // 3. Tính toán màu sắc dựa trên trạng thái enabled
+        ImVec4 col_off = GTheme.FrameBg;
+        ImVec4 col_on  = GTheme.CheckMark;
+        
+        // Nội suy màu nền
+        ImVec4 current_col = ImLerp(col_off, col_on, *pT);
+        
+        // Nếu disabled, giảm độ đậm (Alpha) của cả background và knob
+        float final_alpha = enabled ? 1.0f : 0.35f; 
+        ImU32 bg_color = ImGui::ColorConvertFloat4ToU32(ImVec4(current_col.x, current_col.y, current_col.z, final_alpha));
+        ImU32 knob_color = ImGui::ColorConvertFloat4ToU32(ImVec4(GTheme.Text.x, GTheme.Text.y, GTheme.Text.z, final_alpha));
+
+        // 4. Vẽ Background & Knob
+        window->DrawList->AddRectFilled(bb.Min, bb.Max, bg_color, 10.0f);
+        
+        float knob_pos_x = bb.Min.x + radius + (*pT * (width - height));
+        window->DrawList->AddCircleFilled(ImVec2(knob_pos_x, bb.Min.y + radius), radius - 2.0f, knob_color);
+
         return pressed;
     }
 

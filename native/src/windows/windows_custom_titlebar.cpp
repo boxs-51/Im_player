@@ -10,13 +10,12 @@
 #include "globals.h"
 #include "utils.h"
 #include "imgui.h"
-#include "main.h"
 
-#include "windows/windows_custom_titlebar.h"
-#include "windows/windows_borderless_state.h"
-#include "windows/windows_borderless.h"
+#include <windows/windows_custom_titlebar.h>
+#include <windows/windows_borderless_state.h>
+#include <windows/windows_borderless.h>
 
-#include "thread.h"
+#include <threads/thread.h>
 
 #include <SDL.h>
 #include <SDL_syswm.h>

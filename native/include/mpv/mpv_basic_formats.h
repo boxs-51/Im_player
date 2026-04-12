@@ -61,7 +61,9 @@ extern VideoAudioFormats all_formats;
 void HandleYTDLLog(mpv_handle* mpv,const std::string& text);
 
 void SetVideoTypeLocal();
-
+void SetVideoTypeLive();
+void SetVideoTypeVio();
+void SetVideoType(VideoType videotype);
 VideoType GetVideoType();
 
 const char* VideoTypeToString(VideoType videotype);

@@ -95,7 +95,7 @@ void AudioFilterManager::SaveToFile() {
 
 void AudioFilterManager::ResetAllToDefaults() {
     for (auto& filter : m_filters) {
-        filter.enabled = true; // Mặc định tắt hết hoặc tùy bạn chỉnh
+        filter.enabled = true; // Mặc định  hết hoặc tùy bạn chỉnh
         for (auto& [key, p] : filter.params) {
             p.current = p.def; // Đưa về giá trị default đã Register
         }
