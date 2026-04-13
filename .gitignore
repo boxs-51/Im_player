@@ -38,3 +38,5 @@ log/
 
 .bat/ffmpeg.zip
 .bat/ffmpeg
+
+temp_shader/

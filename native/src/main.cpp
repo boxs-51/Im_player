@@ -33,6 +33,7 @@
 #include <windowsx.h>
 #include <csignal>
 #include <string>
+#include <thread>
 
 
 static bool render_video = false;
@@ -113,36 +114,60 @@ void Cleanup() {
     SDL_Quit();
 }
 void HandleMainWindowEvent(const SDL_Event& e) {
-
+    // 1. Các sự kiện hệ thống quan trọng xử lý trước
+    if (e.type == SDL_QUIT) {
+        running = false;
+        return;
+    }
     if (e.type == SDL_MPV_RENDER_UPDATE_SYNC) render_video = true;  
-    if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
-    if (e.type == SDL_QUIT)running = false;
-    if (HandleHotkeys(e , mpv.mpv))return;
-    if(g_WindowVisible) {
-        bool isMousePressOrRelease =
-            (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP);
-        bool isMouseInteraction =
-            e.type == SDL_MOUSEMOTION ||
-            e.type == SDL_MOUSEWHEEL;
-        int mouseX, mouseY;
-        SDL_GetMouseState(&mouseX, &mouseY);
-        SDL_Point mousePos = { mouseX, mouseY };
-        bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
-        if (isMousePressOrRelease && isMouseInsideVideo) {
-            NotifyActivity(show_ui_video);
-        }
-    }
+    if (e.type == SDL_MPV_EVENT) ProcessMPVEvents(mpv.mpv);
+
+    // 2. Xử lý thay đổi kích thước cửa sổ
     if (e.type == SDL_WINDOWEVENT) {
-        if (e.window.event == SDL_WINDOWEVENT_RESIZED || 
-            e.window.event == SDL_WINDOWEVENT_MOVED ||
-            e.window.event == SDL_WINDOWEVENT_MAXIMIZED ||
-            e.window.event == SDL_WINDOWEVENT_RESTORED) {
-            
-            // Chỉ cập nhật khi có sự kiện thay đổi thực sự
-            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
+        switch (e.window.event) {
+            case SDL_WINDOWEVENT_RESIZED:
+            case SDL_WINDOWEVENT_MOVED:
+            case SDL_WINDOWEVENT_MAXIMIZED:
+            case SDL_WINDOWEVENT_RESTORED:
+                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+                break;
         }
     }
-    
+
+    // 3. Xử lý Hotkeys (trả về true nếu event đã được tiêu thụ)
+    if (HandleHotkeys(e, mpv.mpv)) return;
+
+    // 4. Xử lý tương tác chuột trên vùng Video
+    if (g_WindowVisible) {
+        int mx = -1, my = -1;
+        bool isInteraction = false;
+
+        if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
+            mx = e.button.x;
+            my = e.button.y;
+            isInteraction = true;
+        } else if (e.type == SDL_MOUSEMOTION) {
+            mx = e.motion.x;
+            my = e.motion.y;
+            isInteraction = true;
+        } else if (e.type == SDL_MOUSEWHEEL) {
+            // Mouse wheel không có tọa độ x,y trực tiếp trong SDL2 (phải dùng GetMouseState)
+            // hoặc dùng tọa độ từ sự kiện motion cuối cùng.
+            SDL_GetMouseState(&mx, &my);
+            isInteraction = true;
+        }
+
+        if (isInteraction) {
+            // Lấy vị trí cửa sổ hiện tại
+            // Chuyển tọa độ chuột từ Client-space sang Screen-space
+            // mx, my là tọa độ lấy từ SDL_GetMouseState hoặc SDL_Event (0 -> WinW)
+            SDL_Point mousePos = { mx + Windowlayout.WinX, my + Windowlayout.WinY };
+
+            if (SDL_PointInRect(&mousePos, &Windowlayout.videoArea)) {
+                NotifyActivity(show_ui_video);
+            }  
+        }
+    }
 }
 bool InitMainWindow() {
 
@@ -364,6 +389,18 @@ void RenderFrame(bool g_WindowVisible){
 }
 int main(int argc, char** argv) {
 
+    HANDLE hMutex = CreateMutexA(NULL, TRUE, "Global\\MyUniqueApp_MutexID");
+    
+    if (GetLastError() == ERROR_ALREADY_EXISTS) {
+        // App đã chạy rồi!
+        SendArgsToFirstInstance(argc, argv);
+        
+        if (hMutex) CloseHandle(hMutex);
+        return 0; // Thoát app mới
+    }
+
+    std::thread serverThread(PipeServerThread);
+    serverThread.detach();
     //InitNotification();
 
     SDL_SetMainReady();
@@ -414,7 +451,6 @@ int main(int argc, char** argv) {
     UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
     #ifdef RENDER_MPV_THREAD
     StartMPVRenderThread();
-
     #endif
     
     InitPlaybackStatus(mpv.mpv);
@@ -448,7 +484,10 @@ int main(int argc, char** argv) {
         g_videoInfo.currentFPS = fpsLimiter.getFPS();
         fpsLimiter.endFrame();
     }
-
+    if (hMutex) {
+        ReleaseMutex(hMutex);
+        CloseHandle(hMutex);
+    }
     Cleanup();
     return 0;
 }

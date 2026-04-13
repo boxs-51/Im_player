@@ -1,6 +1,8 @@
+#pragma once
 #include "wintoastlib.h"
 #include "notification.h"
 #include "utils.h"
+#include "threads/thread.h"
 
 #include <string>
 #include <windows.h>
@@ -8,7 +10,11 @@
 #include <shobjidl.h>   // IShellLink
 #include <objbase.h>
 
+#include <iostream>
+#include <string>
+#include <thread>
 
+#define PIPE_NAME "\\\\.\\pipe\\MyUniqueAppPipe"
 using namespace WinToastLib;
 
 
@@ -114,4 +120,60 @@ void NotifyMPV() {
     std::wstring status = paused ? L"Paused" : L"Playing";
 
     ShowNotification(ToWString(title), status);
+}
+
+
+// Hàm xử lý khi nhận được tham số mới
+void OnArgumentsReceived(const std::string& args) {
+    std::cout << "Received: " << args << std::endl;
+    
+    HWND hwnd = g_DragResizeState.hwnd_windown_main;
+    if (hwnd) {
+        // Kiểm tra nếu đang bị thu nhỏ (minimized)
+        if (IsIconic(hwnd)) {
+            ShowWindow(hwnd, SW_RESTORE);
+        } else {
+            ShowWindow(hwnd, SW_SHOW);
+        }
+        SetForegroundWindow(hwnd);
+        CallThread_URLFetch(args,true);
+    }
+}
+
+// Thread lắng nghe Pipe
+void PipeServerThread() {
+    while (true) {
+        HANDLE hPipe = CreateNamedPipeA(PIPE_NAME, PIPE_ACCESS_INBOUND, 
+            PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
+            1, 0, 8192, 0, NULL);
+
+        if (hPipe != INVALID_HANDLE_VALUE) {
+            if (ConnectNamedPipe(hPipe, NULL) || GetLastError() == ERROR_PIPE_CONNECTED) {
+                char buffer[1024];
+                DWORD bytesRead;
+                if (ReadFile(hPipe, buffer, sizeof(buffer) - 1, &bytesRead, NULL)) {
+                    buffer[bytesRead] = '\0';
+                    OnArgumentsReceived(buffer);
+                }
+            }
+            DisconnectNamedPipe(hPipe);
+            CloseHandle(hPipe);
+        }
+    }
+}
+void SendArgsToFirstInstance(int argc, char* argv[]) {
+    // Chờ pipe sẵn sàng trong tối đa 1 giây
+    if (WaitNamedPipeA(PIPE_NAME, 1000)) {
+        HANDLE hPipe = CreateFileA(PIPE_NAME, GENERIC_WRITE, 0, NULL, OPEN_EXISTING, 0, NULL);
+        if (hPipe != INVALID_HANDLE_VALUE) {
+            std::string args;
+            for (int i = 1; i < argc; ++i) {
+                args += (i > 1 ? " " : "") + std::string(argv[i]);
+            }
+            
+            DWORD bytesWritten;
+            WriteFile(hPipe, args.c_str(), (DWORD)args.length(), &bytesWritten, NULL);
+            CloseHandle(hPipe);
+        }
+    }
 }

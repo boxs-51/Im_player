@@ -1323,6 +1323,7 @@ void UpdateUIState( bool& show_ui_video ) {
     else if (isMouseInsideVideo) currentTimeout = 1500; // Di chuột bình thường trong video: 1s
         
     // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
+    /*
     if ((isMouseMoving  ) && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         
@@ -1331,7 +1332,7 @@ void UpdateUIState( bool& show_ui_video ) {
             show_ui_video = true;
             SDL_ShowCursor(SDL_ENABLE);
         }
-    }
+    }*/
 
     // 5. LOGIC ẨN UI
     if(IsAnyPopupOpen()) {

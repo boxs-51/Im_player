@@ -1403,7 +1403,7 @@ namespace CusTomImGui{
 
         // Kiểm tra nếu giá trị rỗng hoặc chỉ có khoảng trắng
         bool isEmpty = (len <= 0 || buf[0] == '\0');
-
+        ImGui::Spacing();
         ImGui::TableNextRow(ImGuiTableRowFlags_None, 24.0f);
 
         // Cột 1: Label
@@ -1421,7 +1421,7 @@ namespace CusTomImGui{
         } else {
             ImGui::TextUnformatted(buf);
         }
-
+        ImGui::Spacing();
         // Chỉ cho phép Copy nếu có dữ liệu
         //if (!isEmpty && ImGui::IsItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Right)) {
         //    ImGui::SetClipboardText(buf);
@@ -1438,7 +1438,7 @@ namespace CusTomImGui{
 
         // Đẩy khoảng cách giữa các ô ra một chút (Padding)
         ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 4.0f));
-
+        ImGui::Spacing();
         if (ImGui::BeginTable(id, column_count, flags)) {
             ImGui::TableSetupColumn("##Label", ImGuiTableColumnFlags_WidthFixed, first_col_width);
             for (int i = 1; i < column_count; i++) {
@@ -1457,6 +1457,7 @@ namespace CusTomImGui{
 
     inline void EndInfoTable() {
         ImGui::EndTable();
+        ImGui::Spacing();
         ImGui::PopStyleColor(2);
         ImGui::PopStyleVar(); // Pop CellPadding
     }
@@ -1514,9 +1515,11 @@ namespace CusTomImGui{
         ImGui::PopStyleColor(3);
         ImGui::PopStyleVar(3);
     }
-    inline bool BeginModernTabBar(const char* id) {
+    inline bool BeginModernTabBar(const char* id , ImGuiTabBarFlags extra_flags = 0) {
+
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(15.0f, 0.0f)); 
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(12.0f, 10.0f)); // Tab cao hơn nhìn sang hơn
+        ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 5.0f);
         
         // Màu sắc
         ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text);  // Text mặc định hơi tối
@@ -1524,18 +1527,31 @@ namespace CusTomImGui{
         ImGui::PushStyleColor(ImGuiCol_TabHovered,    GTheme.TabHovered);
         ImGui::PushStyleColor(ImGuiCol_TabActive,     GTheme.TabActive); // Tiệp màu với ChildBg bên dưới
         ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GTheme.TabUnfocused);
+        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button);
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered);
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive);
         
         // Đường kẻ dưới Tab Active (Màu Accent)
         ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GTheme.TabUnfocusedActive);
+        ImGuiTabBarFlags flags = ImGuiTabBarFlags_None;
+        if (!(extra_flags & ImGuiTabBarFlags_FittingPolicyMask_)) {
+                flags |= ImGuiTabBarFlags_FittingPolicyScroll;
+            }
 
-        if(ImGui::BeginTabBar(id, ImGuiTabBarFlags_NoTabListScrollingButtons | ImGuiTabBarFlags_FittingPolicyResizeDown)) {
+        flags |= extra_flags;
+        if(ImGui::BeginTabBar(id ,flags)) {
             return true;
         }
 
-        ImGui::PopStyleColor(6);
-        ImGui::PopStyleVar(2);
+        ImGui::PopStyleColor(9);
+        ImGui::PopStyleVar(3);
 
         return false;
+    }
+    inline void EndModernTabBar() {
+        ImGui::EndTabBar();
+        ImGui::PopStyleColor(9);
+        ImGui::PopStyleVar(3);
     }
     inline bool ModernTabItem(const char* label, bool* p_open = NULL, ImGuiTabItemFlags flags = 0) {
         ImGuiContext& g = *GImGui;
@@ -1582,11 +1598,6 @@ namespace CusTomImGui{
     inline void EndModernTabItem() {
         ImGui::EndTabItem();
         ImGui::PopStyleColor(5);
-    }
-    inline void EndModernTabBar() {
-        ImGui::EndTabBar();
-        ImGui::PopStyleColor(6);
-        ImGui::PopStyleVar(2);
     }
     inline void PushModernWindowStyle() {
         ImGuiStyle& style = ImGui::GetStyle();
@@ -2739,42 +2750,29 @@ namespace CusTomImGui{
 
         return pressed;
     }
-    inline void ModernHeader(const char* title, float scale = 1.0f) {
+     inline void ModernHeader(const char* title, float scale = 1.0f) {
         ImGui::Spacing();
         ImVec2 p = ImGui::GetCursorScreenPos();
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
-        
-        // Tính toán chiều cao dựa trên font size và khoảng cách đệm (padding)
-        float fontSize = ImGui::GetFontSize();
-        float verticalPadding = 4.0f * scale;
-        float height = fontSize + verticalPadding;
+        float height = ImGui::GetFontSize() + (4.0f * scale);
 
-        // 1. Vẽ thanh chỉ báo dọc (Indicator bar)
-        draw_list->AddRectFilled(
-            ImVec2(p.x, p.y), 
-            ImVec2(p.x + 3.0f * scale, p.y + height), 
-            ToCol32(GTheme.CheckMark), 2.0f
-        );
+        // Vẽ thanh chỉ báo dọc (Indicator bar)
+        draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToCol32(GTheme.CheckMark), 2.0f);
 
-        // 2. Căn chỉnh con trỏ để vẽ Text
-        // Đẩy sang phải để tránh đè lên thanh Indicator
+        // Vẽ Title
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.0f * scale);
-        
         ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
         ImGui::Text(title);
         ImGui::PopStyleColor();
 
-        // --- PHẦN QUAN TRỌNG: Cập nhật con trỏ xuống dưới dòng text ---
-        // Di chuyển con trỏ Y xuống dưới tiêu đề trước khi vẽ Separator
-        ImGui::SetCursorPosY(p.y + height + (2.0f * scale)); 
-
-        // 3. Vẽ Separator
+        // Separator mờ dần hoặc màu mỏng
         ImVec4 sep_col = GTheme.Separator;
-        sep_col.w = 0.3f; 
+        sep_col.w = 0.3f; // Giảm độ đậm của gạch ngang
         ImGui::PushStyleColor(ImGuiCol_Separator, sep_col);
         ImGui::Separator();
         ImGui::PopStyleColor();
         
         ImGui::Spacing();
     }
+
 }

@@ -8,3 +8,7 @@ bool CreateShortcut(const std::wstring& shortcutName ,
                     const std::wstring& appId);
 
 void NotifyMPV() ;
+
+void SendArgsToFirstInstance(int argc, char* argv[]);
+// Thread lắng nghe Pipe
+void PipeServerThread();
