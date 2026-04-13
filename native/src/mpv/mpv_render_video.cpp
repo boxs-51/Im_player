@@ -6,6 +6,8 @@
 #include "mpv/scripts/script_manager.h"
 #include "mpv/fillter/audio_fillter_manager.h"
 
+#include <windows/windows_borderless.h>
+
 #include "imgui.h"
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
@@ -95,15 +97,18 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
     #else
     mpv_render_context_set_update_callback(mpv.render_ctx, [](void*) {
     
-        SDL_Event event;
-        event.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        SDL_PushEvent(&event);
+        SDL_Event ev;
+        //SDL_ZeroObject(ev);
+        ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
+        SDLUtils::SDLX_PushUniqueEvent(ev);
+
     }, nullptr);
     #endif
     mpv_set_wakeup_callback(mpv_ptr, [](void*) {
-        SDL_Event event;
-        event.type = SDL_MPV_EVENT;
-        SDL_PushEvent(&event);
+        SDL_Event ev;
+        //SDL_ZeroObject(ev);
+        ev.type = SDL_MPV_EVENT;
+        SDLUtils::SDLX_PushUniqueEvent(ev);
     }, nullptr);
 
     return true;
@@ -267,6 +272,8 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         }
 
         lock.unlock();
+        uint64_t flags = mpv_render_context_update(rt->ctx);
+        if (!(flags & MPV_RENDER_UPDATE_FRAME)) continue;
         int index = rt->writeIndex;
         glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
 
@@ -292,18 +299,20 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         mpv_render_context_render(rt->ctx, params);
 
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glFlush();
         {
             std::lock_guard<std::mutex> g(rt->swapMtx);
 
             rt->readIndex = index;
             rt->writeIndex = (rt->writeIndex + 1) % 3;
             rt->newFrameReady = true;
+            
         }
         //glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
-
-        SDL_Event event;
-        event.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        SDL_PushEvent(&event);
+        SDL_Event ev;
+        //SDL_ZeroObject(ev);
+        ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
+        SDLUtils::SDLX_PushUniqueEvent(ev);
     }
 }
 

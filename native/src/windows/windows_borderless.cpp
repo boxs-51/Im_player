@@ -6,7 +6,6 @@
 
 #include "windows/windows_borderless_state.h"
 #include "windows/windows_borderless.h"
-#include "windows/windows_custom_titlebar.h"
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -16,13 +15,25 @@
 
 #include <chrono>
 
-void SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, int maxH)
+void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
+    SDL_Event existingEvent;
+        
+    // Kiểm tra xem trong hàng đợi đã có event cùng loại (type) chưa
+    // Lưu ý: Nếu là SDL_USEREVENT, bạn có thể kiểm tra thêm cả trường 'code'
+    if (SDL_PeepEvents(&existingEvent, 1, SDL_PEEKEVENT, eventData.type, eventData.type) == 0) {
+        // Nếu chưa có, copy dữ liệu và đẩy vào
+        SDL_Event eventToPush = eventData;
+        SDL_PushEvent(&eventToPush);
+    }
+}
+
+void SDLUtils::SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, int maxH)
 {
     if (!window) return;
 
     HWND hwnd = g_DragResizeState.hwnd_windown_main;
 
-    RECT wrk = GetMonitorRectForWindow(hwnd);
+    RECT wrk = SDLUtils::GetMonitorRectForWindow(hwnd);
     int screenW = wrk.right - wrk.left;
     int screenH = wrk.bottom - wrk.top;
 
@@ -36,7 +47,7 @@ void SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, int maxH)
     if (g_DragResizeState.sdlMaxW > 0 && g_DragResizeState.sdlMaxH > 0)
         SDL_SetWindowMaximumSize(window, g_DragResizeState.sdlMaxW, g_DragResizeState.sdlMaxH);
 }
-bool SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
+bool SDLUtils::SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
 {
     if (!window) return false;
     #ifdef CUSTOM_TITLEBAR_2
@@ -107,7 +118,7 @@ bool SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
     #endif
 }
 // -------------------- SDL event sync helpers --------------------
-void SyncSDLWithWinAPI(SDL_Window* sdlWin) {
+void SDLUtils::SyncSDLWithWinAPI(SDL_Window* sdlWin) {
     if (!sdlWin || !g_DragResizeState.hwnd_windown_main) return;
     HWND hwnd = g_DragResizeState.hwnd_windown_main;
 
@@ -130,7 +141,7 @@ void SyncSDLWithWinAPI(SDL_Window* sdlWin) {
     if (curW != w || curH != h) SDL_SetWindowSize(sdlWin, w, h);
 }
 
-void SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1, int d2) {
+void SDLUtils::SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1, int d2) {
     SDL_Event ev{};
     ev.type = SDL_WINDOWEVENT;
     ev.window.event = evt;
@@ -139,7 +150,7 @@ void SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1, int d2) {
     ev.window.data2 = d2;
     SDL_PushEvent(&ev);
 }
-void SDLX_PushClose(SDL_Window* /*win*/) {
+void SDLUtils::SDLX_PushClose(SDL_Window* /*win*/) {
     // Cho đa số app: SDL_WINDOWEVENT_CLOSE là chuẩn
     SDL_Event ev{};
     ev.type = SDL_WINDOWEVENT;
@@ -150,7 +161,13 @@ void SDLX_PushClose(SDL_Window* /*win*/) {
     // Fallback chung:
     SDL_Event q{}; q.type = SDL_QUIT; SDL_PushEvent(&q);
 }
-
+RECT SDLUtils::GetMonitorRectForWindow(HWND hwnd) {
+    HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi{};
+    mi.cbSize = sizeof(mi);
+    if (hMon) GetMonitorInfo(hMon, &mi);
+    return mi.rcWork; // rcWork = vùng khả dụng (không tính taskbar)
+}
 void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 winPos ,ImVec2 winSize) {
     
     #ifdef CUSTOM_TITLEBAR
@@ -303,16 +320,17 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     #endif
 }
 // Đăng ký hàm này ngay sau khi tạo window
-void SetWindowSDL(SDL_Window* window,
+void SDLUtils::SetWindowSDL(SDL_Window* window,
                   int minW, int minH,
                   int maxW, int maxH)
 {
     if (!window) return;
 
     // 1. Hook WndProc + Init borderless
-    SDLX_InitBorderless(window);
+    SDLUtils::SDLX_InitBorderless(window);
 
     // 2. Thiết lập Min/Max size
-    SDLX_SetMinMax(window, minW, minH, maxW, maxH);
+    SDLUtils::SDLX_SetMinMax(window, minW, minH, maxW, maxH);
 
 }
+

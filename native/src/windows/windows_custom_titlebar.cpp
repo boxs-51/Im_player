@@ -11,7 +11,6 @@
 #include "utils.h"
 #include "imgui.h"
 
-#include <windows/windows_custom_titlebar.h>
 #include <windows/windows_borderless_state.h>
 #include <windows/windows_borderless.h>
 
@@ -291,8 +290,8 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                          prc->right - prc->left, prc->bottom - prc->top,
                          SWP_NOZORDER | SWP_NOACTIVATE);
             if (sdlWindow) {
-                SyncSDLWithWinAPI(sdlWindow);
-                SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_SIZE_CHANGED,
+                SDLUtils::SyncSDLWithWinAPI(sdlWindow);
+                SDLUtils::SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_SIZE_CHANGED,
                                prc->right - prc->left, prc->bottom - prc->top);
             }
             return 0;
@@ -328,7 +327,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                     }
                     else if (cmd == 2) {
                         RemoveTrayIcon();
-                        if (sdlWindow) SDLX_PushClose(sdlWindow);
+                        if (sdlWindow) SDLUtils::SDLX_PushClose(sdlWindow);
                         PostQuitMessage(0);
 
                     }
@@ -347,7 +346,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 return 0;
             }else{
                 RemoveTrayIcon();
-                if (sdlWindow) SDLX_PushClose(sdlWindow);
+                if (sdlWindow) SDLUtils::SDLX_PushClose(sdlWindow);
                 return 0;
             }
         break;
@@ -361,7 +360,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
 };
 
 
-void SDLX_InitBorderless(SDL_Window* window)
+void SDLUtils::SDLX_InitBorderless(SDL_Window* window)
 {
     if (!window) return;
     

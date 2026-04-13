@@ -27,7 +27,7 @@ struct MPVRenderThread {
 
     std::mutex swapMtx;
     std::atomic<bool> newFrameReady = false;
-
+    
     int width = 1280;
     int height = 720;
 
@@ -39,6 +39,7 @@ struct MPVRenderThread {
 
     std::atomic<bool> needResize = false;
     std::atomic<int> newW, newH;
+
 };
 extern MPVRenderThread renderThread;
 void StartMPVRenderThread();

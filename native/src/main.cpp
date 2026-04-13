@@ -20,8 +20,6 @@
 #include "main.h"
 #include "notification.h"
 
-
-#include <windows/windows_custom_titlebar.h>
 #include <windows/windows_borderless.h>
 #include <windows/windows_borderless_state.h>
 
@@ -162,7 +160,7 @@ bool InitMainWindow() {
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-    SetWindowSDL(ctx.mainWindow,720,360);
+    SDLUtils::SetWindowSDL(ctx.mainWindow,720,360);
     #else 
     SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
@@ -248,9 +246,9 @@ void RenderUI( PlaybackState state ){
     
     if(state == PlaybackState::Idle){
         static GLuint tex_idle = 0;
-        //if(!tex_idle)
-        //    tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
-        //RenderIdleBackground((ImTextureID)(intptr_t)tex_idle ,Windowlayout.VideoPos, Windowlayout.VideoSize);
+        if(!tex_idle)
+            tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
+        RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
     if (render_video ||
@@ -434,7 +432,7 @@ int main(int argc, char** argv) {
         frameStart = SDL_GetTicks64();
         flags = SDL_GetWindowFlags(ctx.mainWindow);
         if(ToggleFullscreen){
-            SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+            SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
             ToggleFullscreen =false;
         }
         g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );

@@ -12,6 +12,7 @@
 #include "utils.h"
 #include "SDL.h"
 
+#include <map>
 #include <algorithm>
 
 static int g_lastVolumeBeforeMute = 50;
@@ -736,15 +737,31 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
 
 }
 
-void RenderIdleBackground(ImTextureID texID, ImVec2 videopos, ImVec2 videoSize) {
-    if (!texID || videoSize.x <= 0 || videoSize.y <= 0) return;
+void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSize) {
+    // 1. Dùng static để cache kết quả cuối cùng
+    static ImTextureID cachedImTexID = (ImTextureID)0; 
+    static std::string cachedPath = "";
 
-    ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+    // 2. Nếu đường dẫn thay đổi, gọi GetIcon để lấy ID mới
+    if (!imagePath.empty() && imagePath != cachedPath) {
+        GLuint tex = GetIcon(imagePath);
+        
+        if (tex != 0) {
+            // Ép kiểu từ GLuint sang ImTextureID (void*)
+            cachedImTexID = (ImTextureID)(intptr_t)tex;
+            cachedPath = imagePath;
+        }
+    }
 
-    const ImVec2 p_min = videopos;
-    const ImVec2 p_max = ImVec2(videopos.x + videoSize.x, videopos.y + videoSize.y);
+    // 3. Nếu có texture hợp lệ thì vẽ
+    if (cachedImTexID != (ImTextureID)0) {
+        ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
+        
+        const ImVec2 p_min = videopos;
+        const ImVec2 p_max = ImVec2(videopos.x + videoSize.x, videopos.y + videoSize.y);
 
-    draw_list->AddImage(texID, p_min, p_max);
+        draw_list->AddImage(cachedImTexID, p_min, p_max);
+    }
 }
 void CleanupIcons(){
     

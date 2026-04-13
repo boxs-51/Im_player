@@ -16,7 +16,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos , ImVec2 videoSize, S
                           bool& isFullscreen_video,bool& show_ui_video);
 
 
-void RenderIdleBackground(ImTextureID texID, ImVec2 videopos, ImVec2 videoSize) ;
+void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSize) ;
 
 void CleanupIcons();
 
