@@ -149,16 +149,27 @@ void UpdateMPVTexture(int width, int height , MpvRender* rt) {
 #ifdef RENDER_MPV_THREAD
 GLuint GetStableFrameTexture(MPVRenderThread& rt) {
     static GLuint lastTex = 0;
+    std::lock_guard<std::mutex> g(rt.swapMtx);
 
-    {
-        std::lock_guard<std::mutex> g(rt.swapMtx);
-
-        if (rt.newFrameReady && rt.readIndex >= 0) {
+    if (rt.newFrameReady && rt.readIndex >= 0) {
+        GLsync currentSync = rt.renderSyncs[rt.readIndex]; // Dùng mảng sync
+        if (currentSync) {
+            // Đợi tối đa 100ms
+            GLenum waitReturn = glClientWaitSync(currentSync, GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
+            
+            if (waitReturn == GL_ALREADY_SIGNALED || waitReturn == GL_CONDITION_SATISFIED) {
+                lastTex = rt.textures[rt.readIndex];
+                rt.newFrameReady = false;
+            } else if (waitReturn == GL_WAIT_FAILED) {
+                // Có lỗi xảy ra với Context Sharing hoặc Driver
+                // Trả về lastTex cũ để tránh nháy đen
+            }
+        } else {
+            // Nếu chưa có sync (frame đầu tiên), cứ lấy texture luôn
             lastTex = rt.textures[rt.readIndex];
             rt.newFrameReady = false;
         }
     }
-
     return lastTex;
 }
 #endif
@@ -266,14 +277,18 @@ void MPVRenderLoop(MPVRenderThread* rt) {
                 glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
                             rt->width, rt->height,
                             0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-            }
 
+                if (rt->renderSyncs[i]) {
+                    glDeleteSync(rt->renderSyncs[i]);
+                    rt->renderSyncs[i] = nullptr;
+                }
+            }
+            glViewport(0 ,0 ,rt->width ,rt->height);
+            glFinish();
             rt->needResize = false;
         }
 
         lock.unlock();
-        uint64_t flags = mpv_render_context_update(rt->ctx);
-        if (!(flags & MPV_RENDER_UPDATE_FRAME)) continue;
         int index = rt->writeIndex;
         glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
 
@@ -297,9 +312,12 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         };
 
         mpv_render_context_render(rt->ctx, params);
-
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        glFlush();
+        if (rt->renderSyncs[index]) {
+            glDeleteSync(rt->renderSyncs[index]);
+        }
+        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        rt->renderSyncs[index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
         {
             std::lock_guard<std::mutex> g(rt->swapMtx);
 
@@ -308,12 +326,20 @@ void MPVRenderLoop(MPVRenderThread* rt) {
             rt->newFrameReady = true;
             
         }
-        //glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
         SDL_Event ev;
         //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
         SDLUtils::SDLX_PushUniqueEvent(ev);
     }
+    glDeleteFramebuffers(3, rt->fbos);
+    glDeleteTextures(3, rt->textures);
+    
+    for(int i=0; i<3; i++) {
+        if(renderThread.renderSyncs[i]) glDeleteSync(renderThread.renderSyncs[i]);
+    }
+    
+    SDL_GL_DeleteContext(rt->glContext);
+    rt->hasExited = true;
 }
 
 void StartMPVRenderThread() {
@@ -334,16 +360,36 @@ void StartMPVRenderThread() {
 }
 #endif
 void CleanupMPV() {
+    #ifdef RENDER_MPV_THREAD
+    // 1. Phát lệnh dừng luồng trước
+    renderThread.running = false;
+    renderThread.cv.notify_all(); 
+
+    // 2. Phải đợi luồng kết thúc (nếu bạn lưu std::thread)
+    // Nếu bạn dùng .detach() như code trước, bạn cần một flag để xác nhận luồng đã thoát
+    // Ví dụ: while(!renderThread.hasExited) SDL_Delay(1);
+    #endif
+
+    // 3. Hủy Render Context của MPV (Phải gọi khi luồng render đã dừng)
     if (mpv.render_ctx) {
         mpv_render_context_free(mpv.render_ctx);
         mpv.render_ctx = nullptr;
     }
+
+    // 4. Hủy MPV Handle
     if (mpv.mpv) {
         mpv_terminate_destroy(mpv.mpv);
         mpv.mpv = nullptr;
     }
+
+    // 5. Giải phóng tài nguyên OpenGL (Phải chạy trong context đã tạo ra chúng)
+    // Lưu ý: glDeleteSync, glDeleteTextures, glDeleteFramebuffers 
+    // nên được gọi TRƯỚC khi SDL_GL_DeleteContext bị gọi.
     #ifdef RENDER_MPV_THREAD
-    renderThread.running = false;
-    renderThread.cv.notify_one();
+
+    for(int i=0; i<3; i++) {
+        if(renderThread.renderSyncs[i]) glDeleteSync(renderThread.renderSyncs[i]);
+    }
+    
     #endif
 }

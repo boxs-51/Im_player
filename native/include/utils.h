@@ -583,4 +583,99 @@ namespace TextUtils {
 inline ImU32 ToCol32(const ImVec4& c) {
     return IM_COL32((int)(c.x*255.0f), (int)(c.y*255.0f), (int)(c.z*255.0f), (int)(c.w*255.0f));
 }
+
+#include <chrono>
+#include <thread>
+
+class FrameTimer {
+public:
+    FrameTimer(int targetFPS) {
+        setTargetFPS(targetFPS);
+        auto now = std::chrono::high_resolution_clock::now();
+        lastFrameTime = now;
+        fpsTimestamp = now;
+    }
+
+    void setTargetFPS(int fps) {
+        targetFPS = fps;
+        frameDelay = std::chrono::microseconds(1000000 / (targetFPS > 0 ? targetFPS : 1));
+    }
+
+    void startFrame() {
+        startPoint = std::chrono::high_resolution_clock::now();
+    }
+
+    void endFrame() {
+        auto endPoint = std::chrono::high_resolution_clock::now();
+        auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endPoint - startPoint);
+
+        // Khống chế FPS
+        if (duration < frameDelay) {
+            std::this_thread::sleep_for(frameDelay - duration);
+        }
+
+        // Tính Delta Time
+        auto now = std::chrono::high_resolution_clock::now();
+        deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
+        lastFrameTime = now;
+
+        // Tính FPS trung bình mỗi 0.5 giây
+        frameCount++;
+        float elapsedSinceFPSUpdate = std::chrono::duration<float>(now - fpsTimestamp).count();
+        if (elapsedSinceFPSUpdate >= 0.5f) {
+            currentFPS = frameCount / elapsedSinceFPSUpdate;
+            frameCount = 0;
+            fpsTimestamp = now;
+        }
+    }
+
+    float getDeltaTime() const { return deltaTime; }
+    float getFPS() const { return currentFPS; }
+    
+    float updateAndGetFPS() {
+        auto now = std::chrono::high_resolution_clock::now();
+        
+        // Tính thời gian trôi qua kể từ lần gọi hàm này trước đó
+        static auto lastCall = now; 
+        std::chrono::duration<float> elapsed = now - lastCall;
+        lastCall = now;
+
+        float dt = elapsed.count();
+        
+        // Tránh chia cho 0 nếu máy quá nhanh
+        if (dt > 0.0f) {
+            return 1.0f / dt;
+        }
+        return 0.0f;
+    }
+
+    // Nếu bạn muốn một phiên bản "mượt" hơn (trung bình qua vài frame)
+    float getInstantFPS() {
+        auto now = std::chrono::high_resolution_clock::now();
+        static auto lastFrame = now;
+        static float smoothedFPS = 0.0f;
+
+        float frameTime = std::chrono::duration<float>(now - lastFrame).count();
+        lastFrame = now;
+
+        if (frameTime > 0) {
+            float current = 1.0f / frameTime;
+            // Công thức nội suy để số nhảy không quá gắt (LERP)
+            smoothedFPS = smoothedFPS * 0.9f + current * 0.1f;
+        }
+        return smoothedFPS;
+    }
+
+private:
+    int targetFPS;
+    std::chrono::microseconds frameDelay;
+    std::chrono::high_resolution_clock::time_point startPoint;
+    std::chrono::high_resolution_clock::time_point lastFrameTime;
+    
+    // Các biến phục vụ tính FPS
+    std::chrono::high_resolution_clock::time_point fpsTimestamp;
+    int frameCount = 0;
+    float currentFPS = 0.0f;
+    float deltaTime = 0.0f;
+};
 #endif

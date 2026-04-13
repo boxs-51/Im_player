@@ -65,6 +65,8 @@ struct DragResizeState {
 
     int btnSize = 30;
 
+    RECT fullscreenRestoreRect;
+
 };
 
 extern DragResizeState g_DragResizeState;

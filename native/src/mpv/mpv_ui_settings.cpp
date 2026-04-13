@@ -491,7 +491,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
         switch (current_page) {
             case SettingsPage::Main:
             {
-                UI_GroupHeader("Chất lượng");
+                UI_GroupHeader("Chất lượng",scaleFactor);
                 if (videotype != VideoType::File_Local) {
                     const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
                     UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { ChangePage(SettingsPage::ResolutionQuality); });
@@ -508,7 +508,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 UI_MenuItem("Tùy chọn nâng cao", "Thiết lập", scaleFactor, [&]() { ChangePage(SettingsPage::Options); });
 
                 ImGui::Spacing();
-                UI_GroupHeader("Tùy chọn");
+                UI_GroupHeader("Tùy chọn",scaleFactor);
 
                 UI_Toggle("Phụ đề", &v_Settings.enableSubtitles, scaleFactor, g_videoInfo.hasSubtitles, [&](bool s) {
                     mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");

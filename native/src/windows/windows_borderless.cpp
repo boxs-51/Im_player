@@ -50,7 +50,7 @@ void SDLUtils::SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, 
 bool SDLUtils::SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
 {
     if (!window) return false;
-    #ifdef CUSTOM_TITLEBAR_2
+    #ifdef CUSTOM_TITLEBAR
         if (!g_DragResizeState.hwnd_windown_main) {
             SDL_SysWMinfo wmInfo{};
             SDL_VERSION(&wmInfo.version);

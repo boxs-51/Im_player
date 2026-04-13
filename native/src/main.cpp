@@ -39,16 +39,8 @@ static bool render_video = false;
 static bool show_ui_video = false;
 static bool g_WindowVisible = false;
 
-static int currentFPS = 0;
-
-static Uint64 frameTime;
-static Uint64 frameStart;
 static Uint32 flags;
-static Uint64 fpsTimer;
-
 std::atomic<bool> running(true);
-
-Uint64 frameDelay = 1000 / 60;
 
 // NVIDIA GPU
 extern "C" {
@@ -138,6 +130,16 @@ void HandleMainWindowEvent(const SDL_Event& e) {
         bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
         if (isMousePressOrRelease && isMouseInsideVideo) {
             NotifyActivity(show_ui_video);
+        }
+    }
+    if (e.type == SDL_WINDOWEVENT) {
+        if (e.window.event == SDL_WINDOWEVENT_RESIZED || 
+            e.window.event == SDL_WINDOWEVENT_MOVED ||
+            e.window.event == SDL_WINDOWEVENT_MAXIMIZED ||
+            e.window.event == SDL_WINDOWEVENT_RESTORED) {
+            
+            // Chỉ cập nhật khi có sự kiện thay đổi thực sự
+            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
         }
     }
     
@@ -245,9 +247,6 @@ void RenderUI( PlaybackState state ){
 
     
     if(state == PlaybackState::Idle){
-        static GLuint tex_idle = 0;
-        if(!tex_idle)
-            tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
         RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
@@ -330,7 +329,7 @@ void RenderFrame(bool g_WindowVisible){
 
     PlaybackState state = GetPlaybackState();
 
-    ImFont* cur = FontManager::Instance().GetCurrentFont();
+    //ImFont* cur = FontManager::Instance().GetCurrentFont();
 
     ImGuiIO& io = ImGui::GetIO();
 
@@ -338,13 +337,13 @@ void RenderFrame(bool g_WindowVisible){
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    if (cur) {
-        ImGui::PushFont(cur);
+    //if (cur) {
+    //    ImGui::PushFont(cur);
+    //    RenderPushFont(state,g_WindowVisible);
+    //    ImGui::PopFont();
+    //}else{
         RenderPushFont(state,g_WindowVisible);
-        ImGui::PopFont();
-    }else{
-        RenderPushFont(state,g_WindowVisible);
-    }
+    //}
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -425,11 +424,11 @@ int main(int argc, char** argv) {
         CallThread_URLFetch(Url,true);
     }
 
-    fpsTimer = SDL_GetTicks64();
+    FrameTimer fpsLimiter(60);
     SDL_Event e;
     while (running) {
+        fpsLimiter.startFrame();
         UpdateTheme(ImGui::GetIO().DeltaTime);
-        frameStart = SDL_GetTicks64();
         flags = SDL_GetWindowFlags(ctx.mainWindow);
         if(ToggleFullscreen){
             SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
@@ -444,23 +443,10 @@ int main(int argc, char** argv) {
     
         mpv_update_seek_pending( mpv.mpv );
 
-        UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
-
         RenderFrame(g_WindowVisible) ;
 
-        static int frameCount = 0;
-        frameCount++;
-        Uint64 now = SDL_GetTicks64();
-        if (now - fpsTimer >= 1000) {  // mỗi giây cập nhật
-            g_videoInfo.currentFPS = frameCount;
-            frameCount = 0;
-            fpsTimer = now;
-        }
-        frameTime = SDL_GetTicks64() - frameStart;
-        if (frameDelay > frameTime) {
-            SDL_Delay(frameDelay - frameTime);
-        }
-        
+        g_videoInfo.currentFPS = fpsLimiter.getFPS();
+        fpsLimiter.endFrame();
     }
 
     Cleanup();

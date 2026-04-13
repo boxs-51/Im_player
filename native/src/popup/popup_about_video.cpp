@@ -18,8 +18,7 @@ void ShowMediaInfo() {
 
     static bool showFullUrl = false;
 
-    ImGui::Text("Media Info");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Media Info");
 
     if (CusTomImGui::BeginInfoTable("media_info")) {
 
@@ -40,9 +39,7 @@ void ShowMediaInfo() {
         std::string full = g_playbackStatus.streamUrl.c_str();
         std::string display = showFullUrl ? full : TextUtils::TruncateText(full, 80);
 
-        ImGui::Spacing();
-        ImGui::Text("Stream URL :");
-        ImGui::Separator();
+        CusTomImGui::ModernHeader("Stream URL :");
 
         if (ImGui::BeginChild("url_box", ImVec2(0, 80), true)) {
 
@@ -70,8 +67,7 @@ void ShowMediaInfo() {
 void ShowVideoInfo() {
 
     // ====== Overview ======
-    ImGui::Text("Overview");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Overview");
 
     if (CusTomImGui::BeginInfoTable("video_overview")) {
 
@@ -87,9 +83,7 @@ void ShowVideoInfo() {
 
 
     // ====== FPS / Performance ======
-    ImGui::Spacing();
-    ImGui::Text("Performance");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Performance");
 
     if (CusTomImGui::BeginInfoTable("video_perf")) {
 
@@ -100,9 +94,7 @@ void ShowVideoInfo() {
 
 
     // ====== Resolution ======
-    ImGui::Spacing();
-    ImGui::Text("Resolution");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Resolution");
 
     if (CusTomImGui::BeginInfoTable("video_resolution")) {
 
@@ -117,9 +109,7 @@ void ShowVideoInfo() {
 
 
     // ====== Crop ======
-    ImGui::Spacing();
-    ImGui::Text("Crop");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Crop");
 
     if (CusTomImGui::BeginInfoTable("video_crop")) {
 
@@ -130,9 +120,7 @@ void ShowVideoInfo() {
 
 
     // ====== Color ======
-    ImGui::Spacing();
-    ImGui::Text("Color Info");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Color Info");
 
     if (CusTomImGui::BeginInfoTable("video_color")) {
 
@@ -146,9 +134,7 @@ void ShowVideoInfo() {
 
 
     // ====== Advanced ======
-    ImGui::Spacing();
-    ImGui::Text("Advanced");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Advanced");
 
     if (CusTomImGui::BeginInfoTable("video_advanced")) {
 
@@ -213,9 +199,8 @@ void ShowAudioInfo() {
     }
 
     // ====== Audio Info ======
-    ImGui::Spacing();
-    ImGui::Text("Audio Overview");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Audio Overview");
+
     if(CusTomImGui::BeginInfoTable("audio_info")){
 
         CusTomImGui::InfoRow("Audio Client", "%s", g_playbackStatus.audio_client_name.c_str());
@@ -231,9 +216,7 @@ void ShowAudioInfo() {
 
 
     // ====== Audio Properties ======
-    ImGui::Spacing();
-    ImGui::Text("Audio Properties");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Audio Properties");
 
     if(CusTomImGui::BeginInfoTable("audio_props")){
 
@@ -249,8 +232,7 @@ void ShowAudioInfo() {
     }
 }
 void ShowTrackInfo() {
-    ImGui::Text("Track List");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Track List");
 
     for (const auto& track : g_videoInfo.g_tracks) {
         // Sử dụng ID của track để PushID cho an toàn
@@ -349,8 +331,8 @@ void ShowTrackInfo() {
 void ShowPlaybackInfo() {
 
     // ====== STATE ======
-    ImGui::Text("Playback State");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Playback State");
+
     if(CusTomImGui::BeginInfoTable("playback_state")){
 
         CusTomImGui::InfoRow("Status :","%s", PlaybackStateToString(GetPlaybackState()));
@@ -368,9 +350,7 @@ void ShowPlaybackInfo() {
 
 
     // ====== TIMELINE ======
-    ImGui::Spacing();
-    ImGui::Text("Timeline");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Timeline");
 
     float progress = 0.0f;
     if (g_playbackStatus.duration > 0.0f)
@@ -391,9 +371,7 @@ void ShowPlaybackInfo() {
 
 
     // ====== PLAYBACK PROPERTIES ======
-    ImGui::Spacing();
-    ImGui::Text("Properties");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Properties");
 
     if(CusTomImGui::BeginInfoTable("playback_props")){
 
@@ -418,8 +396,7 @@ void ShowMetadata() {
 }
 void ShowNetworkInfo() {
 
-    ImGui::Text("Network / Buffer");
-    ImGui::Separator();
+    CusTomImGui::ModernHeader("Network / Buffer");
 
     if(CusTomImGui::BeginInfoTable("network_info")){
 
@@ -444,8 +421,7 @@ void ShowNetworkInfo() {
     // Clamp tránh lỗi
     bufferRatio = std::clamp(bufferRatio, 0.0f, 1.0f);
 
-    ImGui::Spacing();
-    ImGui::Text("Buffer");
+    CusTomImGui::ModernHeader("Buffer");
     ImGui::ProgressBar(bufferRatio, ImVec2(-1, 8));
 
 }

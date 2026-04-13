@@ -21,6 +21,7 @@ struct MPVRenderThread {
 
     GLuint fbos[3] = {};
     GLuint textures[3] = {};
+    GLsync renderSyncs[3] = {nullptr, nullptr, nullptr};
 
     int writeIndex = 0;
     int readIndex = -1;
@@ -36,6 +37,7 @@ struct MPVRenderThread {
 
     bool needRender = false;
     bool running = true;
+    bool hasExited = false;
 
     std::atomic<bool> needResize = false;
     std::atomic<int> newW, newH;

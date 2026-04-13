@@ -69,7 +69,7 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState state , Wi
     }
     w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
     w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
-     #ifdef RENDER_MPV_THREAD
+    #ifdef RENDER_MPV_THREAD
     int newW  = (int)w.VideoSize.x;
     int newH = (int)w.VideoSize.y;
 

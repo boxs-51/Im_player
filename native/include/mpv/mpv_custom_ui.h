@@ -2739,6 +2739,42 @@ namespace CusTomImGui{
 
         return pressed;
     }
+    inline void ModernHeader(const char* title, float scale = 1.0f) {
+        ImGui::Spacing();
+        ImVec2 p = ImGui::GetCursorScreenPos();
+        ImDrawList* draw_list = ImGui::GetWindowDrawList();
+        
+        // Tính toán chiều cao dựa trên font size và khoảng cách đệm (padding)
+        float fontSize = ImGui::GetFontSize();
+        float verticalPadding = 4.0f * scale;
+        float height = fontSize + verticalPadding;
 
+        // 1. Vẽ thanh chỉ báo dọc (Indicator bar)
+        draw_list->AddRectFilled(
+            ImVec2(p.x, p.y), 
+            ImVec2(p.x + 3.0f * scale, p.y + height), 
+            ToCol32(GTheme.CheckMark), 2.0f
+        );
 
+        // 2. Căn chỉnh con trỏ để vẽ Text
+        // Đẩy sang phải để tránh đè lên thanh Indicator
+        ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.0f * scale);
+        
+        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::Text(title);
+        ImGui::PopStyleColor();
+
+        // --- PHẦN QUAN TRỌNG: Cập nhật con trỏ xuống dưới dòng text ---
+        // Di chuyển con trỏ Y xuống dưới tiêu đề trước khi vẽ Separator
+        ImGui::SetCursorPosY(p.y + height + (2.0f * scale)); 
+
+        // 3. Vẽ Separator
+        ImVec4 sep_col = GTheme.Separator;
+        sep_col.w = 0.3f; 
+        ImGui::PushStyleColor(ImGuiCol_Separator, sep_col);
+        ImGui::Separator();
+        ImGui::PopStyleColor();
+        
+        ImGui::Spacing();
+    }
 }
