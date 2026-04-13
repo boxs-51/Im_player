@@ -124,7 +124,7 @@ void Cleanup() {
 }
 void HandleMainWindowEvent(const SDL_Event& e) {
 
-    if (e.type == SDL_MPV_RENDER_UPDATE) render_video = true;  
+    if (e.type == SDL_MPV_RENDER_UPDATE_SYNC) render_video = true;  
     if (e.type == SDL_MPV_EVENT)ProcessMPVEvents(mpv.mpv);
     if (e.type == SDL_QUIT)running = false;
     if (HandleHotkeys(e , mpv.mpv))return;
@@ -151,7 +151,7 @@ bool InitMainWindow() {
                         SDL_WINDOW_SHOWN|
                         SDL_WINDOW_ALLOW_HIGHDPI;
     #ifdef CUSTOM_TITLEBAR
-        windowFlags |= SDL_WINDOW_BORDERLESS;
+    windowFlags |= SDL_WINDOW_BORDERLESS;
     #endif
     ctx.mainWindow = SDL_CreateWindow("Media Video Control",
         SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -162,11 +162,11 @@ bool InitMainWindow() {
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-        SetWindowSDL(ctx.mainWindow,720,360);
+    SetWindowSDL(ctx.mainWindow,720,360);
     #else 
-        SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
+    SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
-
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
     ctx.mainGLContext = SDL_GL_CreateContext(ctx.mainWindow);
     if (!ctx.mainGLContext) {
         SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
@@ -190,7 +190,6 @@ bool InitMainWindow() {
     }
 
     SDL_GL_SetSwapInterval(1);
-
 
     // ImGui main context
     IMGUI_CHECKVERSION();
@@ -216,6 +215,7 @@ bool InitMainWindow() {
     FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%","fonts"));
 
     ImGui::StyleColorsDark();
+
     return true;
 };
 void RenderUI( PlaybackState state ){
@@ -248,15 +248,14 @@ void RenderUI( PlaybackState state ){
     
     if(state == PlaybackState::Idle){
         static GLuint tex_idle = 0;
-        if(!tex_idle)
-            tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
-        RenderIdleBackground((ImTextureID)(intptr_t)tex_idle ,Windowlayout.VideoPos, Windowlayout.VideoSize);
+        //if(!tex_idle)
+        //    tex_idle = GetIcon(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg"));
+        //RenderIdleBackground((ImTextureID)(intptr_t)tex_idle ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
-    if (render_video || 
-        state == PlaybackState::Paused ||  
-        state == PlaybackState::EndOfFile ||
-        state == PlaybackState::Seeking ||
+    if (render_video ||
+        state == PlaybackState::Paused  || 
+        state == PlaybackState::Seeking  ||
         state == PlaybackState::Playing) {
         RenderMPVVideo(Windowlayout.VideoSize);
         DrawGhostStatusOverlay(Windowlayout.VideoPos, Windowlayout.VideoSize, state == PlaybackState::Paused);
@@ -305,7 +304,7 @@ void RenderFrame(bool g_WindowVisible){
         }
 
         // Kiểm tra xem đã quá 1 giây chưa
-        if (SDL_GetTicks64() - lastVisibleTime > 1000) { 
+        if (SDL_GetTicks64() - lastVisibleTime > 2000) { 
             if (!isRenderingPaused) {
                 mpv_disable_video(mpv.mpv);
                 isRenderingPaused = true;
@@ -415,10 +414,14 @@ int main(int argc, char** argv) {
         Cleanup();
         return 1;
     }
+    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
+    #ifdef RENDER_MPV_THREAD
+    StartMPVRenderThread();
+
+    #endif
     
     InitPlaybackStatus(mpv.mpv);
-    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
-
+    
     if (argc >= 2) {
         std::string Url = argv[1];
         CallThread_URLFetch(Url,true);

@@ -23,6 +23,13 @@
 constexpr auto PARAM_FRAMEBUFFER_SIZE = static_cast<mpv_render_param_type>(3);
 constexpr auto PARAM_FLIP_Y = static_cast<mpv_render_param_type>(4);
 
+#ifdef RENDER_MPV_THREAD
+MPVRenderThread renderThread;
+#endif
+#ifdef RENDER_MPV_FBO
+MpvRender render;
+#endif
+
 // Callback function với signature chuẩn
 void* GetProcAddressWrapper([[maybe_unused]] void* ctx, const char* name) {
     return SDL_GL_GetProcAddress(name);
@@ -73,13 +80,26 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
         return false;
 
     // Sử dụng Lambda capture nếu cần, nhưng ở đây dùng static callback của MPV
+    #ifdef RENDER_MPV_THREAD
+    mpv_render_context_set_update_callback(mpv.render_ctx,
+    [](void* userdata) {
+        auto* rt = (MPVRenderThread*)userdata;
+
+        {
+            std::lock_guard lock(rt->mtx);
+            rt->needRender = true;
+        }
+
+        rt->cv.notify_one();
+    }, &renderThread);
+    #else
     mpv_render_context_set_update_callback(mpv.render_ctx, [](void*) {
     
         SDL_Event event;
-        event.type = SDL_MPV_RENDER_UPDATE;
+        event.type = SDL_MPV_RENDER_UPDATE_SYNC;
         SDL_PushEvent(&event);
     }, nullptr);
-
+    #endif
     mpv_set_wakeup_callback(mpv_ptr, [](void*) {
         SDL_Event event;
         event.type = SDL_MPV_EVENT;
@@ -88,13 +108,82 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
 
     return true;
 }
+#ifdef RENDER_MPV_FBO
+void UpdateMPVTexture(int width, int height , MpvRender* rt) {
+    if (width == rt->tex_width && height == rt->tex_height && rt->render_texture != 0) return;
 
+    // Xóa cái cũ nếu đã tồn tại
+    if (rt->m_fbo) glDeleteFramebuffers(1, &rt->m_fbo);
+    if (rt->render_texture) glDeleteTextures(1, &rt->render_texture);
+
+    rt->tex_width = width;
+    rt->tex_height = height;
+
+    // 1. Tạo Texture
+    glGenTextures(1, &rt->render_texture);
+    glBindTexture(GL_TEXTURE_2D, rt->render_texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glBindTexture(GL_TEXTURE_2D, 0);
+
+    // 2. Tạo FBO và gắn Texture vào
+    glGenFramebuffers(1, &rt->m_fbo);
+    glBindFramebuffer(GL_FRAMEBUFFER, rt->m_fbo);
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->render_texture, 0);
+
+    // Kiểm tra xem FBO có hợp lệ không
+    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+        printf("Lỗi: Framebuffer không hợp lệ!\n");
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+
+#endif
+#ifdef RENDER_MPV_THREAD
+GLuint GetStableFrameTexture(MPVRenderThread& rt) {
+    static GLuint lastTex = 0;
+
+    {
+        std::lock_guard<std::mutex> g(rt.swapMtx);
+
+        if (rt.newFrameReady && rt.readIndex >= 0) {
+            lastTex = rt.textures[rt.readIndex];
+            rt.newFrameReady = false;
+        }
+    }
+
+    return lastTex;
+}
+#endif
 void RenderMPVVideo(const ImVec2& size) {
     if (!mpv.render_ctx) return;
+    #ifdef RENDER_MPV_FBO
+    if (render.render_texture != 0) {
+        // Hiển thị Texture lên giao diện ImGui
+        ImGui::Image((ImTextureID)(intptr_t)render.render_texture, Windowlayout.VideoSize, ImVec2(0, 1), ImVec2(1, 0));
+    }
+    return;
+    #endif
+    #ifdef RENDER_MPV_THREAD
+    GLuint tex = GetStableFrameTexture(renderThread);
 
+    if (tex != 0) {
+        ImGui::Image((ImTextureID)(intptr_t)tex, Windowlayout.VideoSize, ImVec2(0, 1), ImVec2(1, 0));
+    }
+    return;
+    #endif
+    #ifdef RENDER_MPV_FBO
+    UpdateMPVTexture(static_cast<int>(size.x), static_cast<int>(size.y), &render);
+    #endif
     // Cấu hình Framebuffer Object
     mpv_opengl_fbo fbo {};
+    #ifdef RENDER_MPV_FBO
+    fbo.fbo = render.m_fbo;
+    #else 
     fbo.fbo = 0;
+    #endif
     fbo.w = static_cast<int>(size.x);
     fbo.h = static_cast<int>(size.y);
     fbo.internal_format = GL_RGBA;
@@ -111,8 +200,130 @@ void RenderMPVVideo(const ImVec2& size) {
     }};
 
     mpv_render_context_render(mpv.render_ctx, params.data());
+
+
+}
+#ifdef RENDER_MPV_THREAD
+void InitRenderFBO(MPVRenderThread* rt) {
+    glGenFramebuffers(3, rt->fbos);
+    glGenTextures(3, rt->textures);
+
+    for (int i = 0; i < 3; i++) {
+        glBindTexture(GL_TEXTURE_2D, rt->textures[i]);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+                     rt->width, rt->height,
+                     0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[i]);
+        glFramebufferTexture2D(GL_FRAMEBUFFER,
+            GL_COLOR_ATTACHMENT0,
+            GL_TEXTURE_2D,
+            rt->textures[i], 0);
+
+        if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
+            printf("FBO[%d] not complete\n", i);
+        }
+    }
+
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 
+void MPVRenderLoop(MPVRenderThread* rt) {
+
+    SDL_GL_MakeCurrent(rt->window, rt->glContext);
+
+    InitRenderFBO(rt);
+
+    while (rt->running) {
+        std::unique_lock lock(rt->mtx);
+
+        rt->cv.wait(lock, [&] {
+            return rt->needRender || !rt->running;
+        });
+
+        if (!rt->running) break;
+
+        rt->needRender = false;
+        
+        if (rt->needResize) {
+            rt->width = rt->newW;
+            rt->height = rt->newH;
+
+            for (int i = 0; i < 3; i++) {
+                glBindTexture(GL_TEXTURE_2D, rt->textures[i]);
+                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
+                            rt->width, rt->height,
+                            0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            }
+
+            rt->needResize = false;
+        }
+
+        lock.unlock();
+        int index = rt->writeIndex;
+        glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
+
+        glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Xóa màu đen
+        glClear(GL_COLOR_BUFFER_BIT); // Hoặc chỉ glClear(GL_COLOR_BUFFER_BIT)
+
+        mpv_opengl_fbo fbo {};
+        fbo.fbo = rt->fbos[index];
+        fbo.w = rt->width;
+        fbo.h = rt->height;
+        fbo.internal_format = GL_RGBA8;
+
+        int flip = 1;
+        int size[2] = { rt->width, rt->height };
+
+        mpv_render_param params[] = {
+            { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
+            { (mpv_render_param_type)3, size },
+            { (mpv_render_param_type)4, &flip },
+            { MPV_RENDER_PARAM_INVALID, nullptr }
+        };
+
+        mpv_render_context_render(rt->ctx, params);
+
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        {
+            std::lock_guard<std::mutex> g(rt->swapMtx);
+
+            rt->readIndex = index;
+            rt->writeIndex = (rt->writeIndex + 1) % 3;
+            rt->newFrameReady = true;
+        }
+        //glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
+
+        SDL_Event event;
+        event.type = SDL_MPV_RENDER_UPDATE_SYNC;
+        SDL_PushEvent(&event);
+    }
+}
+
+void StartMPVRenderThread() {
+   
+    renderThread.ctx = mpv.render_ctx;
+    renderThread.window = ctx.mainWindow;
+
+    renderThread.width = (int)Windowlayout.VideoSize.x;
+    renderThread.height = (int)Windowlayout.VideoSize.y;
+
+    renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
+    
+    std::thread([&] {
+        MPVRenderLoop(&renderThread);
+    }).detach();
+    
+    SDL_GL_MakeCurrent(ctx.mainWindow, ctx.mainGLContext);
+}
+#endif
 void CleanupMPV() {
     if (mpv.render_ctx) {
         mpv_render_context_free(mpv.render_ctx);
@@ -122,4 +333,8 @@ void CleanupMPV() {
         mpv_terminate_destroy(mpv.mpv);
         mpv.mpv = nullptr;
     }
+    #ifdef RENDER_MPV_THREAD
+    renderThread.running = false;
+    renderThread.cv.notify_one();
+    #endif
 }

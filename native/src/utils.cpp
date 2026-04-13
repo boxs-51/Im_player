@@ -10,6 +10,7 @@
 
 #include <mpv/mpv_basic_formats.h>
 #include <mpv/mpv_custom_ui.h>
+#include <mpv/mpv_render_video.h>
 #include <services/services_services.h>
 
 #include <filesystem>
@@ -68,6 +69,18 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState state , Wi
     }
     w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
     w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
+     #ifdef RENDER_MPV_THREAD
+    int newW  = (int)w.VideoSize.x;
+    int newH = (int)w.VideoSize.y;
+
+    if (newW != renderThread.width || newH != renderThread.height) {
+        renderThread.newW = newW;
+        renderThread.newH = newH;
+        renderThread.needResize = true;
+
+        renderThread.cv.notify_one();
+    }
+    #endif
     w.WinDowPos = ImVec2((float)w.WinX,(float)w.WinY);
     w.WinDowSize = ImVec2((float)w.WinW,(float)w.WinH);
     w.TitlePos = sdl_rec_to_imvec2_pos(w.titleBar);
