@@ -3,9 +3,10 @@
 
 enum class ThreadID {
     URLFetch,
-    PlaylistLoader,
-    ResolutionFetch,
-    // ...
+    PipeServer,
+    MPVEventLoop,
+    MPVRenderThread
+
 };
 
 // Specialize std::hash<ThreadID> inline to avoid redefinition

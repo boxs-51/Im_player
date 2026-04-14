@@ -1,8 +1,11 @@
 #include "globals.h"
 #include "utils.h"
 
-#include <threads/thread.h>
+
 #include <mpv/mpv_settings.h>
+#include <mpv/mpv_ui_settings.h>
+
+
 #include "sidebar_popup.h"
 #include <imgui_internal.h>
 

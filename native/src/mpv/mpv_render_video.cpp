@@ -12,6 +12,7 @@
 #include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 #include "utils.h"
+#include "threads/thread_manager.h"
 #include <mpv/render_gl.h>
 #include "globals.h"
 
@@ -100,7 +101,9 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
         SDL_Event ev;
         //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        SDLUtils::SDLX_PushUniqueEvent(ev);
+        SDL_PushEvent(&ev);
+        //SDLUtils::SDLX_PushUniqueEvent(ev);
+        //SDLUtils::SDLX_PushEvent()
 
     }, nullptr);
     #endif
@@ -108,7 +111,8 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
         SDL_Event ev;
         //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_EVENT;
-        SDLUtils::SDLX_PushUniqueEvent(ev);
+        SDL_PushEvent(&ev);
+        //SDLUtils::SDLX_PushUniqueEvent(ev);
     }, nullptr);
 
     return true;
@@ -272,26 +276,37 @@ void MPVRenderLoop(MPVRenderThread* rt) {
             rt->width = rt->newW;
             rt->height = rt->newH;
 
-            for (int i = 0; i < 3; i++) {
-                glBindTexture(GL_TEXTURE_2D, rt->textures[i]);
-                glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                            rt->width, rt->height,
-                            0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            // Đánh dấu cả 3 textures là "đã lỗi thời, cần resize"
+            rt->dirtyTextures[0] = true;
+            rt->dirtyTextures[1] = true;
+            rt->dirtyTextures[2] = true;
 
-                if (rt->renderSyncs[i]) {
-                    glDeleteSync(rt->renderSyncs[i]);
-                    rt->renderSyncs[i] = nullptr;
-                }
-            }
-            glViewport(0 ,0 ,rt->width ,rt->height);
-            glFinish();
             rt->needResize = false;
         }
 
         lock.unlock();
         int index = rt->writeIndex;
+
+        if (rt->dirtyTextures[index]) {
+            glBindTexture(GL_TEXTURE_2D, rt->textures[index]);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, rt->width, rt->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+
+            // Gắn lại vào FBO
+            glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->textures[index], 0);
+
+            if (rt->renderSyncs[index]) {
+                glDeleteSync(rt->renderSyncs[index]);
+                rt->renderSyncs[index] = nullptr;
+            }
+            
+            // Đã tạo mới xong, tắt cờ đi
+            rt->dirtyTextures[index] = false; 
+        }
+
         glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
 
+        glViewport(0, 0, rt->width, rt->height);
         glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Xóa màu đen
         glClear(GL_COLOR_BUFFER_BIT); // Hoặc chỉ glClear(GL_COLOR_BUFFER_BIT)
 
@@ -329,13 +344,14 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         SDL_Event ev;
         //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        SDLUtils::SDLX_PushUniqueEvent(ev);
+        //SDLUtils::SDLX_PushUniqueEvent(ev);
+        SDL_PushEvent(&ev);
     }
     glDeleteFramebuffers(3, rt->fbos);
     glDeleteTextures(3, rt->textures);
     
     for(int i=0; i<3; i++) {
-        if(renderThread.renderSyncs[i]) glDeleteSync(renderThread.renderSyncs[i]);
+        if(rt->renderSyncs[i]) glDeleteSync(rt->renderSyncs[i]);
     }
     
     SDL_GL_DeleteContext(rt->glContext);
@@ -352,10 +368,10 @@ void StartMPVRenderThread() {
 
     renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
     
-    std::thread([&] {
+    GetThreadManager().Run(ThreadID::MPVRenderThread, [&]() {
         MPVRenderLoop(&renderThread);
-    }).detach();
-    
+    });
+ 
     SDL_GL_MakeCurrent(ctx.mainWindow, ctx.mainGLContext);
 }
 #endif
@@ -368,8 +384,8 @@ void CleanupMPV() {
     // 2. Phải đợi luồng kết thúc (nếu bạn lưu std::thread)
     // Nếu bạn dùng .detach() như code trước, bạn cần một flag để xác nhận luồng đã thoát
     // Ví dụ: while(!renderThread.hasExited) SDL_Delay(1);
+    while (GetThreadManager().IsRunning(ThreadID::MPVRenderThread)) SDL_Delay(1);
     #endif
-
     // 3. Hủy Render Context của MPV (Phải gọi khi luồng render đã dừng)
     if (mpv.render_ctx) {
         mpv_render_context_free(mpv.render_ctx);

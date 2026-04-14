@@ -19,7 +19,7 @@ VideoAudioFormats all_formats;
 using json = nlohmann::json;
 static std::string ytdl_json_buffer;
 
-static VideoType g_videoType = VideoType::Vio;
+static VideoType g_videoType;
 
 void UpdateVideoType(VideoInfoResult info) {
     if (info.is_live)

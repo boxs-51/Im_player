@@ -64,7 +64,6 @@ add_executable(imgui_player WIN32
     native/src/services/services_client_backend.cpp
 
     native/src/threads/thread_manager.cpp
-    native/src/threads/thread.cpp
 
 )
 

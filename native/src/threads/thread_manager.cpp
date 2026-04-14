@@ -39,6 +39,16 @@ bool ThreadManager::IsRunning(ThreadID id) {
     return activeIDs_.count(id) > 0;
 }
 
+// Đổi ThreadID sang string để log
+std::string ThreadManager::ThreadIDToString(ThreadID id) {
+    switch (id) {
+    case ThreadID::URLFetch: return "URLFetch";
+    case ThreadID::MPVEventLoop: return "MPVEventLoop";
+    case ThreadID::PipeServer: return "PipeServer";
+    case ThreadID::MPVRenderThread: return "MPVRenderThread";
+    default: return "Unknown";
+    }
+}
 // Singleton implementation
 ThreadManager& GetThreadManager() {
     static ThreadManager instance;

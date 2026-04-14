@@ -2,7 +2,8 @@
 #include "wintoastlib.h"
 #include "notification.h"
 #include "utils.h"
-#include "threads/thread.h"
+
+#include <mpv/mpv_ui_settings.h>
 
 #include <string>
 #include <windows.h>

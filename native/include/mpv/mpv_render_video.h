@@ -22,6 +22,7 @@ struct MPVRenderThread {
     GLuint fbos[3] = {};
     GLuint textures[3] = {};
     GLsync renderSyncs[3] = {nullptr, nullptr, nullptr};
+    bool dirtyTextures[3] = {false, false, false};
 
     int writeIndex = 0;
     int readIndex = -1;

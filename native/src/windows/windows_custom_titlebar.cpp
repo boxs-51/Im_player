@@ -10,11 +10,9 @@
 #include "globals.h"
 #include "utils.h"
 #include "imgui.h"
-
+#include "main.h"
 #include <windows/windows_borderless_state.h>
 #include <windows/windows_borderless.h>
-
-#include <threads/thread.h>
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -71,7 +69,7 @@ static inline void RemoveTrayIcon()
 {
     Shell_NotifyIcon(NIM_DELETE, &nid);
 };
-
+static bool is_rendering = false;
 // -------------------- WndProc hook: min/max từ SDL --------------------
 LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, SDL_Window* sdlWindow)
 {
@@ -117,13 +115,13 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
-        case WM_COPYDATA: {
-            PCOPYDATASTRUCT pCDS = (PCOPYDATASTRUCT)lParam;
-            std::string url((char*)pCDS->lpData, pCDS->cbData);
-            CallThread_URLFetch(url, true); // append vào playlist
+        case WM_PAINT: {
+            if (is_rendering) {
+                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+                RenderFrame(true);
+            }
             return 0;
         }
-
         // ===== HitTest & chuột =====
         case WM_NCHITTEST: {
 
@@ -235,7 +233,14 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             return 0;
         }
         
-        
+        case WM_ENTERSIZEMOVE: {
+            is_rendering = true;
+            break;
+        }
+        case WM_EXITSIZEMOVE: {
+            is_rendering = false;
+            break;
+        }
         case WM_NCLBUTTONDOWN: {
             // wParam chính là hit-test code
             LRESULT hit = wParam;

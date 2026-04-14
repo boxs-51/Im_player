@@ -27,6 +27,8 @@ void RenderIOCHSidebar(mpv_handle * mpv ,ImVec2 videoPos ,ImVec2 videoSize, bool
 
 void StartResolutionFetchInBackground(const std::string& Url);
 
+void CallThread_URLFetch(const std::string& Url , bool playNow = true , const std::string& title = "" ,const std::string& format_id = "") ;
+
 
 
 

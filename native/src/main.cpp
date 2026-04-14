@@ -15,7 +15,7 @@
 #include "globals.h"
 
 #include <services/services_services.h>
-#include <threads/thread.h>
+#include <threads/thread_manager.h>
 
 #include "main.h"
 #include "notification.h"
@@ -399,8 +399,10 @@ int main(int argc, char** argv) {
         return 0; // Thoát app mới
     }
 
-    std::thread serverThread(PipeServerThread);
-    serverThread.detach();
+    GetThreadManager().Run(ThreadID::PipeServer, [=]() {
+        PipeServerThread();
+    });
+
     //InitNotification();
 
     SDL_SetMainReady();

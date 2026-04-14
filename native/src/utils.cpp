@@ -828,8 +828,8 @@ void ProcessMPVEvents(mpv_handle* mpv) {
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
                 HandleYTDLLog(mpv,msg->text);
             
-            if (msg && msg->level && (strcmp(msg->level, "error")  == 0 /*||
-                                      strcmp(msg->level, "warn")  == 0 */))
+            //if (msg && msg->level && (strcmp(msg->level, "error")  == 0 /*||
+                                      //strcmp(msg->level, "warn")  == 0 */))
 
                 //PushMpvError(msg->level, msg->text);
             break;

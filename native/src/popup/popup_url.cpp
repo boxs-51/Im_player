@@ -8,8 +8,7 @@
 #include <mpv/mpv_basic_formats.h>
 #include <mpv/mpv_custom_ui.h>
 #include <mpv/mpv_ui.h>
-
-#include <threads/thread.h>
+#include <mpv/mpv_ui_settings.h>
 
 #include <commdlg.h>  
 #include <vector>
