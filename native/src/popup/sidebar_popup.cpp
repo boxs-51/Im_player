@@ -4,6 +4,7 @@
 
 #include <mpv/mpv_settings.h>
 #include <mpv/mpv_ui_settings.h>
+#include <mpv/mpv_data.h>
 
 
 #include "sidebar_popup.h"
@@ -20,6 +21,7 @@
 
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
 void OpenSidarBarPopup(ReusablePopup& popup) {
     popup.Open("Sidebar", [](bool& closePopup_siderbar) {
@@ -40,7 +42,7 @@ void ShowSidarBarPopup(bool& closePopup_siderbar) {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("ListMPV")) {
-            RenderListVideoMPV(mpv.mpv);
+            RenderListVideoMPV(mpv.mpv );
             ImGui::EndTabItem();
         }
         ImGui::PopStyleColor();

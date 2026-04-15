@@ -7,6 +7,7 @@
 #include <mpv/mpv_settings.h>
 #include <mpv/mpv_custom_ui.h>
 #include <mpv/render_gl.h>
+#include <mpv/mpv_data.h>
 
 #include <popup/popup.h>
 
@@ -38,10 +39,10 @@
 
 static bool render_video = false;
 static bool show_ui_video = false;
-static bool g_WindowVisible = false;
 
-static Uint32 flags;
-std::atomic<bool> running(true);
+static VideoInfo& g_videoInfo = GetVideoInfo();
+static DragResizeState& g_DragResizeState = GetDragResizeState();
+static std::atomic<bool> running(true);
 
 // NVIDIA GPU
 extern "C" {
@@ -113,56 +114,57 @@ void Cleanup() {
 
     SDL_Quit();
 }
-void HandleMainWindowEvent(const SDL_Event& e) {
+void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
+    ImGui_ImplSDL2_ProcessEvent(e);
     // 1. Các sự kiện hệ thống quan trọng xử lý trước
-    if (e.type == SDL_QUIT) {
+    if (e->type == SDL_QUIT) {
         running = false;
         return;
     }
-    if (e.type == SDL_MPV_RENDER_UPDATE_SYNC) render_video = true;  
-    if (e.type == SDL_MPV_EVENT) ProcessMPVEvents(mpv.mpv);
+    if (e->type == SDL_MPV_RENDER_UPDATE) render_video = true;  
+    if (e->type == SDL_MPV_EVENT) ProcessMPVEvents(mpv.mpv);
 
     // 2. Xử lý thay đổi kích thước cửa sổ
-    if (e.type == SDL_WINDOWEVENT) {
-        switch (e.window.event) {
+    if (e->type == SDL_WINDOWEVENT) {
+        switch (e->window.event) {
             case SDL_WINDOWEVENT_RESIZED:
             case SDL_WINDOWEVENT_MOVED:
             case SDL_WINDOWEVENT_MAXIMIZED:
             case SDL_WINDOWEVENT_RESTORED:
-                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+                UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState, &Windowlayout);
                 break;
         }
     }
 
     // 3. Xử lý Hotkeys (trả về true nếu event đã được tiêu thụ)
-    if (HandleHotkeys(e, mpv.mpv)) return;
+    if (HandleHotkeys(e, mpv.mpv , &v_Settings)) return;
 
     // 4. Xử lý tương tác chuột trên vùng Video
+    
     if (g_WindowVisible) {
         int mx = -1, my = -1;
         bool isInteraction = false;
 
-        if (e.type == SDL_MOUSEBUTTONDOWN || e.type == SDL_MOUSEBUTTONUP) {
-            mx = e.button.x;
-            my = e.button.y;
+        if (e->type == SDL_MOUSEBUTTONDOWN || e->type == SDL_MOUSEBUTTONUP) {
+            mx = e->button.x;
+            my = e->button.y;
             isInteraction = true;
-        } else if (e.type == SDL_MOUSEMOTION) {
-            mx = e.motion.x;
-            my = e.motion.y;
+        } /*else if (e->type == SDL_MOUSEMOTION) {
+            mx = e->motion.x;
+            my = e->motion.y;
             isInteraction = true;
-        } else if (e.type == SDL_MOUSEWHEEL) {
+        } else if (e->type == SDL_MOUSEWHEEL) {
             // Mouse wheel không có tọa độ x,y trực tiếp trong SDL2 (phải dùng GetMouseState)
             // hoặc dùng tọa độ từ sự kiện motion cuối cùng.
             SDL_GetMouseState(&mx, &my);
             isInteraction = true;
-        }
+        }*/
 
         if (isInteraction) {
             // Lấy vị trí cửa sổ hiện tại
             // Chuyển tọa độ chuột từ Client-space sang Screen-space
             // mx, my là tọa độ lấy từ SDL_GetMouseState hoặc SDL_Event (0 -> WinW)
             SDL_Point mousePos = { mx + Windowlayout.WinX, my + Windowlayout.WinY };
-
             if (SDL_PointInRect(&mousePos, &Windowlayout.videoArea)) {
                 NotifyActivity(show_ui_video);
             }  
@@ -243,7 +245,7 @@ bool InitMainWindow() {
 
     return true;
 };
-void RenderUI( PlaybackState state ){
+void RenderUI(const PlaybackState& state ){
     glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
@@ -263,7 +265,7 @@ void RenderUI( PlaybackState state ){
         ImGuiWindowFlags_NoMove
     );
 
-    UpdateUIState( show_ui_video );
+    UpdateUIState(show_ui_video);
     
     RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",g_DragResizeState ,Windowlayout.WinDowPos, Windowlayout.WinDowSize);
 
@@ -291,7 +293,6 @@ void RenderUI( PlaybackState state ){
         RenderPlayerControls(mpv.mpv, 
             Windowlayout.VideoPos, 
             Windowlayout.VideoSize,
-            ctx.mainWindow, 
             g_DragResizeState.IsFullscreen_video,
             show_ui_video);
 
@@ -309,13 +310,13 @@ void RenderUI( PlaybackState state ){
     ImGui::End();
 
 }
-void RenderPushFont(PlaybackState state ,bool g_WindowVisible){
+void RenderPushFont(const PlaybackState& state ,const bool& g_WindowVisible){
     RenderUI(state);
     if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
     if (( IsAnyPopupOpen()) ) RenderAllPopups();
     else Disabehotkey = false;
 }
-void RenderFrame(bool g_WindowVisible){
+void RenderFrame( const bool& g_WindowVisible){
     static Uint64 lastVisibleTime = 0;
     static bool isRenderingPaused = false;
 
@@ -351,9 +352,7 @@ void RenderFrame(bool g_WindowVisible){
     } else if (!isRenderingPaused) {
         mpv_enable_video(mpv.mpv);
     }
-
     PlaybackState state = GetPlaybackState();
-
     //ImFont* cur = FontManager::Instance().GetCurrentFont();
 
     ImGuiIO& io = ImGui::GetIO();
@@ -450,12 +449,11 @@ int main(int argc, char** argv) {
         Cleanup();
         return 1;
     }
-    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
+    UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState , &Windowlayout);
     #ifdef RENDER_MPV_THREAD
     StartMPVRenderThread();
     #endif
     
-    InitPlaybackStatus(mpv.mpv);
     
     if (argc >= 2) {
         std::string Url = argv[1];
@@ -466,20 +464,19 @@ int main(int argc, char** argv) {
     SDL_Event e;
     while (running) {
         fpsLimiter.startFrame();
-        UpdateTheme(ImGui::GetIO().DeltaTime);
-        flags = SDL_GetWindowFlags(ctx.mainWindow);
-        if(ToggleFullscreen){
+        UpdateTheme(fpsLimiter.getDeltaTime());
+        Uint32 flags = SDL_GetWindowFlags(ctx.mainWindow);
+        if(g_DragResizeState.ToggleFullscreen){
             SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-            ToggleFullscreen =false;
+            g_DragResizeState.ToggleFullscreen =false;
         }
-        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
+        bool g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
         g_DragResizeState.IsMax = (flags & SDL_WINDOW_MAXIMIZED) != 0;
         while (SDL_PollEvent(&e)) {
-            ImGui_ImplSDL2_ProcessEvent(&e);
-            HandleMainWindowEvent(e);
+           HandleMainWindowEvent(&e ,g_WindowVisible);
         }
     
-        mpv_update_seek_pending( mpv.mpv );
+        mpv_update_seek_pending(mpv.mpv);
 
         RenderFrame(g_WindowVisible) ;
 

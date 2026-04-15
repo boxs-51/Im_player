@@ -4,6 +4,7 @@
 #include "mpv/mpv_controller.h"
 #include "mpv/mpv_settings.h"
 #include "mpv/mpv_ui.h"
+#include <mpv/mpv_data.h>
 
 #include "windows/windows_borderless.h"
 
@@ -15,23 +16,20 @@
 #include <map>
 #include <algorithm>
 
+static DragResizeState& g_DragResizeState = GetDragResizeState();
+static VideoInfo& g_videoInfo = GetVideoInfo();
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 static int g_lastVolumeBeforeMute = 50;
-
-Uint64 volumeSliderVisibleUntil = 0;
-
-bool showSettings = false;
-bool showOptionMenu = false;
-
+static Uint64 volumeSliderVisibleUntil = 0;
+static bool showSettings = false;
+static bool showOptionMenu = false;
 static bool header_hoverd = false;
-
 static bool Volume_action = false;
 static bool volume_hover = false;
-
 static bool seek_bar_action = false;
 static bool seek_bar_hover = false;
-
-bool items_action=  false;
-bool items_hover = false;
+static bool items_action=  false;
+static bool items_hover = false;
 
 void DrawTimeDisplay(double current, double duration, ImVec2 videoSize, ImVec2 pos, float parentHeight) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -75,7 +73,7 @@ void DrawTimeDisplay(double current, double duration, ImVec2 videoSize, ImVec2 p
     ImGui::GetFont()->Scale = oldFontScale;
 }
 //================================================================================================
-void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SDL_Window* window,
+void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize,
                           bool& isFullscreen_video,bool& show_ui_video)
  {
 
@@ -697,7 +695,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize, SD
         fsData.fullscreen = isFullscreen_video ;
         if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
 
-            ToggleFullscreen = true;
+            g_DragResizeState.ToggleFullscreen = true;
         }
 
         CusTomImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");

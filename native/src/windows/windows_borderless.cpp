@@ -15,6 +15,8 @@
 
 #include <chrono>
 
+static DragResizeState& g_DragResizeState = GetDragResizeState();
+
 void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
     SDL_Event existingEvent;
         

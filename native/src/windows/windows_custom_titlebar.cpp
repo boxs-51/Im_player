@@ -25,10 +25,11 @@
 
 #define WM_TRAYICON (WM_USER + 1)
 
-NOTIFYICONDATA nid = {};
-
-
-DragResizeState g_DragResizeState;
+static NOTIFYICONDATA nid = {};
+static DragResizeState g_DragResizeState;
+DragResizeState& GetDragResizeState(){
+    return g_DragResizeState;
+}
 // -------------------- Helpers --------------------
 static ResizeEdge DetectResizeEdge(int localX, int localY, int winW, int winH, int margin) {
 
@@ -117,7 +118,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         }
         case WM_PAINT: {
             if (is_rendering) {
-                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+                UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState, &Windowlayout);
                 RenderFrame(true);
             }
             return 0;

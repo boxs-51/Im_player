@@ -4,6 +4,7 @@
 #include "utils.h"
 
 #include <mpv/mpv_ui_settings.h>
+#include <mpv/mpv_data.h>
 
 #include <string>
 #include <windows.h>
@@ -18,6 +19,8 @@
 #define PIPE_NAME "\\\\.\\pipe\\MyUniqueAppPipe"
 using namespace WinToastLib;
 
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+static DragResizeState& g_DragResizeState = GetDragResizeState();
 
 bool CreateShortcut(const std::wstring& shortcutName,
                     const std::wstring& targetPath,
@@ -114,7 +117,6 @@ void ShowNotification(const std::wstring& title, const std::wstring& content) {
     WinToast::instance()->showToast(templ, nullptr);
 }
 void NotifyMPV() {
-
     std::string title = g_playbackStatus.mediaTitle.empty() ? "Unknown Title" : g_playbackStatus.mediaTitle.c_str();
     bool paused = g_playbackStatus.isPaused;
 

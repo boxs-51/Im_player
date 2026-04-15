@@ -1,3 +1,3 @@
 #pragma once
 
-void RenderFrame(bool g_WindowVisible);
+void RenderFrame(const bool& g_WindowVisible);

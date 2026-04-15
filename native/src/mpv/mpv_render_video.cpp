@@ -1,7 +1,7 @@
 // mpv_render_video.cpp
 #include "mpv/mpv_render_video.h"
 #include "mpv/mpv_controller.h"
-
+#include <mpv/mpv_data.h>
 #include "mpv/shaders/shaders_manager.h"
 #include "mpv/scripts/script_manager.h"
 #include "mpv/fillter/audio_fillter_manager.h"
@@ -100,10 +100,8 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
     
         SDL_Event ev;
         //SDL_ZeroObject(ev);
-        ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        SDL_PushEvent(&ev);
-        //SDLUtils::SDLX_PushUniqueEvent(ev);
-        //SDLUtils::SDLX_PushEvent()
+        ev.type = SDL_MPV_RENDER_UPDATE;
+        SDLUtils::SDLX_PushUniqueEvent(ev);
 
     }, nullptr);
     #endif
@@ -111,8 +109,7 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
         SDL_Event ev;
         //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_EVENT;
-        SDL_PushEvent(&ev);
-        //SDLUtils::SDLX_PushUniqueEvent(ev);
+        SDLUtils::SDLX_PushUniqueEvent(ev);
     }, nullptr);
 
     return true;
@@ -260,7 +257,7 @@ void MPVRenderLoop(MPVRenderThread* rt) {
     SDL_GL_MakeCurrent(rt->window, rt->glContext);
 
     InitRenderFBO(rt);
-
+    FrameTimer framerender(30);
     while (rt->running) {
         std::unique_lock lock(rt->mtx);
 
@@ -341,11 +338,11 @@ void MPVRenderLoop(MPVRenderThread* rt) {
             rt->newFrameReady = true;
             
         }
+        rt->framerender.store(framerender.updateAndGetFPS());
         SDL_Event ev;
         //SDL_ZeroObject(ev);
-        ev.type = SDL_MPV_RENDER_UPDATE_SYNC;
-        //SDLUtils::SDLX_PushUniqueEvent(ev);
-        SDL_PushEvent(&ev);
+        ev.type = SDL_MPV_RENDER_UPDATE;
+        SDLUtils::SDLX_PushUniqueEvent(ev);
     }
     glDeleteFramebuffers(3, rt->fbos);
     glDeleteTextures(3, rt->textures);

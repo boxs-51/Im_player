@@ -5,7 +5,6 @@
 #include <GL/gl3w.h>
 #define SDL_MPV_EVENT (SDL_USEREVENT + 1)
 #define SDL_MPV_RENDER_UPDATE (SDL_USEREVENT + 2)
-#define SDL_MPV_RENDER_UPDATE_SYNC (SDL_USEREVENT + 3)
 
 #ifdef RENDER_MPV_THREAD
 #include <atomic>
@@ -42,6 +41,8 @@ struct MPVRenderThread {
 
     std::atomic<bool> needResize = false;
     std::atomic<int> newW, newH;
+
+    std::atomic<float> framerender{0.0f};
 
 };
 extern MPVRenderThread renderThread;

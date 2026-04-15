@@ -4,6 +4,7 @@
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_ui.h"
 #include "mpv/mpv_custom_ui.h"
+#include <mpv/mpv_data.h>
 
 #include "threads/thread_manager.h"
 
@@ -18,6 +19,9 @@
 #include <log.h>
 #include <string>
 
+static VideoAudioFormats& all_formats = GetVideoAudioFormats();
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+static VideoInfo& g_videoInfo = GetVideoInfo();
 enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed ,Options };
 enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;

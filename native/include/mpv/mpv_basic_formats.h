@@ -57,13 +57,12 @@ struct VideoInfoResult {
     bool file_local =false;
 };
 
-extern VideoAudioFormats all_formats;
+VideoAudioFormats& GetVideoAudioFormats();
 void HandleYTDLLog(mpv_handle* mpv,const std::string& text);
 
 void SetVideoTypeLocal();
 void SetVideoTypeLive();
 void SetVideoTypeVio();
-void SetVideoType(VideoType videotype);
-VideoType GetVideoType();
-
-const char* VideoTypeToString(VideoType videotype);
+void SetVideoType(const VideoType& videotype);
+VideoType& GetVideoType();
+const char* VideoTypeToString(const VideoType& videotype);

@@ -1,10 +1,12 @@
 #include "reusable_popup.h"
-#include"globals.h"
-#include"utils.h"
+#include "globals.h"
+#include "utils.h"
 
+#include <mpv/mpv_render_video.h>
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_custom_ui.h"
 #include "mpv/mpv_ui.h"
+#include <mpv/mpv_data.h>
 
 #include "mpv/scripts/script_manager.h"
 #include"popup_about_video.h"
@@ -12,7 +14,10 @@
 #include"windows/windows_borderless_state.h"
 
 #include <imgui.h>
-
+#include <functional>
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+static VideoInfo& g_videoInfo = GetVideoInfo();
+static DragResizeState& g_DragResizeState = GetDragResizeState();
 // ------------ Các hàm hiển thị nội dung riêng -------------
 void ShowMediaInfo() {
 
@@ -88,6 +93,9 @@ void ShowVideoInfo() {
     if (CusTomImGui::BeginInfoTable("video_perf")) {
 
     CusTomImGui::InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
+    #ifdef RENDER_MPV_THREAD
+    CusTomImGui::InfoRow("Frame Render FPS :", "%.2f", renderThread.framerender.load());
+    #endif
     CusTomImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
     CusTomImGui::EndInfoTable();
     }
@@ -517,20 +525,23 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
 
     // Sử dụng Helper cho Child (Vùng bao ngoài)
     //if (BeginModernChild("##PopupVideoInFo", avail, true)) {
-        
+
         // Sử dụng Helper cho TabBar
         if (CusTomImGui::BeginModernTabBar("##InfoTabs")) {
             
             // Một mảng cấu trúc để lặp qua các Tab (Giúp code gọn hơn nữa)
-            struct Tab { const char* Name; void (*Func)(); };
+            struct Tab { 
+                const char* Name; 
+                std::function<void()> Func; 
+            };
             Tab tabs[] = {
-                {"Media", ShowMediaInfo},
-                {"Video", ShowVideoInfo},
-                {"Audio", ShowAudioInfo},
-                {"Playback", ShowPlaybackInfo},
-                {"Network", ShowNetworkInfo},
-                {"Track", ShowTrackInfo},
-                {"Metadata", ShowMetadata}
+                {"Media",    [&]() { ShowMediaInfo(); }},
+                {"Video",    [&]() { ShowVideoInfo(); }},
+                {"Audio",    [&]() { ShowAudioInfo(); }},
+                {"Playback", [&]() { ShowPlaybackInfo(); }},
+                {"Network",  [&]() { ShowNetworkInfo(); }},
+                {"Track",    [&]() { ShowTrackInfo(); }},
+                {"Metadata", [&]() { ShowMetadata(); }}
             };
 
             for (auto& tab : tabs) {

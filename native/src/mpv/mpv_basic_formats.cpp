@@ -15,13 +15,13 @@
 #include <optional>
 #include <regex>
 
-VideoAudioFormats all_formats;
-using json = nlohmann::json;
-static std::string ytdl_json_buffer;
 
+using json = nlohmann::json;
+
+static VideoAudioFormats all_formats;
 static VideoType g_videoType;
 
-void UpdateVideoType(VideoInfoResult info) {
+void UpdateVideoType(const VideoInfoResult& info) {
     if (info.is_live)
         g_videoType = VideoType::Live;
     else if (info.file_local)
@@ -226,7 +226,7 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
         }
     }
     UpdateVideoType(info);
-    ApplyDynamicMPVConfig(mpv);
+    //ApplyDynamicMPVConfig(mpv);
     std::string combinedFormat = BuildCombinedFormat(allFormats);
     // Áp dụng cho mpv
     const char* cmd[] = { "set", "ytdl-format", combinedFormat.c_str(), nullptr };
@@ -461,7 +461,8 @@ void HandleYTDLLog(mpv_handle* mpv,const std::string& text) {
     if (pos == std::string::npos) return;
 
     std::string chunk = text.substr(pos + marker.size());
-    ytdl_json_buffer += chunk;
+    //std::string ytdl_json_buffer;
+    std::string ytdl_json_buffer(chunk);
 
     // thử parse nếu có outer json hoàn chỉnh (check dấu {..})
     size_t first = ytdl_json_buffer.find('{');
@@ -494,11 +495,13 @@ void HandleYTDLLog(mpv_handle* mpv,const std::string& text) {
     }
 }
 
-VideoType GetVideoType() {
+VideoType& GetVideoType() {
     return g_videoType;
 }
-
-const char* VideoTypeToString(VideoType videotype){
+VideoAudioFormats& GetVideoAudioFormats(){
+    return all_formats;
+}
+const char* VideoTypeToString(const VideoType& videotype){
      switch (videotype) 
     {
         case VideoType::Vio:             return "Vio";

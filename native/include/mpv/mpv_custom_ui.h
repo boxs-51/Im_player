@@ -1182,8 +1182,7 @@ struct ThemeColors {
     ImVec4 TableRowBg;          // Nền dòng lẻ (hoặc nền mặc định dòng)
     ImVec4 TableRowBgAlt;       // Nền dòng chẵn (Zebra striping)
 };
-extern ThemeColors GTheme;
-extern ThemeColors GTheme;
+inline ThemeColors GTheme;
 static inline void SetDarkTheme() {
     // --- Nền & Viền ---
     GTheme.WindowBg          = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
@@ -1330,7 +1329,7 @@ static inline void SetRetroTheme() {
     GTheme.TableHeaderBg     = ImVec4(0.18f, 0.17f, 0.16f, 1.00f);
 }
  
-extern std::map<ThemeType, ThemeColors> ThemeLibrary;
+inline std::map<ThemeType, ThemeColors> ThemeLibrary;
 
 inline void InitThemeLibrary() {
 
@@ -1359,7 +1358,7 @@ struct ThemeTransition {
     float speed = 2.5f;       // Tốc độ chuyển đổi
     bool active = false;
 };
-extern ThemeTransition GTrans;
+inline ThemeTransition GTrans;
 inline void ApplyTheme(ThemeType type) {
     if (ThemeLibrary.find(type) == ThemeLibrary.end()) return;
 
@@ -1488,7 +1487,7 @@ namespace CusTomImGui{
         ImGui::PopStyleColor(3);
     }
 
-    inline bool BeginModernChild(const char* str_id, ImVec2 size = ImVec2(0, 0), bool border = false, ImGuiWindowFlags extra_flags = 0) {
+    inline bool BeginModernChild(const char* str_id, const ImVec2& size = ImVec2(0, 0), bool border = false, ImGuiWindowFlags extra_flags = 0) {
         ImGuiContext& g = *GImGui;
         ImGuiStyle& style = ImGui::GetStyle();
         

@@ -65,7 +65,6 @@ extern std::string g_searchQuery;
 
 extern Uint64 lastInteractionTime;
 
-extern bool ToggleFullscreen ;
 extern bool Disabehotkey;
 extern bool playImmediately;
 
@@ -73,7 +72,6 @@ extern bool Audio_visualizers;
 
 extern std::vector<std::wstring> playlist;
 
-extern std::queue<std::string> g_errorQueue;
 
 extern double pendingSeekTime ;
 

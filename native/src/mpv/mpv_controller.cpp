@@ -1,4 +1,5 @@
 #include "mpv/mpv_controller.h"
+#include <mpv/mpv_data.h>
 
 #include <Windows.h>
 #include <string>
@@ -10,8 +11,8 @@
 
 static bool g_isSeekPending = false;
 static float g_seekTargetTime = -1.0;
-
 static Uint32 g_lastSeekRequestTime = 0;
+static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
 bool mpv_is_muted(mpv_handle* mpv) {
     int muteFlag = 0;
@@ -68,7 +69,6 @@ void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
 
-
     dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
     dataseek.pulse = 1.0f;
 
@@ -106,7 +106,6 @@ void mpv_command_seek_clamped(mpv_handle* mpv, float targetTime, float playbackT
 
     // Clamp targetTime vào [0, duration]
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
-
     dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
     dataseek.pulse = 1.0f;
 
