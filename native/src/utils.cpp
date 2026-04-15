@@ -35,25 +35,25 @@ using json = nlohmann::json;
 WindowContext ctx;
 WindowLayout Windowlayout;
 
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState* state , WindowLayout* w)
+void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , WindowLayout& w)
 {
-    if (!sdlWindow) {w->titleBar = {0,0,0,0};w->videoArea = {0,0,0,0};return;}
+    if (!sdlWindow) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,0,0};return;}
 
-    SDL_GetWindowSize(sdlWindow, &w->WinW, &w->WinH);
-    SDL_GetWindowPosition(sdlWindow, &w->WinX, &w->WinY);
+    SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
+    SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
     // Fullscreen: video chiếm toàn bộ, title bar ẩn
-    if (state->IsFullscreen_video ) {w->titleBar = {0,0,0,0};w->videoArea = {0,0,w->WinW,w->WinH};
+    if (state.IsFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
     } else {
         // Windowed: title bar trên, video dưới
-        w->titleBar = {w->WinX , w->WinY,w->WinW,(int)state->TitleHeight};
-        w->videoArea = {w->WinX, w->WinY + (int)state->TitleHeight,w->WinW,w->WinH - (int)state->TitleHeight};
+        w.titleBar = {w.WinX , w.WinY,w.WinW,(int)state.TitleHeight};
+        w.videoArea = {w.WinX, w.WinY + (int)state.TitleHeight,w.WinW,w.WinH - (int)state.TitleHeight};
                                      
     }
-    w->VideoPos = sdl_rec_to_imvec2_pos(w->videoArea);
-    w->VideoSize = sdl_rec_to_imvec2_size(w->videoArea);
+    w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
+    w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
     #ifdef RENDER_MPV_THREAD
-    int newW  = (int)w->VideoSize.x;
-    int newH = (int)w->VideoSize.y;
+    int newW  = (int)w.VideoSize.x;
+    int newH = (int)w.VideoSize.y;
 
     if (newW != renderThread.width || newH != renderThread.height) {
         renderThread.newW = newW;
@@ -63,10 +63,10 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState* state , W
         renderThread.cv.notify_one();
     }
     #endif
-    w->WinDowPos = ImVec2((float)w->WinX,(float)w->WinY);
-    w->WinDowSize = ImVec2((float)w->WinW,(float)w->WinH);
-    w->TitlePos = sdl_rec_to_imvec2_pos(w->titleBar);
-    w->TitleSize = sdl_rec_to_imvec2_size(w->titleBar);
+    w.WinDowPos = ImVec2((float)w.WinX,(float)w.WinY);
+    w.WinDowSize = ImVec2((float)w.WinW,(float)w.WinH);
+    w.TitlePos = sdl_rec_to_imvec2_pos(w.titleBar);
+    w.TitleSize = sdl_rec_to_imvec2_size(w.titleBar);
 }
 
 

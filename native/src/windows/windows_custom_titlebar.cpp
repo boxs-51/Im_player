@@ -118,7 +118,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         }
         case WM_PAINT: {
             if (is_rendering) {
-                UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState, &Windowlayout);
+                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
                 RenderFrame(true);
             }
             return 0;

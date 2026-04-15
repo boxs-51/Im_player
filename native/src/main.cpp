@@ -131,7 +131,7 @@ void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
             case SDL_WINDOWEVENT_MOVED:
             case SDL_WINDOWEVENT_MAXIMIZED:
             case SDL_WINDOWEVENT_RESTORED:
-                UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState, &Windowlayout);
+                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
                 break;
         }
     }
@@ -193,7 +193,6 @@ bool InitMainWindow() {
     #else 
     SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
-    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
     ctx.mainGLContext = SDL_GL_CreateContext(ctx.mainWindow);
     if (!ctx.mainGLContext) {
         SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
@@ -227,11 +226,7 @@ bool InitMainWindow() {
     //io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGuiStyle& style = ImGui::GetStyle();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
-    {
-        style.WindowRounding = 0.0f;
-        style.Colors[ImGuiCol_WindowBg].w = 1.0f;
-    } 
+
     LoadSettings();
 
     ApplyTheme(c_Settings.themetype);
@@ -321,36 +316,46 @@ void RenderFrame( const bool& g_WindowVisible){
     static bool isRenderingPaused = false;
 
     if (!g_WindowVisible) {
-        // Nếu vừa mới ẩn, ghi lại thời điểm cuối cùng còn nhìn thấy
         if (lastVisibleTime == 0) {
             lastVisibleTime = SDL_GetTicks64();
         }
 
-        // Kiểm tra xem đã quá 1 giây chưa
-        if (SDL_GetTicks64() - lastVisibleTime > 2000) { 
+        if (SDL_GetTicks64() - lastVisibleTime > 1000) { 
             if (!isRenderingPaused) {
                 mpv_disable_video(mpv.mpv);
                 isRenderingPaused = true;
-                // LOG: "Video rendering paused after timeout"
             }
-            return; // Dừng xử lý loop render ở đây để tiết kiệm CPU/GPU
+            return; 
         }
     } else {
-        // Khi cửa sổ hiện trở lại: Reset ngay lập tức
         lastVisibleTime = 0;
-        if (isRenderingPaused) {
-            if (!Audio_visualizers) {
-                mpv_enable_video(mpv.mpv);
-            }
+        // Chỉ kích hoạt lại nếu đang tạm dừng VÀ không ở chế độ Audio_visualizers
+        if (isRenderingPaused && !Audio_visualizers) {
+            mpv_enable_video(mpv.mpv);
             isRenderingPaused = false;
+        } else if (isRenderingPaused && Audio_visualizers) {
+            // Trường hợp cửa sổ hiện lại nhưng đang bật visualizer, 
+            // ta chỉ reset flag để logic phía dưới quản lý
+            isRenderingPaused = false; 
         }
     }
 
-    // Logic render chính vẫn chạy nếu chưa quá 1s hoặc đang Visible
-    if (Audio_visualizers) {
+    // --- Logic Render chính (Chỉ chạy khi cửa sổ hiển thị hoặc trong thời gian chờ 2s) ---
+    
+    // Sử dụng một biến cục bộ để xác định trạng thái video cần thiết hiện tại
+    bool shouldDisableVideo = Audio_visualizers; 
+
+    // Kiểm tra trạng thái thực tế của video qua một static flag hoặc hỏi mpv 
+    // Ở đây ta dùng một static biến để track trạng thái "video_enabled" thực tế
+    static bool lastMpvStateDisabled = false; 
+
+    if (shouldDisableVideo && !lastMpvStateDisabled) {
         mpv_disable_video(mpv.mpv);
-    } else if (!isRenderingPaused) {
+        lastMpvStateDisabled = true;
+    } 
+    else if (!shouldDisableVideo && lastMpvStateDisabled) {
         mpv_enable_video(mpv.mpv);
+        lastMpvStateDisabled = false;
     }
     PlaybackState state = GetPlaybackState();
     //ImFont* cur = FontManager::Instance().GetCurrentFont();
@@ -431,6 +436,11 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
+
+    
+    #ifdef RENDER_MPV_THREAD
+        SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+    #endif
     
 
     if (!InitMainWindow()){
@@ -449,7 +459,7 @@ int main(int argc, char** argv) {
         Cleanup();
         return 1;
     }
-    UpdateGlobalWindowLayout(ctx.mainWindow, &g_DragResizeState , &Windowlayout);
+    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
     #ifdef RENDER_MPV_THREAD
     StartMPVRenderThread();
     #endif
@@ -459,7 +469,6 @@ int main(int argc, char** argv) {
         std::string Url = argv[1];
         CallThread_URLFetch(Url,true);
     }
-
     FrameTimer fpsLimiter(60);
     SDL_Event e;
     while (running) {

@@ -628,7 +628,7 @@ void ProcessMPVEvents(mpv_handle* mpv ) {
         switch (event->event_id) {
 
         case MPV_EVENT_SHUTDOWN: {
-            g_playbackStatus.hasFile = false; 
+            g_playbackStatus.hasFile = false;   
             RATE_LIMITED_COUT(mpv_shutdown, 1,std::cout << "[DEBUG] [INFO] [MPV] MPV is shutting down."); 
             break;
         }
@@ -638,10 +638,10 @@ void ProcessMPVEvents(mpv_handle* mpv ) {
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
                 HandleYTDLLog(mpv,msg->text);
             
-            //if (msg && msg->level && (strcmp(msg->level, "error")  == 0 /*||
-                                      //strcmp(msg->level, "warn")  == 0 */))
+            if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
+                                      strcmp(msg->level, "warn")  == 0 ))
 
-                //PushMpvError(msg->level, msg->text);
+                PushMpvError(msg->level, msg->text);
             break;
         }
         case MPV_EVENT_GET_PROPERTY_REPLY: break;

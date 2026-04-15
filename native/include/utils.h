@@ -84,7 +84,7 @@ void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState* state , WindowLayout* w);
+void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , WindowLayout& w);
 void TerminateHandler();
 void SignalHandler(int signal);
 void UpdateUIState(bool& show_ui_video);
@@ -321,8 +321,16 @@ inline ImU32 ToCol32(const ImVec4& c) {
     return IM_COL32((int)(c.x*255.0f), (int)(c.y*255.0f), (int)(c.z*255.0f), (int)(c.w*255.0f));
 }
 
+#ifndef FRAME_TIMER_H
+#define FRAME_TIMER_H
+
 #include <chrono>
 #include <thread>
+
+// Tự động nhận diện SDL nếu header SDL.h đã được include trước đó
+#ifdef SDL_H_
+    #define HAS_SDL
+#endif
 
 class FrameTimer {
 public:
@@ -331,10 +339,12 @@ public:
         auto now = std::chrono::high_resolution_clock::now();
         lastFrameTime = now;
         fpsTimestamp = now;
+        startPoint = now;
     }
 
     void setTargetFPS(int fps = 30) {
         targetFPS = fps;
+        // Tính toán độ trễ mục tiêu dưới dạng microseconds
         frameDelay = std::chrono::microseconds(1000000 / (targetFPS > 0 ? targetFPS : 1));
     }
 
@@ -348,10 +358,19 @@ public:
 
         // Khống chế FPS
         if (duration < frameDelay) {
-            std::this_thread::sleep_for(frameDelay - duration);
+            auto sleepTime = frameDelay - duration;
+            
+#ifdef HAS_SDL
+            // SDL_Delay sử dụng milliseconds. 
+            // Ta cộng thêm 0.5 để làm tròn thay vì cắt cụt khi ép kiểu.
+            SDL_Delay(static_cast<uint32_t>(sleepTime.count() / 1000));
+#else
+            // C++ Standard sleep
+            std::this_thread::sleep_for(sleepTime);
+#endif
         }
 
-        // Tính Delta Time
+        // Tính Delta Time (thời gian thực tế giữa 2 lần kết thúc frame)
         auto now = std::chrono::high_resolution_clock::now();
         deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
         lastFrameTime = now;
@@ -386,7 +405,7 @@ public:
         return 0.0f;
     }
 
-    // Nếu bạn muốn một phiên bản "mượt" hơn (trung bình qua vài frame)
+    // Phiên bản mượt hơn (EMA - Exponential Moving Average)
     float getInstantFPS() {
         auto now = std::chrono::high_resolution_clock::now();
         static auto lastFrame = now;
@@ -397,7 +416,7 @@ public:
 
         if (frameTime > 0) {
             float current = 1.0f / frameTime;
-            // Công thức nội suy để số nhảy không quá gắt (LERP)
+            // Công thức LERP để số nhảy không quá gắt
             smoothedFPS = smoothedFPS * 0.9f + current * 0.1f;
         }
         return smoothedFPS;
@@ -415,4 +434,6 @@ private:
     float currentFPS = 0.0f;
     float deltaTime = 0.0f;
 };
+
+#endif
 #endif
