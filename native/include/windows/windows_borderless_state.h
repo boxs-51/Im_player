@@ -70,7 +70,7 @@ struct DragResizeState {
 
     int btnSize = 30;
 
-    RECT fullscreenRestoreRect;
+    RECT fullscreenRestoreRect = {};
 
 };
 

@@ -314,16 +314,17 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         fbo.internal_format = GL_RGBA8;
 
         int flip = 1;
-        int size[2] = { rt->width, rt->height };
+        std::array<int, 2> fb_size = { static_cast<int>(rt->width), static_cast<int>(rt->height) };
 
-        mpv_render_param params[] = {
+        // Tổ chức params bằng std::array để quản lý bộ nhớ an toàn hơn
+        std::array<mpv_render_param, 4> params {{
             { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
-            { (mpv_render_param_type)3, size },
-            { (mpv_render_param_type)4, &flip },
+            { PARAM_FRAMEBUFFER_SIZE, fb_size.data() },
+            { PARAM_FLIP_Y, &flip },
             { MPV_RENDER_PARAM_INVALID, nullptr }
-        };
+        }};
 
-        mpv_render_context_render(rt->ctx, params);
+        mpv_render_context_render(rt->ctx, params.data());
         if (rt->renderSyncs[index]) {
             glDeleteSync(rt->renderSyncs[index]);
         }
@@ -362,13 +363,13 @@ void StartMPVRenderThread() {
 
     renderThread.width = (int)Windowlayout.VideoSize.x;
     renderThread.height = (int)Windowlayout.VideoSize.y;
-
+    //SDL_GL_MakeCurrent(renderThread.window, NULL);
     renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
-    
+
     GetThreadManager().Run(ThreadID::MPVRenderThread, [&]() {
         MPVRenderLoop(&renderThread);
     });
- 
+
     SDL_GL_MakeCurrent(ctx.mainWindow, ctx.mainGLContext);
 }
 #endif

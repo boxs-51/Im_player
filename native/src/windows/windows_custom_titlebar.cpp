@@ -5,7 +5,7 @@
 #define HTCUSTOM_CLOSE 1002
 #define HTCUSTOM_RETORE 1003
 #define _WIN32_WINNT 0x0A00
-
+#define IDT_RENDER_TIMER 1004
 
 #include "globals.h"
 #include "utils.h"
@@ -70,7 +70,7 @@ static inline void RemoveTrayIcon()
 {
     Shell_NotifyIcon(NIM_DELETE, &nid);
 };
-static bool is_rendering = false;
+
 // -------------------- WndProc hook: min/max từ SDL --------------------
 LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam, SDL_Window* sdlWindow)
 {
@@ -88,6 +88,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
+
         case WM_APPCOMMAND: 
         {
             int cmd = GET_APPCOMMAND_LPARAM(lParam);
@@ -113,13 +114,6 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
                 }
                 case APPCOMMAND_VOLUME_UP:{}
                 case APPCOMMAND_VOLUME_DOWN:{}
-            }
-            return 0;
-        }
-        case WM_PAINT: {
-            if (is_rendering) {
-                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
-                RenderFrame(true);
             }
             return 0;
         }
@@ -233,15 +227,19 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
+        //case WM_MOVE:
+        //case WM_MOVING:
+        //case WM_SIZE:
+        //case WM_SIZING:
+        case WM_ENTERSIZEMOVE:
+            // Bắt đầu timer khi người dùng bắt đầu nhấn giữ để kéo/nắm cửa sổ
+            SetTimer(hwnd, IDT_RENDER_TIMER, 16, NULL); 
+            break;
+        case WM_EXITSIZEMOVE:
+            // Tắt timer khi người dùng thả chuột để tiết kiệm tài nguyên
+            KillTimer(hwnd, IDT_RENDER_TIMER);
+            break;
         
-        case WM_ENTERSIZEMOVE: {
-            is_rendering = true;
-            break;
-        }
-        case WM_EXITSIZEMOVE: {
-            is_rendering = false;
-            break;
-        }
         case WM_NCLBUTTONDOWN: {
             // wParam chính là hit-test code
             LRESULT hit = wParam;
@@ -302,8 +300,13 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             }
             return 0;
         }
-
- 
+        case WM_TIMER:
+        if (wParam == IDT_RENDER_TIMER) {
+            // Cập nhật layout và vẽ ngay lập tức
+            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+            RenderFrame(true); 
+        }
+        break;
         case WM_TRAYICON:
         {
             switch (lParam)

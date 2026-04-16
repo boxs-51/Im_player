@@ -58,92 +58,46 @@ void mpv_command_pause(mpv_handle *mpv) {
     mpv_command(mpv, cmd);
 }
 
+const Uint32 SEEK_DELAY_MS = 150;
+// Hàm nội bộ để gửi lệnh seek thực tế tới MPV
+void internal_mpv_do_seek(mpv_handle* mpv, float targetTime) {
+    char buffer[32];
+    snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
+    const char* cmd[] = { "seek", buffer, "absolute", nullptr };
+    mpv_command(mpv, cmd);
 
-const Uint32 SEEK_DELAY_MS = 150; // Delay tối thiểu giữa các lần gọi mpv_command
-
+    g_lastSeekRequestTime = SDL_GetTicks64();
+    g_isSeekPending = false;
+    g_seekTargetTime = targetTime;
+}
 
 void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
-    if (!mpv || duration <= 0.0f || targetTime < 0.0f)
-        return;
+    if (!mpv || duration <= 0.0f) return;
 
-    // Clamp targetTime vào [0, duration]
+    // 1. Clamp giá trị
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
-
+    
+    // 2. Cập nhật hướng seek (cho hiệu ứng UI nếu cần)
     dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
     dataseek.pulse = 1.0f;
 
     Uint64 now = SDL_GetTicks64();
 
-    // Nếu chưa đủ delay -> chỉ cập nhật target, đánh dấu pending
+    // 3. Kiểm tra delay
     if (now - g_lastSeekRequestTime < SEEK_DELAY_MS) {
         g_seekTargetTime = targetTime;
         g_isSeekPending = true;
-        return;
+    } else {
+        internal_mpv_do_seek(mpv, targetTime);
     }
-
-    // Nếu đủ delay -> thực hiện seek ngay
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
-    const char* cmd[] = { "seek", buffer, "absolute", nullptr };
-    mpv_command(mpv, cmd);
-
-    g_seekTargetTime = targetTime;
-    g_lastSeekRequestTime = now;
-    g_isSeekPending = false;
 }
 
-
-// Seek tới vị trí tuyệt đối (seconds)
-void mpv_command_seek_clamped(mpv_handle* mpv, float targetTime, float playbackTime, float duration) {
-    if (!mpv || duration <= 0.0f || playbackTime < 0.0f)
-        return;
-
-    // Nếu targetTime là delta thì cộng với playbackTime
-    // => trường hợp bạn truyền delta thay vì absolute
-    if (targetTime < 0 || targetTime < duration + 1.0f) {
-        targetTime = playbackTime + targetTime;
-    }
-
-    // Clamp targetTime vào [0, duration]
-    targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
-    dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
-    dataseek.pulse = 1.0f;
-
-    Uint64 now = SDL_GetTicks64();
-
-    // Nếu chưa đủ delay -> lưu pending
-    if (now - g_lastSeekRequestTime < SEEK_DELAY_MS) {
-        g_seekTargetTime = targetTime;
-        g_isSeekPending = true;
-        return;
-    }
-
-    // Thực hiện seek tuyệt đối
-    char buffer[32];
-    snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
-    const char* cmd[] = { "seek", buffer, "absolute", nullptr };
-    mpv_command(mpv, cmd);
-
-    g_seekTargetTime = targetTime;
-    g_lastSeekRequestTime = now;
-    g_isSeekPending = false;
-}
-
-// Gọi trong update loop để xử lý seek pending
+// Gọi trong Update Loop
 void mpv_update_seek_pending(mpv_handle* mpv) {
-    if (!g_isSeekPending)
-        return;
+    if (!g_isSeekPending || !mpv) return;
 
-    Uint64 now = SDL_GetTicks64();
-    if (now - g_lastSeekRequestTime >= SEEK_DELAY_MS) {
-        // Thực hiện seek
-        char buffer[32];
-        snprintf(buffer, sizeof(buffer), "%.2f", g_seekTargetTime);
-        const char* cmd[] = { "seek", buffer, "absolute", nullptr };
-        mpv_command(mpv, cmd);
-
-        g_lastSeekRequestTime = now;
-        g_isSeekPending = false;
+    if (SDL_GetTicks64() - g_lastSeekRequestTime >= SEEK_DELAY_MS) {
+        internal_mpv_do_seek(mpv, g_seekTargetTime);
     }
 }
 

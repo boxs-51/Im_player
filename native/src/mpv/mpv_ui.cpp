@@ -426,16 +426,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize,
 
             // Khi vừa thả chuột ra khỏi seekbar → thực hiện tua
             if (wasDraggingSeekbar  && !isDraggingSeekbar) {
-                double target = (float)totalSec;
 
-                // dùng seek clamped theo delta
-                float delta = (float)(target - playbackTime);
-                mpv_command_seek_clamped(mpv, delta, playbackTime, duration);
-                if(!onChapter){
-                    mpv_command_seek_abs(mpv, target ,duration);
-                }else{
-                    mpv_command_seek_abs(mpv, hoverTime ,duration); 
-                }
+                mpv_command_seek_abs(mpv, hoverTime ,duration); 
 
             }
         }

@@ -90,14 +90,14 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         {"vo", "libmpv"},
         {"hwdec", "auto-safe"}, // Tự động chọn giải mã phần cứng ổn định nhất
         //{"video-rotate", "no"},
-        //{"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
+        {"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
         
         // Cấu hình âm thanh an toàn
         {"audio-buffer", "0.2"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
         {"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
 
-        //{"cookies", "yes"},
-        //{"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
+        {"cookies", "yes"},
+        {"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
 
     });
     
@@ -140,12 +140,17 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
             config = {
                 {"cache", "yes"},
                 {"cache-pause", "yes"},
-                {"cache-secs", "120"},             // Tăng lên 120s để buffer sẵn nhiều hơn
-                {"demuxer-max-bytes", "250M"},     // Buffer thoải mái cho mạng yếu
-                {"demuxer-readahead-secs", "120"},
-                {"demuxer-max-back-bytes", "50M"},
-                {"video-sync", "audio"},           // An toàn nhất cho video online
-                {"network-timeout", "30"},         // Đợi mạng lâu hơn một chút
+                // Tăng thời gian lưu trữ trong cache lên 5 phút (300 giây)
+                {"cache-secs", "300"}, 
+                // Quan trọng: Tăng giới hạn dung lượng RAM để chứa đủ 5 phút video đó
+                // 1GB (1024M) là thoải mái cho video 4K bitrate cao
+                {"demuxer-max-bytes", "1024M"}, 
+                // Cho phép bộ giải mã đọc trước 300 giây
+                {"demuxer-readahead-secs", "300"},
+                // Cho phép lưu lại phần đã xem để tua ngược nhanh (nếu muốn)
+                {"demuxer-max-back-bytes", "200M"},
+                {"video-sync", "audio"},
+                {"network-timeout", "60"}, // Tăng timeout lên 60s cho mạng cực chậm
             };
             break;
         default:

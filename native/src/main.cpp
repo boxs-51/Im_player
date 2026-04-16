@@ -269,13 +269,14 @@ void RenderUI(const PlaybackState& state ){
 
     
     if(state == PlaybackState::Idle){
-        RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
+        //RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
     if (render_video ||
         state == PlaybackState::Paused  || 
         state == PlaybackState::Seeking  ||
-        state == PlaybackState::Playing) {
+        state == PlaybackState::Playing ||
+        state == PlaybackState::EndOfFile) {
         RenderMPVVideo(Windowlayout.VideoSize);
         DrawGhostStatusOverlay(Windowlayout.VideoPos, Windowlayout.VideoSize, state == PlaybackState::Paused);
         render_video = false;
@@ -307,8 +308,10 @@ void RenderUI(const PlaybackState& state ){
 }
 void RenderPushFont(const PlaybackState& state ,const bool& g_WindowVisible){
     RenderUI(state);
-    if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-    if (( IsAnyPopupOpen()) ) RenderAllPopups();
+    if (( IsAnyPopupOpen()) ) {
+        if(g_DragResizeState.IsFullscreen_video || g_DragResizeState.IsMax || !g_WindowVisible)ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
+        RenderAllPopups();
+    }
     else Disabehotkey = false;
 }
 void RenderFrame( const bool& g_WindowVisible){
@@ -371,7 +374,7 @@ void RenderFrame( const bool& g_WindowVisible){
     //    RenderPushFont(state,g_WindowVisible);
     //    ImGui::PopFont();
     //}else{
-        RenderPushFont(state,g_WindowVisible);
+    RenderPushFont(state,g_WindowVisible);
     //}
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());

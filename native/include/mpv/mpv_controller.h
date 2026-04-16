@@ -5,7 +5,6 @@
 // Điều khiển
 void mpv_command_play(mpv_handle* mpv);
 void mpv_command_pause(mpv_handle* mpv);
-void mpv_command_seek_clamped(mpv_handle* mpv, float deltaSeconds, float currentTime, float duration);
 void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration);
 void mpv_command_set_volume(mpv_handle* mpv, int volume);
 void mpv_command_set_mute(mpv_handle* mpv, bool mute);

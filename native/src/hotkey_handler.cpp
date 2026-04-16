@@ -92,8 +92,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, AppSettings * v) {
             {
                 double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
                 if (key == SDLK_LEFT) step = -step;
-                
-                mpv_command_seek_clamped(mpv, step, (float)g_playback.playbackTime, g_playback.duration);
+                float targetthime = (float)g_playback.playbackTime + step;
+                mpv_command_seek_abs(mpv, targetthime, (float)g_playback.duration);
                 return true;
             }
             case SDLK_DOWN: 
