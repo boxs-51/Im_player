@@ -82,12 +82,14 @@ target_compile_definitions(imgui_player PRIVATE
 )
 # Include path
 target_include_directories(imgui_player PRIVATE
-    native/include    
+    native/include   
+    native/src 
 
     native/include/mpv      
-    native/include/mpv/shaders
-    native/include/mpv/scripts
-    native/include/mpv/fillter
+    native/src/mpv  
+    native/src/mpv/shaders
+    native/src/mpv/scripts
+    native/src/mpv/fillter
 
     native/include/nlohmann  
     native/include/KHR
@@ -98,10 +100,11 @@ target_include_directories(imgui_player PRIVATE
     native/include/curl
     native/include/cpr
     native/include/openssl
-    native/include/windows
-    native/include/popup
-    native/include/threads
-    native/include/services
+
+    native/src/windows
+    native/src/popup
+    native/src/threads
+    native/src/services
 
     native/imgui/misc/freetype
     native/imgui/backends

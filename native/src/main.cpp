@@ -39,7 +39,7 @@
 
 static bool render_video = false;
 static bool show_ui_video = false;
-
+static bool hot_key = false;
 static VideoInfo& g_videoInfo = GetVideoInfo();
 static DragResizeState& g_DragResizeState = GetDragResizeState();
 static std::atomic<bool> running(true);
@@ -137,7 +137,8 @@ void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
     }
 
     // 3. Xử lý Hotkeys (trả về true nếu event đã được tiêu thụ)
-    if (HandleHotkeys(e, mpv.mpv , &v_Settings)) return;
+    hot_key = HandleHotkeys(e, mpv.mpv , &v_Settings);
+    if (hot_key) return;
 
     // 4. Xử lý tương tác chuột trên vùng Video
     
@@ -189,7 +190,7 @@ bool InitMainWindow() {
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-    SDLUtils::SetWindowSDL(ctx.mainWindow,720,360);
+    SDLUtils::SetWindowSDL(ctx.mainWindow, Vec2(720,360));
     #else 
     SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
@@ -314,7 +315,7 @@ void RenderPushFont(const PlaybackState& state ,const bool& g_WindowVisible){
     }
     else Disabehotkey = false;
 }
-void RenderFrame( const bool& g_WindowVisible){
+void RenderFrame(const PlaybackState& state, const bool& g_WindowVisible){
     static Uint64 lastVisibleTime = 0;
     static bool isRenderingPaused = false;
 
@@ -360,7 +361,7 @@ void RenderFrame( const bool& g_WindowVisible){
         mpv_enable_video(mpv.mpv);
         lastMpvStateDisabled = false;
     }
-    PlaybackState state = GetPlaybackState();
+
     //ImFont* cur = FontManager::Instance().GetCurrentFont();
 
     ImGuiIO& io = ImGui::GetIO();
@@ -478,6 +479,7 @@ int main(int argc, char** argv) {
         fpsLimiter.startFrame();
         UpdateTheme(fpsLimiter.getDeltaTime());
         Uint32 flags = SDL_GetWindowFlags(ctx.mainWindow);
+        PlaybackState state = GetPlaybackState();
         if(g_DragResizeState.ToggleFullscreen){
             SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
             g_DragResizeState.ToggleFullscreen =false;
@@ -489,8 +491,43 @@ int main(int argc, char** argv) {
         }
     
         mpv_update_seek_pending(mpv.mpv);
+        // Giả sử vòng lặp chính (Main Loop) của bạn chạy ở 60Hz hoặc không giới hạn
+        double targetInterval = 1; // Mặc định: Render mỗi frame (Max speed)
 
-        RenderFrame(g_WindowVisible) ;
+        // 1. Kiểm tra trạng thái Playback
+        switch (state) {
+            case PlaybackState::Idle:
+            case PlaybackState::Paused:
+            case PlaybackState::EndOfFile:
+                if(was_ui_video) targetInterval = 2;
+                else targetInterval = 30; // 60fps / 30 = 2 fps (Rất tiết kiệm điện)
+                
+                break;
+
+            case PlaybackState::Loading:
+            case PlaybackState::Seeking:
+                targetInterval = 2.5; // 60fps / 15 = 4 fps (Đủ để thấy icon loading xoay)
+                break;
+
+            case PlaybackState::Playing:
+                targetInterval = 1;  // Render mọi frame để video mượt
+                break;
+        }
+
+        // 2. Ưu tiên Popup: Nếu có Popup mở, ta nên tăng tốc độ Render một chút 
+        // để UI Popup mượt mà (ví dụ render mỗi 2 frame hoặc giữ nguyên tùy bạn)
+        if (IsAnyPopupOpen() || hot_key) {
+            // Nếu đang Idle mà mở Popup, ta nâng lên ít nhất 30fps (interval = 2) 
+            // để tương tác chuột không bị lag.
+            if (targetInterval > 2) targetInterval = 2; 
+        }
+
+        // 3. Thực hiện Render dựa trên tính toán
+        fpsLimiter.set_ev_frame(targetInterval);
+
+        if (fpsLimiter.isEvery()) {
+            RenderFrame(state, g_WindowVisible);
+        }
 
         g_videoInfo.currentFPS = fpsLimiter.getFPS();
         fpsLimiter.endFrame();

@@ -1,8 +1,12 @@
-#include "mpv/mpv_settings.h"
+#include <mpv/mpv_settings.h>
 
+#include <utils.h>
+#include <json.hpp>
+#include <fstream>
+#include <ostream>
 using json = nlohmann::json;
-static std::string ytdl_json_buffer;
 
+static std::string ytdl_json_buffer;
 AppSettings v_Settings;  
 CommonSettings c_Settings;  
 

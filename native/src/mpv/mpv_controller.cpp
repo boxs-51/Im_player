@@ -1,13 +1,9 @@
-#include "mpv/mpv_controller.h"
+#include <mpv/mpv_controller.h>
 #include <mpv/mpv_data.h>
+#include <globals.h>
 
 #include <Windows.h>
-#include <string>
-#include <codecvt>
-#include <utils.h>
-#include <algorithm>
-#include "globals.h"
-
+#include <SDL.h>
 
 static bool g_isSeekPending = false;
 static float g_seekTargetTime = -1.0;

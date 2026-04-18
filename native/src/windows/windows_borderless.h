@@ -17,17 +17,15 @@
 namespace SDLUtils{
 void SDLX_InitBorderless(SDL_Window* window);
 void SDLX_PushUniqueEvent(const SDL_Event& eventData);
-void SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, int maxH);
+void SDLX_SetMinMax(SDL_Window* window, Vec2& winmin = Vec2(0,0), Vec2& winmax = Vec2(0,0));
 void SyncSDLWithWinAPI(SDL_Window* sdlWin);
 void SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1=0, int d2=0);
 void SDLX_PushClose(SDL_Window* /*win*/);
 // Fullscreen
 bool SDLX_ToggleFullscreen(SDL_Window* window, bool enable);
-void SetWindowSDL(SDL_Window* window,
-                  int minW = 0, int minH = 0,
-                  int maxW = 0, int maxH = 0);
+void SetWindowSDL(SDL_Window* window, Vec2& winmin = Vec2(0,0), Vec2& winmax = Vec2(0,0));
 
 RECT GetMonitorRectForWindow(HWND hwnd);
 };
 // UI
-void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 winPos ,ImVec2 winSize);
+void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,Vec2 _winPos ,Vec2 _winSize);

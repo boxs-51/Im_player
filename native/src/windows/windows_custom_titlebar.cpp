@@ -13,6 +13,7 @@
 #include "main.h"
 #include <windows/windows_borderless_state.h>
 #include <windows/windows_borderless.h>
+#include <mpv/mpv_data.h>
 
 #include <SDL.h>
 #include <SDL_syswm.h>
@@ -304,7 +305,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         if (wParam == IDT_RENDER_TIMER) {
             // Cập nhật layout và vẽ ngay lập tức
             UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
-            RenderFrame(true); 
+            RenderFrame(GetPlaybackState() ,true); 
         }
         break;
         case WM_TRAYICON:

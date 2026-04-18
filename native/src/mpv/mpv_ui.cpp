@@ -12,7 +12,7 @@
 
 #include "utils.h"
 #include "SDL.h"
-
+#include "imgui.h"
 #include <map>
 #include <algorithm>
 
@@ -31,7 +31,7 @@ static bool seek_bar_hover = false;
 static bool items_action=  false;
 static bool items_hover = false;
 
-void DrawTimeDisplay(double current, double duration, ImVec2 videoSize, ImVec2 pos, float parentHeight) {
+void DrawTimeDisplay(double current, double duration, ImVec2& videoSize, ImVec2& pos, float parentHeight) {
     ImGuiStyle& style = ImGui::GetStyle();
     
     // 1. Tính toán tỉ lệ scale dựa trên chiều rộng video (Reference: 1920px)
@@ -73,7 +73,7 @@ void DrawTimeDisplay(double current, double duration, ImVec2 videoSize, ImVec2 p
     ImGui::GetFont()->Scale = oldFontScale;
 }
 //================================================================================================
-void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize,
+void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                           bool& isFullscreen_video,bool& show_ui_video)
  {
 
@@ -81,11 +81,20 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize,
     if(!show_ui_video)
         showSettings = false;
 
+
     static float uiAlpha = 0.0f;
+
     UpdateHoverAnim(uiAlpha,show_ui_video,5.0f);
+    was_ui_video = true;
     // Nếu đã hoàn toàn ẩn thì bỏ qua render để tiết kiệm
-    if (uiAlpha <= 0.01f)
+    if (uiAlpha <= 0.01f){
+        was_ui_video = false;
         return; 
+    }
+
+    ImVec2 videoPos = ToImVec2(_pos);
+    ImVec2 videoSize = ToImVec2(_size);
+
     bool endfile = g_playbackStatus.isCoreIdle;
     bool paused = g_playbackStatus.isPaused;
     float playbackTime = (float)g_playbackStatus.playbackTime;
@@ -727,7 +736,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos, ImVec2 videoSize,
 
 }
 
-void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSize) {
+void RenderIdleBackground(std::string& imagePath, Vec2& _pos, Vec2& _size) {
     // 1. Dùng static để cache kết quả cuối cùng
     static ImTextureID cachedImTexID = (ImTextureID)0; 
     static std::string cachedPath = "";
@@ -747,8 +756,8 @@ void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSi
     if (cachedImTexID != (ImTextureID)0) {
         ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
         
-        const ImVec2 p_min = videopos;
-        const ImVec2 p_max = ImVec2(videopos.x + videoSize.x, videopos.y + videoSize.y);
+        const ImVec2 p_min = ToImVec2(_pos);
+        const ImVec2 p_max = ToImVec2(_pos + _size);
 
         draw_list->AddImage(cachedImTexID, p_min, p_max);
     }
@@ -756,12 +765,11 @@ void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSi
 void CleanupIcons(){
     
 }
-void RenderLoading(ImVec2 VideoPos, ImVec2 VideoSize) {
+void RenderLoading(Vec2& _pos, Vec2& _size) {
     static LoadingIconData centralLoading;
-
     // --- LOGIC SCALE & CLAMP ---
     // 1. Tính toán kích thước lý tưởng (ví dụ: 10% chiều rộng video)
-    float idealSize = VideoSize.x * 0.10f; 
+    float idealSize = _size.x * 0.10f; 
     
     // 2. Giới hạn Min/Max để icon không bị quá bé hoặc quá to
     float minSize = 35.0f;
@@ -769,9 +777,12 @@ void RenderLoading(ImVec2 VideoPos, ImVec2 VideoSize) {
     float finalSize = ImClamp(idealSize, minSize, maxSize);
 
     // 3. Cập nhật vị trí trung tâm dựa trên size mới
+    ImVec2 Pos = ToImVec2(_pos);
+    ImVec2 Size = ToImVec2(_size);
+
     centralLoading.pos = ImVec2(
-        VideoPos.x + (VideoSize.x * 0.5f) - (finalSize * 0.5f), 
-        VideoPos.y + (VideoSize.y * 0.5f) - (finalSize * 0.5f)
+        Pos.x + (Size.x * 0.5f) - (finalSize * 0.5f), 
+        Pos.y + (Size.y * 0.5f) - (finalSize * 0.5f)
     );
     centralLoading.size = ImVec2(finalSize, finalSize);
 
@@ -785,7 +796,7 @@ void RenderLoading(ImVec2 VideoPos, ImVec2 VideoSize) {
 
 }
 
-void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data)  {
+void RenderSeekingOverlay(Vec2& _pos, Vec2& _size ,SeekingData& data)  {
     float dt = ImGui::GetIO().DeltaTime;
 
     // 1. Alpha: Hiện nhanh (10.0f), ẩn chậm hơn (3.0f) để tạo cảm giác mượt
@@ -801,8 +812,8 @@ void RenderSeekingOverlay(ImVec2 VideoPos, ImVec2 VideoSize ,SeekingData& data) 
         data.timer += dt * 2.5f; // Tốc độ sóng chạy
         if (data.timer > 1.0f) data.timer -= 1.0f; // Tránh mất frame
         
-        data.pos  = VideoPos;
-        data.size = VideoSize;
+        data.pos  = ToImVec2(_pos);
+        data.size = ToImVec2(_size);
 
         // Gọi đúng tên hàm đã định nghĩa
         DrawSeekingIconAnimated(

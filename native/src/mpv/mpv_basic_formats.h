@@ -1,14 +1,15 @@
 #pragma once
-#include "globals.h"
-#include "utils.h"
+
+#include <mpv/client.h>
 #include <string>
 #include <vector>
 #include <optional>
 
 enum class  VideoType{
+    None,
     Vio,
     Live,
-    File_Local
+    Local
 };
 
 struct FormatGroup {

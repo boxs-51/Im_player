@@ -2,28 +2,26 @@
 #define PLAYER_CONTROLS_H
 
 #include <mpv/client.h>
-
 #include <string>
-
+#include <util.h>
 #include <globals.h> 
-#include "imgui.h"  // Cần thiết vì dùng ImVec2
 
 // Tải và cache icon theo tên
 GLuint GetIcon(const std::string& name);
 
 // Vẽ giao diện điều khiển và xử lý tương tác
-void RenderPlayerControls(mpv_handle* mpv, ImVec2 videoPos , ImVec2 videoSize,
+void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos , Vec2& _size,
                           bool& isFullscreen_video,bool& show_ui_video);
 
 
-void RenderIdleBackground(std::string imagePath, ImVec2 videopos, ImVec2 videoSize) ;
+void RenderIdleBackground(std::string imagePath, Vec2& _pos, Vec2& _size) ;
 
 void CleanupIcons();
 
 
-void RenderLoading( ImVec2 VideoPos, ImVec2 VideoSize);
+void RenderLoading(Vec2& _pos, Vec2& _size);
 
-void RenderSeekingOverlay( ImVec2 VideoPos , ImVec2 VideoSize ,SeekingData& data) ;
+void RenderSeekingOverlay(Vec2& _pos , Vec2& _size ,SeekingData& data) ;
 
 void ShowTooltipDelayed(const char* text, bool hovering ,double delaySeconds = 0.5, const char* id = nullptr);
 

@@ -69,7 +69,7 @@ extern bool Disabehotkey;
 extern bool playImmediately;
 
 extern bool Audio_visualizers;
-
+extern bool was_ui_video ;
 extern std::vector<std::wstring> playlist;
 
 

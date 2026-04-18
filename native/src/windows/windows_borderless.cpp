@@ -29,7 +29,7 @@ void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
     }
 }
 
-void SDLUtils::SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, int maxH)
+void SDLUtils::SDLX_SetMinMax(SDL_Window* window, Vec2& min, Vec2& max)
 {
     if (!window) return;
 
@@ -39,10 +39,10 @@ void SDLUtils::SDLX_SetMinMax(SDL_Window* window, int minW, int minH, int maxW, 
     int screenW = wrk.right - wrk.left;
     int screenH = wrk.bottom - wrk.top;
 
-    g_DragResizeState.sdlMinW = (minW > 0 && minW <= screenW) ? minW : 0;
-    g_DragResizeState.sdlMinH = (minH > 0 && minH <= screenH) ? minH : 0;
-    g_DragResizeState.sdlMaxW = (maxW > 0 && maxW <= screenW) ? maxW : 0;
-    g_DragResizeState.sdlMaxH = (maxH > 0 && maxH <= screenH) ? maxH : 0;
+    g_DragResizeState.sdlMinW = (min.x > 0 && min.x <= screenW) ? min.x : 0;
+    g_DragResizeState.sdlMinH = (min.y > 0 && min.y <= screenH) ? min.y : 0;
+    g_DragResizeState.sdlMaxW = (max.x > 0 && max.x <= screenW) ? max.x : 0;
+    g_DragResizeState.sdlMaxH = (max.y > 0 && max.y <= screenH) ? max.y : 0;
 
     if (g_DragResizeState.sdlMinW > 0 && g_DragResizeState.sdlMinH > 0)
         SDL_SetWindowMinimumSize(window, g_DragResizeState.sdlMinW, g_DragResizeState.sdlMinH);
@@ -170,14 +170,15 @@ RECT SDLUtils::GetMonitorRectForWindow(HWND hwnd) {
     if (hMon) GetMonitorInfo(hMon, &mi);
     return mi.rcWork; // rcWork = vùng khả dụng (không tính taskbar)
 }
-void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 winPos ,ImVec2 winSize) {
+void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,Vec2 _winPos ,Vec2 _winSize) {
     
     #ifdef CUSTOM_TITLEBAR
 
     if (!sdlWindow || state.IsFullscreen_video) return;
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
-
+    ImVec2 winPos = ToImVec2(_winPos);
+    ImVec2 winSize = ToImVec2(_winSize);
     ImVec2 titlePos = winPos;
     ImVec2 titleSize(winSize.x, (float)state.TitleHeight);
 
@@ -323,8 +324,8 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
 }
 // Đăng ký hàm này ngay sau khi tạo window
 void SDLUtils::SetWindowSDL(SDL_Window* window,
-                  int minW, int minH,
-                  int maxW, int maxH)
+                            Vec2& winmin,
+                            Vec2& winmax)
 {
     if (!window) return;
 
@@ -332,7 +333,7 @@ void SDLUtils::SetWindowSDL(SDL_Window* window,
     SDLUtils::SDLX_InitBorderless(window);
 
     // 2. Thiết lập Min/Max size
-    SDLUtils::SDLX_SetMinMax(window, minW, minH, maxW, maxH);
+    SDLUtils::SDLX_SetMinMax(window, winmin, winmax);
 
 }
 

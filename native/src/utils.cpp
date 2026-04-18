@@ -49,8 +49,8 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , W
         w.videoArea = {w.WinX, w.WinY + (int)state.TitleHeight,w.WinW,w.WinH - (int)state.TitleHeight};
                                      
     }
-    w.VideoPos = sdl_rec_to_imvec2_pos(w.videoArea);
-    w.VideoSize = sdl_rec_to_imvec2_size(w.videoArea);
+    w.VideoPos = ToVec2_Pos(w.videoArea);
+    w.VideoSize = ToVec2_Size(w.videoArea);
     #ifdef RENDER_MPV_THREAD
     int newW  = (int)w.VideoSize.x;
     int newH = (int)w.VideoSize.y;
@@ -63,10 +63,10 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , W
         renderThread.cv.notify_one();
     }
     #endif
-    w.WinDowPos = ImVec2((float)w.WinX,(float)w.WinY);
-    w.WinDowSize = ImVec2((float)w.WinW,(float)w.WinH);
-    w.TitlePos = sdl_rec_to_imvec2_pos(w.titleBar);
-    w.TitleSize = sdl_rec_to_imvec2_size(w.titleBar);
+    w.WinDowPos = Vec2((float)w.WinX,(float)w.WinY);
+    w.WinDowSize = Vec2((float)w.WinW,(float)w.WinH);
+    w.TitlePos = ToVec2_Pos(w.titleBar);
+    w.TitleSize = ToVec2_Size(w.titleBar);
 }
 
 
@@ -121,7 +121,7 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv) {
                 {"stream-buffer-size", "512k"},
             };
             break;
-        case VideoType::File_Local:
+        case VideoType::Local:
             config = {
                 {"cache", "auto"},
                 {"cache-pause", "yes"},

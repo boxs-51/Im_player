@@ -1,21 +1,13 @@
 // mpv_render_video.cpp
-#include "mpv/mpv_render_video.h"
-#include "mpv/mpv_controller.h"
+#include <mpv/mpv_render_video.h>
 #include <mpv/mpv_data.h>
-#include "mpv/shaders/shaders_manager.h"
-#include "mpv/scripts/script_manager.h"
-#include "mpv/fillter/audio_fillter_manager.h"
+#include <mpv/shaders/shaders_manager.h>
+#include <mpv/scripts/script_manager.h>
+#include <mpv/fillter/audio_fillter_manager.h>
 
 #include <windows/windows_borderless.h>
-
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
-#include "utils.h"
-#include "threads/thread_manager.h"
+#include <threads/thread_manager.h>
 #include <mpv/render_gl.h>
-#include "globals.h"
-
 
 #include <string>
 #include <optional>
@@ -174,12 +166,12 @@ GLuint GetStableFrameTexture(MPVRenderThread& rt) {
     return lastTex;
 }
 #endif
-void RenderMPVVideo(const ImVec2& size) {
+void RenderMPVVideo(const Vec2& size) {
     if (!mpv.render_ctx) return;
     #ifdef RENDER_MPV_FBO
     if (render.render_texture != 0) {
         // Hiển thị Texture lên giao diện ImGui
-        ImGui::Image((ImTextureID)(intptr_t)render.render_texture, Windowlayout.VideoSize, ImVec2(0, 1), ImVec2(1, 0));
+        ImGui::Image((ImTextureID)(intptr_t)render.render_texture, ToImVec2(size), ImVec2(0, 1), ImVec2(1, 0));
     }
     return;
     #endif
@@ -187,7 +179,8 @@ void RenderMPVVideo(const ImVec2& size) {
     GLuint tex = GetStableFrameTexture(renderThread);
 
     if (tex != 0) {
-        ImGui::Image((ImTextureID)(intptr_t)tex, Windowlayout.VideoSize, ImVec2(0, 1), ImVec2(1, 0));
+
+        ImGui::Image((ImTextureID)(intptr_t)tex, ToImVec2(size), ImVec2(0, 1), ImVec2(1, 0));
     }
     return;
     #endif

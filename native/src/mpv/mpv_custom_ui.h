@@ -801,7 +801,7 @@ struct PlayPauseOverlay {
     bool last_paused = false; 
     bool initialized = false;
 };
-inline void DrawGhostStatusOverlay(ImVec2 vPos, ImVec2 vSize, bool isPaused) {
+inline void DrawGhostStatusOverlay(Vec2 _vPos, Vec2 _vSize, bool isPaused) {
     static PlayPauseOverlay s;
     float dt = ImGui::GetIO().DeltaTime;
 
@@ -810,6 +810,8 @@ inline void DrawGhostStatusOverlay(ImVec2 vPos, ImVec2 vSize, bool isPaused) {
         s.initialized = true;
         return;
     }
+    ImVec2 vPos = ToImVec2(_vPos);
+    ImVec2 vSize = ToImVec2(_vSize);
 
     // 1. Phát hiện thay đổi trạng thái
     if (isPaused != s.last_paused) {

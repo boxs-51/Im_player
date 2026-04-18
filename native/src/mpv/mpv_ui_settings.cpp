@@ -498,11 +498,11 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
             case SettingsPage::Main:
             {
                 UI_GroupHeader("Chất lượng",scaleFactor);
-                if (videotype != VideoType::File_Local) {
+                if (videotype != VideoType::Local) {
                     const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
                     UI_MenuItem("Độ phân giải", res_label,scaleFactor, [&]() { ChangePage(SettingsPage::ResolutionQuality); });
                 }
-                if (videotype != VideoType::File_Local) {
+                if (videotype != VideoType::Local) {
                     const char* res_label = all_formats.audio.short_labels.empty() ? "N/A" : all_formats.audio.short_labels[all_formats.audio_index].c_str();
                     UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { ChangePage(SettingsPage::AudioQuality); });
                 }
@@ -656,7 +656,7 @@ int PlayVideo(mpv_handle * mpv,
     if (!mpv)
         return -1;
     std::string chosenFormat = resolutionFormat;
-    if (!(GetVideoType() == VideoType::File_Local))
+    if (!(GetVideoType() == VideoType::Local))
     {
         // Cấu hình cookie
         const char* cmdCookie[] = { "set", "ytdl-cookie", "temp/cookies.txt", nullptr };

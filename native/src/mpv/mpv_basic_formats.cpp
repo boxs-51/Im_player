@@ -1,18 +1,13 @@
-#include "mpv/mpv_basic_formats.h"
-#include "globals.h"
-#include "utils.h"
-#include "json.hpp"
-#include "cpr.h"
-
+#include <mpv/mpv_basic_formats.h>
+#include <mpv/mpv_settings.h>
+#include <json.hpp>
+#include <globals.h>
 
 #include <string>
 #include <algorithm>
 #include <iostream>
-#include <fstream>
-#include <sstream>
-#include <unordered_map>
 #include <filesystem>
-#include <optional>
+#include <unordered_set>
 #include <regex>
 
 
@@ -25,13 +20,13 @@ void UpdateVideoType(const VideoInfoResult& info) {
     if (info.is_live)
         g_videoType = VideoType::Live;
     else if (info.file_local)
-        g_videoType = VideoType::File_Local;
+        g_videoType = VideoType::Local;
     else
         g_videoType = VideoType::Vio;
 }
 
 void SetVideoTypeLocal(){
-    g_videoType = VideoType::File_Local;
+    g_videoType = VideoType::Local;
 }
 void SetVideoTypeLive(){
     g_videoType = VideoType::Live;
@@ -461,7 +456,6 @@ void HandleYTDLLog(mpv_handle* mpv,const std::string& text) {
     if (pos == std::string::npos) return;
 
     std::string chunk = text.substr(pos + marker.size());
-    //std::string ytdl_json_buffer;
     std::string ytdl_json_buffer(chunk);
 
     // thử parse nếu có outer json hoàn chỉnh (check dấu {..})
@@ -505,7 +499,7 @@ const char* VideoTypeToString(const VideoType& videotype){
      switch (videotype) 
     {
         case VideoType::Vio:             return "Vio";
-        case VideoType::File_Local:      return "File Local";
+        case VideoType::Local:           return "File Local";
         case VideoType::Live:            return "Live Stream";
         default:                         return "Unknown";
     }
