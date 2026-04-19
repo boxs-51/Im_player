@@ -86,10 +86,10 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         //{"input-media-keys", "yes"},
         {"idle", "yes"},
         {"keep-open", "yes"},
-        //{"stop-screensaver", "yes"},
+        {"stop-screensaver", "yes"},
         {"vo", "libmpv"},
         {"hwdec", "auto-safe"}, // Tự động chọn giải mã phần cứng ổn định nhất
-        //{"video-rotate", "no"},
+        {"video-rotate", "no"},
         {"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
         
         // Cấu hình âm thanh an toàn
@@ -210,134 +210,7 @@ void UpdateHoverAnim(float& animValue, bool isHovering, float speed) {
     else
         animValue = std::max(0.0f, animValue - animSpeed);
 }
-void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
-    const ImVec2& cardMax,const ImVec2& holeMin,const ImVec2& holeMax,
-    ImU32 fillCol,ImU32 borderCol,const CardHoleStyle& style) {
-    const float r = style.rounding;
-    // =========================
-    // FILL
-    // =========================
-    // Phải
-    dl->PushClipRect(ImVec2(holeMax.x, cardMin.y),cardMax,true);
-    dl->AddRectFilled(cardMin,cardMax,fillCol,r, ImDrawFlags_RoundCornersRight);
-    dl->PopClipRect();
-    // Trên trái
-    if (holeMin.y > cardMin.y){
-        dl->PushClipRect(cardMin,ImVec2(holeMax.x, holeMin.y),true);
-        dl->AddRectFilled(cardMin,cardMax,fillCol,r,ImDrawFlags_RoundCornersTopLeft);
-        dl->PopClipRect();
-    }
-    // ⭐ LEFT – MIDDLE (BỔ SUNG)
-    dl->PushClipRect(ImVec2(cardMin.x, holeMin.y),ImVec2(holeMin.x, holeMax.y),true);
-    dl->AddRectFilled(cardMin,cardMax,fillCol,0.0f,ImDrawFlags_None);
-    dl->PopClipRect();
-    // Dưới trái
-    if (holeMax.y < cardMax.y){
-        dl->PushClipRect(ImVec2(cardMin.x, holeMax.y),ImVec2(holeMax.x, cardMax.y),true);
-        dl->AddRectFilled(cardMin,cardMax,fillCol,r,ImDrawFlags_RoundCornersBottomLeft);
-        dl->PopClipRect();
-    }
-    // =========================
-    // BORDER
-    // =========================
-    if ((borderCol >> IM_COL32_A_SHIFT) > 0){
-        dl->PushClipRect(ImVec2(holeMax.x, cardMin.y),cardMax,true);
-        dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersRight,style.borderThickness);
-        dl->PopClipRect();
-        // Trên trái
-        if (holeMin.y > cardMin.y){
-            dl->PushClipRect(cardMin,ImVec2(holeMax.x, holeMin.y),true);
-            dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersTopLeft,style.borderThickness);
-            dl->PopClipRect();
-        }
-        // ⭐ LEFT – MIDDLE (BỔ SUNG)
-        dl->PushClipRect(ImVec2(cardMin.x, holeMin.y),ImVec2(holeMin.x, holeMax.y),true);
-        dl->AddRect(cardMin,cardMax,borderCol,0.0f, ImDrawFlags_None,style.borderThickness);
-        dl->PopClipRect();
-        // Dưới trái
-        if (holeMax.y < cardMax.y){
-            dl->PushClipRect(ImVec2(cardMin.x, holeMax.y),ImVec2(holeMax.x, cardMax.y),true);
-            dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersBottomLeft,style.borderThickness);
-            dl->PopClipRect();
-        }
-    }
-}
 
-
-void UpdateUIState( bool& show_ui_video) {
-    int mouseX, mouseY;
-    ImGuiIO& io = ImGui::GetIO();
-
-    ImVec2 mousePos = io.MousePos; 
-    //SDL_GetMouseState(&mouseX, &mouseY);
-    //SDL_Point mousePos = { mouseX, mouseY };
-
-    Uint64 currentTime = SDL_GetTicks64();
-    
-    // 1. Kiểm tra vị trí chuột
-    
-    bool isMouseInsideVideo = (mousePos.x >= Windowlayout.videoArea.x && 
-                               mousePos.x <= (Windowlayout.videoArea.x + Windowlayout.videoArea.w) &&
-                               mousePos.y >= Windowlayout.videoArea.y && 
-                               mousePos.y <= (Windowlayout.videoArea.y + Windowlayout.videoArea.h));
-    
-    //bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
-
-    // 2. Kiểm tra tương tác với UI (Hover nút, kéo slider, combo...)
-    // io.WantCaptureMouse là cách nhanh nhất để biết chuột có đang đè lên bất kỳ cửa sổ ImGui nào không
-    bool isInteractingWithUI = io.WantCaptureMouse && (ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered());
-
-    
-    // Lưu ý: Luôn reset timer nếu chuột đang di chuyển HOẶC đang tương tác với UI
-    bool isMouseMoving = ((io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) && io.WantCaptureMouse);
-
-    // 3. XÁC ĐỊNH TIMEOUT THEO 3 TRẠNG THÁI (Ưu tiên từ cao xuống thấp)
-    Uint32 currentTimeout = 300; // Đã rời khỏi video: 0.5s
-    if (isInteractingWithUI )    currentTimeout = 5000; // Đang tương tác UI: 5s
-    else if (isMouseInsideVideo) currentTimeout = 1500; // Di chuột bình thường trong video: 1s
-        
-    // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
-    
-    if ((isMouseMoving  ) && isMouseInsideVideo) {
-        lastInteractionTime = currentTime;
-        
-        // Tự động hiện lại UI nếu có hoạt động
-        if (!show_ui_video) {
-            show_ui_video = true;
-            SDL_ShowCursor(SDL_ENABLE);
-        }
-    }
-
-    // 5. LOGIC ẨN UI
-    if(IsAnyPopupOpen()) {
-        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) {
-            SDL_ShowCursor(SDL_ENABLE);
-        }
-    }
-
-    if (show_ui_video) {
-        // Chỉ ẩn khi hết thời gian chờ
-        if (currentTime - lastInteractionTime > currentTimeout) {
-            
-            // CỰC KỲ QUAN TRỌNG: Không ẩn khi đang có Popup/Combo mở hoặc đang kéo Slider
-            if (!ImGui::IsAnyItemActive() ) {
-                show_ui_video = false;
-                if(!IsAnyPopupOpen())
-                    SDL_ShowCursor(SDL_DISABLE);
-            }
-        }
-    }
-}
-void NotifyActivity(bool& show_ui_video) {
-    // Chỉ gọi SDL_ShowCursor nếu nó đang bị ẩn để tiết kiệm tài nguyên
-    if (!show_ui_video) {
-        show_ui_video = true;
-        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) {
-            SDL_ShowCursor(SDL_ENABLE);
-        }
-    }
-    lastInteractionTime = SDL_GetTicks64();
-}
 static std::unordered_map<std::string, GLuint> iconCache;
 
 GLuint GetIcon(const std::string& path)

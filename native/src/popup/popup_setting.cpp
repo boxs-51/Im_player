@@ -28,11 +28,11 @@ void GeneralSettingsPage() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
 
     // Bắt đầu vùng chứa chính
-    if(CusTomImGui::BeginModernChild("GeneralSettingsPanel", avail, true))
+    if(CSImGui::BeginModernChild("GeneralSettingsPanel", avail, true))
     {
         static float scale = 1.0f;
         // --- TIÊU ĐỀ PHÂN ĐOẠN ---
-        ImGui::TextColored(GTheme.Text, " CẤU HÌNH GIAO DIỆN HỆ THỐNG");
+        ImGui::Text(" CẤU HÌNH GIAO DIỆN HỆ THỐNG");
         
         ImGui::TextDisabled("Thay đổi giao diện và kích thước hiển thị để phù hợp với trải nghiệm của bạn.");
         ImGui::Separator();
@@ -46,7 +46,7 @@ void GeneralSettingsPage() {
             std::vector<std::string> themes = { "Dark Mode", "Light Mode", "Mid Night Mode", "Retro Mode" };
 
             ImGui::BeginGroup(); // Nhóm Label + Combo
-            if (CusTomImGui::NormalCombo("CHỦ ĐỀ (THEME)", selectedTheme, themes, 220, 4)) {
+            if (CSImGui::NormalCombo("CHỦ ĐỀ (THEME)", selectedTheme, themes, 220, 4)) {
                 if (selectedTheme == "Dark Mode") c_Settings.themetype = ThemeType::DarkMode;
                 else if (selectedTheme == "Light Mode") c_Settings.themetype = ThemeType::LightMode;
                 else if (selectedTheme == "Mid Night Mode") c_Settings.themetype = ThemeType::MidnightMode;
@@ -91,7 +91,7 @@ void GeneralSettingsPage() {
 
             ImGui::BeginGroup();
             // ModernSearchCombo đã được tích hợp logic font->Scale bên trong như đã thảo luận
-            if (CusTomImGui::ModernSearchCombo("KÍCH THƯỚC CHỮ (FONT SIZE)", fontSizeStr, fontSizes, 180, 6 ,validateFont,getDynamicFont)) {
+            if (CSImGui::ModernSearchCombo("KÍCH THƯỚC CHỮ (FONT SIZE)", fontSizeStr, fontSizes, 180, 6 ,validateFont,getDynamicFont)) {
                 try {
                     size_t pxPos = fontSizeStr.find("px");
                     std::string numericPart = (pxPos != std::string::npos) ? fontSizeStr.substr(0, pxPos) : fontSizeStr;
@@ -111,7 +111,7 @@ void GeneralSettingsPage() {
             ImGui::EndGroup();
         }
         ImGui::EndGroup();
-        CusTomImGui::EndModernChild();
+        CSImGui::EndModernChild();
     }
 }
 
@@ -121,7 +121,7 @@ void ShaderSettingsPage() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     auto& sm = ShaderManager::Instance();
     
-    if (CusTomImGui::BeginModernChild("ShaderSettingsPanel", avail, true)) {
+    if (CSImGui::BeginModernChild("ShaderSettingsPanel", avail, true)) {
         
         // --- HEADER & GIỚI THIỆU CHUNG ---
         ImGui::Text("VIDEO POST-PROCESSING (GLSL)");
@@ -134,31 +134,31 @@ void ShaderSettingsPage() {
 
         ImGui::Separator();
 
-        if (CusTomImGui::BeginModernTabBar("ShaderChildTabs")) {
+        if (CSImGui::BeginModernTabBar("ShaderChildTabs")) {
             // --- TAB 1: THƯ VIỆN (LIBRARY) ---
-            if (CusTomImGui::ModernTabItem("Library")) {
+            if (CSImGui::ModernTabItem("Library")) {
                 ImGui::TextWrapped("Chọn các Shader bên dưới để nạp vào Pipeline. Thứ tự nạp sẽ quyết định kết quả cuối cùng.");
                 
                 ImGui::Spacing();
-                if (CusTomImGui::ModernButton("Enable All")) sm.EnableAll();
+                if (CSImGui::ModernButton("Enable All")) sm.EnableAll();
                 ImGui::SameLine();
-                if (CusTomImGui::SecondaryButton("Disable All")) sm.DisableAll();
+                if (CSImGui::SecondaryButton("Disable All")) sm.DisableAll();
                 ImGui::SameLine();
-                if (CusTomImGui::ModernButton("Reload All")) sm.Reload(); 
+                if (CSImGui::ModernButton("Reload All")) sm.Reload(); 
 
-                std::vector<CusTomImGui::TableCol> cols = {
+                std::vector<CSImGui::TableCol> cols = {
                     {"", 40.0f * scale}, 
                     {"Tên Shader", 180.0f * scale},
                     {"Giai đoạn", 80.0f * scale},
                     {"Công dụng & Chi tiết", 0.0f * scale}
                 };
                 
-                if (CusTomImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
+                if (CSImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
                     for (auto& [name, shader] : sm.GetShaders()) {
-                        CusTomImGui::BeginListRow();
+                        CSImGui::BeginListRow();
                         
                         bool enabled = shader.enabled;
-                        if (CusTomImGui::ModernCheckbox(("##cb_" + name).c_str(), &enabled)) {
+                        if (CSImGui::ModernCheckbox(("##cb_" + name).c_str(), &enabled)) {
                             sm.Toggle(name);
                         }
                         
@@ -174,10 +174,10 @@ void ShaderSettingsPage() {
                         ImGui::TableNextColumn();
                         ImGui::TextWrapped("%s", shader.description.empty() ? "Không có mô tả." : shader.description.c_str());
 
-                        CusTomImGui::EndListRow();
+                        CSImGui::EndListRow();
                     }
                         
-                    CusTomImGui::EndListTable();
+                    CSImGui::EndListTable();
                     
                 }
                 
@@ -196,10 +196,10 @@ void ShaderSettingsPage() {
                 float spacing = 10.0f * scale;
 
                 ImGui::SetNextItemWidth(availWidth - buttonWidth - spacing);
-                CusTomImGui::ModernInputText("##path", folderPath, IM_ARRAYSIZE(folderPath));
+                CSImGui::ModernInputText("##path", folderPath, IM_ARRAYSIZE(folderPath));
                 ImGui::SameLine();
 
-                if (CusTomImGui::ModernButton("Add Folder", ImVec2(buttonWidth, 32))) {
+                if (CSImGui::ModernButton("Add Folder", ImVec2(buttonWidth, 32))) {
                     if (strlen(folderPath) > 0) {
                         sm.AddFolder(folderPath);
                         memset(folderPath, 0, sizeof(folderPath));
@@ -210,7 +210,7 @@ void ShaderSettingsPage() {
 
                 // Danh sách folder hiện đại (Dùng ChildWindow cố định chiều cao để tránh đẩy UI đi quá xa)
                 /*
-                if (CusTomImGui::BeginModernChild("FolderList", ImVec2(0, 0), true)) {
+                if (CSImGui::BeginModernChild("FolderList", ImVec2(0, 0), true)) {
                     std::string toRemove = ""; // Biến tạm để tránh lỗi iterator
                     const float rowHeight = 26.0f;
                     
@@ -223,7 +223,7 @@ void ShaderSettingsPage() {
                         float fullWidth = ImGui::GetContentRegionAvail().x;
                         
                         // Vẽ Selectable tàng hình để tạo hiệu ứng hover cho cả dòng
-                        CusTomImGui::ModernSelectable("##row", false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(fullWidth, rowHeight));
+                        CSImGui::ModernSelectable("##row", false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(fullWidth, rowHeight));
 
                         // Căn giữa text theo chiều dọc
                         float textY = p_min.y + (rowHeight - ImGui::GetTextLineHeight()) * 0.5f;
@@ -235,14 +235,14 @@ void ShaderSettingsPage() {
                         ImGui::SetCursorScreenPos(ImVec2(p_min.x + 20, textY));
                         std::string texttrum = TextUtils::TruncateTextByPixels(path.c_str(),fullWidth - 60);
                         ImGui::TextUnformatted(texttrum.c_str());
-                        CusTomImGui::ShowTooltipDelayed(path.c_str(),ImGui::IsItemHovered(),3.0f,path.c_str());
+                        CSImGui::ShowTooltipDelayed(path.c_str(),ImGui::IsItemHovered(),3.0f,path.c_str());
 
                         // 3. Nút xóa (Căn phải tuyệt đối)
                         ImVec2 btnSize = ImVec2(20, 20);
                         float btnY = p_min.y + (rowHeight - btnSize.y) * 0.5f;
                         ImGui::SetCursorScreenPos(ImVec2(p_min.x + fullWidth - 25, btnY));
                         
-                        if (CusTomImGui::ModernButton("x",btnSize)) {
+                        if (CSImGui::ModernButton("x",btnSize)) {
                             toRemove = path; // Chỉ đánh dấu, xóa sau
                         }
 
@@ -257,13 +257,13 @@ void ShaderSettingsPage() {
                     if (!toRemove.empty()) {
                         sm.RemoveFolder(toRemove);
                     }
-                    CusTomImGui::EndModernChild();
+                    CSImGui::EndModernChild();
                 }*/
-                CusTomImGui::EndModernTabItem();
+                CSImGui::EndModernTabItem();
             }           
 
             // --- TAB 2: CẤU HÌNH (CONFIGURATION) ---
-            bool isConfigOpen = CusTomImGui::ModernTabItem("Configuration");
+            bool isConfigOpen = CSImGui::ModernTabItem("Configuration");
             if (isConfigOpen) {
                 float Selectablewight = 160.0f * scale;
                 ImGui::Columns(2, "ConfigSplit", true);
@@ -279,32 +279,32 @@ void ShaderSettingsPage() {
                     selectedName = ""; // Reset nếu shader không còn hoạt động
                 }
 
-                if(CusTomImGui::BeginModernChild("PipeList", ImVec2(0, 0), false)){
+                if(CSImGui::BeginModernChild("PipeList", ImVec2(0, 0), false)){
                     for (const auto& name : pipeline) {
                         std::string text_trum = TextUtils::TruncateTextByPixels(name.c_str(),Selectablewight );
                         bool is_selected = (selectedName == name);
-                        if (CusTomImGui::ModernSelectable(text_trum.c_str(), is_selected)) {
+                        if (CSImGui::ModernSelectable(text_trum.c_str(), is_selected)) {
                             selectedName = name;
                             sm.DiscardChanges();
                             isDirty = false;
                         }
                     }
-                    CusTomImGui::EndModernChild();
+                    CSImGui::EndModernChild();
                 }
 
                 ImGui::NextColumn();
 
                 if (!selectedName.empty()) {
                     auto& s = sm.GetShaders()[selectedName];
-                    if(CusTomImGui::BeginCard()){
+                    if(CSImGui::BeginCard()){
                     
                         ImGui::Text("Tùy chỉnh: %s", s.name.c_str());
                         ImGui::TextDisabled("Điều chỉnh các tham số bên dưới để thay đổi hiệu ứng hiển thị.");
 
-                        if (CusTomImGui::BeginInfoTable("Meta", 2, 80.0f * scale)) {
-                            CusTomImGui::InfoRow("Đường dẫn", "%s", s.path.c_str());
-                            CusTomImGui::InfoRow("Thứ tự", "Ưu tiên: %d", s.order);
-                            CusTomImGui::EndInfoTable();
+                        if (CSImGui::BeginInfoTable("Meta", 2, 80.0f * scale)) {
+                            CSImGui::InfoRow("Đường dẫn", "%s", s.path.c_str());
+                            CSImGui::InfoRow("Thứ tự", "Ưu tiên: %d", s.order);
+                            CSImGui::EndInfoTable();
                         }
 
                         ImGui::Separator();
@@ -322,7 +322,7 @@ void ShaderSettingsPage() {
                             float grab_size = 10.0f * scale;      // Bán kính nút kéo
                             float full_width = ImGui::GetContentRegionAvail().x;
 
-                            if (CusTomImGui::ModernSliderFloat(
+                            if (CSImGui::ModernSliderFloat(
                                     p.name.c_str(),            // Tên hiển thị phía trên slider
                                     &p.temp_value,                      // Giá trị float*
                                     p.min,                              // Giá trị tối thiểu
@@ -342,18 +342,18 @@ void ShaderSettingsPage() {
 
                         // --- CÁC NÚT ĐIỀU KHIỂN ---
                         // 1. Nút Apply: Lưu thiết lập mới
-                        if (CusTomImGui::ModernButton("Apply")) {
+                        if (CSImGui::ModernButton("Apply")) {
                             sm.ApplyChanges(selectedName);
                             isDirty = false;
                         }
                         ImGui::SameLine();
                         // 2. Nút Reset: Về mặc định
-                        if (CusTomImGui::SecondaryButton("Reset Default")) {
+                        if (CSImGui::SecondaryButton("Reset Default")) {
                             sm.ResetToDefault(selectedName);
                             isDirty = false;
                         }
                         
-                        CusTomImGui::EndCard();
+                        CSImGui::EndCard();
                     }
                 } else {
                     ImGui::SetCursorPosY(ImGui::GetCursorPosY() + 50);
@@ -361,7 +361,7 @@ void ShaderSettingsPage() {
                     ImGui::TextDisabled("Vui lòng chọn một Shader từ danh sách bên trái\nđể bắt đầu hiệu chỉnh thông số.");
                 }
                 ImGui::Columns(1);
-                CusTomImGui::EndModernTabItem();
+                CSImGui::EndModernTabItem();
             }
             if (!isConfigOpen && wasConfigTabOpen) {
                 if (isDirty ) {
@@ -371,7 +371,7 @@ void ShaderSettingsPage() {
                 wasConfigTabOpen = false;
             }
             // --- TAB 3: PIPELINE (MODERN REORDERABLE) ---
-            if (CusTomImGui::ModernTabItem("Pipeline")) {
+            if (CSImGui::ModernTabItem("Pipeline")) {
                 ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(6, 4));
 
                 auto activePipeline = sm.GetActivePipeline();
@@ -380,7 +380,7 @@ void ShaderSettingsPage() {
 
                 std::string moveUp = "", moveDown = "", toRemove = "";
 
-                if (CusTomImGui::BeginModernChild("PipelineList", ImVec2(0, 0), false)) {
+                if (CSImGui::BeginModernChild("PipelineList", ImVec2(0, 0), false)) {
                     HookStage lastStage = HookStage::UNKNOWN;
                     int index = 0;
 
@@ -410,7 +410,7 @@ void ShaderSettingsPage() {
                         // 3. Vẽ Selectable làm nền và chứa text luôn
                         // Lưu ý: Dùng ## để ID không bị trùng nếu s->name giống nhau, 
                         // nhưng ở đây ta dùng s->name làm ID chính qua PushID rồi.
-                        CusTomImGui::ModernSelectable(label, false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(selectableWidth, rowHeight));
+                        CSImGui::ModernSelectable(label, false, ImGuiSelectableFlags_AllowItemOverlap, ImVec2(selectableWidth, rowHeight));
                         
                         // QUAN TRỌNG: Cho phép các nút bấm vẽ sau đây chiếm quyền ưu tiên click
                         ImGui::SetItemAllowOverlap();
@@ -422,21 +422,21 @@ void ShaderSettingsPage() {
                         // Nút X (Xóa)
                         cursorX -= btnSize.x;
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
-                        if (CusTomImGui::ModernButton("X", btnSize)) {
+                        if (CSImGui::ModernButton("X", btnSize)) {
                             toRemove = s->name;
                         }
 
                         // Nút Down
                         cursorX -= (btnSize.x + btnSpacing);
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
-                        if (CusTomImGui::ModernArrowButton("##down", ImGuiDir_Down, btnSize)) {
+                        if (CSImGui::ModernArrowButton("##down", ImGuiDir_Down, btnSize)) {
                             moveDown = s->name;
                         }
 
                         // Nút Up
                         cursorX -= (btnSize.x + btnSpacing);
                         ImGui::SetCursorScreenPos(ImVec2(cursorX, btnY));
-                        if (CusTomImGui::ModernArrowButton("##up", ImGuiDir_Up, btnSize)) {
+                        if (CSImGui::ModernArrowButton("##up", ImGuiDir_Up, btnSize)) {
                             moveUp = s->name;
                         }
 
@@ -446,7 +446,7 @@ void ShaderSettingsPage() {
                         ImGui::PopID();
                         index++;
                     }
-                    CusTomImGui::EndModernChild();
+                    CSImGui::EndModernChild();
                 }
 
                 // Apply Actions (Xử lý logic sau khi vẽ xong để tránh lỗi iterator)
@@ -455,11 +455,11 @@ void ShaderSettingsPage() {
                 if (!toRemove.empty()) sm.Disable(toRemove);
 
                 ImGui::PopStyleVar();
-                CusTomImGui::EndModernTabItem();
+                CSImGui::EndModernTabItem();
             }
-            CusTomImGui::EndModernTabBar();
+            CSImGui::EndModernTabBar();
         }
-        CusTomImGui::EndModernChild();
+        CSImGui::EndModernChild();
     }
 }
 // Hàm render nội dung chính của popup
@@ -471,11 +471,11 @@ void ShowSettingsPopup(bool& closePopup_setting) {
     ImVec2 contentSize = ImVec2(avail.x, avail.y - footerHeight);
 
     // 1. Dùng BeginModernChild để bao bọc toàn bộ vùng nội dung
-    if (CusTomImGui::BeginModernChild("##SettingsMain", contentSize, true)) {
+    if (CSImGui::BeginModernChild("##SettingsMain", contentSize, true)) {
         
         // 2. Thiết lập bảng chia Sidebar và Content (Không dùng viền Borders cứng nhắc)
             
-        if (CusTomImGui::BeginInfoTable("settings_layout")) {
+        if (CSImGui::BeginInfoTable("settings_layout")) {
             
             ImGui::TableNextRow();
 
@@ -489,7 +489,7 @@ void ShowSettingsPopup(bool& closePopup_setting) {
             const char* items[] = { "General", "Shader ", "Options" };
             for (int i = 0; i < IM_ARRAYSIZE(items); ++i) {
                 // Dùng ModernSelectable đã viết trước đó
-                if (CusTomImGui::ModernSelectable(items[i], selectedItem == i)) {
+                if (CSImGui::ModernSelectable(items[i], selectedItem == i)) {
                     selectedItem = i;
                 }
             }
@@ -498,7 +498,7 @@ void ShowSettingsPopup(bool& closePopup_setting) {
             ImGui::TableSetColumnIndex(1);
             
             // Tạo một vùng Child bên phải để nội dung có thể cuộn độc lập
-            if (CusTomImGui::BeginModernChild("##SettingContent", ImVec2(-1, -1), false)) {
+            if (CSImGui::BeginModernChild("##SettingContent", ImVec2(-1, -1), false)) {
                 
                 if (selectedItem == 0) {
                     ImGui::TextDisabled("General Settings");
@@ -519,13 +519,13 @@ void ShowSettingsPopup(bool& closePopup_setting) {
                     ImGui::Spacing();
                     
                 }
-                CusTomImGui::EndModernChild();
+                CSImGui::EndModernChild();
             }
             
 
-            CusTomImGui::EndInfoTable();
+            CSImGui::EndInfoTable();
         }
-        CusTomImGui::EndModernChild();
+        CSImGui::EndModernChild();
     }
 
     // ==== FOOTER (BUTTONS) ====
@@ -538,17 +538,17 @@ void ShowSettingsPopup(bool& closePopup_setting) {
     float totalBtnWidth = (btnWidth * 3) + (ImGui::GetStyle().ItemSpacing.x * 2);
     ImGui::SetCursorPosX(ImGui::GetWindowWidth() - totalBtnWidth - 20.0f);
 
-    if (CusTomImGui::ModernButton("Lưu", ImVec2(btnWidth, 35))) {
+    if (CSImGui::ModernButton("Lưu", ImVec2(btnWidth, 35))) {
 
     }
 
     ImGui::SameLine();
-    if (CusTomImGui::SecondaryButton("Reset", ImVec2(btnWidth, 35))) {
+    if (CSImGui::SecondaryButton("Reset", ImVec2(btnWidth, 35))) {
   
     }
 
     ImGui::SameLine();
-    if (CusTomImGui::SecondaryButton("Đóng", ImVec2(btnWidth, 35))) {
+    if (CSImGui::SecondaryButton("Đóng", ImVec2(btnWidth, 35))) {
         closePopup_setting = true;
     }
 }

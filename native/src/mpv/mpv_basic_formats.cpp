@@ -221,7 +221,7 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
         }
     }
     UpdateVideoType(info);
-    //ApplyDynamicMPVConfig(mpv);
+    ApplyDynamicMPVConfig(mpv);
     std::string combinedFormat = BuildCombinedFormat(allFormats);
     // Áp dụng cho mpv
     const char* cmd[] = { "set", "ytdl-format", combinedFormat.c_str(), nullptr };

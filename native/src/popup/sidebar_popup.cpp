@@ -4,6 +4,7 @@
 
 #include <mpv/mpv_settings.h>
 #include <mpv/mpv_ui_settings.h>
+#include <mpv/mpv_custom_ui.h>
 #include <mpv/mpv_data.h>
 
 
@@ -246,7 +247,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
 
     if (v.hoverAnim > 0.01f)
     {
-        DrawCardWithHole(
+        CSImGui::DrawCardWithHole(
             ImGui::GetWindowDrawList(),
             cardMin,
             cardMax,
@@ -260,7 +261,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
 
     if (v.hoverAnim > 0.01f && isDown) 
     {
-        DrawCardWithHole(
+        CSImGui::DrawCardWithHole(
             ImGui::GetWindowDrawList(),
             cardMin,
             cardMax,

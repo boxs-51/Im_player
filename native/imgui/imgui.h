@@ -1800,6 +1800,7 @@ enum ImGuiCol_
     ImGuiCol_ScrollbarGrabActive,
     ImGuiCol_CheckMark,             // Checkbox tick and RadioButton circle
     ImGuiCol_SliderGrab,
+    ImGuiCol_SliderGrabHovered,
     ImGuiCol_SliderGrabActive,
     ImGuiCol_Button,
     ImGuiCol_ButtonHovered,
@@ -1827,6 +1828,7 @@ enum ImGuiCol_
     ImGuiCol_PlotLinesHovered,
     ImGuiCol_PlotHistogram,
     ImGuiCol_PlotHistogramHovered,
+    ImGuiCol_PlotHistogramActive,
     ImGuiCol_TableHeaderBg,         // Table header background
     ImGuiCol_TableBorderStrong,     // Table outer and header borders (prefer using Alpha=1.0 here)
     ImGuiCol_TableBorderLight,      // Table inner borders (prefer using Alpha=1.0 here)

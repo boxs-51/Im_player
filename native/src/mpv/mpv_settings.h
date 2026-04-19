@@ -1,6 +1,6 @@
 #pragma once
 #include <string>
-
+#include <mpv/mpv_gui_.h>
 struct AppSettings {
     
     std::string selectedFormat = "";
@@ -14,12 +14,6 @@ struct AppSettings {
     bool autoPlayNext = false;
     int defaultVolume = 100;    
     bool repeatlist = false;
-};
-enum class ThemeType {
-    DarkMode,
-    LightMode,
-    MidnightMode,
-    RetroMode
 };
 
 inline std::string ThemeToString(ThemeType t) {

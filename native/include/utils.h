@@ -3,7 +3,7 @@
 
 #pragma once
 
-#include "mpv/mpv_settings.h"
+#include <mpv/mpv_settings.h>
 
 #include <windows/windows_borderless_state.h>
 #include <util.h>
@@ -40,6 +40,7 @@ struct Vec4 {
     Vec4() = default;
     Vec4(float _x, float _y, float _w, float _h) : x(_x), y(_y), w(_w), h(_h) {}
 };
+
 struct Col32 {
     Uint r ,b ,g ,a;
     Col32() = default;
@@ -160,20 +161,9 @@ void LoadAllScripts(mpv_handle* mpv);
 void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , WindowLayout& w);
 void TerminateHandler();
 void SignalHandler(int signal);
-void UpdateUIState(bool& show_ui_video);
 void NotifyActivity(bool& show_ui_video);
 bool SetDelayHover( bool isHovering, double delaySeconds = 3.0, const char * id = nullptr ) ;
 
-void DrawCardWithHole(
-    ImDrawList* dl,
-    const ImVec2& cardMin,
-    const ImVec2& cardMax,
-    const ImVec2& holeMin,
-    const ImVec2& holeMax,
-    ImU32 fillCol,
-    ImU32 borderCol,
-    const CardHoleStyle& style = {}
-);
 
 std::wstring UTF8ToWide(const std::string& str);
 std::string WideToUTF8(const std::wstring& wstr);

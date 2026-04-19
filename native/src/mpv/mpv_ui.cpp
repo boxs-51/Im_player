@@ -165,7 +165,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    CusTomImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
+    CSImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -453,7 +453,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
             if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
-            CusTomImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
+            CSImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
         }
         // Nút PLAY/PAUSE
         static  PlayPauseData playData;
@@ -466,7 +466,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
 
         }
 
-        CusTomImGui::ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
+        CSImGui::ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
@@ -474,7 +474,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                 mpv_command_next_video(mpv);
             }
 
-            CusTomImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
+            CSImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
         }
 
         ImGui::BeginGroup();
@@ -495,7 +495,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
 
-        CusTomImGui::ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
+        CSImGui::ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
 
         bool active = ImGui::IsItemActive();
 
@@ -682,7 +682,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         ImVec2 iconPos = ImGui::GetItemRectMin();
         ImVec2 iconSize = ImGui::GetItemRectSize(); // Lấy kích thước nút
 
-        CusTomImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
+        CSImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
 
         RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video ,iconPos);
 
@@ -699,7 +699,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
             g_DragResizeState.ToggleFullscreen = true;
         }
 
-        CusTomImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
+        CSImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
 
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
@@ -715,7 +715,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         }
         optdata.hovered = ImGui::IsItemHovered();
 
-        CusTomImGui::ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
+        CSImGui::ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
     
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;

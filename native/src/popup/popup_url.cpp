@@ -210,7 +210,7 @@ void RebuildLocalCache(PopupData& data, float maxWidth)
 // --- Popup chính ---
 void HistoryUrlPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 {
-    if (CusTomImGui::BeginModernChild(
+    if (CSImGui::BeginModernChild(
         "##URLHistoryTable",
         size,
         true,
@@ -242,7 +242,7 @@ void HistoryUrlPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
                 const auto& item = cache[i];
                 bool isSelected = (selectedUrlIndex == i);
 
-                if (CusTomImGui::ModernSelectable(item.truncated.c_str(), isSelected))
+                if (CSImGui::ModernSelectable(item.truncated.c_str(), isSelected))
                 {
                     selectedUrlIndex = i;
 
@@ -251,19 +251,19 @@ void HistoryUrlPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 
                 // 👉 Tooltip chỉ khi hover
 
-                CusTomImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
+                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
                                                 ("url_tooltip_" + std::to_string(i)).c_str());
  
                 ImGui::Separator();
             }
         }
 
-        CusTomImGui::EndModernChild();
+        CSImGui::EndModernChild();
     }
 }
 void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 {
-    if (CusTomImGui::BeginModernChild(
+    if (CSImGui::BeginModernChild(
         "##LocalFilesTable",
         size,
         true,
@@ -295,7 +295,7 @@ void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
                 const auto& item = cache[i];
                 bool isSelected = (selectedFileIndex == i);
 
-                if (CusTomImGui::ModernSelectable(item.truncated.c_str(), isSelected))
+                if (CSImGui::ModernSelectable(item.truncated.c_str(), isSelected))
                 {
                     selectedFileIndex = i;
 
@@ -304,13 +304,13 @@ void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 
                 // 👉 Tooltip chỉ khi hover
 
-                CusTomImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
+                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
                                                 ("file_tooltip_" + std::to_string(i)).c_str());
 
             }
         }
 
-        CusTomImGui::EndModernChild();
+        CSImGui::EndModernChild();
     }
 }
 void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
@@ -329,37 +329,37 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
     ImGui::Text("Vui lòng nhập URL hoặc chọn file local:");
     
     std::string urlInpututf8 = WideToUTF8(urlInput);
-    if(CusTomImGui::ModernInputTextMultiline("##URLInput", urlInpututf8,
+    if(CSImGui::ModernInputTextMultiline("##URLInput", urlInpututf8,
                             ImVec2(popupWidth, maxInputHeight),
                             ImGuiInputTextFlags_AllowTabInput))
   
     Disabehotkey = ImGui::IsItemActive();
 
-    if(CusTomImGui::ModernCheckbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);
+    if(CSImGui::ModernCheckbox("Tự động lấy URL trước đó",&data.autoLoadLastURL))SavePopupData(data);
     ImGui::Separator();
 
     // --- History tabs ---
-    if (CusTomImGui::BeginModernTabBar("##HistoryTabs")) {
+    if (CSImGui::BeginModernTabBar("##HistoryTabs")) {
         // URL Tab
         ImVec2 size = ImVec2(popupWidth,historyHeight);
-        if(CusTomImGui::ModernTabItem("URL")){
+        if(CSImGui::ModernTabItem("URL")){
             HistoryUrlPage(data , urlInput ,size);
-            CusTomImGui::EndModernTabItem();
+            CSImGui::EndModernTabItem();
         }
 
         // Local Tab
-        if(CusTomImGui::ModernTabItem("File local")){
+        if(CSImGui::ModernTabItem("File local")){
             HistoryFileLocalPage(data , urlInput ,size);
-            CusTomImGui::EndModernTabItem();
+            CSImGui::EndModernTabItem();
         }
 
-        CusTomImGui::EndModernTabBar();
+        CSImGui::EndModernTabBar();
     }
 
     ImGui::Separator();
-    if(CusTomImGui::ModernCheckbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
+    if(CSImGui::ModernCheckbox("Tự động lưu lich sử ",&data.saveHistory))SavePopupData(data);
 
-    if( CusTomImGui::ModernButton("Lấy từ Clipboard")){
+    if( CSImGui::ModernButton("Lấy từ Clipboard")){
         if (!IsClipboardFormatAvailable(CF_UNICODETEXT))
             return;
         if(OpenClipboard(NULL)){
@@ -381,7 +381,7 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
 
 
     ImGui::SameLine(0.0f,30.0f);
-    if( CusTomImGui::ModernButton("Thêm từ file local")){
+    if( CSImGui::ModernButton("Thêm từ file local")){
         auto files=OpenFilePickerW();
         if(!files.empty()){
             std::wstring firstFileUtf8=files[0];
@@ -399,7 +399,7 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
 
 
     // --- Buttons OK/Cancel ---
-    if( CusTomImGui::ModernButton("OK")){
+    if( CSImGui::ModernButton("OK")){
         if( IsValidLocalFile(urlInput)){
             outResultURL = urlInput;
             if(data.saveHistory) AddLocalToHistory(data, urlInput);
@@ -421,7 +421,7 @@ void ShowURLPopupContent(bool& closePopup, std::wstring& outResultURL,
     }
 
     ImGui::SameLine();
-    if( CusTomImGui::ModernButton("Hủy")){
+    if( CSImGui::ModernButton("Hủy")){
         closePopup=true;
         pendingLocalFilesLocal.clear();
     }

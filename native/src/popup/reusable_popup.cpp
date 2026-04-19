@@ -32,7 +32,7 @@ void ReusablePopup::Render() {
     ImGui::SetNextWindowSizeConstraints(ImVec2(400, 300), ImVec2(1920, 1080));
 
     // --- BẮT ĐẦU STYLE HIỆN ĐẠI ---
-    CusTomImGui::PushModernWindowStyle();
+    CSImGui::PushModernWindowStyle();
 
     // Loại bỏ thanh cuộn nếu không cần để UI mượt hơn
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse; 
@@ -53,7 +53,7 @@ void ReusablePopup::Render() {
     }
     
     // --- KẾT THÚC STYLE HIỆN ĐẠI ---
-    CusTomImGui::PopModernWindowStyle();
+    CSImGui::PopModernWindowStyle();
 
     if (!open) {
         // Reset logic khi đóng hẳn

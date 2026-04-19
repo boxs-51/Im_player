@@ -3,22 +3,15 @@
 #include "globals.h"
 
 #include <mpv/mpv_settings.h>
-
+#include <mpv/mpv_gui_.h>
 #include <imgui_internal.h>
 #include <imgui.h>
 #include <string>
 #include <stdarg.h>
 #include <map>
 #include <regex>
+#include <functional>
 
-
-static inline ImVec2 Lerp(const ImVec2& a, const ImVec2& b, float t)
-{
-    return ImVec2(
-        a.x + (b.x - a.x) * t,
-        a.y + (b.y - a.y) * t
-    );
-}
 
 // t in [0..1]: 0=Play, 1=Pause
 struct PlayPauseData
@@ -1138,261 +1131,9 @@ inline std::string safeFormatArg(const char* fmtSpec, va_list args, char type) {
 }
 // Khai báo biến toàn cục để các Helper sử dụng
 
-struct ThemeColors {
-    // --- 1. Window & Layout (Nền tảng chính) ---
-    ImVec4 WindowBg;            // Nền cửa sổ chính
-    ImVec4 ChildBg;             // Nền các vùng con (Child Window)
-    ImVec4 PopupBg;             // Nền Tooltip, Combo, Context Menu
-    ImVec4 Border;              // Màu viền (Borders)
-    ImVec4 Separator;           // Đường kẻ phân cách
 
-    // --- 2. Title Bar (Thanh tiêu đề) ---
-    ImVec4 TitleBg;             // Nền tiêu đề khi không hoạt động
-    ImVec4 TitleBgActive;       // Nền tiêu đề khi đang tập trung (Focus)
 
-    // --- 3. Typography (Chữ & Lựa chọn) ---
-    ImVec4 Text;                // Chữ chính (Main text)
-    ImVec4 TextDisabled;        // Chữ bị vô hiệu hóa, label phụ, placeholder
-    ImVec4 TextSelected;        // Màu chữ khi được bôi đen (Highlight)
-    ImVec4 TextSelectedBg;      // Màu nền khi chữ được bôi đen
-
-    // --- 4. Widgets & Frames (Input, Checkbox, Card) ---
-    ImVec4 FrameBg;             // Nền mặc định cho Input, Box, Panel
-    ImVec4 FrameBgHovered;      // Khi di chuột qua Input/Frame
-    ImVec4 FrameBgActive;       // Khi đang tương tác/nhập liệu
-    ImVec4 CheckMark;           // Màu dấu tích Checkbox, Radio button
-
-    // --- 5. Buttons (Nút bấm) ---
-    ImVec4 Button;              // Màu nút mặc định
-    ImVec4 ButtonHovered;       // Khi di chuột qua nút
-    ImVec4 ButtonActive;        // Khi nhấn giữ nút
-
-    // --- 6. Headers & Trees (Selectable, TreeNode) ---
-    ImVec4 Header;              // Màu khi item được chọn
-    ImVec4 HeaderHovered;       // Khi di chuột qua item
-    ImVec4 HeaderActive;        // Khi nhấn giữ item
-
-    // --- 7. Tabs (Thanh tab) ---
-    ImVec4 Tab;                 // Nền tab mặc định
-    ImVec4 TabHovered;          // Khi di chuột qua tab
-    ImVec4 TabActive;           // Tab đang hiển thị
-    ImVec4 TabUnfocused;        // Tab khi cửa sổ không được focus
-    ImVec4 TabUnfocusedActive;  // Tab đang hoạt động nhưng cửa sổ không focus
-
-    // --- 8. Tables (Bảng dữ liệu) ---
-    ImVec4 TableHeaderBg;       // Nền dòng tiêu đề bảng
-    ImVec4 TableRowBg;          // Nền dòng lẻ (hoặc nền mặc định dòng)
-    ImVec4 TableRowBgAlt;       // Nền dòng chẵn (Zebra striping)
-};
-inline ThemeColors GTheme;
-static inline void SetDarkTheme() {
-    // --- Nền & Viền ---
-    GTheme.WindowBg          = ImVec4(0.10f, 0.10f, 0.12f, 0.95f);
-    GTheme.FrameBg           = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.FrameBgHovered    = ImVec4(0.18f, 0.18f, 0.21f, 1.00f);
-    GTheme.FrameBgActive     = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
-    GTheme.PopupBg           = ImVec4(0.08f, 0.08f, 0.09f, 0.98f);
-    GTheme.ChildBg           = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.Border            = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-    GTheme.Separator         = ImVec4(0.25f, 0.25f, 0.28f, 1.00f);
-
-    // --- Chữ & Title ---
-    GTheme.Text              = ImVec4(1.00f, 1.00f, 1.00f, 0.95f);
-    GTheme.TextDisabled      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-    GTheme.TextSelected      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    GTheme.TextSelectedBg    = ImVec4(0.12f, 0.45f, 0.90f, 0.35f);
-    GTheme.TitleBg           = ImVec4(0.08f, 0.08f, 0.09f, 1.00f);
-    GTheme.TitleBgActive     = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-
-    // --- Tương tác (Buttons / Checkbox) ---
-    GTheme.Button            = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
-    GTheme.ButtonHovered     = ImVec4(0.15f, 0.55f, 1.00f, 1.00f);
-    GTheme.ButtonActive      = ImVec4(0.10f, 0.35f, 0.80f, 1.00f);
-    GTheme.CheckMark         = ImVec4(0.12f, 0.45f, 0.90f, 1.00f);
-
-    // --- Headers & Tabs ---
-    GTheme.Header            = ImVec4(0.18f, 0.21f, 0.25f, 1.00f);
-    GTheme.HeaderHovered     = ImVec4(0.24f, 0.27f, 0.32f, 1.00f);
-    GTheme.HeaderActive      = ImVec4(0.28f, 0.33f, 0.40f, 1.00f);
-    GTheme.Tab               = ImVec4(0.12f, 0.12f, 0.14f, 1.00f);
-    GTheme.TabHovered        = ImVec4(0.18f, 0.18f, 0.21f, 1.00f);
-    GTheme.TabActive         = ImVec4(0.15f, 0.15f, 0.17f, 1.00f);
-    GTheme.TabUnfocused      = ImVec4(0.10f, 0.10f, 0.12f, 1.00f);
-    GTheme.TabUnfocusedActive = ImVec4(0.12f, 0.45f, 0.90f, 0.40f);
-
-    // --- Tables ---
-    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TableRowBgAlt     = ImVec4(1.00f, 1.00f, 1.00f, 0.03f);
-    GTheme.TableHeaderBg     = ImVec4(0.15f, 0.15f, 0.18f, 1.00f);
-}
-static inline void SetLightTheme() {
-    GTheme.WindowBg          = ImVec4(0.94f, 0.94f, 0.96f, 1.00f);
-    GTheme.FrameBg           = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    GTheme.FrameBgHovered    = ImVec4(0.95f, 0.95f, 0.97f, 1.00f);
-    GTheme.FrameBgActive     = ImVec4(0.90f, 0.90f, 0.93f, 1.00f);
-    GTheme.PopupBg           = ImVec4(1.00f, 1.00f, 1.00f, 0.98f);
-    GTheme.ChildBg           = ImVec4(0.97f, 0.97f, 0.98f, 1.00f);
-    GTheme.Border            = ImVec4(0.75f, 0.75f, 0.80f, 1.00f);
-    GTheme.Separator         = ImVec4(0.75f, 0.75f, 0.78f, 1.00f);
-
-    GTheme.Text              = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
-    GTheme.TextDisabled      = ImVec4(0.50f, 0.50f, 0.50f, 1.00f);
-    GTheme.TextSelected      = ImVec4(0.00f, 0.10f, 0.25f, 1.00f);
-    GTheme.TextSelectedBg    = ImVec4(0.00f, 0.47f, 0.83f, 0.25f);
-    GTheme.TitleBg           = ImVec4(0.88f, 0.88f, 0.90f, 1.00f);
-    GTheme.TitleBgActive     = ImVec4(0.80f, 0.80f, 0.83f, 1.00f);
-
-    GTheme.Button            = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
-    GTheme.ButtonHovered     = ImVec4(0.05f, 0.55f, 0.95f, 1.00f);
-    GTheme.ButtonActive      = ImVec4(0.00f, 0.40f, 0.75f, 1.00f);
-    GTheme.CheckMark         = ImVec4(0.00f, 0.47f, 0.83f, 1.00f);
-
-    GTheme.Header            = ImVec4(0.90f, 0.92f, 0.96f, 1.00f);
-    GTheme.HeaderHovered     = ImVec4(0.85f, 0.88f, 0.94f, 1.00f);
-    GTheme.HeaderActive      = ImVec4(0.80f, 0.84f, 0.90f, 1.00f);
-    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabHovered        = ImVec4(0.80f, 0.80f, 0.85f, 1.00f);
-    GTheme.TabActive         = ImVec4(0.70f, 0.70f, 0.75f, 1.00f);
-    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabUnfocusedActive = ImVec4(0.00f, 0.47f, 0.83f, 0.40f);
-
-    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TableRowBgAlt     = ImVec4(0.00f, 0.00f, 0.00f, 0.03f);
-    GTheme.TableHeaderBg     = ImVec4(0.85f, 0.85f, 0.88f, 1.00f);
-}
-static inline void SetMidnightTheme() {
-    GTheme.WindowBg          = ImVec4(0.07f, 0.08f, 0.11f, 0.98f);
-    GTheme.FrameBg           = ImVec4(0.09f, 0.11f, 0.16f, 1.00f);
-    GTheme.FrameBgHovered    = ImVec4(0.14f, 0.17f, 0.25f, 1.00f);
-    GTheme.FrameBgActive     = ImVec4(0.08f, 0.10f, 0.14f, 1.00f);
-    GTheme.PopupBg           = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
-    GTheme.ChildBg           = ImVec4(0.09f, 0.11f, 0.16f, 1.00f);
-    GTheme.Border            = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
-    GTheme.Separator         = ImVec4(0.18f, 0.22f, 0.30f, 1.00f);
-
-    GTheme.Text              = ImVec4(0.92f, 0.95f, 0.98f, 1.00f);
-    GTheme.TextDisabled      = ImVec4(0.40f, 0.45f, 0.55f, 1.00f);
-    GTheme.TextSelected      = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-    GTheme.TextSelectedBg    = ImVec4(0.25f, 0.45f, 0.90f, 0.45f);
-    GTheme.TitleBg           = ImVec4(0.05f, 0.06f, 0.08f, 1.00f);
-    GTheme.TitleBgActive     = ImVec4(0.09f, 0.11f, 0.15f, 1.00f);
-
-    GTheme.Button            = ImVec4(0.20f, 0.40f, 0.75f, 1.00f);
-    GTheme.ButtonHovered     = ImVec4(0.25f, 0.50f, 0.90f, 1.00f);
-    GTheme.ButtonActive      = ImVec4(0.15f, 0.35f, 0.65f, 1.00f);
-    GTheme.CheckMark         = ImVec4(0.30f, 0.55f, 1.00f, 1.00f);
-
-    GTheme.Header            = ImVec4(0.18f, 0.25f, 0.40f, 1.00f);
-    GTheme.HeaderHovered     = ImVec4(0.22f, 0.30f, 0.50f, 1.00f);
-    GTheme.HeaderActive      = ImVec4(0.28f, 0.38f, 0.60f, 1.00f);
-    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabHovered        = ImVec4(0.20f, 0.25f, 0.40f, 1.00f);
-    GTheme.TabActive         = ImVec4(0.15f, 0.18f, 0.30f, 1.00f);
-    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabUnfocusedActive = ImVec4(0.25f, 0.45f, 0.90f, 0.60f);
-
-    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TableRowBgAlt     = ImVec4(1.00f, 1.00f, 1.00f, 0.02f);
-    GTheme.TableHeaderBg     = ImVec4(0.12f, 0.15f, 0.22f, 1.00f);
-}
-static inline void SetRetroTheme() {
-    GTheme.WindowBg          = ImVec4(0.16f, 0.16f, 0.16f, 1.00f);
-    GTheme.FrameBg           = ImVec4(0.12f, 0.12f, 0.12f, 1.00f);
-    GTheme.FrameBgHovered    = ImVec4(0.20f, 0.19f, 0.18f, 1.00f);
-    GTheme.FrameBgActive     = ImVec4(0.10f, 0.10f, 0.10f, 1.00f);
-    GTheme.PopupBg           = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
-    GTheme.ChildBg           = ImVec4(0.14f, 0.14f, 0.14f, 1.00f);
-    GTheme.Border            = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.Separator         = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-
-    GTheme.Text              = ImVec4(0.92f, 0.86f, 0.70f, 1.00f);
-    GTheme.TextDisabled      = ImVec4(0.50f, 0.45f, 0.40f, 1.00f);
-    GTheme.TextSelected      = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
-    GTheme.TextSelectedBg    = ImVec4(0.84f, 0.60f, 0.13f, 0.35f);
-    GTheme.TitleBg           = ImVec4(0.11f, 0.11f, 0.11f, 1.00f);
-    GTheme.TitleBgActive     = ImVec4(0.15f, 0.14f, 0.13f, 1.00f);
-
-    GTheme.Button            = ImVec4(0.84f, 0.60f, 0.13f, 1.00f);
-    GTheme.ButtonHovered     = ImVec4(0.98f, 0.74f, 0.18f, 1.00f);
-    GTheme.ButtonActive      = ImVec4(0.72f, 0.51f, 0.10f, 1.00f);
-    GTheme.CheckMark         = ImVec4(0.58f, 0.63f, 0.13f, 1.00f);
-
-    GTheme.Header            = ImVec4(0.31f, 0.29f, 0.27f, 1.00f);
-    GTheme.HeaderHovered     = ImVec4(0.40f, 0.36f, 0.33f, 1.00f);
-    GTheme.HeaderActive      = ImVec4(0.25f, 0.24f, 0.23f, 1.00f);
-    GTheme.Tab               = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabHovered        = ImVec4(0.30f, 0.28f, 0.26f, 1.00f);
-    GTheme.TabActive         = ImVec4(0.25f, 0.23f, 0.21f, 1.00f);
-    GTheme.TabUnfocused      = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TabUnfocusedActive = ImVec4(0.84f, 0.60f, 0.13f, 0.50f);
-
-    GTheme.TableRowBg        = ImVec4(0.00f, 0.00f, 0.00f, 0.00f);
-    GTheme.TableRowBgAlt     = ImVec4(1.00f, 0.90f, 0.70f, 0.02f);
-    GTheme.TableHeaderBg     = ImVec4(0.18f, 0.17f, 0.16f, 1.00f);
-}
- 
-inline std::map<ThemeType, ThemeColors> ThemeLibrary;
-
-inline void InitThemeLibrary() {
-
-    // Theme Dark
-    SetDarkTheme(); // Hàm cũ của bạn
-    ThemeLibrary[ThemeType::DarkMode] = GTheme;
-
-    // Theme Light
-    SetLightTheme(); // Hàm cũ của bạn
-    ThemeLibrary[ThemeType::LightMode] = GTheme;
-
-    SetMidnightTheme();
-    ThemeLibrary[ThemeType::MidnightMode] = GTheme;
-
-    SetRetroTheme();
-    ThemeLibrary[ThemeType::RetroMode] = GTheme;
-
-    // Theme Nord (Ví dụ theme thứ 3)
-    // SetNordTheme();
-    // ThemeLibrary[ThemeType::Nord] = GTheme;
-}
-struct ThemeTransition {
-    ThemeColors startTheme;   // Màu lúc bắt đầu bấm nút
-    ThemeColors targetTheme;  // Màu đích muốn tới
-    float progress = 1.0f;    // 1.0 nghĩa là đã xong, < 1.0 là đang chạy
-    float speed = 2.5f;       // Tốc độ chuyển đổi
-    bool active = false;
-};
-inline ThemeTransition GTrans;
-inline void ApplyTheme(ThemeType type) {
-    if (ThemeLibrary.find(type) == ThemeLibrary.end()) return;
-
-    GTrans.startTheme = GTheme;              // Lưu trạng thái hiện tại làm điểm gốc
-    GTrans.targetTheme = ThemeLibrary[type]; // Lấy theme đích từ thư viện
-    GTrans.progress = 0.0f;                  // Reset tiến trình về 0
-    GTrans.active = true;
-}
-
-inline void UpdateTheme(float deltaTime) {
-    if (!GTrans.active) return;
-
-    GTrans.progress += deltaTime * GTrans.speed;
-    if (GTrans.progress >= 1.0f) {
-        GTrans.progress = 1.0f;
-        GTrans.active = false;
-    }
-
-    // Ép kiểu sang float* để duyệt toàn bộ struct (Nếu struct chỉ chứa ImVec4/float)
-    float* current = (float*)&GTheme;
-    float* start = (float*)&GTrans.startTheme;
-    float* target = (float*)&GTrans.targetTheme;
-
-    size_t numFloats = sizeof(ThemeColors) / sizeof(float);
-
-    for (size_t i = 0; i < numFloats; i++) {
-        // Công thức Lerp: Current = Start + (Target - Start) * Progress
-        current[i] = start[i] + (target[i] - start[i]) * GTrans.progress;
-    }
-}
-
-namespace CusTomImGui{
+namespace CSImGui{
     // InfoRow an toàn, hỗ trợ std::string
     inline void InfoRow(const char* label, const char* fmt, ...) {
         va_list args;
@@ -1446,8 +1187,8 @@ namespace CusTomImGui{
                 ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
             }
 
-            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GTheme.TableRowBg);
-            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt); 
+            ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GetColors(Col_TableRowBg));
+            ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GetColors(Col_TableRowBgAlt)); 
             
             return true;
         }
@@ -1465,9 +1206,9 @@ namespace CusTomImGui{
 
     inline bool BeginCard() {
         // Sử dụng màu nền Card nhẹ nhàng, tiệp với tông Dark của Window
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg); 
-        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border); // Viền mảnh
-        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text); // Chữ trắng sáng
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GetColors(Col_ChildBg)); 
+        ImGui::PushStyleColor(ImGuiCol_Border,  GetColors(Col_Border)); // Viền mảnh
+        ImGui::PushStyleColor(ImGuiCol_Text,    GetColors(Col_Text)); // Chữ trắng sáng
 
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12, 12));
@@ -1490,18 +1231,16 @@ namespace CusTomImGui{
     }
 
     inline bool BeginModernChild(const char* str_id, const ImVec2& size = ImVec2(0, 0), bool border = false, ImGuiWindowFlags extra_flags = 0) {
-        ImGuiContext& g = *GImGui;
-        ImGuiStyle& style = ImGui::GetStyle();
-        
+
         // Tùy chỉnh Style cho hiện đại
         ImGui::PushStyleVar(ImGuiStyleVar_ChildRounding, 8.0f); // Bo góc mềm mại
         ImGui::PushStyleVar(ImGuiStyleVar_ChildBorderSize, 1.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(12.0f, 12.0f));
         
         // Màu sắc (Sử dụng màu tối nhẹ hoặc trắng tinh khôi)
-        ImGui::PushStyleColor(ImGuiCol_ChildBg, GTheme.ChildBg); 
-        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_ChildBg, GetColors(Col_ChildBg)); 
+        ImGui::PushStyleColor(ImGuiCol_Border, GetColors(Col_Border));
+        ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
 
         if(ImGui::BeginChild(str_id, size, border, extra_flags | ImGuiWindowFlags_NoScrollbar)) return true;
 
@@ -1523,17 +1262,17 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_TabRounding, 5.0f);
         
         // Màu sắc
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text);  // Text mặc định hơi tối
-        ImGui::PushStyleColor(ImGuiCol_Tab,           GTheme.Tab);              // Trong suốt khi ko chọn
-        ImGui::PushStyleColor(ImGuiCol_TabHovered,    GTheme.TabHovered);
-        ImGui::PushStyleColor(ImGuiCol_TabActive,     GTheme.TabActive); // Tiệp màu với ChildBg bên dưới
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GTheme.TabUnfocused);
-        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive);
+        ImGui::PushStyleColor(ImGuiCol_Text,          GetColors(Col_Text));  // Text mặc định hơi tối
+        ImGui::PushStyleColor(ImGuiCol_Tab,           GetColors(Col_Tab));              // Trong suốt khi ko chọn
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,    GetColors(Col_TabHovered));
+        ImGui::PushStyleColor(ImGuiCol_TabActive,     GetColors(Col_TabActive)); // Tiệp màu với ChildBg bên dưới
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocused,  GetColors(Col_TabUnfocused));
+        ImGui::PushStyleColor(ImGuiCol_Button,        GetColors(Col_Button));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GetColors(Col_ButtonHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GetColors(Col_ButtonActive));
         
         // Đường kẻ dưới Tab Active (Màu Accent)
-        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GTheme.TabUnfocusedActive);
+        ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, GetColors(Col_TabUnfocusedActive));
         ImGuiTabBarFlags flags = ImGuiTabBarFlags_None;
         if (!(extra_flags & ImGuiTabBarFlags_FittingPolicyMask_)) {
                 flags |= ImGuiTabBarFlags_FittingPolicyScroll;
@@ -1554,14 +1293,14 @@ namespace CusTomImGui{
         ImGui::PopStyleColor(9);
         ImGui::PopStyleVar(3);
     }
-    inline bool ModernTabItem(const char* label, bool* p_open = NULL, ImGuiTabItemFlags flags = 0) {
+    inline bool ModernTabItem(const char* label, bool* p_open = NULL, ImGuiTabItemFlags flags = 0, ModernTabFlags m_flags = 0) {
         ImGuiContext& g = *GImGui;
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         ImGuiID id = window->GetID(label);
 
         // 1. Tùy chỉnh màu sắc Tab
         ImGui::PushStyleColor(ImGuiCol_Tab,                ImVec4(0,0,0,0)); // Tab ko chọn thì trong suốt
-        ImGui::PushStyleColor(ImGuiCol_TabHovered,         GTheme.TabHovered);
+        ImGui::PushStyleColor(ImGuiCol_TabHovered,         GetColors(Col_TabHovered));
         ImGui::PushStyleColor(ImGuiCol_TabActive,          ImVec4(0,0,0,0)); // Active cũng ko nền để hiện thanh bar
         ImGui::PushStyleColor(ImGuiCol_TabUnfocused,       ImVec4(0,0,0,0));
         ImGui::PushStyleColor(ImGuiCol_TabUnfocusedActive, ImVec4(0,0,0,0));
@@ -1570,24 +1309,31 @@ namespace CusTomImGui{
 
         // 2. Logic Animation cho thanh Bar bên dưới
         // Lưu ý: ImGui quản lý Tab hơi khác, ta cần dùng trạng thái đã chọn của frame trước
-        float* pT = ImGui::GetStateStorage()->GetFloatRef(id, 0.0f);
-        float target = ImGui::IsItemHovered() || selected ? 1.0f : 0.0f;
-        *pT += (target - *pT) * g.IO.DeltaTime * 12.0f;
+        if (ImGui::IsItemVisible()) {
+            float* pT = ImGui::GetStateStorage()->GetFloatRef(id, 0.0f);
+            if (!(m_flags & ModernTabFlags_NoAnimation)) {
+                float target = ImGui::IsItemHovered() || selected ? 1.0f : 0.0f;
+                *pT += (target - *pT) * g.IO.DeltaTime * 12.0f;
+            }else{
+                *pT = selected ? 1.0f : 0.0f;
+            }
 
-        // 3. Vẽ thanh chỉ báo (Indicator Bar)
-        if (*pT > 0.01f) {
-            ImVec2 p_min = ImGui::GetItemRectMin();
-            ImVec2 p_max = ImGui::GetItemRectMax();
-            float bar_width = (p_max.x - p_min.x) * 0.8f; // Thanh bar rộng 80% tab
-            float offset = (p_max.x - p_min.x - bar_width) * 0.5f;
+            // 3. Vẽ thanh chỉ báo (Indicator Bar)
+            if (*pT > 0.01f && !(m_flags & ModernTabFlags_NoIndicator)) {
+                ImVec2 p_min = ImGui::GetItemRectMin();
+                ImVec2 p_max = ImGui::GetItemRectMax();
+                float full_width = p_max.x - p_min.x;
+                float bar_width = (m_flags & ModernTabFlags_FullWidthBar) ? full_width : full_width * 0.8f;
+                float offset = (full_width - bar_width) * 0.5f;
 
-            ImVec2 b_min = ImVec2(p_min.x + offset, p_max.y - 2.0f);
-            ImVec2 b_max = ImVec2(p_min.x + offset + (bar_width * *pT), p_max.y); // Dài dần ra
+                ImVec2 b_min = ImVec2(p_min.x + offset, p_max.y - 2.0f);
+                ImVec2 b_max = ImVec2(p_min.x + offset + (bar_width * *pT), p_max.y); // Dài dần ra
 
-            ImVec4 col = selected ? GTheme.CheckMark : GTheme.TextDisabled;
-            col.w *= *pT;
+                ImVec4 col = selected ? GetColors(Col_CheckMark) : GetColors(Col_TextDisabled);
+                col.w *= *pT;
 
-            window->DrawList->AddRectFilled(b_min, b_max, ImGui::GetColorU32(col), 10.0f);
+                window->DrawList->AddRectFilled(b_min, b_max, ImGui::GetColorU32(col), 10.0f);
+            }
         }
         if(!selected){
             ImGui::PopStyleColor(5);
@@ -1613,12 +1359,12 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(5, 5));    // Tăng độ cao title bar
         
         // 3. Màu sắc hiện đại (Dark Theme tinh tế)
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, GTheme.WindowBg);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
-        ImGui::PushStyleColor(ImGuiCol_TitleBg, GTheme.TitleBg);
-        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GTheme.TitleBgActive);
-        ImGui::PushStyleColor(ImGuiCol_Border, GTheme.Border);
-        ImGui::PushStyleColor(ImGuiCol_Separator, GTheme.Separator);
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, GetColors(Col_WindowBg));
+        ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
+        ImGui::PushStyleColor(ImGuiCol_TitleBg, GetColors(Col_TitleBg));
+        ImGui::PushStyleColor(ImGuiCol_TitleBgActive, GetColors(Col_TitleBgActive));
+        ImGui::PushStyleColor(ImGuiCol_Border, GetColors(Col_Border));
+        ImGui::PushStyleColor(ImGuiCol_Separator, GetColors(Col_Separator));
     }
     inline void PopModernWindowStyle() {
         ImGui::PopStyleColor(6);
@@ -1654,10 +1400,10 @@ namespace CusTomImGui{
         ImVec2 center = bb.GetCenter();
         
         // Màu sắc
-        ImVec4 col_base = primary ? GTheme.Button : ImVec4(0,0,0,0);
-        ImVec4 col_hover = GTheme.ButtonHovered;
+        ImVec4 col_base = primary ? GetColors(Col_Button) : ImVec4(0,0,0,0);
+        ImVec4 col_hover = GetColors(Col_ButtonHovered);
         ImVec4 final_bg = ImLerp(col_base, col_hover, *pAnim);
-        if (held) final_bg = GTheme.ButtonActive;
+        if (held) final_bg = GetColors(Col_ButtonActive);
 
         // Vẽ nền (Sử dụng DrawList để bo góc mượt)
         window->DrawList->AddRectFilled(bb.Min - ImVec2(2 * *pAnim, 1 * *pAnim), 
@@ -1666,7 +1412,7 @@ namespace CusTomImGui{
 
         // Nếu là Secondary, vẽ thêm viền
         if (!primary) {
-            window->DrawList->AddRect(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(GTheme.Border), 6.0f);
+            window->DrawList->AddRect(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(GetColors(Col_Border)), 6.0f);
         }
 
         // Vẽ chữ căn giữa
@@ -1718,7 +1464,7 @@ namespace CusTomImGui{
         }
         
         // Màu nền mix thêm influence
-        ImVec4 final_bg = ImLerp(GTheme.Button, GTheme.ButtonHovered, *pAnim + influence);
+        ImVec4 final_bg = ImLerp(GetColors(Col_Button), GetColors(Col_ButtonHovered), *pAnim + influence);
         // ... vẽ tiếp ...
     }
 
@@ -1758,17 +1504,17 @@ namespace CusTomImGui{
         // 4. Vẽ Box nền
         // Bo góc hoàn toàn nếu là Circle, bo nhẹ nếu là kiểu khác
         float rounding = (style == CheckboxStyle::Circle) ? square_sz * 0.5f : 4.0f;
-        ImU32 col_bg = ImGui::GetColorU32((held && hovered) ? GTheme.FrameBgActive : hovered ? GTheme.FrameBgHovered : GTheme.FrameBg);
+        ImU32 col_bg = ImGui::GetColorU32((held && hovered) ? GetColors(Col_FrameBgActive) : hovered ? GetColors(Col_FrameBgHovered) : GetColors(Col_FrameBg));
         
         window->DrawList->AddRectFilled(pos, pos + ImVec2(square_sz, square_sz), col_bg, rounding);
         
         // Vẽ viền mỏng để trông sắc nét hơn
-        window->DrawList->AddRect(pos, pos + ImVec2(square_sz, square_sz), ImGui::GetColorU32(ToCol32(GTheme.Border), 0.5f), rounding);
+        window->DrawList->AddRect(pos, pos + ImVec2(square_sz, square_sz), ImGui::GetColorU32(ToCol32(GetColors(Col_Border)), 0.5f), rounding);
 
         // 5. Vẽ nội dung Check (Dựa trên enum Style)
         if (*pT > 0.01f) {
             ImVec2 center = pos + ImVec2(square_sz * 0.5f, square_sz * 0.5f);
-            ImU32 check_col = ImGui::GetColorU32(GTheme.CheckMark);
+            ImU32 check_col = ImGui::GetColorU32(GetColors(Col_CheckMark));
             // Hiệu ứng Fade Alpha theo animation
             check_col = (check_col & 0x00FFFFFF) | ((uint32_t)(*pT * 255) << 24);
 
@@ -1801,7 +1547,7 @@ namespace CusTomImGui{
             float text_y_offset = (square_sz - g.FontSize) * 0.5f;
             ImVec2 text_pos = ImVec2(pos.x + square_sz + imStyle.ItemInnerSpacing.x, pos.y + text_y_offset);
             
-            ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+            ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
             ImGui::RenderText(text_pos, label);
             ImGui::PopStyleColor();
         }
@@ -1836,7 +1582,7 @@ namespace CusTomImGui{
         if (*pFocusAnim > 0.01f) {
             ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
             rect.Expand(0.5f);
-            ImVec4 accent_col = GTheme.CheckMark;
+            ImVec4 accent_col = GetColors(Col_CheckMark);
             accent_col.w *= *pFocusAnim;
             window->DrawList->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(accent_col), 6.0f, 0, 1.5f);
         }
@@ -1848,11 +1594,11 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
-        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GetColors(Col_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GetColors(Col_FrameBgActive));
+        ImGui::PushStyleColor(ImGuiCol_Border,           GetColors(Col_Border)); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GetColors(Col_Text));
 
         bool changed = ImGui::InputTextMultiline(label, buf, buf_size, size, flags);
 
@@ -1870,11 +1616,11 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
-        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GetColors(Col_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GetColors(Col_FrameBgActive));
+        ImGui::PushStyleColor(ImGuiCol_Border,           GetColors(Col_Border)); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GetColors(Col_Text));
 
         // Ép thêm flag Resize và dùng Callback
         flags |= ImGuiInputTextFlags_CallbackResize;
@@ -1898,8 +1644,8 @@ namespace CusTomImGui{
         // Style cho ô Input
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg);
-        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GTheme.CheckMark : GTheme.Border);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GetColors(Col_CheckMark) : GetColors(Col_Border));
 
         ImGui::SetNextItemWidth(width);
         bool changed = ImGui::InputTextEx(label, "Type here...", buf, (int)buf_size, ImVec2(width, 0), flags);
@@ -1908,7 +1654,7 @@ namespace CusTomImGui{
         if (*pAnim > 0.01f) {
             ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
             rect.Expand(1.5f * (*pAnim));
-            ImVec4 glow_col = GTheme.CheckMark;
+            ImVec4 glow_col = GetColors(Col_CheckMark);
             glow_col.w *= (*pAnim * 0.4f);
             ImGui::GetWindowDrawList()->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(glow_col), 6.0f, 0, 1.5f);
         }
@@ -1931,8 +1677,8 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
         
-        ImGui::PushStyleColor(ImGuiCol_FrameBg, GTheme.FrameBg);
-        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GTheme.CheckMark : GTheme.Border);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg, GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_Border, is_active ? GetColors(Col_CheckMark) : GetColors(Col_Border));
 
         ImGui::SetNextItemWidth(width);
         
@@ -1944,7 +1690,7 @@ namespace CusTomImGui{
         if (*pAnim > 0.01f) {
             ImRect rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
             rect.Expand(1.5f * (*pAnim));
-            ImVec4 glow_col = GTheme.CheckMark;
+            ImVec4 glow_col = GetColors(Col_CheckMark);
             glow_col.w *= (*pAnim * 0.4f);
             ImGui::GetWindowDrawList()->AddRect(rect.Min, rect.Max, ImGui::GetColorU32(glow_col), 6.0f, 0, 1.5f);
         }
@@ -1996,16 +1742,16 @@ namespace CusTomImGui{
         if (( *pTHover > 0.0f || *pTSelect > 0.0f) && enabled) {
             // Màu nền mix giữa Header và HeaderHovered dựa trên tHover
             if(hovered || selected){
-                ImVec4 bgColor = GTheme.Header; 
+                ImVec4 bgColor = GetColors(Col_Header); 
                 if (*pTHover > 0.0f) {
-                    bgColor.x = ImLerp(GTheme.Header.x, GTheme.HeaderHovered.x, *pTHover);
-                    bgColor.y = ImLerp(GTheme.Header.y, GTheme.HeaderHovered.y, *pTHover);
-                    bgColor.z = ImLerp(GTheme.Header.z, GTheme.HeaderHovered.z, *pTHover);
-                    bgColor.w = ImLerp(GTheme.Header.w, GTheme.HeaderHovered.w, *pTHover);
+                    bgColor.x = ImLerp(GetColors(Col_Header).x, GetColors(Col_HeaderHovered).x, *pTHover);
+                    bgColor.y = ImLerp(GetColors(Col_Header).y, GetColors(Col_HeaderHovered).y, *pTHover);
+                    bgColor.z = ImLerp(GetColors(Col_Header).z, GetColors(Col_HeaderHovered).z, *pTHover);
+                    bgColor.w = ImLerp(GetColors(Col_Header).w, GetColors(Col_HeaderHovered).w, *pTHover);
                 }
                 
                 // Nếu đang được chọn, ưu tiên hiển thị màu HeaderActive hoặc giữ màu trộn
-                if (selected) bgColor = GTheme.HeaderActive;
+                if (selected) bgColor = GetColors(Col_HeaderActive);
 
                 window->DrawList->AddRectFilled(bb.Min, bb.Max, ImGui::ColorConvertFloat4ToU32(bgColor), 4.0f);
             }
@@ -2019,14 +1765,14 @@ namespace CusTomImGui{
             ImVec2 p1(bb.Min.x + 2.0f, centerY - (indicatorHeight * 0.5f) * *pTSelect);
             ImVec2 p2(bb.Min.x + 4.5f, centerY + (indicatorHeight * 0.5f) * *pTSelect);
             
-            window->DrawList->AddRectFilled(p1, p2, ImGui::ColorConvertFloat4ToU32(GTheme.Button), 10.0f);
+            window->DrawList->AddRectFilled(p1, p2, ImGui::ColorConvertFloat4ToU32(GetColors(Col_Button)), 10.0f);
         }
 
 
         // 6. Vẽ Văn Bản với hiệu ứng trượt (Slide)
         if (label[0] != '#' || (label[1] != '\0' && label[1] != '#')) {
             float textOffsetX = 10.0f + (*pTHover * 4.0f); // Trượt sang phải 4px khi hover
-            ImVec4 textColor = selected ? GTheme.TextSelected : GTheme.Text;
+            ImVec4 textColor = selected ? GetColors(Col_TextSelected) : GetColors(Col_Text);
             
             // Mix màu chữ mượt mà nếu cần (Tùy chọn)
             window->DrawList->AddText(ImVec2(pos.x + textOffsetX, pos.y + (size.y - g.FontSize) * 0.5f), 
@@ -2060,15 +1806,15 @@ namespace CusTomImGui{
             }
 
             // Style cho Header
-            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg,   GTheme.TableHeaderBg);
-            ImGui::PushStyleColor(ImGuiCol_HeaderActive,    GTheme.HeaderActive);
-            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,   GTheme.HeaderHovered);
-            ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
+            ImGui::PushStyleColor(ImGuiCol_TableHeaderBg,   GetColors(Col_TableHeaderBg));
+            ImGui::PushStyleColor(ImGuiCol_HeaderActive,    GetColors(Col_HeaderActive));
+            ImGui::PushStyleColor(ImGuiCol_HeaderHovered,   GetColors(Col_HeaderHovered));
+            ImGui::PushStyleColor(ImGuiCol_Text,            GetColors(Col_Text));
             ImGui::TableHeadersRow();
             ImGui::PopStyleColor(4);
 
             // Màu xen kẽ hàng
-            //ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GTheme.TableRowBgAlt_ListTable);
+            //ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GetColors(Col_TableRowBgAlt_ListTable);
             return true;
         }
         
@@ -2104,12 +1850,11 @@ namespace CusTomImGui{
         // Bo góc nhẹ cho header nếu muốn đồng bộ với Combo
         ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
-        
-        // Push bảng màu từ GTheme
-        ImGui::PushStyleColor(ImGuiCol_Header,        GTheme.Header);
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GTheme.HeaderHovered);
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GTheme.HeaderActive);
-        ImGui::PushStyleColor(ImGuiCol_Text,          GTheme.Text); // Dùng chung màu text cho đồng bộ
+   
+        ImGui::PushStyleColor(ImGuiCol_Header,        GetColors(Col_Header));
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GetColors(Col_HeaderHovered));
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GetColors(Col_HeaderActive));
+        ImGui::PushStyleColor(ImGuiCol_Text,          GetColors(Col_Text)); // Dùng chung màu text cho đồng bộ
 
         bool res = ImGui::CollapsingHeader(id, flags);
 
@@ -2148,7 +1893,7 @@ namespace CusTomImGui{
                     // Truncate text nếu quá dài
                     std::string truncated_opt = TextUtils::TruncateTextByPixels(opt.c_str(), custom_width - 25.0f);
 
-                    if (CusTomImGui::ModernSelectable(truncated_opt.c_str(), is_selected)) {
+                    if (CSImGui::ModernSelectable(truncated_opt.c_str(), is_selected)) {
                         // Chạy Validation Callback nếu có (dành cho SearchCombo)
                         std::string validated_val = opt;
                         if (on_validate_confirm && on_validate_confirm(validated_val)) {
@@ -2202,7 +1947,7 @@ namespace CusTomImGui{
         std::string& search_buf = search_buffers[buffer_id_key];
 
         // 2. Style cho Label
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
         ImGui::TextDisabled("%s", label);
         ImGui::PopStyleColor();
 
@@ -2213,10 +1958,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 8));
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,         GTheme.FrameBg);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,  GTheme.FrameBgHovered);
-        ImGui::PushStyleColor(ImGuiCol_Border,          GTheme.Border);
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,         GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,  GetColors(Col_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_Border,          GetColors(Col_Border));
+        ImGui::PushStyleColor(ImGuiCol_Text,            GetColors(Col_Text));
 
         // Hiển thị buffer tạm nếu đang focus, ngược lại hiển thị giá trị thật
         // Thêm flag ImGuiInputTextFlags_EnterReturnsTrue để biết khi nào nhấn Enter
@@ -2242,7 +1987,7 @@ namespace CusTomImGui{
             ImRect input_rect = ImRect(ImGui::GetItemRectMin(), ImGui::GetItemRectMax());
             input_rect.Expand(1.0f * (*pSearchAnim)); // Viền nở ra nhẹ khi focus
             
-            ImVec4 glow_col = GTheme.CheckMark; 
+            ImVec4 glow_col = GetColors(Col_CheckMark); 
             glow_col.w *= (*pSearchAnim * 0.4f); // Độ mờ của hiệu ứng Glow
             
             // Vẽ viền ngoài cùng mượt mà
@@ -2270,7 +2015,7 @@ namespace CusTomImGui{
         ImGui::SetNextWindowPos(ImVec2(ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().y + 2));
         ImGui::SetNextWindowSizeConstraints(ImVec2(custom_width, 0), ImVec2(custom_width, FLT_MAX));
 
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GetColors(Col_PopupBg));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
 
@@ -2329,7 +2074,7 @@ namespace CusTomImGui{
         bool is_open = ImGui::IsPopupOpen(popup_id,ImGuiPopupFlags_None);
 
         // 1. Style cho Label
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
         ImGui::TextDisabled("%s", label);
         ImGui::PopStyleColor();
 
@@ -2378,14 +2123,14 @@ namespace CusTomImGui{
 
         // Tự vẽ Frame (Background & Border)
         ImDrawList* draw_list = ImGui::GetWindowDrawList();
-        ImU32 bg_col = ImGui::GetColorU32(is_open ? GTheme.FrameBg : (is_hovered ? GTheme.FrameBgHovered : GTheme.FrameBg));
+        ImU32 bg_col = ImGui::GetColorU32(is_open ? GetColors(Col_FrameBg) : (is_hovered ? GetColors(Col_FrameBgHovered) : GetColors(Col_FrameBg)));
         
         draw_list->AddRectFilled(p_min, p_max, bg_col, 6.0f);
-        draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(GTheme.Border), 6.0f, 0, 1.0f);
+        draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(GetColors(Col_Border)), 6.0f, 0, 1.0f);
 
         // Vẽ viền sáng Glow (Giống hệt SearchCombo)
         if (*pAnim > 0.01f) {
-            ImVec4 accent = GTheme.CheckMark;
+            ImVec4 accent = GetColors(Col_CheckMark);
             accent.w *= (*pAnim * 0.4f);
             draw_list->AddRect(p_min, p_max, ImGui::GetColorU32(accent), 6.0f, 0, 1.5f);
         }
@@ -2394,7 +2139,7 @@ namespace CusTomImGui{
         float available_text_width = custom_width - 35.0f; 
         std::string truncated_display = TextUtils::TruncateTextByPixels(current_item.c_str(), available_text_width);
         // Cộng thêm FramePadding để text nằm giữa
-        draw_list->AddText(ImVec2(p_min.x + 10.0f, p_min.y + 8.0f), ImGui::GetColorU32(GTheme.Text), truncated_display.c_str());
+        draw_list->AddText(ImVec2(p_min.x + 10.0f, p_min.y + 8.0f), ImGui::GetColorU32(GetColors(Col_Text)), truncated_display.c_str());
 
         // Vẽ mũi tên Vector có khả năng xoay
         float arrow_size = 5.0f;
@@ -2408,7 +2153,7 @@ namespace CusTomImGui{
         ImVec2 p1 = RotatePt(ImVec2(arrow_center.x - arrow_size, arrow_center.y - arrow_size * 0.4f), arrow_center, angle);
         ImVec2 p2 = RotatePt(ImVec2(arrow_center.x + arrow_size, arrow_center.y - arrow_size * 0.4f), arrow_center, angle);
         ImVec2 p3 = RotatePt(ImVec2(arrow_center.x, arrow_center.y + arrow_size * 0.6f), arrow_center, angle);
-        draw_list->AddTriangleFilled(p1, p2, p3, ImGui::GetColorU32(is_open ? GTheme.CheckMark : GTheme.Text));
+        draw_list->AddTriangleFilled(p1, p2, p3, ImGui::GetColorU32(is_open ? GetColors(Col_CheckMark) : GetColors(Col_Text)));
 
         ImGui::PopStyleVar(2); // Dọn dẹp Frame Vars
 
@@ -2416,7 +2161,7 @@ namespace CusTomImGui{
         ImGui::SetNextWindowPos(ImVec2(p_min.x, p_max.y + 2));
         ImGui::SetNextWindowSizeConstraints(ImVec2(custom_width, 0), ImVec2(custom_width, FLT_MAX));
 
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg);
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GetColors(Col_PopupBg));
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(4, 4));
 
@@ -2449,7 +2194,7 @@ namespace CusTomImGui{
         else
             *appear_anim = 0.0f;
         // Áp dụng Style Window hiện đại cho Popup
-        CusTomImGui::PushModernWindowStyle();
+        CSImGui::PushModernWindowStyle();
         
         ImVec4 dim_col = ImVec4(0, 0, 0, 0.6f * (*appear_anim));
         // Thêm hiệu ứng làm mờ nền (Dim background)
@@ -2462,7 +2207,7 @@ namespace CusTomImGui{
         
         if (!isOpen) {
             ImGui::PopStyleColor();
-            CusTomImGui::PopModernWindowStyle();
+            CSImGui::PopModernWindowStyle();
         }
         return isOpen;
     }
@@ -2470,7 +2215,7 @@ namespace CusTomImGui{
     inline void EndModernPopup() {
         ImGui::EndPopup();
         ImGui::PopStyleColor();
-        CusTomImGui::PopModernWindowStyle();
+        CSImGui::PopModernWindowStyle();
     }
 
     inline void EndModernTreeNode(){
@@ -2482,10 +2227,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(4, 6)); 
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(8, 4));
 
-        ImGui::PushStyleColor(ImGuiCol_Header,         GTheme.Header); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  GTheme.HeaderHovered); 
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,   GTheme.HeaderActive); 
-        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text); 
+        ImGui::PushStyleColor(ImGuiCol_Header,         GetColors(Col_Header)); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderHovered,  GetColors(Col_HeaderHovered)); 
+        ImGui::PushStyleColor(ImGuiCol_HeaderActive,   GetColors(Col_HeaderActive)); 
+        ImGui::PushStyleColor(ImGuiCol_Text,           GetColors(Col_Text)); 
 
         bool open = ImGui::TreeNode(id);
         
@@ -2497,22 +2242,26 @@ namespace CusTomImGui{
         // Nếu mở, việc Pop sẽ do EndModernTreeNode đảm nhận
         return open;
     }
-    inline bool ModernSliderFloat(const char* label, float* v, float v_min, float v_max, 
-                                float height = 4.0f, float grab_radius = 8.0f, 
-                                const char* format = "%.3f", float custom_width = -1.0f)
+
+    // Khai báo callback: current_v (giá trị thực), seek_v (giá trị chuột đang trỏ tới)
+    using SliderTooltipCallback = std::function<void(float current_v, float seek_v)>;
+
+    inline bool ModernSliderFloatEx(const char* label, float* v, float v_min, float v_max, 
+                                    float height = 4.0f, float grab_radius = 8.0f, 
+                                    const char* format = "%.3f", float custom_width = -1.0f,
+                                    SliderTooltipCallback tooltip_cb = nullptr)
     {
         ImGuiWindow* window = ImGui::GetCurrentWindow();
         if (window->SkipItems) return false;
 
         ImGuiContext& g = *GImGui;
-        const ImGuiStyle& style = g.Style;
+        const ImGuiID id = window->GetID(label);
+        ImDrawList* draw_list = window->DrawList;
 
         // --- 1. Label ---
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
         ImGui::TextDisabled("%s: %s", label, TextUtils::Format(format, *v).c_str());
-        ImGui::PopStyleColor();
 
-        // --- 2. Tính vùng tương tác ---
+        // --- 2. Tương tác ---
         const float w = (custom_width > 0) ? custom_width : ImGui::CalcItemWidth();
         float interaction_height = grab_radius * 2.5f;
         ImVec2 pos = window->DC.CursorPos;
@@ -2521,53 +2270,109 @@ namespace CusTomImGui{
         ImGui::InvisibleButton(label, size);
         bool hovered = ImGui::IsItemHovered();
         bool active = ImGui::IsItemActive();
-        bool clicked = ImGui::IsItemClicked();
-
-        ImGuiID id = window->GetID(label);
+        
         ImVec2 mouse_pos = ImGui::GetIO().MousePos;
-
         bool changed = false;
 
-        // --- 3. Cập nhật giá trị khi kéo ---
+        float t_mouse = ImClamp((mouse_pos.x - pos.x) / size.x, 0.0f, 1.0f);
+        float seek_v = v_min + t_mouse * (v_max - v_min);
+
         if (active) {
-            float t = (mouse_pos.x - pos.x) / size.x;
-            t = ImClamp(t, 0.0f, 1.0f);
-            float new_v = v_min + t * (v_max - v_min);
-            if (new_v != *v) {
-                *v = new_v;
-                changed = true;
+            if (seek_v != *v) { *v = seek_v; changed = true; }
+        }
+
+        float t_fill = ImClamp((*v - v_min) / (v_max - v_min), 0.0f, 1.0f);
+        float center_y = pos.y + size.y * 0.5f;
+        ImVec2 grab_center(pos.x + t_fill * size.x, center_y);
+
+        // =============================================================
+        // PHẦN 1: TỰ VẼ TOOLTIP (CUSTOM DRAWN TOOLTIP)
+        // =============================================================
+        if (hovered || active) {
+            char buf[64];
+            sprintf(buf, format, (active ? *v : seek_v));
+            ImVec2 text_size = ImGui::CalcTextSize(buf);
+            
+            // Cấu hình khung tooltip
+            float tt_padding = 5.0f;
+            ImVec2 tt_size(text_size.x + tt_padding * 2, text_size.y + tt_padding * 2);
+            
+            // Vị trí tooltip (nằm trên nút Grab một khoảng)
+            ImVec2 tt_pos;
+            tt_pos.x = grab_center.x - tt_size.x * 0.5f;
+            tt_pos.y = grab_center.y - grab_radius - tt_size.y - 10.0f; // Cách grab 10px
+
+            // Vẽ mũi tên nhỏ trỏ xuống
+            ImVec2 p1(grab_center.x - 5, tt_pos.y + tt_size.y);
+            ImVec2 p2(grab_center.x + 5, tt_pos.y + tt_size.y);
+            ImVec2 p3(grab_center.x, tt_pos.y + tt_size.y + 5);
+            draw_list->AddTriangleFilled(p1, p2, p3, ImGui::GetColorU32(ImGuiCol_PopupBg));
+
+            // Vẽ khung Tooltip
+            draw_list->AddRectFilled(tt_pos, ImVec2(tt_pos.x + tt_size.x, tt_pos.y + tt_size.y), 
+                                    ImGui::GetColorU32(ImGuiCol_PopupBg), 4.0f);
+            draw_list->AddRect(tt_pos, ImVec2(tt_pos.x + tt_size.x, tt_pos.y + tt_size.y), 
+                            ImGui::GetColorU32(ImGuiCol_Border), 4.0f);
+
+            // Vẽ Text giá trị bên trong Tooltip tự vẽ
+            draw_list->AddText(ImVec2(tt_pos.x + tt_padding, tt_pos.y + tt_padding), 
+                            ImGui::GetColorU32(ImGuiCol_Text), buf);
+            
+            // Nếu có callback để vẽ thêm hình phức tạp
+            if (tooltip_cb) {
+                // Lưu ý: Callback ở đây sẽ phải dùng draw_list để vẽ thay vì ImGui::Text
+                tooltip_cb(*v, seek_v); 
             }
         }
 
-        // --- 4. Vẽ track ---
-        ImDrawList* draw_list = window->DrawList;
-        float center_y = pos.y + size.y * 0.5f;
+        // =============================================================
+        // PHẦN 2: THANH BAR (TRACK & FILL)
+        // =============================================================
         ImVec2 track_p1(pos.x, center_y - height * 0.5f);
         ImVec2 track_p2(pos.x + size.x, center_y + height * 0.5f);
-
-        // Track nền
-        draw_list->AddRectFilled(track_p1, track_p2, ToCol32(GTheme.FrameBg), height * 0.5f);
-
-        // Track active
-        float t_fill = (*v - v_min) / (v_max - v_min);
-        t_fill = ImClamp(t_fill, 0.0f, 1.0f);
-        ImVec2 active_p2(track_p1.x + t_fill * size.x, track_p2.y);
-        draw_list->AddRectFilled(track_p1, active_p2, ToCol32(GTheme.CheckMark), height * 0.5f);
-
-        // --- 5. Border track ---
-        draw_list->AddRect(track_p1, track_p2, ToCol32(GTheme.Border), height * 0.5f, 0, 1.0f);
-
-        // --- 6. Vẽ Grab ---
-        ImVec2 grab_center(track_p1.x + t_fill * size.x, center_y);
-        float visual_radius = grab_radius;
-        if (active) visual_radius *= 1.2f;
-        else if (hovered) visual_radius *= 1.1f;
         
-        draw_list->AddCircleFilled(grab_center, visual_radius + 1.0f, IM_COL32(0,0,0,40));
-        draw_list->AddCircleFilled(grab_center, visual_radius, ToCol32(GTheme.TextSelected));
-        draw_list->AddCircle(grab_center, visual_radius, ToCol32(GTheme.CheckMark), 0, 2.0f);
+        draw_list->AddRectFilled(track_p1, track_p2, ImGui::GetColorU32(hovered ? ImGuiCol_FrameBgHovered : ImGuiCol_FrameBg), height * 0.5f);
+        
+        ImVec2 fill_p2(track_p1.x + t_fill * size.x, track_p2.y);
+        draw_list->AddRectFilled(track_p1, fill_p2, ImGui::GetColorU32(active ? ImGuiCol_PlotHistogramActive : ImGuiCol_PlotHistogram), height * 0.5f);
+        draw_list->AddRect(track_p1, track_p2, ImGui::GetColorU32(ImGuiCol_Border), height * 0.5f, 0, 1.0f);
+
+        // =============================================================
+        // PHẦN 3: NÚT TRÒN (GRAB)
+        // =============================================================
+        float g_radius = active ? grab_radius * 1.3f : (hovered ? grab_radius * 1.15f : grab_radius);
+        ImU32 g_col = active ? ImGui::GetColorU32(ImGuiCol_SliderGrabActive) : 
+                    (hovered ? ImGui::GetColorU32(ImGuiCol_SliderGrabHovered) : ImGui::GetColorU32(ImGuiCol_SliderGrab));
+
+        draw_list->AddCircleFilled(grab_center, g_radius + 2.0f, IM_COL32(0, 0, 0, 30));
+        draw_list->AddCircleFilled(grab_center, g_radius, g_col);
+        draw_list->AddCircle(grab_center, g_radius, ImGui::GetColorU32(ImGuiCol_CheckMark), 0, 1.5f);
 
         return changed;
+    }
+    inline bool ModernSliderFloat(const char* label, float* v, float v_min, float v_max, 
+                            float height = 4.0f, float grab_radius = 8.0f, 
+                            const char* format = "%.3f", float custom_width = -1.0f,
+                            SliderTooltipCallback tooltip_cb = nullptr){
+                                
+        ImGui::PushStyleColor(ImGuiCol_PopupBg              ,GetColors(Col_PopupBg));
+        ImGui::PushStyleColor(ImGuiCol_Border               ,GetColors(Col_Border));
+        ImGui::PushStyleColor(ImGuiCol_Text                 ,GetColors(Col_Text));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered       ,GetColors(Col_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_FrameBg              ,GetColors(Col_FrameBg));
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogramActive  ,GetColors(Col_PlotHistogramActive));
+        ImGui::PushStyleColor(ImGuiCol_PlotHistogram        ,GetColors(Col_PlotHistogram));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrabHovered    ,GetColors(Col_SliderGrabHovered));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrabActive     ,GetColors(Col_SliderGrabActive));
+        ImGui::PushStyleColor(ImGuiCol_SliderGrab           ,GetColors(Col_SliderGrab));
+        ImGui::PushStyleColor(ImGuiCol_CheckMark            ,GetColors(Col_CheckMark));
+        bool s = ModernSliderFloatEx(label,v,v_min,v_max, 
+                            height, grab_radius, 
+                            format,custom_width,
+                            tooltip_cb);
+        ImGui::PopStyleColor(11);
+        return s;
+
     }
     inline bool ModernInputText(const char* label, char* buf, size_t buf_size, ImGuiInputTextFlags flags = 0) {
         // 1. Setup Style tương tự Multiline nhưng padding dọc nhỏ hơn để cân đối
@@ -2576,11 +2381,11 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
         // 2. Màu sắc từ Theme
-        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GTheme.FrameBg); 
-        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GTheme.FrameBgHovered);
-        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GTheme.FrameBgActive);
-        ImGui::PushStyleColor(ImGuiCol_Border,           GTheme.Border); 
-        ImGui::PushStyleColor(ImGuiCol_Text,             GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_FrameBg,          GetColors(Col_FrameBg)); 
+        ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GetColors(Col_FrameBgHovered));
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GetColors(Col_FrameBgActive));
+        ImGui::PushStyleColor(ImGuiCol_Border,           GetColors(Col_Border)); 
+        ImGui::PushStyleColor(ImGuiCol_Text,             GetColors(Col_Text));
 
         bool changed = ImGui::InputText(label, buf, buf_size, flags);
 
@@ -2602,10 +2407,10 @@ namespace CusTomImGui{
         ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(6, 2)); // Padding cực nhỏ cho Small Button
         
         // Sử dụng màu của SecondaryButton hoặc một màu Neutral hơn
-        ImGui::PushStyleColor(ImGuiCol_Button,          GTheme.Button);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GTheme.ButtonHovered); // Hover vẫn cho màu chính
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GTheme.ButtonActive);
-        ImGui::PushStyleColor(ImGuiCol_Text,            GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_Button,          GetColors(Col_Button));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered,   GetColors(Col_ButtonHovered)); // Hover vẫn cho màu chính
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,    GetColors(Col_ButtonActive));
+        ImGui::PushStyleColor(ImGuiCol_Text,            GetColors(Col_Text));
 
         bool pressed = ImGui::Button(label);
 
@@ -2626,10 +2431,10 @@ namespace CusTomImGui{
         }
 
         // 2. Setup Colors
-        ImGui::PushStyleColor(ImGuiCol_Button,        GTheme.Button);
-        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GTheme.ButtonHovered);
-        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GTheme.ButtonActive);
-        ImGui::PushStyleColor(ImGuiCol_Text,           GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_Button,        GetColors(Col_Button));
+        ImGui::PushStyleColor(ImGuiCol_ButtonHovered, GetColors(Col_ButtonHovered));
+        ImGui::PushStyleColor(ImGuiCol_ButtonActive,  GetColors(Col_ButtonActive));
+        ImGui::PushStyleColor(ImGuiCol_Text,           GetColors(Col_Text));
 
         // 3. Render Button
         // Sử dụng Button với label rỗng để lấy hitbox
@@ -2677,9 +2482,9 @@ namespace CusTomImGui{
 
         // 4. Thiết lập Style trước khi Begin
         // Sử dụng ImGuiWindowFlags_AlwaysAutoResize để giữ kích thước ổn định
-        ImGui::PushStyleColor(ImGuiCol_PopupBg, GTheme.PopupBg); // Màu nền Tooltip
-        ImGui::PushStyleColor(ImGuiCol_Border,  GTheme.Border); // Màu viền
-        ImGui::PushStyleColor(ImGuiCol_Text,    GTheme.Text); // Màu chữ
+        ImGui::PushStyleColor(ImGuiCol_PopupBg, GetColors(Col_PopupBg)); // Màu nền Tooltip
+        ImGui::PushStyleColor(ImGuiCol_Border,  GetColors(Col_Border)); // Màu viền
+        ImGui::PushStyleColor(ImGuiCol_Text,    GetColors(Col_Text)); // Màu chữ
 
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);                      // Giữ hiệu ứng fade in/out
         ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));  // Căn lề trong (Padding)
@@ -2732,8 +2537,8 @@ namespace CusTomImGui{
         }
 
         // 3. Tính toán màu sắc dựa trên trạng thái enabled
-        ImVec4 col_off = GTheme.FrameBg;
-        ImVec4 col_on  = GTheme.CheckMark;
+        ImVec4 col_off = GetColors(Col_FrameBg);
+        ImVec4 col_on  = GetColors(Col_CheckMark);
         
         // Nội suy màu nền
         ImVec4 current_col = ImLerp(col_off, col_on, *pT);
@@ -2741,7 +2546,7 @@ namespace CusTomImGui{
         // Nếu disabled, giảm độ đậm (Alpha) của cả background và knob
         float final_alpha = enabled ? 1.0f : 0.35f; 
         ImU32 bg_color = ImGui::ColorConvertFloat4ToU32(ImVec4(current_col.x, current_col.y, current_col.z, final_alpha));
-        ImU32 knob_color = ImGui::ColorConvertFloat4ToU32(ImVec4(GTheme.Text.x, GTheme.Text.y, GTheme.Text.z, final_alpha));
+        ImU32 knob_color = ImGui::ColorConvertFloat4ToU32(ImVec4(GetColors(Col_Text).x, GetColors(Col_Text).y, GetColors(Col_Text).z, final_alpha));
 
         // 4. Vẽ Background & Knob
         window->DrawList->AddRectFilled(bb.Min, bb.Max, bg_color, 10.0f);
@@ -2758,22 +2563,74 @@ namespace CusTomImGui{
         float height = ImGui::GetFontSize() + (4.0f * scale);
 
         // Vẽ thanh chỉ báo dọc (Indicator bar)
-        draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToCol32(GTheme.CheckMark), 2.0f);
+        draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToCol32(GetColors(Col_CheckMark)), 2.0f);
 
         // Vẽ Title
         ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.0f * scale);
-        ImGui::PushStyleColor(ImGuiCol_Text, GTheme.Text);
+        ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
         ImGui::Text(title);
         ImGui::PopStyleColor();
 
         // Separator mờ dần hoặc màu mỏng
-        ImVec4 sep_col = GTheme.Separator;
+        ImVec4 sep_col = GetColors(Col_Separator);
         sep_col.w = 0.3f; // Giảm độ đậm của gạch ngang
         ImGui::PushStyleColor(ImGuiCol_Separator, sep_col);
         ImGui::Separator();
         ImGui::PopStyleColor();
         
         ImGui::Spacing();
+    }
+    inline void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
+        const ImVec2& cardMax,const ImVec2& holeMin,const ImVec2& holeMax,
+        ImU32 fillCol,ImU32 borderCol,const CardHoleStyle& style) {
+        const float r = style.rounding;
+        // =========================
+        // FILL
+        // =========================
+        // Phải
+        dl->PushClipRect(ImVec2(holeMax.x, cardMin.y),cardMax,true);
+        dl->AddRectFilled(cardMin,cardMax,fillCol,r, ImDrawFlags_RoundCornersRight);
+        dl->PopClipRect();
+        // Trên trái
+        if (holeMin.y > cardMin.y){
+            dl->PushClipRect(cardMin,ImVec2(holeMax.x, holeMin.y),true);
+            dl->AddRectFilled(cardMin,cardMax,fillCol,r,ImDrawFlags_RoundCornersTopLeft);
+            dl->PopClipRect();
+        }
+        // ⭐ LEFT – MIDDLE (BỔ SUNG)
+        dl->PushClipRect(ImVec2(cardMin.x, holeMin.y),ImVec2(holeMin.x, holeMax.y),true);
+        dl->AddRectFilled(cardMin,cardMax,fillCol,0.0f,ImDrawFlags_None);
+        dl->PopClipRect();
+        // Dưới trái
+        if (holeMax.y < cardMax.y){
+            dl->PushClipRect(ImVec2(cardMin.x, holeMax.y),ImVec2(holeMax.x, cardMax.y),true);
+            dl->AddRectFilled(cardMin,cardMax,fillCol,r,ImDrawFlags_RoundCornersBottomLeft);
+            dl->PopClipRect();
+        }
+        // =========================
+        // BORDER
+        // =========================
+        if ((borderCol >> IM_COL32_A_SHIFT) > 0){
+            dl->PushClipRect(ImVec2(holeMax.x, cardMin.y),cardMax,true);
+            dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersRight,style.borderThickness);
+            dl->PopClipRect();
+            // Trên trái
+            if (holeMin.y > cardMin.y){
+                dl->PushClipRect(cardMin,ImVec2(holeMax.x, holeMin.y),true);
+                dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersTopLeft,style.borderThickness);
+                dl->PopClipRect();
+            }
+            // ⭐ LEFT – MIDDLE (BỔ SUNG)
+            dl->PushClipRect(ImVec2(cardMin.x, holeMin.y),ImVec2(holeMin.x, holeMax.y),true);
+            dl->AddRect(cardMin,cardMax,borderCol,0.0f, ImDrawFlags_None,style.borderThickness);
+            dl->PopClipRect();
+            // Dưới trái
+            if (holeMax.y < cardMax.y){
+                dl->PushClipRect(ImVec2(cardMin.x, holeMax.y),ImVec2(holeMax.x, cardMax.y),true);
+                dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersBottomLeft,style.borderThickness);
+                dl->PopClipRect();
+            }
+        }
     }
 
 }

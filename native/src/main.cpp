@@ -114,6 +114,16 @@ void Cleanup() {
 
     SDL_Quit();
 }
+void NotifyActivity(bool& show_ui_video) {
+    // Chỉ gọi SDL_ShowCursor nếu nó đang bị ẩn để tiết kiệm tài nguyên
+    if (!show_ui_video) {
+        show_ui_video = true;
+        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) {
+            SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+    lastInteractionTime = SDL_GetTicks64();
+}
 void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
     ImGui_ImplSDL2_ProcessEvent(e);
     // 1. Các sự kiện hệ thống quan trọng xử lý trước
@@ -230,7 +240,7 @@ bool InitMainWindow() {
 
     LoadSettings();
 
-    ApplyTheme(c_Settings.themetype);
+    InitThemeLibrary(c_Settings.themetype);
 
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
@@ -241,6 +251,70 @@ bool InitMainWindow() {
 
     return true;
 };
+void UpdateUIState( bool& show_ui_video) {
+    int mouseX, mouseY;
+    ImGuiIO& io = ImGui::GetIO();
+
+    ImVec2 mousePos = io.MousePos; 
+    //SDL_GetMouseState(&mouseX, &mouseY);
+    //SDL_Point mousePos = { mouseX, mouseY };
+
+    Uint64 currentTime = SDL_GetTicks64();
+    
+    // 1. Kiểm tra vị trí chuột
+    
+    bool isMouseInsideVideo = (mousePos.x >= Windowlayout.videoArea.x && 
+                               mousePos.x <= (Windowlayout.videoArea.x + Windowlayout.videoArea.w) &&
+                               mousePos.y >= Windowlayout.videoArea.y && 
+                               mousePos.y <= (Windowlayout.videoArea.y + Windowlayout.videoArea.h));
+    
+    //bool isMouseInsideVideo = SDL_PointInRect(&mousePos, &Windowlayout.videoArea);
+
+    // 2. Kiểm tra tương tác với UI (Hover nút, kéo slider, combo...)
+    // io.WantCaptureMouse là cách nhanh nhất để biết chuột có đang đè lên bất kỳ cửa sổ ImGui nào không
+    bool isInteractingWithUI = io.WantCaptureMouse && (ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered());
+
+    
+    // Lưu ý: Luôn reset timer nếu chuột đang di chuyển HOẶC đang tương tác với UI
+    bool isMouseMoving = ((io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) && io.WantCaptureMouse);
+
+    // 3. XÁC ĐỊNH TIMEOUT THEO 3 TRẠNG THÁI (Ưu tiên từ cao xuống thấp)
+    Uint32 currentTimeout = 300; // Đã rời khỏi video: 0.5s
+    if (isInteractingWithUI )    currentTimeout = 5000; // Đang tương tác UI: 5s
+    else if (isMouseInsideVideo) currentTimeout = 1500; // Di chuột bình thường trong video: 1s
+        
+    // 4. RESET TIMER KHI CÓ HOẠT ĐỘNG
+    
+    if ((isMouseMoving  ) && isMouseInsideVideo) {
+        lastInteractionTime = currentTime;
+        
+        // Tự động hiện lại UI nếu có hoạt động
+        if (!show_ui_video) {
+            show_ui_video = true;
+            SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+
+    // 5. LOGIC ẨN UI
+    if(IsAnyPopupOpen()) {
+        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) {
+            SDL_ShowCursor(SDL_ENABLE);
+        }
+    }
+
+    if (show_ui_video) {
+        // Chỉ ẩn khi hết thời gian chờ
+        if (currentTime - lastInteractionTime > currentTimeout) {
+            
+            // CỰC KỲ QUAN TRỌNG: Không ẩn khi đang có Popup/Combo mở hoặc đang kéo Slider
+            if (!ImGui::IsAnyItemActive() ) {
+                show_ui_video = false;
+                if(!IsAnyPopupOpen())
+                    SDL_ShowCursor(SDL_DISABLE);
+            }
+        }
+    }
+}
 void RenderUI(const PlaybackState& state ){
     glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
@@ -416,7 +490,6 @@ int main(int argc, char** argv) {
     SDL_SetMainReady();
 
     InitConsoleSystem();
-    InitThemeLibrary();
 
     StartRuntimeServices(); 
     std::set_terminate(TerminateHandler);
