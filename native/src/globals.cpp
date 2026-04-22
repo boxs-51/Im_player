@@ -10,7 +10,7 @@
 #include <queue>
 #include <map>
 
-#include <mpv/mpv_custom_ui.h>
+#include <gui/gui.h>
 #include <mpv/mpv_settings.h>
 #include <mpv/render_gl.h>
 

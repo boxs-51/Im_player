@@ -4,7 +4,7 @@
 
 #include <mpv/mpv_render_video.h>
 #include "mpv/mpv_basic_formats.h"
-#include "mpv/mpv_custom_ui.h"
+#include <gui/gui.h>
 #include "mpv/mpv_ui.h"
 #include <mpv/mpv_data.h>
 

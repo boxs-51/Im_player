@@ -7,9 +7,10 @@
                 "${workspaceFolder}/native/include",  
 
                 "${workspaceFolder}/native/include/mpv",      
-                "${workspaceFolder}/native/include/mpv/shaders",      
-                "${workspaceFolder}/native/include/mpv/scripts", 
-                "${workspaceFolder}/native/include/mpv/fillter", 
+                "${workspaceFolder}/native/src/mpv/shaders",      
+                "${workspaceFolder}/native/src/mpv/scripts", 
+                "${workspaceFolder}/native/src/mpv/fillter", 
+                
 
                 "${workspaceFolder}/native/include/nlohmann",  
                 "${workspaceFolder}/native/include/KHR",
@@ -25,6 +26,7 @@
                 "${workspaceFolder}/native/src/popup",
                 "${workspaceFolder}/native/src/threads",
                 "${workspaceFolder}/native/src/services",
+                "${workspaceFolder}/native/src/gui", 
                 
                 "${workspaceFolder}/native/imgui/misc/freetype",
                 "${workspaceFolder}/native/imgui/backends",

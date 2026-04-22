@@ -5,6 +5,7 @@
 
 #include <mpv/mpv_settings.h>
 
+#include <imgui_internal.h>
 #include <windows/windows_borderless_state.h>
 #include <util.h>
 #include <string>
@@ -25,8 +26,34 @@
 #include <type_traits>
 #include <initializer_list>
 #include <stdint.h>
+#include <sstream>
 namespace fs = std::filesystem;
-typedef unsigned int Uint;
+
+// --- Kiểu số nguyên không dấu (Unsigned Integers) ---
+typedef uint8_t  Uint8;  //  8-bit: 0 đến 255 (2^8 - 1)
+typedef uint16_t Uint16; // 16-bit: 0 đến 65,535 (2^16 - 1)
+typedef uint32_t Uint32; // 32-bit: 0 đến 4,294,967,295 (2^32 - 1)
+typedef uint64_t Uint64; // 64-bit: 0 đến 18,446,744,073,709,551,615 (2^64 - 1)
+// --- Kiểu số nguyên có dấu (Signed Integers) ---
+typedef int8_t   Int8;   //  8-bit: -128 đến 127
+typedef int16_t  Int16;  // 16-bit: -32,768 đến 32,767
+typedef int32_t  Int32;  // 32-bit: -2,147,483,648 đến 2,147,483,647
+typedef int64_t  Int64;  // 64-bit: -9,223,372,036,854,775,808 đến 9,223,372,036,854,775,807
+
+// --- Kiểu dữ liệu tùy chỉnh cho Project ---
+typedef unsigned int Uint;     // Thường là 32-bit (phụ thuộc vào compiler/Hệ điều hành)
+typedef uint32_t     UCol_32;  // 32-bit: Chuyên dùng cho mã màu RGBA (0xRRGGBBAA)
+typedef int          Int;      // Thường là 32-bit
+
+typedef bool Bool;  
+typedef float Float;
+typedef double Double;
+
+typedef std::string String;     // Chuỗi ký tự UTF-8
+typedef std::wstring WString;   // Chuỗi ký tự rộng (UTF-16 trên Windows)
+typedef std::vector<WString> WStringList; // Danh sách chuỗi rộng
+typedef std::vector<String> StringList;   // Danh sách chuỗi UTF-8
+typedef std::vector<void*> Vector;    // Danh sách con trỏ void (có thể chứa bất kỳ loại con trỏ nào)
 // Lưu ý: Không có khoảng trắng giữa COL_32 và (
 #define COL_32(r,g,b,a) ((Uint)(((a)&255)<<24) | (((b)&255)<<16) | (((g)&255)<<8) | ((r)&255))
 
@@ -47,19 +74,30 @@ struct Col32 {
     Col32(float _r, float _b, float _g, float _a) : r(_r), b(_b), g(_g), a(_a) {}
 };
 
-inline ImU32 ToCol32(const ImVec4& c) {return IM_COL32((Uint)(c.x*255.0f), (Uint)(c.y*255.0f), (Uint)(c.z*255.0f), (Uint)(c.w*255.0f));}
-//inline Col32 ToCol32 (const Col32& v) {return COL_32((Uint)v.r, (Uint)v.b, (Uint)v.g, (Uint)v.a);}
-//inline Col32 ToCol32 (const Vec4& v) {return COL_32((Uint)v.x ,(Uint)v.y ,(Uint)v.w ,(Uint)v.h);}
+inline ImU32 ToIUCol32(const ImVec4& c, float s = 255.0f) {return IM_COL32((Uint)(c.x*s), (Uint)(c.y*s), (Uint)(c.z*s), (Uint)(c.w*s));}
+inline ImU32 ToIUCol32(const Col32& c, float s = 255.0f) {return IM_COL32((Uint)(c.r*s), (Uint)(c.b*s), (Uint)(c.g*s), (Uint)(c.a*s));}
+inline ImU32 ToIUCol32(const Vec4& c, float s = 255.0f) {return IM_COL32((Uint)(c.x*s), (Uint)(c.y*s), (Uint)(c.w*s), (Uint)(c.h*s));}
+inline ImU32 ToIUCol32(const UCol_32& c) {return (Uint)c;}
+
+inline UCol_32 ToCol32 (const Col32& v, float s = 255.0f) {return COL_32((Uint)(v.r*s), (Uint)(v.b*s), (Uint)(v.g*s), (Uint)(v.a*s));}
+inline UCol_32 ToCol32 (const Vec4& v, float s = 255.0f) {return COL_32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.w*s) ,(Uint)(v.h*s));}
+inline UCol_32 ToCol32 (const ImVec4& v, float s = 255.0f) {return COL_32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.z*s) ,(Uint)(v.w*s));}
+inline UCol_32 ToCol32 (const ImU32& v) {return (Uint)v;}
+
 inline ImVec2 ToImVec2 (const Vec2& v) {return ImVec2{v.x, v.y};}
 inline ImVec4 ToImVec4 (const Vec4& v) {return ImVec4{v.x, v.y, v.w, v.h};}
+inline ImVec4 ToImVec4(ImU32 c)
+{
+    float r = (float)((c >> IM_COL32_R_SHIFT) & 0xFF) / 255.0f;
+    float g = (float)((c >> IM_COL32_G_SHIFT) & 0xFF) / 255.0f;
+    float b = (float)((c >> IM_COL32_B_SHIFT) & 0xFF) / 255.0f;
+    float a = (float)((c >> IM_COL32_A_SHIFT) & 0xFF) / 255.0f;
+    return ImVec4(r, g, b, a);
+}
 inline Vec2 ToVec2 (const ImVec2& v) {return Vec2{v.x, v.y};}
 inline Vec4 ToVec4 (const ImVec4& v) {return Vec4{v.x, v.y, v.z, v.w};}
 
-struct CardHoleStyle
-{
-    float rounding = 6.0f;
-    float borderThickness = 1.5f;
-};
+
 
 struct WindowContext {
     SDL_Window* mainWindow = nullptr;
@@ -165,27 +203,27 @@ void NotifyActivity(bool& show_ui_video);
 bool SetDelayHover( bool isHovering, double delaySeconds = 3.0, const char * id = nullptr ) ;
 
 
-std::wstring UTF8ToWide(const std::string& str);
-std::string WideToUTF8(const std::wstring& wstr);
+WString UTF8ToWide(const String& str);
+String WideToUTF8(const WString& wstr);
 
 template<typename T>
-bool mpv_get_prop(mpv_handle* mpv, const std::string& name, T& out);
+bool mpv_get_prop(mpv_handle* mpv, const String& name, T& out);
 
 // Specialization for double
 template<>
-inline bool mpv_get_prop<double>(mpv_handle* mpv, const std::string& name, double& out) {
+inline bool mpv_get_prop<double>(mpv_handle* mpv, const String& name, double& out) {
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_DOUBLE, &out) >= 0;
 }
 
 // Specialization for int
 template<>
-inline bool mpv_get_prop<int>(mpv_handle* mpv, const std::string& name, int& out) {
+inline bool mpv_get_prop<int>(mpv_handle* mpv, const String& name, int& out) {
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_INT64, &out) >= 0;
 }
 
 // Specialization for bool
 template<>
-inline bool mpv_get_prop<bool>(mpv_handle* mpv, const std::string& name, bool& out) {
+inline bool mpv_get_prop<bool>(mpv_handle* mpv, const String& name, bool& out) {
     int i=0;
     bool res = mpv_get_property(mpv, name.c_str(),MPV_FORMAT_FLAG, &i) >= 0;
     out = (i != 0);
@@ -194,14 +232,14 @@ inline bool mpv_get_prop<bool>(mpv_handle* mpv, const std::string& name, bool& o
 
 // Specialization for const char*
 template<>
-inline bool mpv_get_prop<const char*>(mpv_handle* mpv, const std::string& name, const char*& out) {
+inline bool mpv_get_prop<const char*>(mpv_handle* mpv, const String& name, const char*& out) {
 
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_STRING, &out) >= 0;
 }
 
 // Specialization for std::string
 template<>
-inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const std::string& name, std::string& out) {
+inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const String& name, std::string& out) {
     const char* tmp = nullptr;
     int ret = mpv_get_property(mpv, name.c_str(), MPV_FORMAT_STRING, &tmp);
     if (ret != 0) return false; // 0 = success
@@ -383,6 +421,118 @@ namespace TextUtils {
         va_end(args);
 
         return std::string(buf.data());
+    }
+    inline std::string TruncateTextByPixelsLines(
+        const char* text,
+        float max_width,
+        int max_lines,
+        ImFont* font,
+        float font_size)
+    {
+        std::string result;
+        const char* s = text;
+        int lines = 0;
+
+        while (*s && lines < max_lines)
+        {
+            const char* line_start = s;
+            float line_width = 0.0f;
+            const char* last_fit = s;
+
+            while (*s && *s != '\n')
+            {
+                const char* prev = s;
+                unsigned int c;
+                s += ImTextCharFromUtf8(&c, s, NULL);
+
+                float char_w = font->CalcTextSizeA(font_size, FLT_MAX, 0.0f, prev, s).x;
+
+                if (line_width + char_w > max_width)
+                    break;
+
+                line_width += char_w;
+                last_fit = s;
+            }
+
+            result.append(line_start, last_fit);
+
+            if (*s && *s != '\n')
+            {
+                result += "...";
+                break;
+            }
+
+            if (*s == '\n')
+            {
+                result += '\n';
+                s++;
+            }
+
+            lines++;
+        }
+
+        return result;
+    }
+    inline std::vector<std::string> WrapTextToLines(ImFont* font, float fontSize, const std::string& text, float max_width, int max_lines = 0) {
+        std::vector<std::string> lines;
+        if (text.empty()) return lines;
+
+        std::stringstream ss(text);
+        std::string segment;
+
+        while (std::getline(ss, segment, '\n')) {
+            std::stringstream ss_word(segment);
+            std::string word;
+            std::string current_line = "";
+
+            while (ss_word >> word) {
+                // Kiểm tra xem đã đạt giới hạn dòng chưa
+                if (max_lines > 0 && lines.size() >= (size_t)max_lines) break;
+
+                std::string test_line = current_line.empty() ? word : current_line + " " + word;
+                float line_w = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, test_line.c_str()).x;
+
+                if (line_w <= max_width) {
+                    current_line = test_line;
+                } else {
+                    if (!current_line.empty()) lines.push_back(current_line);
+                    
+                    // Nếu dòng mới này vượt quá max_lines, dừng lại
+                    if (max_lines > 0 && lines.size() >= (size_t)max_lines) {
+                        current_line = "";
+                        break;
+                    }
+                    current_line = word;
+                }
+            }
+            
+            if (!current_line.empty()) {
+                if (max_lines > 0 && lines.size() >= (size_t)max_lines) {
+                    // Đã đủ dòng, không thêm nữa
+                } else {
+                    lines.push_back(current_line);
+                }
+            }
+            
+            if (max_lines > 0 && lines.size() >= (size_t)max_lines) break;
+        }
+
+        // Xử lý thêm dấu "..." nếu văn bản còn dư
+        // (Kiểm tra đơn giản: nếu chuỗi gốc dài hơn tổng các ký tự trong list dòng)
+        // Hoặc kiểm tra nếu vòng lặp bị break sớm.
+        if (max_lines > 0 && lines.size() == (size_t)max_lines) {
+            std::string& last_line = lines.back();
+            // Thay thế 3 ký tự cuối bằng "..." hoặc cộng thêm nếu còn đủ chỗ
+            float dots_w = font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, "...").x;
+            
+            // Thu hẹp dòng cuối lại để nhét vừa dấu "..."
+            while (!last_line.empty() && (font->CalcTextSizeA(fontSize, FLT_MAX, 0.0f, last_line.c_str()).x + dots_w) > max_width) {
+                if (!last_line.empty()) last_line.pop_back();
+            }
+            last_line += "...";
+        }
+
+        return lines;
     }
 }
 

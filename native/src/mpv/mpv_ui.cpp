@@ -1,11 +1,12 @@
 #define STB_IMAGE_IMPLEMENTATION
-#include "mpv/mpv_custom_ui.h"
+#include <gui/gui.h>
 #include "mpv/mpv_ui_settings.h"
 #include "mpv/mpv_controller.h"
 #include "mpv/mpv_settings.h"
 #include "mpv/mpv_ui.h"
 #include <mpv/mpv_data.h>
 
+#include <gui/gui.h>
 #include "windows/windows_borderless.h"
 
 #include "popup/popup.h"
@@ -120,19 +121,6 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
     ImVec2 controlPosBar ((videoSize.x - sliderWidth) * 0.5f, videoSize.y* 0.85f);
     ImVec2 controlPos(videoSize.x * 0.05f, videoSize.y * 0.90f);
 
-    int currentChapterIndex = -1;
-    if (!g_videoInfo.g_chapters.empty()) {
-        for (int i = 0; i < (int)g_videoInfo.g_chapters.size(); i++) {
-            double start = g_videoInfo.g_chapters[i].time;
-            double end   = (i + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[i+1].time : g_playbackStatus.duration;
-
-            if (g_playbackStatus.playbackTime >= start && g_playbackStatus.playbackTime < end) {
-                currentChapterIndex = i;
-                break;
-            }
-        }
-    }
-
     if (onlyShowSeekBar) {
         sliderWidth = videoSize.x; // full chiều ngang
         controlPosBar= ImVec2(0.0f, videoSize.y - (videoSize.y * 0.025f)); // đặt ở dưới video
@@ -227,10 +215,9 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 1.0f*scale)); // mỏng
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
-
+    /*
     if (duration > 0.0f) {
-        ImGui::SetCursorPos(ImVec2(controlPosBar));
-        ImGui::SetNextItemWidth(sliderWidth);
+
 
         // === Slider vô hình để giữ layout và nhận tương tác ===
         ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0, 0, 0, 0)); // ẩn grab
@@ -441,7 +428,180 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
             }
         }
     }
+    */
+    int currentChapterIndex = -1;
+    double start_time= 0.0f;
+    double end_time = 0.0f;
+    if (!g_videoInfo.g_chapters.empty()) {
+        for (int i = 0; i < (int)g_videoInfo.g_chapters.size(); i++) {
+            start_time = g_videoInfo.g_chapters[i].time;
+            end_time   = (i + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[i+1].time : g_playbackStatus.duration;
+            if (g_playbackStatus.playbackTime >= start_time && g_playbackStatus.playbackTime < end_time) {
+                currentChapterIndex = i;
+                break;
+            }
+        }
+    }
+    float value = playbackTime;
+    float v_min = 0.0f;
+    float v_max = duration;
 
+    SliderFlags flags = SliderFlags_Default | SliderFlags_EnableSmoothPreview | SliderFlags_Animation;
+
+    ImGui::SetCursorPos(ImVec2(controlPosBar));
+    
+    bool changed = CSImGui::ModernSliderFloatEx(
+        "##SeekBar",
+        &value,
+        v_min,
+        v_max,
+        6.0f * scale,
+        8.0f * scale,
+        "%.2f",
+        sliderWidth,
+        flags,
+
+        // =========================
+        // RENDER CALLBACK
+        // =========================
+        [&](Phase phase, Slot slot, SliderRenderData& rd, ImDrawList* dl)
+        {
+            if(phase == Phase::Init){
+                // =========================
+                // BUFFER
+                // =========================
+                rd.buffer_t = g_playbackStatus.demuxer_cache_time / duration;
+
+                // =========================
+                // MARKERS (chapters)
+                // =========================
+                if (currentChapterIndex >= 0 && duration > 0.0)
+                {
+
+                    float start_t = (float)(start_time / duration);
+                    float end_t   = (float)(end_time   / duration);
+
+                    // clamp để đảm bảo an toàn
+                    rd.chapter_range_start = ImClamp(start_t, 0.0f, 1.0f);
+                    rd.chapter_range_end   = ImClamp(end_t,   0.0f, 1.0f);
+                }
+                rd.markers.clear();
+                rd.markers.reserve(g_videoInfo.g_chapters.size());
+                for (auto& c : g_videoInfo.g_chapters)
+                {
+                    rd.markers.push_back(c.time / duration);
+                }
+
+                // =========================
+                // COLORS
+                // =========================
+                rd.col_track          = ImVec4(0.235f, 0.235f, 0.235f, 0.706f); // (60, 60, 60, 180)
+                rd.col_buffer         = ImVec4(0.784f, 0.784f, 0.784f, 0.588f); // (200, 200, 200, 150)
+                rd.col_fill           = ImVec4(1.000f, 0.235f, 0.235f, 0.863f); // (255, 60, 60, 220)
+                rd.col_grab           = ImVec4(1.000f, 1.000f, 1.000f, 1.000f); // (255, 255, 255, 255)
+                rd.col_marker         = ImVec4(1.000f, 0.784f, 0.000f, 0.784f); // (255, 200, 0, 200)
+                rd.col_grab_border    = ImVec4(0.000f, 0.000f, 0.000f, 0.784f); // (0, 0, 0, 200)
+                rd.col_chapter_range  = ImVec4(0.392f, 0.392f, 1.000f, 0.235f); // (100, 100, 255, 60)
+                rd.col_border         = ImVec4(0.300f, 0.300f, 0.300f, 1.000f); // Màu xám đậm cho viền
+                rd.col_grab_shadow    = ImVec4(0.000f, 0.000f, 0.000f, 0.350f); // Đổ bóng nhẹ
+                if(rd.active){
+                    rd.col_fill           = ImVec4(1.00f, 0.10f, 0.10f, 1.00f); // Đỏ đậm rực khi đang kéo
+                    rd.col_grab           = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+                }else if(rd.grab_hovered){
+                    rd.col_fill           = ImVec4(1.00f, 0.30f, 0.30f, 0.90f);
+                    rd.col_grab           = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); // Hơi xám nhẹ khi hover grab
+                }else if(rd.bar_hovered){
+                    rd.col_track          = ImVec4(0.30f, 0.30f, 0.30f, 0.80f); // Nền sáng lên một chút
+                }
+                rd.height_on_hover = rd.height * 0.5;
+            }
+
+            // =========================
+            // OPTIONAL
+            // =========================
+            // rd.draw_grab = false; // nếu muốn ẩn knob
+        },
+
+        // =========================
+        // TOOLTIP CALLBACK
+        // =========================
+        [&](Phase phase, Slot slot, SliderTooltipData& td, ImDrawList* dl)
+        {
+            if (phase == Phase::Init)
+            {
+                char timeText[32];
+                int sec = (int)td.seek_value;
+
+                int h = sec / 3600;
+                int m = (sec % 3600) / 60;
+                int s = sec % 60;
+
+                if (td.seek_value >= 0 && td.seek_value <= duration)
+                {
+                    if (h > 0)
+                        sprintf(timeText, "%d:%02d:%02d", h, m, s);
+                    else
+                        sprintf(timeText, "%02d:%02d", m, s);
+
+                        
+                    strcpy(td.text, timeText);
+                }
+                if (!g_videoInfo.g_chapters.empty()) {
+                    td.show_title = false; // Reset mặc định
+
+                    for (size_t i = 0; i < g_videoInfo.g_chapters.size(); ++i) {
+                        double startTime = g_videoInfo.g_chapters[i].time;
+                        
+                        // Xác định endTime: nếu là chapter cuối thì lấy thời lượng tổng, 
+                        // nếu không thì lấy thời gian bắt đầu của chapter sau.
+                        double endTime = (i + 1 < g_videoInfo.g_chapters.size()) 
+                                        ? g_videoInfo.g_chapters[i + 1].time 
+                                        : g_playbackStatus.duration; 
+
+                        if (td.seek_value >= startTime && td.seek_value < endTime) {
+                            td.show_title = true;
+                            // Sử dụng strncpy hoặc snprintf để an toàn hơn strcpy
+                            snprintf(td.title, sizeof(td.title), "%s", g_videoInfo.g_chapters[i].title.c_str());
+                            break; 
+                        }
+                    }
+                }
+                td.max_width = 240.0f;
+                td.max_height = 180.0f;
+                td.align = SliderTooltipData::Center;
+            }
+        },
+
+        // =========================
+        // SEEK CALLBACK
+        // =========================
+
+        [&](const SliderSeekRequest& req)
+        {
+    
+            SliderSeekResult res{};
+
+            if ((req.from_drag || req.from_click) && !req.is_final)
+            {
+                // ===== PREVIEW =====
+                res.accept = false; // ❗ không update *v
+            }
+            else
+            {
+                if(req.is_hovered){
+                    // ===== COMMIT =====
+                    mpv_command_seek_abs(mpv, req.new_value, duration);
+
+                    res.value = req.new_value;
+                    res.accept = true;
+                }
+            }
+
+            return res;
+        },
+
+        nullptr // nav
+    );
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
 
@@ -450,7 +610,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         float i = 0.0f;
         if(!(g_playbackStatus.g_PlayingIndex == 0 && g_playbackStatus.g_playlist_count > 0)){
             ImGui::SetCursorPos(ImVec2(controlPos.x, controlPos.y)); i =  i + 1.0f ;
-            if (CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
+            if (CSImGui::CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
             CSImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
@@ -459,7 +619,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         static  PlayPauseData playData;
         playData.paused = !paused;
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 1.0f;
-        if (CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize ,&playData)) {
+        if (CSImGui::CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize ,&playData)) {
             if (paused) mpv_command_play(mpv);
             else        mpv_command_pause(mpv);
             
@@ -470,7 +630,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
-            if (CustomIconButton("##next", DrawNextIcon, iconSize)) {
+            if (CSImGui::CustomIconButton("##next", DrawNextIcon, iconSize)) {
                 mpv_command_next_video(mpv);
             }
 
@@ -485,7 +645,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         volData.isMuted = isMuted; // true/false
 
 
-        CustomIconButton(
+        CSImGui::CustomIconButton(
             "##volume",
             DrawVolumeIcon,
             iconSize,
@@ -674,7 +834,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         settingsData.opened = showSettings;
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 16, controlPos.y));
         // Thay thế ImageButton bằng CustomIconButton + DrawSettingsIcon
-        if (CustomIconButton("##setting", DrawSettingsIconAnimated, iconSize , &settingsData)) {
+        if (CSImGui::CustomIconButton("##setting", DrawSettingsIconAnimated, iconSize , &settingsData)) {
             LoadSettings_Video();
             showSettings = !showSettings;
         }
@@ -694,7 +854,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 17, controlPos.y));
         static FullscreenIconData fsData;
         fsData.fullscreen = isFullscreen_video ;
-        if (CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
+        if (CSImGui::CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
 
             g_DragResizeState.ToggleFullscreen = true;
         }
@@ -705,7 +865,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         static OptionIconData optdata;
         optdata.opened  = SidarBarPopup.IsOpen();
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 18, controlPos.y));
-        if (CustomIconButton("##option", DrawOptionIconAnimated, iconSize ,&optdata)) {
+        if (CSImGui::CustomIconButton("##option", DrawOptionIconAnimated, iconSize ,&optdata)) {
             if (SidarBarPopup.IsOpen()){
                 SidarBarPopup.Close();
             }else{

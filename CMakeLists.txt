@@ -40,6 +40,9 @@ add_executable(imgui_player WIN32
     native/src/windows/windows_borderless.cpp
     native/src/windows/windows_custom_titlebar.cpp
 
+    native/src/gui/gui.cpp
+    native/src/gui/gui_widgets.cpp
+
     native/imgui/imgui.cpp
     native/imgui/imgui_draw.cpp
     native/imgui/imgui_tables.cpp
@@ -91,6 +94,7 @@ target_include_directories(imgui_player PRIVATE
     native/src/mpv/scripts
     native/src/mpv/fillter
 
+    native/src/gui
     native/include/nlohmann  
     native/include/KHR
     native/include/GL

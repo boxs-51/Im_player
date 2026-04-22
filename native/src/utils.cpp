@@ -9,7 +9,7 @@
 #include <popup/popup.h>
 
 #include <mpv/mpv_basic_formats.h>
-#include <mpv/mpv_custom_ui.h>
+#include <gui/gui.h>
 #include <mpv/mpv_render_video.h>
 #include <services/services_services.h>
 

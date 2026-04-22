@@ -3,7 +3,7 @@
 #include "mpv/mpv_controller.h"
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_ui.h"
-#include "mpv/mpv_custom_ui.h"
+#include <gui/gui.h>
 #include <mpv/mpv_data.h>
 
 #include "threads/thread_manager.h"
@@ -73,7 +73,7 @@ void UI_MenuItem(const char* label, const char* current_value, float scale, std:
     float max_label_w = center_split - margin_left - (5.0f * scale);
     std::string safe_label = TextUtils::TruncateToWidth(label, max_label_w);
     draw_list->AddText(ImVec2(p_min.x + margin_left, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
-                       ToCol32(GetColors(Col_Text)), safe_label.c_str());
+                       ToIUCol32(CSImGui::GetColors(Col_Text)), safe_label.c_str());
 
     // 4. Vẽ Value (Màu nhạt)
     if (current_value && strlen(current_value) > 0) {
@@ -82,11 +82,11 @@ void UI_MenuItem(const char* label, const char* current_value, float scale, std:
         float val_text_width = ImGui::CalcTextSize(safe_value.c_str()).x;
         
         draw_list->AddText(ImVec2(p_max.x - val_text_width - arrow_space, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
-                           ToCol32(GetColors(Col_TextDisabled)), safe_value.c_str());
+                           ToIUCol32(CSImGui::GetColors(Col_TextDisabled)), safe_value.c_str());
     }
     
     // 5. Mũi tên (Dùng màu nhấn khi hover)
-    ImU32 arrow_col = tHover > 0.5f ? ToCol32(GetColors(Col_Button)) : IM_COL32(100, 100, 100, 255);
+    ImU32 arrow_col = tHover > 0.5f ? ToIUCol32(CSImGui::GetColors(Col_Button)) : IM_COL32(100, 100, 100, 255);
     draw_list->AddText(ImVec2(p_max.x - (20.0f * scale), p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f), 
                        arrow_col, ">");
     
@@ -122,7 +122,7 @@ void UI_Toggle(const char* label, bool* v, float scale, bool enabled, std::funct
     float sw_h = 18.0f * scale;
     
     float text_y_pos = p_min.y + (row_height - ImGui::GetFontSize()) * 0.5f;
-    ImU32 text_col = enabled ? ToCol32(GetColors(Col_Text)) : ToCol32(GetColors(Col_TextDisabled));
+    ImU32 text_col = enabled ? ToIUCol32(CSImGui::GetColors(Col_Text)) : ToIUCol32(CSImGui::GetColors(Col_TextDisabled));
     
     draw_list->AddText(ImVec2(p_min.x + (12.0f * scale) + slide_offset, text_y_pos), 
                        text_col, label);
@@ -150,16 +150,16 @@ void UI_GroupHeader(const char* title, float scale = 1.0f) {
     float height = ImGui::GetFontSize() + (4.0f * scale);
 
     // Vẽ thanh chỉ báo dọc (Indicator bar)
-    draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToCol32(GetColors(Col_CheckMark)), 2.0f);
+    draw_list->AddRectFilled(ImVec2(p.x, p.y), ImVec2(p.x + 3.0f * scale, p.y + height), ToIUCol32(CSImGui::GetColors(Col_CheckMark)), 2.0f);
 
     // Vẽ Title
     ImGui::SetCursorPosX(ImGui::GetCursorPosX() + 10.0f * scale);
-    ImGui::PushStyleColor(ImGuiCol_Text, GetColors(Col_Text));
+    ImGui::PushStyleColor(ImGuiCol_Text, CSImGui::GetColors(Col_Text));
     ImGui::Text(title);
     ImGui::PopStyleColor();
 
     // Separator mờ dần hoặc màu mỏng
-    ImVec4 sep_col = GetColors(Col_Separator);
+    ImVec4 sep_col = CSImGui::GetColors(Col_Separator);
     sep_col.w = 0.3f; // Giảm độ đậm của gạch ngang
     ImGui::PushStyleColor(ImGuiCol_Separator, sep_col);
     ImGui::Separator();
@@ -186,7 +186,8 @@ void UI_SliderSpeed(const char* label, float* value, float min, float max, float
             slider_height,   // Chiều cao thanh trượt (Tham số mới)
             grab_size,       // Kích thước nút kéo (Tham số mới)
             "%.2fx",         // Định dạng hiển thị
-            full_width       // Chiều rộng full vùng chứa
+            full_width,      // Chiều rộng full vùng chứa
+            SliderFlags_None
         )) 
     {
         if (on_change) on_change(*value);
@@ -228,23 +229,23 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     std::string display_text = TextUtils::TruncateTextByPixels(label, text_max_w);
     
     // Mix màu chữ mượt mà giữa màu thường và màu được chọn
-    ImVec4 textColor = GetColors(Col_Text);
+    ImVec4 textColor = CSImGui::GetColors(Col_Text);
     if (tSelect > 0.0f) {
-        textColor.x = ImLerp(GetColors(Col_Text).x, GetColors(Col_TextSelected).x, tSelect);
-        textColor.y = ImLerp(GetColors(Col_Text).y, GetColors(Col_TextSelected).y, tSelect);
-        textColor.z = ImLerp(GetColors(Col_Text).z, GetColors(Col_TextSelected).z, tSelect);
-        textColor.w = ImLerp(GetColors(Col_Text).w, GetColors(Col_TextSelected).w, tSelect);
+        textColor.x = ImLerp(CSImGui::GetColors(Col_Text).x, CSImGui::GetColors(Col_TextSelected).x, tSelect);
+        textColor.y = ImLerp(CSImGui::GetColors(Col_Text).y, CSImGui::GetColors(Col_TextSelected).y, tSelect);
+        textColor.z = ImLerp(CSImGui::GetColors(Col_Text).z, CSImGui::GetColors(Col_TextSelected).z, tSelect);
+        textColor.w = ImLerp(CSImGui::GetColors(Col_Text).w, CSImGui::GetColors(Col_TextSelected).w, tSelect);
     }
 
     ImVec2 text_pos = ImVec2(p_min.x + (10.0f * scale) + slide_offset, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);
-    draw_list->AddText(text_pos, ToCol32(textColor), display_text.c_str());
+    draw_list->AddText(text_pos, ToIUCol32(textColor), display_text.c_str());
 
     // 3. Icon Checkmark (Fade in/out theo tSelect)
     if (tSelect > 0.1f) {
         float check_size = (6.0f * scale) * tSelect; // Phóng to dần
         ImVec2 check_pos = ImVec2(p_max.x - 20 * scale, p_min.y + item_height * 0.5f);
         
-        ImU32 check_col = ToCol32(GetColors(Col_CheckMark));
+        ImU32 check_col = ToIUCol32(CSImGui::GetColors(Col_CheckMark));
         // Làm mờ checkmark theo tSelect
         check_col = (check_col & 0x00FFFFFF) | ((uint32_t)(tSelect * 255) << 24);
         
@@ -416,11 +417,10 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
         targetWidth = 300.0f * scaleFactor;  // Phình rộng thêm một chút cho rõ chữ
         targetHeight = 370.0f * scaleFactor; // Phình to chiều cao cho danh sách dài
     }
-
+    ImVec2 size_target = ImVec2(targetWidth,targetHeight)
     // Nội suy kích thước cửa sổ để có hiệu ứng co giãn mượt mà
     static ImVec2 current_window_size = ImVec2(targetWidth, targetHeight);
-    current_window_size.x += (targetWidth - current_window_size.x) * ImGui::GetIO().DeltaTime * 8.0f;
-    current_window_size.y += (targetHeight - current_window_size.y) * ImGui::GetIO().DeltaTime * 8.0f;
+    current_window_size = ImLerp(current_window_size, size_target, SMOOTH_LERP( 15.0f,ImGui::GetIO().DeltaTime))
 
     ImVec2 windowSize(current_window_size);
 

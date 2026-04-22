@@ -5,7 +5,7 @@
 #include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
 #include <mpv/mpv_settings.h>
-#include <mpv/mpv_custom_ui.h>
+#include <gui/gui.h>
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
 
@@ -240,7 +240,7 @@ bool InitMainWindow() {
 
     LoadSettings();
 
-    InitThemeLibrary(c_Settings.themetype);
+    CSImGui::InitThemeLibrary(c_Settings.themetype);
 
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
@@ -353,7 +353,7 @@ void RenderUI(const PlaybackState& state ){
         state == PlaybackState::Playing ||
         state == PlaybackState::EndOfFile) {
         RenderMPVVideo(Windowlayout.VideoSize);
-        DrawGhostStatusOverlay(Windowlayout.VideoPos, Windowlayout.VideoSize, state == PlaybackState::Paused);
+        DrawGhostStatusOverlay(ToImVec2(Windowlayout.VideoPos), ToImVec2(Windowlayout.VideoSize), state == PlaybackState::Paused);
         render_video = false;
     }
 
@@ -550,7 +550,7 @@ int main(int argc, char** argv) {
     SDL_Event e;
     while (running) {
         fpsLimiter.startFrame();
-        UpdateTheme(fpsLimiter.getDeltaTime());
+        CSImGui::UpdateTheme(fpsLimiter.getDeltaTime());
         Uint32 flags = SDL_GetWindowFlags(ctx.mainWindow);
         PlaybackState state = GetPlaybackState();
         if(g_DragResizeState.ToggleFullscreen){

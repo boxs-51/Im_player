@@ -1,18 +1,19 @@
 #pragma once
 #include <mpv/client.h>
 
+#include <utils.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-enum class EndFileErrorType {
+enum class EndFileErrorType : uint8_t{
     None,
     FormatNotSupported,
     URLExpired,
     NetworkError,
     Other
 };
-enum class PlaybackState {
+enum class PlaybackState : uint8_t {
     Idle,
     Loading,
     Seeking,

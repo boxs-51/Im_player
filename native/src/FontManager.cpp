@@ -1,6 +1,6 @@
 
 
-#define STB_TRUETYPE_IMPLEMENTATION
+//#define STB_TRUETYPE_IMPLEMENTATION
 #define IMGUI_ENABLE_FREETYPE
 #include "FontManager.h"
 // include imstb_truetype WITHOUT STB implementation define here to avoid duplicate symbols.

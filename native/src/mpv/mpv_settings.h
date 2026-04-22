@@ -1,6 +1,7 @@
 #pragma once
 #include <string>
-#include <mpv/mpv_gui_.h>
+#include <gui/gui.h>
+#include <gui/gui_widgets.h> 
 struct AppSettings {
     
     std::string selectedFormat = "";

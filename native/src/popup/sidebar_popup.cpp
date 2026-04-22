@@ -4,7 +4,7 @@
 
 #include <mpv/mpv_settings.h>
 #include <mpv/mpv_ui_settings.h>
-#include <mpv/mpv_custom_ui.h>
+#include <gui/gui.h>
 #include <mpv/mpv_data.h>
 
 
@@ -223,7 +223,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
     ImU32 borderCol = IM_COL32(255,255,255,(int)(80 * hoverEase));
     ImU32 pressFill = IM_COL32(255,255,255,(int)(45 * v.hoverAnim));
 
-    CardHoleStyle style;
+    CSImGui::CardHoleStyle style;
     style.rounding = 6.0f;
     style.borderThickness = 1.5f;
 

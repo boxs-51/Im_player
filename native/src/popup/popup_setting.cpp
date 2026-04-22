@@ -1,8 +1,8 @@
 #include "mpv/mpv_ui.h"
 #include "mpv/mpv_settings.h"
-#include "mpv/mpv_custom_ui.h"
 #include "mpv/shaders/shaders_manager.h"
 
+#include <gui/gui.h>
 #include "globals.h"
 #include "utils.h"
 #include "popup_setting.h"
@@ -52,7 +52,7 @@ void GeneralSettingsPage() {
                 else if (selectedTheme == "Mid Night Mode") c_Settings.themetype = ThemeType::MidnightMode;
                 else if (selectedTheme == "Retro Mode") c_Settings.themetype = ThemeType::RetroMode;
 
-                ApplyTheme(c_Settings.themetype);
+                CSImGui::ApplyTheme(c_Settings.themetype);
                 SaveSettings_Common();
             }
             ImGui::TextDisabled("Thay đổi màu sắc tổng thể (Sáng/Tối).");
@@ -330,7 +330,8 @@ void ShaderSettingsPage() {
                                     slider_height,                      // Chiều cao thanh trượt (Tham số mới)
                                     grab_size,                          // Kích thước nút kéo (Tham số mới)
                                     "%.2fx",                            // Định dạng hiển thị
-                                    full_width                          // Chiều rộng full vùng chứa
+                                    full_width,                         // Chiều rộng full vùng chứa
+                                    SliderFlags_None
                             )){
                                 isDirty = true;
                             }
