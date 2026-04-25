@@ -98,7 +98,59 @@ inline Vec2 ToVec2 (const ImVec2& v) {return Vec2{v.x, v.y};}
 inline Vec4 ToVec4 (const ImVec4& v) {return Vec4{v.x, v.y, v.z, v.w};}
 
 
+inline std::string Format(const char* fmt, ...)
+{
+    char buf[512];
+    va_list args;
+    va_start(args, fmt);
+    vsnprintf(buf, sizeof(buf), fmt, args);
+    va_end(args);
+    return std::string(buf);
+}
 
+inline float ImLength(ImVec2& dhs) { return {dhs.x * dhs.x + dhs.y * dhs.y}; }
+
+inline float ImLerp(float a, float b, float t) { return a + (b - a) * t; }
+/*inline ImVec2 ImLerp(const ImVec2& a, const ImVec2& b, float t)
+{
+    return ImVec2(
+        a.x + (b.x - a.x) * t,
+        a.y + (b.y - a.y) * t
+    );
+}*/
+/*inline ImVec4 ImLerp(const ImVec4& a, const ImVec4& b, float t)
+{
+    return ImVec4(
+        a.x + (b.x - a.x) * t,
+        a.y + (b.y - a.y) * t,
+        a.z + (b.z - a.z) * t,
+        a.w + (b.w - a.w) * t
+    );
+}*/
+inline ImU32 ImLerp(ImU32 a, ImU32 b, float t) {
+    // Giới hạn t trong khoảng [0.0, 1.0]
+    if (t <= 0.0f) return a;
+    if (t >= 1.0f) return b;
+
+    // Tách các kênh màu
+    ImU32 a_r = (a >> IM_COL32_R_SHIFT) & 0xFF;
+    ImU32 a_g = (a >> IM_COL32_G_SHIFT) & 0xFF;
+    ImU32 a_b = (a >> IM_COL32_B_SHIFT) & 0xFF;
+    ImU32 a_a = (a >> IM_COL32_A_SHIFT) & 0xFF;
+
+    ImU32 b_r = (b >> IM_COL32_R_SHIFT) & 0xFF;
+    ImU32 b_g = (b >> IM_COL32_G_SHIFT) & 0xFF;
+    ImU32 b_b = (b >> IM_COL32_B_SHIFT) & 0xFF;
+    ImU32 b_a = (b >> IM_COL32_A_SHIFT) & 0xFF;
+
+    // Nội suy từng kênh và đóng gói lại
+    return IM_COL32(
+        (ImU32)(a_r + (b_r - a_r) * t),
+        (ImU32)(a_g + (b_g - a_g) * t),
+        (ImU32)(a_b + (b_b - a_b) * t),
+        (ImU32)(a_a + (b_a - a_a) * t)
+    );
+}
 struct WindowContext {
     SDL_Window* mainWindow = nullptr;
     SDL_GLContext mainGLContext = nullptr;
@@ -135,6 +187,7 @@ inline ImVec2 operator+(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lh
 inline ImVec2 operator-(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x - rhs.x, lhs.y - rhs.y); }
 inline ImVec2 operator*(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x * rhs.x, lhs.y * rhs.y); }
 inline ImVec2 operator/(const ImVec2& lhs, const ImVec2& rhs) { return ImVec2(lhs.x / rhs.x, lhs.y / rhs.y); }
+inline ImVec2 operator-(const ImVec2& lhs) { return ImVec2(-lhs.x, -lhs.y); }
 
 inline ImVec2 operator*(const ImVec2& lhs, float scalar) {return ImVec2{lhs.x * scalar, lhs.y * scalar}; } 
 inline ImVec2 operator*(float scalar, const ImVec2& lhs) {return ImVec2{lhs.x * scalar, lhs.y * scalar}; }
@@ -147,6 +200,11 @@ inline ImVec2& operator+=(ImVec2& lhs, float scalar) { lhs.x += scalar; lhs.y +=
 inline ImVec2& operator-=(ImVec2& lhs, float scalar) { lhs.x -= scalar; lhs.y -= scalar; return lhs; }
 inline ImVec2& operator*=(ImVec2& lhs, float scalar) { lhs.x *= scalar; lhs.y *= scalar; return lhs; }
 inline ImVec2& operator/=(ImVec2& lhs, float scalar) { lhs.x /= scalar; lhs.y /= scalar; return lhs; }
+
+inline ImVec2& operator+=(ImVec2& lhs, const ImVec2& rhs) { lhs.x += rhs.x; lhs.y += rhs.y; return lhs; }
+inline ImVec2& operator-=(ImVec2& lhs, const ImVec2& rhs) { lhs.x -= rhs.x; lhs.y -= rhs.y; return lhs; }
+inline ImVec2& operator*=(ImVec2& lhs, const ImVec2& rhs) { lhs.x *= rhs.x; lhs.y *= rhs.y; return lhs; }
+inline ImVec2& operator/=(ImVec2& lhs, const ImVec2& rhs) { lhs.x /= rhs.x; lhs.y /= rhs.y; return lhs; }
 
 // --- Đối với Vec2 ---
 

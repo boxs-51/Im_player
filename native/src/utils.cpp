@@ -86,7 +86,7 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         //{"input-media-keys", "yes"},
         {"idle", "yes"},
         {"keep-open", "yes"},
-        {"stop-screensaver", "yes"},
+       // {"stop-screensaver", "yes"},
         {"vo", "libmpv"},
         {"hwdec", "auto-safe"}, // Tự động chọn giải mã phần cứng ổn định nhất
         {"video-rotate", "no"},

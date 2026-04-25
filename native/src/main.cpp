@@ -342,7 +342,6 @@ void RenderUI(const PlaybackState& state ){
     
     ShowAllWindows();
 
-    
     if(state == PlaybackState::Idle){
         //RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
@@ -356,7 +355,7 @@ void RenderUI(const PlaybackState& state ){
         DrawGhostStatusOverlay(ToImVec2(Windowlayout.VideoPos), ToImVec2(Windowlayout.VideoSize), state == PlaybackState::Paused);
         render_video = false;
     }
-
+       // CSImGui::ToolTip("Test",0.0f,ToolTipFlags_AlwaysShow | ToolTipFlags_Fixed | ToolTipFlags_Animation);
     if (state == PlaybackState::Playing || 
         state == PlaybackState::Paused  || 
         state == PlaybackState::Seeking ||

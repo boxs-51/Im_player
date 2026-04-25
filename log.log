@@ -1,0 +1,1055 @@
+2026-04-22 21:37:50 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:37:50 | DEBUG | vaideos_cache | [GET TRENDING] key=trending cache miss → init
+2026-04-22 21:37:50 | DEBUG | vaideos_cache | [INIT CACHE] key=trending
+2026-04-22 21:37:52 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:37:54 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:37:54 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:37:56 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'Pw6OD3g3kRo,-EzoTLZXRbA,he4RarbyIfQ,2C_xZFAGjPc,FmyJa95ktJg,kGh899If818,t8NUyxDsJsw,HJ9GyEFwDJo,BluGEfDLba4,Hn02lBrVxMk,NOFWVZq6uqY,PLBe7GmaQjw,5dsgvY-dXbA,T66fTPq36q8,2wxZp_mOoP8,w2473GsRyXQ,m0WRscOG9oU,_Q2OTrAtu-4,Nh8iU6p2kHU,G4OmNEuY8HE,YIYOSJ4a0IY,ScUCFY5qtGw,siOqMoQxUOY,V_yChL_Indc,AoX_vZ6y2uo,cL8MfC8oaB0,6J2UXjxDjEw,2wEWRtl5hbM,nvKFHRchqRY,U6BDbXIah-Y,n9KmySC6ziA,14NC3e7OTCM,z5BKUrvSrlU,gxiGDeydGpY,BO_4dDF35PY,OasBWBtYJIA,zF3rp6IEwTA,YFtJDwQdCO8,-7pQgf-g6LU,3GFQfpGjvNE,4bNWgZgV4cM,QF5YpZI1wnk,6hNenqz0ISA,m-7PbZJQyec,3lLPt34meDA,YiqlDkGhnZU,JadYM8qGDxA,iKLrfxGwfys,QwPkkoODpy4,8qW5sKDqSfM', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:37:59 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:37:59 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [INIT CACHE] key=trending token=CDIQAA items=50
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [GLOBAL STORE] added=50 total=50
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [LOCK] created key=trending
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CDIQAA
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CDIQAA
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CDIQAA
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CDIQAA
+2026-04-22 21:37:59 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=35 threshold=10 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=30 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=30 threshold=10 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=25 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=25 threshold=10 token=CDIQAA
+2026-04-22 21:38:00 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=20 token=CDIQAA
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=20 threshold=10 token=CDIQAA
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=15 token=CDIQAA
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=15 threshold=10 token=CDIQAA
+2026-04-22 21:38:01 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=10 token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=10 threshold=10 token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=5 token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=5 threshold=10 token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:02 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:03 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:04 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:05 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:06 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:06 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:06 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:06 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:06 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:07 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:07 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:07 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:07 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:07 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:08 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:08 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:08 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:08 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:08 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:08 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CDIQAA
+2026-04-22 21:38:10 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CDIQAA
+2026-04-22 21:38:11 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:11 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [GLOBAL STORE] added=50 total=100
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 0→50 token=CGQQAA
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:11 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:11 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:11 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:12 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:12 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:12 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:12 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:12 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:12 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:12 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:13 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:13 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:14 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:14 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:14 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:15 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:15 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:15 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:15 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:16 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:16 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:16 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:16 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:17 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:17 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:17 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:17 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:18 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:19 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:19 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:19 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:19 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:19 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:19 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:19 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:19 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:20 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:20 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:20 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:20 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:20 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:20 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:21 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:21 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:21 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:21 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:21 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:21 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:21 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:21 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:22 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:23 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:23 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:23 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:24 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:24 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:24 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:24 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:25 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:25 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:25 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:25 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:26 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:26 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:26 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:26 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:27 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=35 threshold=10 token=CGQQAA
+2026-04-22 21:38:27 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:27 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=30 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=30 threshold=10 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:28 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=25 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=25 threshold=10 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:28 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:28 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 25→50 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CGQQAA
+2026-04-22 21:38:28 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:29 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:29 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:29 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:29 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 40→50 token=CGQQAA
+2026-04-22 21:38:29 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:30 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:30 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:30 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:30 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:30 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:30 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:31 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:31 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:32 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:32 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:33 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:33 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:33 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:33 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:34 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:35 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:35 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:36 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:36 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:37 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:37 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:37 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:37 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:37 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:37 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:37 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:38 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:38 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CDIQAA
+2026-04-22 21:38:38 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:38 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:38 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:39 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:39 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:39 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:39 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:39 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:39 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:40 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CDIQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:41 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:41 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:42 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:38:42 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:38:43 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:44 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'lbXtAuOmiqs,gVIWKPSOsUQ,-KaSLp0Qj9U,XS0F_MFxuic,I2havOVfGSc,api-d8zlwsQ,h5hKITJU4Ts,NT6J08yjM5o,TkdnGsF1Zcg,bZZn2B11b_c,qcK7VvIUYdA,6EQEQO6tKmg,X56_Ulvk38I,vINauBK_0fk,n4rOrZmUWA0,f1Dj_cFPF5I,78wrful9cVU,ijGlNKThlts,IiEpSQXcb2A,Fcr6FIpTfxM,u2m4ReBpiwI,L9cs0VNBB20,G_Xyuq7sptw,b3Du70zjr1A,NHVs-GuECwA,LSZ0df5On6s,0za6YLO5mhU,8uNSAFXzu-o,sFSAKWJc3AI,la3ekxSAY7U,QhIIy1h93XU,bwzjMUgXjH4,68jBv50qxyM,TN_ajTEAbE8,CJyrv-KKpdI,9CXnd1VSz-A,WgO8zaO-1v4,OzXv8boVYL0,ppCyamyO7Xk,uoxvmS7RtLo,jphSUxsNvsA,79tVzYwml5s,ogalxoVRNuQ,kDecIWLs2UQ,1hoiELV5R-0,zxvmk2AgtM0,uocIl6BHVec,B1dT5MnnrEQ,s2aUffRM_WE,d5L6cqcOkrs', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:46 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:46 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:46 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:46 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:46 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:47 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:38:47 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:38:47 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=100
+2026-04-22 21:38:47 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CGQQAA
+2026-04-22 21:38:47 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=35 threshold=10 token=CGQQAA
+2026-04-22 21:38:53 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=30 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=30 threshold=10 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=25 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=25 threshold=10 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=20 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=20 threshold=10 token=CGQQAA
+2026-04-22 21:38:54 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=15 token=CGQQAA
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=15 threshold=10 token=CGQQAA
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=10 token=CGQQAA
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=10 threshold=10 token=CGQQAA
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:55 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=5 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=5 threshold=10 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:56 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:57 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:58 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:38:59 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:00 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:00 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:00 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:00 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:00 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:00 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:00 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:01 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:01 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:01 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:01 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:01 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:02 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:03 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CGQQAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CGQQAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CGQQAA
+2026-04-22 21:39:04 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:04 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GLOBAL STORE] added=50 total=150
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 0→50 token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:04 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:04 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CJYBEAA
+2026-04-22 21:39:04 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:05 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:05 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:05 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:05 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 40→50 token=CJYBEAA
+2026-04-22 21:39:05 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:06 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:06 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:06 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=35 threshold=10 token=CJYBEAA
+2026-04-22 21:39:06 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:07 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=30 token=CJYBEAA
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=30 threshold=10 token=CJYBEAA
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:07 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=25 token=CJYBEAA
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=25 threshold=10 token=CJYBEAA
+2026-04-22 21:39:07 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:07 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=20 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=20 threshold=10 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:08 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=15 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=15 threshold=10 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=10 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=10 threshold=10 token=CJYBEAA
+2026-04-22 21:39:08 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:08 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:08 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=5 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=5 threshold=10 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:09 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:09 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:09 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:09 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:09 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:10 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:10 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:10 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:10 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:10 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:10 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:11 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:12 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 0 items cache_size=0 token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=0 threshold=10 token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL START] key=trending using token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:13 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 0→50 token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:13 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:13 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CJYBEAA
+2026-04-22 21:39:13 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:14 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:14 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:14 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:14 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 40→50 token=CJYBEAA
+2026-04-22 21:39:14 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:15 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:15 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=45 threshold=10 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:15 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=40 threshold=10 token=CJYBEAA
+2026-04-22 21:39:15 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:15 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:16 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:16 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=CJYBEAA
+2026-04-22 21:39:16 | DEBUG | vaideos_cache | [REFILL CHECK] key=trending size=35 threshold=10 token=CJYBEAA
+2026-04-22 21:39:16 | DEBUG | vaideos_cache | [REFILL SKIP] key=trending
+2026-04-22 21:39:16 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:16 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:17 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:18 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:18 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:18 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:18 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:18 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:18 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:19 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:19 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:19 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:19 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:20 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:20 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:20 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:21 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:21 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:22 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:22 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 35→50 token=CJYBEAA
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:22 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:22 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:22 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:23 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:23 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:23 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:23 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:23 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:23 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:23 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:24 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:24 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:25 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:25 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:25 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:26 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:26 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:27 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:28 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:28 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:28 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:29 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:29 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:29 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:30 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:31 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:31 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:31 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:31 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:31 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:32 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:32 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:32 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:32 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CGQQAA
+2026-04-22 21:39:32 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:32 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:32 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:33 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:33 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:34 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:34 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CGQQAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:34 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:35 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:35 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:36 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:37 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:37 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:37 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:38 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:38 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:38 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': '3o_D-eqAcNA,OXxAZ734X5s,gqp8SCUnGyE,WWBH5c4ZoG0,cv8gP1miTiY,sO6sxy_EoR8,otiel--z9xY,tvJ260tZcdE,GGpCgRsME0s,xK17aSFPdC4,opYTuPq081E,jdx_hyDnAiA,-MV7Hg31usU,h0VUO-aF8tQ,kaEKarqOeh0,1WHTTcCOZCw,7QjkdZcIILg,Qvo4-U6GWPY,yWg3fiWFXrk,Zh7FD_9AiFA,-zvb7AQmld0,Y1Bz2h3ej3s,0dt_-1GiQAQ,5c5Si8GCbRQ,FZZBvg_D-Z0,4YVCU2RZDaA,3wAj2M6tP0s,-CiEMT01TFQ,NJeItqSw8G4,tr4KllM9Jsw,qw05Nu232wo,lqc6iYT2QaY,v9_Wn2eiedQ,xg-Fi7Ic_-A,XT8wD8RmtDQ,fGGmwvy42pM,Z7fdO0e8kE8,RZD9V00Uwf8,oGj5BlLScQc,4_eUXwJM5eU,2gD3nAQxLBc,3vhSaQEvy_k,4U78E3o7kmc,3iELwUO9vUo,b21ZYT_ytTM,ov7qiknzljs,n9Ho42A8CoU,gFDqPmuhmL4,eOKCP7uqt2Y,HmRVOyzfxAY', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:39 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:40 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:40 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:40 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:40 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:40 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:41 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:41 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=150
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=CJYBEAA
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=CJYBEAA
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:41 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:41 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [GLOBAL STORE] added=50 total=200
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→100 token=None
+2026-04-22 21:39:41 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:42 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:42 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:42 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:43 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:43 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:44 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:44 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:44 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:44 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:45 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:45 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:45 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:45 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:46 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:46 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:46 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:46 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:47 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:47 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:48 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:49 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:49 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 100→100 token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:49 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:49 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 100→100 token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:49 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:49 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 100→100 token=None
+2026-04-22 21:39:49 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:50 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:50 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 100→100 token=None
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:50 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:50 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 100→100 token=None
+2026-04-22 21:39:50 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:51 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:51 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:51 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:52 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:52 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:53 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=95 token=None
+2026-04-22 21:39:54 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:54 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:54 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:54 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=90 token=None
+2026-04-22 21:39:54 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:54 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:54 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=85 token=None
+2026-04-22 21:39:54 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:54 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=80 token=None
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=75 token=None
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:55 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=70 token=None
+2026-04-22 21:39:55 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:39:55 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:39:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=65 token=None
+2026-04-22 21:39:56 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:56 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:56 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=60 token=None
+2026-04-22 21:39:56 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=55 token=None
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=50 token=None
+2026-04-22 21:39:57 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:57 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=None
+2026-04-22 21:39:58 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:39:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:58 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=None
+2026-04-22 21:39:59 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:59 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 40→50 token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=None
+2026-04-22 21:39:59 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:59 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 45→50 token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetch page_token=CJYBEAA
+2026-04-22 21:39:59 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:39:59 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=None
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:39:59 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=None
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:00 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=None
+2026-04-22 21:40:00 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 40→50 token=None
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:00 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=None
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=None
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=None
+2026-04-22 21:40:01 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:40:01 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:40:01 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 35→50 token=None
+2026-04-22 21:40:01 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:40:02 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'id', 'chart': 'mostPopular', 'regionCode': 'VN', 'maxResults': 50, 'pageToken': 'CJYBEAA', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:40:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:02 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=45 token=None
+2026-04-22 21:40:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=40 token=None
+2026-04-22 21:40:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:03 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=35 token=None
+2026-04-22 21:40:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=30 token=None
+2026-04-22 21:40:04 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:40:04 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:40:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:04 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=25 token=None
+2026-04-22 21:40:05 | INFO | youtube_fetch | Trending IDs fetched: 50
+2026-04-22 21:40:05 | INFO | youtube_fetch | Total unique video IDs to fetch details: 50
+2026-04-22 21:40:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=20 token=None
+2026-04-22 21:40:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:05 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=15 token=None
+2026-04-22 21:40:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=10 token=None
+2026-04-22 21:40:06 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:40:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending batch=5
+2026-04-22 21:40:06 | DEBUG | vaideos_cache | [GET TRENDING] key=trending pop 5 items cache_size=5 token=None
+2026-04-22 21:40:07 | DEBUG | youtube_fetch | Fetching URL: https://www.googleapis.com/youtube/v3/videos with params: {'part': 'snippet,contentDetails,statistics,status,player,liveStreamingDetails', 'id': 'fc-1v-pT8sU,AHBJXYHx0TI,h0vOKTkkpYY,dKmPEhJ4wjY,9lBXf_TQO6A,PGk54Qknnrk,q09Ga2IDbeg,CO1FSHFUMxU,NOoXhBecav0,4mW13Pakiik,n8JlYUVVSIw,5sOgJQ3N03Q,YZ1QHeDtuLg,rL4BNFaLwKw,EgnrDvXhaaE,OJjygHoH7zc,Iz-UbxjdsvI,hxJ-YV-zIb0,pF0aclXMGXk,2N1uofakKvo,Xfs2HcyAUtQ,3jGHuqzD3B8,2Y2FDqeSHlE,cMtQQOV7pC4,0knGZ00EAnM,58vQZTNxeuY,2vD9IZ4gJQ8,c5ZP-gVjios,-hvdZwRSf9o,ISJJcBGc2Fs,3JfOT35MmFo,qBY77otkQZA,He6U2WraEkQ,Te8M5LMHFo0,Pq1aebC0imY,cfaybWG25D4,ZLmbUhopgvk,maN2wT02-c0,aVd7ULeW0GA,n2np4OHUIkI,j1RORP2BnLs,aqBj4rR04iE,ylkYgY3HOAo,BnBdzt61uyk,A2LAutO3JsU,f5v77MMjAig,exZ17UbYb3g,pigxmlpEG_8,Hh0KMLtfRG0,N9IXTlcFrVo', 'key': 'AIzaSyDmlB96pEhcAV_m6Koy_H9aTODzn4TBU9A'}
+2026-04-22 21:40:09 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:40:09 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 5→50 token=None
+2026-04-22 21:40:09 | DEBUG | youtube_fetch | Fetched batch of 50 videos, total fetched: 50
+2026-04-22 21:40:09 | INFO | youtube_fetch | Returning 50 trending+keyword videos.
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [GLOBAL STORE] added=0 total=200
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending fetched=50 new_token=None
+2026-04-22 21:40:09 | DEBUG | vaideos_cache | [REFILL WORKER] key=trending cache_size 50→50 token=None

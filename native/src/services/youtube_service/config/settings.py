@@ -23,7 +23,7 @@ OFFLINE_MODE = False
 MAX_INTERACTIONS = 500
 DEFAULT_EXPIRE_SECONDS = 7 * 24 * 3600
 
-def find_root_dir(marker_filename="project_root.dat", start_dir=None, max_levels=10):
+def find_root_dir(marker_filename="PROJECT_ROOT_1.dat", start_dir=None, max_levels=10):
     """
     Tìm thư mục gốc dựa trên presence của file marker
     """

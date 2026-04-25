@@ -417,10 +417,10 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
         targetWidth = 300.0f * scaleFactor;  // Phình rộng thêm một chút cho rõ chữ
         targetHeight = 370.0f * scaleFactor; // Phình to chiều cao cho danh sách dài
     }
-    ImVec2 size_target = ImVec2(targetWidth,targetHeight)
+    ImVec2 size_target = ImVec2(targetWidth,targetHeight);
     // Nội suy kích thước cửa sổ để có hiệu ứng co giãn mượt mà
     static ImVec2 current_window_size = ImVec2(targetWidth, targetHeight);
-    current_window_size = ImLerp(current_window_size, size_target, SMOOTH_LERP( 15.0f,ImGui::GetIO().DeltaTime))
+    current_window_size = ImLerp(current_window_size, size_target, SMOOTH_LERP( 15.0f,ImGui::GetIO().DeltaTime));
 
     ImVec2 windowSize(current_window_size);
 

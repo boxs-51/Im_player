@@ -153,7 +153,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    CSImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
+    //CSImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
+    CSImGui::ToolTip(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str() , 3.0f, ToolTipFlags_Animation);
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -464,13 +465,13 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         // =========================
         // RENDER CALLBACK
         // =========================
-        [&](Phase phase, Slot slot, SliderRenderData& rd, ImDrawList* dl)
+        [&](Phase phase, Slot slot, SliderRenderData* rd, ImDrawList* dl)
         {
             if(phase == Phase::Init){
                 // =========================
                 // BUFFER
                 // =========================
-                rd.buffer_t = g_playbackStatus.demuxer_cache_time / duration;
+                rd->buffer_t = g_playbackStatus.demuxer_cache_time / duration;
 
                 // =========================
                 // MARKERS (chapters)
@@ -482,72 +483,74 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                     float end_t   = (float)(end_time   / duration);
 
                     // clamp để đảm bảo an toàn
-                    rd.chapter_range_start = ImClamp(start_t, 0.0f, 1.0f);
-                    rd.chapter_range_end   = ImClamp(end_t,   0.0f, 1.0f);
+                    rd->chapter_range_start = ImClamp(start_t, 0.0f, 1.0f);
+                    rd->chapter_range_end   = ImClamp(end_t,   0.0f, 1.0f);
                 }
-                rd.markers.clear();
-                rd.markers.reserve(g_videoInfo.g_chapters.size());
+                rd->markers.clear();
+                rd->markers.reserve(g_videoInfo.g_chapters.size());
                 for (auto& c : g_videoInfo.g_chapters)
                 {
-                    rd.markers.push_back(c.time / duration);
+                    rd->markers.push_back(c.time / duration);
                 }
 
                 // =========================
                 // COLORS
                 // =========================
-                rd.col_track          = ImVec4(0.235f, 0.235f, 0.235f, 0.706f); // (60, 60, 60, 180)
-                rd.col_buffer         = ImVec4(0.784f, 0.784f, 0.784f, 0.588f); // (200, 200, 200, 150)
-                rd.col_fill           = ImVec4(1.000f, 0.235f, 0.235f, 0.863f); // (255, 60, 60, 220)
-                rd.col_grab           = ImVec4(1.000f, 1.000f, 1.000f, 1.000f); // (255, 255, 255, 255)
-                rd.col_marker         = ImVec4(1.000f, 0.784f, 0.000f, 0.784f); // (255, 200, 0, 200)
-                rd.col_grab_border    = ImVec4(0.000f, 0.000f, 0.000f, 0.784f); // (0, 0, 0, 200)
-                rd.col_chapter_range  = ImVec4(0.392f, 0.392f, 1.000f, 0.235f); // (100, 100, 255, 60)
-                rd.col_border         = ImVec4(0.300f, 0.300f, 0.300f, 1.000f); // Màu xám đậm cho viền
-                rd.col_grab_shadow    = ImVec4(0.000f, 0.000f, 0.000f, 0.350f); // Đổ bóng nhẹ
-                if(rd.active){
-                    rd.col_fill           = ImVec4(1.00f, 0.10f, 0.10f, 1.00f); // Đỏ đậm rực khi đang kéo
-                    rd.col_grab           = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
-                }else if(rd.grab_hovered){
-                    rd.col_fill           = ImVec4(1.00f, 0.30f, 0.30f, 0.90f);
-                    rd.col_grab           = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); // Hơi xám nhẹ khi hover grab
-                }else if(rd.bar_hovered){
-                    rd.col_track          = ImVec4(0.30f, 0.30f, 0.30f, 0.80f); // Nền sáng lên một chút
+                rd->col_track          = ImVec4(0.235f, 0.235f, 0.235f, 0.706f); // (60, 60, 60, 180)
+                rd->col_buffer         = ImVec4(0.784f, 0.784f, 0.784f, 0.588f); // (200, 200, 200, 150)
+                rd->col_fill           = ImVec4(1.000f, 0.235f, 0.235f, 0.863f); // (255, 60, 60, 220)
+                rd->col_grab           = ImVec4(1.000f, 1.000f, 1.000f, 1.000f); // (255, 255, 255, 255)
+                rd->col_marker         = ImVec4(1.000f, 0.784f, 0.000f, 0.784f); // (255, 200, 0, 200)
+                rd->col_grab_border    = ImVec4(0.000f, 0.000f, 0.000f, 0.784f); // (0, 0, 0, 200)
+                rd->col_chapter_range  = ImVec4(0.392f, 0.392f, 1.000f, 0.235f); // (100, 100, 255, 60)
+                rd->col_border         = ImVec4(0.300f, 0.300f, 0.300f, 1.000f); // Màu xám đậm cho viền
+                rd->col_grab_shadow    = ImVec4(0.000f, 0.000f, 0.000f, 0.350f); // Đổ bóng nhẹ
+                if(rd->active){
+                    rd->col_fill           = ImVec4(1.00f, 0.10f, 0.10f, 1.00f); // Đỏ đậm rực khi đang kéo
+                    rd->col_grab           = ImVec4(1.00f, 1.00f, 1.00f, 1.00f);
+                }else if(rd->grab_hovered){
+                    rd->col_fill           = ImVec4(1.00f, 0.30f, 0.30f, 0.90f);
+                    rd->col_grab           = ImVec4(0.90f, 0.90f, 0.90f, 1.00f); // Hơi xám nhẹ khi hover grab
+                }else if(rd->bar_hovered){
+                    rd->col_track          = ImVec4(0.30f, 0.30f, 0.30f, 0.80f); // Nền sáng lên một chút
                 }
-                rd.height_on_hover = rd.height * 0.5;
+                rd->height_on_hover = rd->height * 0.5;
             }
 
             // =========================
             // OPTIONAL
             // =========================
-            // rd.draw_grab = false; // nếu muốn ẩn knob
+            // rd->draw_grab = false; // nếu muốn ẩn knob
         },
 
         // =========================
         // TOOLTIP CALLBACK
         // =========================
-        [&](Phase phase, Slot slot, SliderTooltipData& td, ImDrawList* dl)
+        [&](Phase phase, Slot slot, SliderTooltipData* td, ImDrawList* dl)
         {
             if (phase == Phase::Init)
             {
                 char timeText[32];
-                int sec = (int)td.seek_value;
+                int sec = (int)td->seek_value;
 
                 int h = sec / 3600;
                 int m = (sec % 3600) / 60;
                 int s = sec % 60;
 
-                if (td.seek_value >= 0 && td.seek_value <= duration)
+                if (td->seek_value >= 0 && td->seek_value <= duration)
                 {
                     if (h > 0)
-                        sprintf(timeText, "%d:%02d:%02d", h, m, s);
+                        td->text =  Format("%d:%02d:%02d",h, m, s);
+                        //sprintf(timeText, "%d:%02d:%02d", h, m, s);
                     else
-                        sprintf(timeText, "%02d:%02d", m, s);
+                         td->text =  Format("%02d:%02d", m, s);
+                        //sprintf(timeText, "%02d:%02d", m, s);
 
                         
-                    strcpy(td.text, timeText);
+                    //strcpy(td->text, timeText);
                 }
                 if (!g_videoInfo.g_chapters.empty()) {
-                    td.show_title = false; // Reset mặc định
+                    td->show_title = false; // Reset mặc định
 
                     for (size_t i = 0; i < g_videoInfo.g_chapters.size(); ++i) {
                         double startTime = g_videoInfo.g_chapters[i].time;
@@ -558,17 +561,18 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                                         ? g_videoInfo.g_chapters[i + 1].time 
                                         : g_playbackStatus.duration; 
 
-                        if (td.seek_value >= startTime && td.seek_value < endTime) {
-                            td.show_title = true;
+                        if (td->seek_value >= startTime && td->seek_value < endTime) {
+                            td->show_title = true;
                             // Sử dụng strncpy hoặc snprintf để an toàn hơn strcpy
-                            snprintf(td.title, sizeof(td.title), "%s", g_videoInfo.g_chapters[i].title.c_str());
+                            td->title = g_videoInfo.g_chapters[i].title.c_str();
+                            //snprintf(td->title, sizeof(td->title), "%s", g_videoInfo.g_chapters[i].title.c_str());
                             break; 
                         }
                     }
                 }
-                td.max_width = 240.0f;
-                td.max_height = 180.0f;
-                td.align = SliderTooltipData::Center;
+                td->max_width = 240.0f;
+                td->max_height = 180.0f;
+                td->align = SliderTooltipData::Center;
             }
         },
 
@@ -576,23 +580,23 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         // SEEK CALLBACK
         // =========================
 
-        [&](const SliderSeekRequest& req)
+        [&](const SliderSeekRequest* req)
         {
     
             SliderSeekResult res{};
 
-            if ((req.from_drag || req.from_click) && !req.is_final)
+            if ((req->from_drag || req->from_click) && !req->is_final)
             {
                 // ===== PREVIEW =====
                 res.accept = false; // ❗ không update *v
             }
             else
             {
-                if(req.is_hovered){
+                if(req->is_hovered){
                     // ===== COMMIT =====
-                    mpv_command_seek_abs(mpv, req.new_value, duration);
+                    mpv_command_seek_abs(mpv, req->new_value, duration);
 
-                    res.value = req.new_value;
+                    res.value = req->new_value;
                     res.accept = true;
                 }
             }
@@ -613,7 +617,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
             if (CSImGui::CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
                 mpv_command_prev_video(mpv);
             }
-            CSImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
+            //CSImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
+            CSImGui::ToolTip("Previous Video", 3.0f, ToolTipFlags_Animation);
         }
         // Nút PLAY/PAUSE
         static  PlayPauseData playData;
@@ -626,15 +631,16 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
 
         }
 
-        CSImGui::ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
+        //CSImGui::ShowTooltipDelayed(paused ? "Play" : "Pause", ImGui::IsItemHovered( ), 3.0 ,"PlayPause_Button");
+        CSImGui::ToolTip(paused ? "Play##Btntoggle" : "Pause##Btntoggle", 3.0f, ToolTipFlags_Animation);
         // Nút NEXT
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
             if (CSImGui::CustomIconButton("##next", DrawNextIcon, iconSize)) {
                 mpv_command_next_video(mpv);
             }
-
-            CSImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
+            CSImGui::ToolTip("Next Video", 3.0f, ToolTipFlags_Animation);
+            //CSImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
         }
 
         ImGui::BeginGroup();
@@ -655,7 +661,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         bool clicked = ImGui::IsItemClicked();
         bool hoverIcon = ImGui::IsItemHovered();
 
-        CSImGui::ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
+        //CSImGui::ShowTooltipDelayed(isMuted ? "Unmute" : "Mute", hoverIcon , 3.0 ,"Volume_Button");
+        CSImGui::ToolTip(isMuted ? "Unmute##BtnVol" : "Mute##BtnVol" , 3.0f, ToolTipFlags_Animation);
 
         bool active = ImGui::IsItemActive();
 
@@ -842,7 +849,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         ImVec2 iconPos = ImGui::GetItemRectMin();
         ImVec2 iconSize = ImGui::GetItemRectSize(); // Lấy kích thước nút
 
-        CSImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
+       // CSImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
+        CSImGui::ToolTip("Settings" , 3.0f, ToolTipFlags_Animation);
 
         RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video ,iconPos);
 
@@ -859,8 +867,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
             g_DragResizeState.ToggleFullscreen = true;
         }
 
-        CSImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
-
+        //CSImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
+        CSImGui::ToolTip(isFullscreen_video ? "Exit Fullscreen##Btnfs" : "Fullscreen##Btnfs" , 3.0f, ToolTipFlags_Animation);
         // --- BUTTON OPTION ---
         static OptionIconData optdata;
         optdata.opened  = SidarBarPopup.IsOpen();
@@ -875,8 +883,9 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         }
         optdata.hovered = ImGui::IsItemHovered();
 
-        CSImGui::ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
-    
+        //CSImGui::ShowTooltipDelayed("Options", ImGui::IsItemHovered(), 3.0 ,"Option_Button");
+        CSImGui::ToolTip("Options" , 3.0f, ToolTipFlags_Animation);
+        // --- BUTTON OPTION ---
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;
             else {

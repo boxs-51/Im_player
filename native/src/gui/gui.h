@@ -129,70 +129,49 @@ struct ThemeTransition {
     bool active = false;
 };
 
-inline float ImLerp(float a, float b, float t) { return a + (b - a) * t; }
-/*inline ImVec2 ImLerp(const ImVec2& a, const ImVec2& b, float t)
-{
-    return ImVec2(
-        a.x + (b.x - a.x) * t,
-        a.y + (b.y - a.y) * t
-    );
-}*/
-/*inline ImVec4 ImLerp(const ImVec4& a, const ImVec4& b, float t)
-{
-    return ImVec4(
-        a.x + (b.x - a.x) * t,
-        a.y + (b.y - a.y) * t,
-        a.z + (b.z - a.z) * t,
-        a.w + (b.w - a.w) * t
-    );
-}*/
-inline ImU32 ImLerp(ImU32 a, ImU32 b, float t) {
-    // Giới hạn t trong khoảng [0.0, 1.0]
-    if (t <= 0.0f) return a;
-    if (t >= 1.0f) return b;
-
-    // Tách các kênh màu
-    ImU32 a_r = (a >> IM_COL32_R_SHIFT) & 0xFF;
-    ImU32 a_g = (a >> IM_COL32_G_SHIFT) & 0xFF;
-    ImU32 a_b = (a >> IM_COL32_B_SHIFT) & 0xFF;
-    ImU32 a_a = (a >> IM_COL32_A_SHIFT) & 0xFF;
-
-    ImU32 b_r = (b >> IM_COL32_R_SHIFT) & 0xFF;
-    ImU32 b_g = (b >> IM_COL32_G_SHIFT) & 0xFF;
-    ImU32 b_b = (b >> IM_COL32_B_SHIFT) & 0xFF;
-    ImU32 b_a = (b >> IM_COL32_A_SHIFT) & 0xFF;
-
-    // Nội suy từng kênh và đóng gói lại
-    return IM_COL32(
-        (ImU32)(a_r + (b_r - a_r) * t),
-        (ImU32)(a_g + (b_g - a_g) * t),
-        (ImU32)(a_b + (b_b - a_b) * t),
-        (ImU32)(a_a + (b_a - a_a) * t)
-    );
-}
 struct SliderTooltipData
 {
     // ===== INPUT =====
     float value = 0.0f;
     float seek_value = 0.0f;
+    float hovered_time =0.0f;
 
     bool active = false;
-    bool grab_hovered = false;
+    bool hovered = false;
     bool show_tooltip =false;
     
     float hover_delay = 0.2f;
+    float range = 0.0f;
+    float dt = 8.0f;
+    float fontsize = 12.0f;
+    float v_min = 0.0f;
+    ImFont *font;
+    ImDrawList *draw_list;
+
+    ImVec2 center = ImVec2(0, 0);
+    ImVec2 pos_item = ImVec2(0, 0);
+    ImVec2 size_item = ImVec2(0, 0);
+    ImVec2 mouse = ImVec2(0, 0);
+    ImVec2 cursor_size = ImVec2(0, 0);
 
     // ===== TEXT =====
-    char text[64];
-    char title[128];
-    char extra[128];
+    //char text[128];
+    //char title[286];
+    //char extra[564];
+
+    std::string text;
+    std::string title;
+    std::string extra;
 
     bool show_title = false;
     bool show_extra = false;
+    bool show_text = true;
 
     int title_max_lines = 2;
+    const char* format = "%.03f";
 
-    enum Alignment { Left, Center, Right } align = Center;
+    enum Alignment { Left, Center, Right };
+    Alignment align = Center;
     // ===== IMAGE =====
     ImTextureID image = 0;
     ImVec2 image_size = ImVec2(0,0);
@@ -204,7 +183,22 @@ struct SliderTooltipData
         Layout_Vertical,   // image -> title -> text
         Layout_Horizontal, // image | text
         Layout_Custom
-    } layout = Layout_Vertical;
+    };
+    LayoutMode layout = Layout_Vertical;
+    bool lock_dir = false;
+
+    enum TooltipDirection {
+        TooltipDir_Up,
+        TooltipDir_Down,
+        TooltipDir_Left,
+        TooltipDir_Right,
+        TooltipDir_UpLeft,
+        TooltipDir_UpRight,
+        TooltipDir_DownLeft,
+        TooltipDir_DownRight
+    };
+
+    TooltipDirection dir = TooltipDir_Down;
 
     std::vector<std::string> cached_title;
     std::vector<std::string> cached_text;
@@ -214,10 +208,23 @@ struct SliderTooltipData
     std::string last_raw_text;
     std::string last_raw_extra;
 
-    float padding = 6.0f;
-    float spacing = 4.0f;
-    float rounding = 4.0f;
+    float padding_content = 6.0f;
+    float spacing_content = 4.0f;
+    float padding = 12.0f;
+    float spacing_mouse = 12.0f;
 
+    float rounding = 4.0f;
+    float border_thickness = 1.0f;
+
+    float arrow_width = 5.0f;
+    float arrow_height = 5.0f;
+
+    float arrow_scale_min = 0.5f;
+    float arrow_scale_max = 1.2f;
+
+    float arrow_corner_bias = 0.25f;
+
+    float edge_safe_padding = 1.0f;
     // ===== SIZE LIMIT =====
     float max_width  = 260.0f;
     float max_height = 200.0f;
@@ -252,9 +259,7 @@ struct SliderTooltipData
         ImVec2 pos = ImVec2(0,0);
         ImVec2 size = ImVec2(0,0);
 
-        ImVec2 cache_pos = ImVec2(0,0);
-        ImVec2 cache_size = ImVec2(0,0);
-
+        ImVec2 last_arrow_dir = ImVec2(0, -1);
 
     }* anim = nullptr; // pointer đến struct animation để có thể điều khiển hiệu ứng mượt mà từ callback render
 
@@ -374,16 +379,39 @@ enum SliderFlags_
     SliderFlags_EnableSmoothPreview     = 1 << 13, // Bật mượt cho giá trị preview (khi drag), nếu tắt thì preview sẽ nhảy thẳng đến giá trị mới mà không có animation
     SliderFlags_SliderEase              = 1 << 14,   
     SliderFlags_SliderFade              = 1 << 15, 
-    SliderFlags_TooltipAnimation        =  SliderFlags_TooltipEase | SliderFlags_TooltipFade,
-    SliderFlags_SliderpAnimation        =  SliderFlags_SliderEase | SliderFlags_SliderFade,
+    SliderFlags_TooltipAnimation        =  SliderFlags_TooltipEase | SliderFlags_TooltipFade | SliderFlags_TooltipScale,
+    SliderFlags_SliderpAnimation        =  SliderFlags_SliderEase | SliderFlags_SliderFade | SliderFlags_TooltipScale,
     SliderFlags_Animation               =  SliderFlags_TooltipAnimation | SliderFlags_SliderpAnimation,
     // Các cờ liên quan đến tooltip sẽ tự động tắt nếu có SliderFlags_TooltipHiden
     SliderFlags_TooltipDefault = SliderFlags_TooltipFollowMouse | SliderFlags_TooltipScale,
     SliderFlags_Default = SliderFlags_TooltipDefault | SliderFlags_EnableClickSeek ,
 };
+typedef uint16_t ToolTipFlags;
+enum ToolTipFlags_ {
+    ToolTipFlags_None                   = 0,
+    ToolTipFlags_FollowMouse            = 1 << 0,
+    ToolTipFlags_Ease                   = 1 << 1,
+    ToolTipFlags_Fade                   = 1 << 2,
+    ToolTipFlags_FollowMouse_Fixed_Y    = 1 << 3,
+    ToolTipFlags_FollowMouse_Fixed_X    = 1 << 4,
+    ToolTipFlags_Fixed                  = 1 << 5,
+    ToolTipFlags_Hiden                  = 1 << 6,
+    ToolTipFlags_AlwaysShow             = 1 << 7,
+    ToolTipFlags_AlwaysShowAction       = 1 << 8,
+    ToolTipFlags_Scale                  = 1 << 9,
+    ToolTipFlags_NoBorder               = 1 << 10,
+    ToolTipFlags_NoArrow                = 1 << 11,
+    ToolTipFlags_ClampItem              = 1 << 12,
+    ToolTipFlags_ClampWindow            = 1 << 13,
+    ToolTipFlags_AutoPosition           = 1 << 14,
+    ToolTipFlags_Animation = ToolTipFlags_Ease | ToolTipFlags_Fade | ToolTipFlags_Scale
+
+};
 enum class Phase {
     None,
+    AfterInit,
     Init,
+    BeforeInie,
     Draw
 };
 
@@ -485,9 +513,9 @@ struct SliderSeekResult
     float value = 0.0f;     // giá trị cuối cùng (có thể bị clamp/snap)
 };
 using OldIconFn = void(*)(ImDrawList*, ImVec2, ImVec2, ImU32);
-using SliderRenderCallback = std::function<void(Phase phase , Slot slot, SliderRenderData& data, ImDrawList* draw_list)>;
-using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, SliderTooltipData& data, ImDrawList* draw_list)>; 
-using SliderSeekCallback = std::function<SliderSeekResult(const SliderSeekRequest&)>;
+using SliderRenderCallback = std::function<void(Phase phase , Slot slot, SliderRenderData* data, ImDrawList* draw_list)>;
+using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, SliderTooltipData* data, ImDrawList* draw_list)>; 
+using SliderSeekCallback = std::function<SliderSeekResult(const SliderSeekRequest*)>;
 using SliderNavCallback = std::function<void(float value, bool nav_left, bool nav_right)>;
 
 
@@ -621,5 +649,6 @@ namespace CSImGui{
     void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
         const ImVec2& cardMax,const ImVec2& holeMin,const ImVec2& holeMax,
         ImU32 fillCol,ImU32 borderCol,const CardHoleStyle& style);
+    bool ToolTip(const char* label , float delay = 3.0f, ToolTipFlags flags = ToolTipFlags_None);
 }
 
