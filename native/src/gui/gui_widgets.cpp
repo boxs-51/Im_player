@@ -1299,7 +1299,7 @@ bool CSImGui::ModernButtonEx(const char* label, const ImVec2& size_arg) {
     // Màu nền mix thêm influence
     ImVec4 final_bg = ImLerp(GetColors(Col_Button), GetColors(Col_ButtonHovered), *pAnim + influence);
     // ... vẽ tiếp ...
-
+    return true;
 }
 
 bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
