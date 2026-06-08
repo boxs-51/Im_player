@@ -526,31 +526,31 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         // =========================
         // TOOLTIP CALLBACK
         // =========================
-        [&](Phase phase, Slot slot, SliderTooltipData* td, ImDrawList* dl)
+        [&](Phase phase, Slot slot, TooltipData* td, ImDrawList* dl)
         {
             if (phase == Phase::Init)
             {
                 char timeText[32];
-                int sec = (int)td->seek_value;
+                int sec = (int)td->item.seek_value;
 
                 int h = sec / 3600;
                 int m = (sec % 3600) / 60;
                 int s = sec % 60;
 
-                if (td->seek_value >= 0 && td->seek_value <= duration)
+                if (td->item.seek_value >= 0 && td->item.seek_value <= duration)
                 {
                     if (h > 0)
-                        td->text =  Format("%d:%02d:%02d",h, m, s);
+                        td->config.text =  Format("%d:%02d:%02d",h, m, s);
                         //sprintf(timeText, "%d:%02d:%02d", h, m, s);
                     else
-                         td->text =  Format("%02d:%02d", m, s);
+                         td->config.text =  Format("%02d:%02d", m, s);
                         //sprintf(timeText, "%02d:%02d", m, s);
 
                         
                     //strcpy(td->text, timeText);
                 }
                 if (!g_videoInfo.g_chapters.empty()) {
-                    td->show_title = false; // Reset mặc định
+                    td->config.show_title = false; // Reset mặc định
 
                     for (size_t i = 0; i < g_videoInfo.g_chapters.size(); ++i) {
                         double startTime = g_videoInfo.g_chapters[i].time;
@@ -561,18 +561,18 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                                         ? g_videoInfo.g_chapters[i + 1].time 
                                         : g_playbackStatus.duration; 
 
-                        if (td->seek_value >= startTime && td->seek_value < endTime) {
-                            td->show_title = true;
+                        if (td->item.seek_value >= startTime && td->item.seek_value < endTime) {
+                            td->config.show_title = true;
                             // Sử dụng strncpy hoặc snprintf để an toàn hơn strcpy
-                            td->title = g_videoInfo.g_chapters[i].title.c_str();
-                            //snprintf(td->title, sizeof(td->title), "%s", g_videoInfo.g_chapters[i].title.c_str());
+                            td->config.title = g_videoInfo.g_chapters[i].title.c_str();
+                            //snprintf(td->config.title, sizeof(td->config.title), "%s", g_videoInfo.g_chapters[i].title.c_str());
                             break; 
                         }
                     }
                 }
-                td->max_width = 240.0f;
-                td->max_height = 180.0f;
-                td->align = SliderTooltipData::Center;
+                td->config.max_width = 240.0f;
+                td->config.max_height = 180.0f;
+                td->config.align = ImGuiTooltip::Align_Center;
             }
         },
 

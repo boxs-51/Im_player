@@ -251,8 +251,9 @@ void HistoryUrlPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 
                 // 👉 Tooltip chỉ khi hover
 
-                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
-                                                ("url_tooltip_" + std::to_string(i)).c_str());
+                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f);
+                //std::string label = item.utf8 + "##url_tooltip";
+                //if(ImGui::IsItemHovered()) CSImGui::ToolTip(label.c_str(), 3.0f, ToolTipFlags_Animation);
  
                 ImGui::Separator();
             }
@@ -304,8 +305,8 @@ void HistoryFileLocalPage(PopupData& data, std::wstring& urlInput, ImVec2 size)
 
                 // 👉 Tooltip chỉ khi hover
 
-                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f,
-                                                ("file_tooltip_" + std::to_string(i)).c_str());
+                CSImGui::ShowTooltipDelayed(item.utf8.c_str(),ImGui::IsItemHovered(),3.0f);
+
 
             }
         }
