@@ -250,27 +250,25 @@ GLuint GetIcon(const std::string& path)
     return textureID;
 }
 
-bool SetDelayHover( bool isHovering, double delaySeconds ,const char* id) {
-    // Dùng unordered_map để tốc độ tìm kiếm nhanh hơn (O(1))
-    // Key là std::string để so sánh nội dung "text"
-    static std::unordered_map<std::string, Uint32> hoverTimers;
+bool SetDelayHover(bool hovering, double delaySeconds, ImGuiID id)
+{
+    if (id == 0)
+        id = ImGui::GetItemID();
+    ImGuiStorage* storage = ImGui::GetStateStorage();
 
-    // Chuyển pointer thành string để làm key tìm kiếm
-    std::string key(id); 
+    float* start_time = storage->GetFloatRef(id, -1.0f);
+    float now = (float)ImGui::GetTime();
 
-    if (isHovering) {
-        // Nếu chưa tồn tại ID này trong danh sách đang hover
-        if (hoverTimers.find(key) == hoverTimers.end()) {
-            hoverTimers[key] = SDL_GetTicks64();
-        }
+    if (hovering)
+    {
+        if (*start_time < 0.0f)
+            *start_time = now;
 
-        Uint64 elapsed = SDL_GetTicks64() - hoverTimers[key];
-        if (elapsed >= (Uint64)(delaySeconds * 1000)) {
-            return true;
-        }
-    } else {
-        // Xóa khỏi map khi không còn hover
-        hoverTimers.erase(key);
+        return (now - *start_time) >= delaySeconds;
+    }
+    else
+    {
+        *start_time = -1.0f;
     }
 
     return false;

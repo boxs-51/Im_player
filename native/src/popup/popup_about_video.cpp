@@ -51,7 +51,8 @@ void ShowMediaInfo() {
             ImGui::TextWrapped("%s", display.c_str());
 
             // Hover → hiện full
-            CSImGui::ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0, "Stream_URL_Hover");
+            CSImGui::ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0);
+
         }
         ImGui::EndChild();
         ImGui::Spacing();

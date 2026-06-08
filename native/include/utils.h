@@ -258,7 +258,7 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , Wi
 void TerminateHandler();
 void SignalHandler(int signal);
 void NotifyActivity(bool& show_ui_video);
-bool SetDelayHover( bool isHovering, double delaySeconds = 3.0, const char * id = nullptr ) ;
+bool SetDelayHover(bool hovering, double delaySeconds = 3.0f, ImGuiID id = 0) ;
 
 
 WString UTF8ToWide(const String& str);

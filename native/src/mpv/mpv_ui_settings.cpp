@@ -221,7 +221,8 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     ImVec2 p_max = ImGui::GetItemRectMax();
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
-    CSImGui::ShowTooltipDelayed(label, is_hovered, 1.5f, label);
+    CSImGui::ShowTooltipDelayed(label, is_hovered, 1.5f);
+
 
     // 2. Vẽ Text với hiệu ứng trượt và màu sắc động
     float slide_offset = tHover * (4.0f * scale);
@@ -231,10 +232,7 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     // Mix màu chữ mượt mà giữa màu thường và màu được chọn
     ImVec4 textColor = CSImGui::GetColors(Col_Text);
     if (tSelect > 0.0f) {
-        textColor.x = ImLerp(CSImGui::GetColors(Col_Text).x, CSImGui::GetColors(Col_TextSelected).x, tSelect);
-        textColor.y = ImLerp(CSImGui::GetColors(Col_Text).y, CSImGui::GetColors(Col_TextSelected).y, tSelect);
-        textColor.z = ImLerp(CSImGui::GetColors(Col_Text).z, CSImGui::GetColors(Col_TextSelected).z, tSelect);
-        textColor.w = ImLerp(CSImGui::GetColors(Col_Text).w, CSImGui::GetColors(Col_TextSelected).w, tSelect);
+        textColor = ImLerp(CSImGui::GetColors(Col_Text), CSImGui::GetColors(Col_TextSelected), tSelect);
     }
 
     ImVec2 text_pos = ImVec2(p_min.x + (10.0f * scale) + slide_offset, p_min.y + (item_height - ImGui::GetFontSize()) * 0.5f);

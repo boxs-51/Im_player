@@ -2067,762 +2067,748 @@ bool CSImGui::ModernTreeNode(const char* id) {
 }
 
 
-static void ToolTipEx(SliderTooltipData* td, ToolTipFlags flags = ToolTipFlags_None, SliderTooltipCallback tooltip_cb = nullptr){
+static void ToolTipEx(TooltipData* td, ToolTipFlags flags = ToolTipFlags_None, TooltipCallback tooltip_cb = nullptr) {
     
-    if(tooltip_cb) tooltip_cb(Phase::AfterInit, Slot::None, td, NULL);
+    if (tooltip_cb) tooltip_cb(Phase::AfterInit, Slot::None, td, NULL);
+    
+    // Dùng references để code ngắn gọn, rành mạch và dễ map với logic cũ
+    auto& item = td->item;
+    auto& cfg  = td->config;
+    auto  anim = td->anim;
 
     if (flags & ToolTipFlags_Hiden)
-        td->show_tooltip = false;
+        item.is_visible = false;
     else if (flags & ToolTipFlags_AlwaysShow)
-        td->show_tooltip = true;
+        item.is_visible = true;
     else if (flags & ToolTipFlags_AlwaysShowAction)
-        td->show_tooltip = td->active;
+        item.is_visible = item.active;
     else
-        td->show_tooltip = (td->hovered && td->hovered_time >= td->hover_delay);
+        item.is_visible = (item.hovered && item.hovered_time >= item.hover_delay);
 
-    if(!td->show_tooltip)td->lock_dir = false;
-    float target_alpha = td->show_tooltip ? 1.0f : 0.0f;
+    if (!item.is_visible) cfg.lock_dir = false;
+    
+    float target_alpha = item.is_visible ? 1.0f : 0.0f;
     float alpha = target_alpha;
-    if (td->anim){
-        if(flags & ToolTipFlags_Fade){
-            td->anim->alpha = ImLerp(td->anim->alpha, target_alpha, SMOOTH_LERP(td->anim->speedfade, td->dt));
-            alpha = td->anim->alpha;
-        }else{
-            td->anim->alpha = target_alpha;
+    
+    if (anim) {
+        if (flags & ToolTipFlags_Fade) {
+            anim->alpha = ImLerp(anim->alpha, target_alpha, SMOOTH_LERP(anim->speedfade, cfg.dt));
+            alpha = anim->alpha;
+        } else {
+            anim->alpha = target_alpha;
         }
     }
+
+    
     if (alpha > 0.01f) // Nếu tooltip đang hiển thị (đã qua ngưỡng mờ), vẽ nó lên
     {
-        float seek_v = 0.0f;
-        if(td->show_text){
-            float t_mouse = ImClamp((td->mouse.x - td->pos_item.x) / td->size_item.x, 0.0f, 1.0f);
-            seek_v = td->v_min + t_mouse * td->range;
-        }
-        // =========================
-        // INIT DATA
-        // =========================
-        if(td->show_text)
-            td->seek_value = seek_v;
+        ImVec2 tooltip_target_pos = item.mouse + ImVec2(16, 16);
+        ImGui::SetNextWindowPos(tooltip_target_pos, ImGuiCond_Always);
 
-        td->col_bg = ImGui::GetColorU32(ImGuiCol_PopupBg);
-        td->col_text = ImGui::GetColorU32(ImGuiCol_Text);
-        td->col_border = ImGui::GetColorU32(ImGuiCol_Border);
-        td->col_title = ImGui::GetColorU32(ImGuiCol_CheckMark);
-        td->col_extra = ImGui::GetColorU32(ImGuiCol_Header);
+        // Tạo tổ hợp Flags đặc trưng cho một Tooltip độc lập hoàn hảo
+        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar 
+                                      | ImGuiWindowFlags_NoResize 
+                                      | ImGuiWindowFlags_NoMove 
+                                      | ImGuiWindowFlags_NoSavedSettings 
+                                      | ImGuiWindowFlags_AlwaysAutoResize 
+                                      | ImGuiWindowFlags_Tooltip // Ép cửa sổ nằm trên mọi Layer khác
+                                      | ImGuiWindowFlags_NoBackground;
 
-        // default text
-        if(td->show_text)
-            td->text = Format(td->format, td->active ? td->value : td->seek_value);
+        // Tạo một mã định danh duy nhất cho Window Tooltip tránh xung đột danh tính (ID Collision)
+        char window_name[64];
+        ImFormatString(window_name, sizeof(window_name), "##custom_tooltip_%08X", cfg.id);
 
-        if (tooltip_cb)tooltip_cb(Phase::Init, Slot::None, td, NULL);
+        if (ImGui::Begin(window_name, NULL, window_flags)) {
+            // ĐÂY LÀ ĐIỂM QUAN TRỌNG: Lấy DrawList của chính CỬA SỔ MỚI này thay vì cửa sổ cha
+            cfg.draw_list = ImGui::GetWindowDrawList();
 
-        td->col_bg = ImGui::GetColorU32(td->col_bg ,alpha);
-        td->col_text = ImGui::GetColorU32(td->col_text ,alpha);
-        td->col_border = ImGui::GetColorU32(td->col_border ,alpha);
-        td->col_title = ImGui::GetColorU32(td->col_title ,alpha);
-        td->col_extra = ImGui::GetColorU32(td->col_extra ,alpha);
-
-        // default size
-        float max_content_w = ImMax(1.0f, td->max_width - td->padding_content * 2);
-        float max_content_h = ImMax(1.0f, td->max_height - td->padding_content * 2);
-        ImVec2 img_size = td->image_size;
-
-        if ((td->last_raw_title != td->title) && td->show_title) {
-            td->cached_title = TextUtils::WrapTextToLines(td->font, td->fontsize, td->title, max_content_w, td->title_max_lines);
-            td->last_raw_title = td->title;
-        }
-        if ((td->last_raw_extra != td->extra) && td->show_extra) {
-            td->cached_extra = TextUtils::WrapTextToLines(td->font, td->fontsize, td->extra, max_content_w, td->title_max_lines);
-            td->last_raw_extra = td->extra;
-        }
-        if ((td->last_raw_text != td->text) && td->show_text) {
-            td->cached_text = TextUtils::WrapTextToLines(td->font, td->fontsize, td->text, max_content_w, td->title_max_lines);
-            td->last_raw_text = td->text;
-        }
-        if (td->show_image)
-        {
-            if(td->lock_aspect){
-                img_size = FitSizeWithAspect(
-                    img_size,
-                    td->max_width,
-                    max_content_h * 0.6f, // image không chiếm full height
-                    td->aspect_ratio
-                );
+            float seek_v = 0.0f;
+            if (cfg.show_text) {
+                float t_mouse = ImClamp((item.mouse.x - item.pos.x) / item.size.x, 0.0f, 1.0f);
+                seek_v = item.v_min + t_mouse * item.range;
             }
-        }else{
-            img_size = ImVec2(0, 0);
-        }
-
-        ImVec2 title_size = ImVec2(0, 0);
-        ImVec2 extra_size = ImVec2(0, 0);
-        ImVec2 text_size = ImVec2(0, 0);
-
-        auto MeasureLines = [&](const std::vector<std::string>& lines ) {
-            ImVec2 res(0, 0);
-            for (const auto& l : lines) {
-                ImVec2 sz = td->font->CalcTextSizeA(td->fontsize, FLT_MAX, 0.0f, l.c_str());
-                res.x = ImMax(res.x, sz.x);
-                res.y += sz.y; // Cộng dồn chiều cao
-            }
-            // Thêm khoảng cách giữa các dòng (line spacing)
-            if (lines.size() > 1) res.y += (lines.size() - 1) * td->spacing_content; 
-            return res;
-        };
-
-        if(td->show_title)  title_size = MeasureLines(td->cached_title);
-        if(td->show_extra) extra_size = MeasureLines(td->cached_extra);
-        if(td->show_text) text_size  = MeasureLines(td->cached_text);
-
-        // ===== LAYOUT =====
-        float content_w = 0.0f;
-        float content_h = 0.0f;
-
-        if (td->layout == SliderTooltipData::Layout_Vertical)
-        {
-            // Tính Width: Lấy Max của các thành phần ĐANG HIỂN THỊ
-            content_w = text_size.x; // Time luôn có
-            if (td->show_title) content_w = ImMax(content_w, title_size.x);
-            if (td->show_extra) content_w = ImMax(content_w, extra_size.x);
-            if (td->show_image) content_w = ImMax(content_w, img_size.x);
-
-            // Tính Height: Chỉ cộng dồn các thành phần ĐANG HIỂN THỊ
-            if (td->show_image) content_h += img_size.y + td->spacing_content;
-            if (td->show_title) content_h += title_size.y + td->spacing_content;
             
-            content_h += text_size.y; // Thành phần chính
-            
-            if (td->show_extra) content_h += td->spacing_content + extra_size.y;
-        }
-        else // Horizontal
-        {
-            float text_block_h = text_size.y;
-            float text_block_w = text_size.x;
-            
-            if (td->show_title) {
-                text_block_h += title_size.y + td->spacing_content;
-                text_block_w = ImMax(text_block_w, title_size.x);
-            }
-            if (td->show_extra) {
-                text_block_h += extra_size.y + td->spacing_content;
-                text_block_w = ImMax(text_block_w, extra_size.x);
-            }
-
-            content_w = text_block_w;
-            content_h = text_block_h;
-
-            if (td->show_image) {
-                content_w += img_size.x + td->spacing_content;
-                content_h = ImMax(content_h, img_size.y);
-            }
-        }
-
-        // Chỉ Clamp SAU KHI đã có tổng size thực tế
-        content_w = ImMin(content_w, max_content_w);
-        content_h = ImMin(content_h, max_content_h);
-
-        content_w = ImMax(content_w, 1.0f);
-        content_h = ImMax(content_h, 1.0f);
-
-        td->size = ImVec2(
-            content_w + td->padding_content * 2,
-            content_h + td->padding_content * 2
-        );
-        // Lấy giới hạn Viewport (Màn hình)
-        ImVec2 view_min = ImGui::GetMainViewport()->Pos;
-        ImVec2 view_max = view_min + ImGui::GetMainViewport()->Size;
-        // Vùng giới hạn mục tiêu (Mặc định là toàn màn hình)
-        ImVec2 limit_min = view_min;
-        ImVec2 limit_max = view_max;
-
-        auto GetDirVector = [&](SliderTooltipData::TooltipDirection dir)
-        {
-            switch (dir)
-            {
-            case SliderTooltipData::TooltipDir_Up:        return ImVec2(0, -1);
-            case SliderTooltipData::TooltipDir_Down:      return ImVec2(0, 1);
-            case SliderTooltipData::TooltipDir_Left:      return ImVec2(-1, 0);
-            case SliderTooltipData::TooltipDir_Right:     return ImVec2(1, 0);
-            case SliderTooltipData::TooltipDir_UpLeft:    return ImVec2(-1, -1);
-            case SliderTooltipData::TooltipDir_UpRight:   return ImVec2(1, -1);
-            case SliderTooltipData::TooltipDir_DownLeft:  return ImVec2(-1, 1);
-            case SliderTooltipData::TooltipDir_DownRight: return ImVec2(1, 1);
-            }
-            return ImVec2(0, -1);
-        };
-        auto ComputeBestPosition = [&](ImVec2 target, ImVec2& out_pos, SliderTooltipData::TooltipDirection& out_dir)
-        {
-            ImVec2 item_min = td->pos_item;
-            ImVec2 item_max = td->pos_item + td->size_item;
-
-            struct Candidate {
-                ImVec2 pos;
-                SliderTooltipData::TooltipDirection dir;
-                float score;
-            };
-
-            Candidate best = {};
-            best.score = -FLT_MAX;
-
-            auto Test = [&](ImVec2 pos, SliderTooltipData::TooltipDirection dir)
-            {
-                ImVec2 pmax = pos + td->size;
-
-                // check overflow
-                float overflow =
-                    ImMax(0.0f, view_min.x - pos.x) +
-                    ImMax(0.0f, view_min.y - pos.y) +
-                    ImMax(0.0f, pmax.x - view_max.x) +
-                    ImMax(0.0f, pmax.y - view_max.y);
-
-                // check overlap item
-                bool overlap =
-                    !(pmax.x < item_min.x || pos.x > item_max.x ||
-                    pmax.y < item_min.y || pos.y > item_max.y);
-
-                float score = -overflow * 10.0f;
-                if (!overlap) score += 1000.0f;
-
-                if (score > best.score) {
-                    best = {pos, dir, score};
-                }
-            };
-
-            // TOP
-            Test(ImVec2(
-                target.x - td->size.x * 0.5f,
-                item_min.y - td->size.y - td->spacing_mouse
-            ), td->TooltipDir_Up);
-
-            // BOTTOM
-            Test(ImVec2(
-                target.x - td->size.x * 0.5f,
-                item_max.y + td->spacing_mouse
-            ), td->TooltipDir_Down);
-
-            // RIGHT
-            Test(ImVec2(
-                item_max.x + td->spacing_mouse,
-                target.y - td->size.y * 0.5f
-            ), td->TooltipDir_Right);
-
-            // LEFT
-            Test(ImVec2(
-                item_min.x - td->size.x - td->spacing_mouse,
-                target.y - td->size.y * 0.5f
-            ), td->TooltipDir_Left);
-
-            Test(ImVec2(
-                item_min.x - td->size.x - td->spacing_mouse,
-                item_min.y - td->size.y
-            ), td->TooltipDir_UpLeft);
-
-            Test(ImVec2(
-                item_max.x + td->spacing_mouse,
-                item_min.y - td->size.y
-            ), td->TooltipDir_UpRight);
-
-            Test(ImVec2(
-                item_min.x - td->size.x - td->spacing_mouse,
-                item_max.y
-            ), td->TooltipDir_DownLeft);
-
-            Test(ImVec2(
-                item_max.x + td->spacing_mouse,
-                item_max.y
-            ), td->TooltipDir_DownRight);
-
-            out_pos = best.pos;
-            out_dir = best.dir;
-        };
-
-        ImVec2 base_pos;
-        SliderTooltipData::TooltipDirection base_dir = SliderTooltipData::TooltipDir_Up;
-    
-        // ===== PRIORITY =====
-        if (flags & ToolTipFlags_Fixed)
-        {
-            base_dir = SliderTooltipData::TooltipDir_Up;
-
-            base_pos = ImVec2(
-                td->center.x - td->size.x * 0.5f,
-                td->center.y - td->size.y - td->spacing_mouse
-            );
-
-            td->lock_dir = false;
-        }
-        else if (flags & ToolTipFlags_AutoPosition)
-        {
-            // luôn recompute position theo target (mouse hoặc center)
-            ImVec2 target = td->mouse;
-
-            if (flags & ToolTipFlags_FollowMouse_Fixed_X)
-                target.x = td->center.x;
-            if (flags & ToolTipFlags_FollowMouse_Fixed_Y)
-                target.y = td->center.y;
-
-            // 👉 chỉ lock direction
-            if (!td->lock_dir)
-            {
-                ImVec2 tmp_pos;
-                SliderTooltipData::TooltipDirection tmp_dir;
-
-                ComputeBestPosition(target, tmp_pos, tmp_dir);
-
-                td->dir = tmp_dir;
-                td->lock_dir = true;
-            }
-
-            // 👉 pos luôn update theo target + direction
-            ImVec2 dir_vec = GetDirVector(td->dir);
-            float len = sqrtf(dir_vec.x * dir_vec.x + dir_vec.y * dir_vec.y);
-            float safe_pad = 6.0f;
-            ImVec2 safe = td->cursor_size + ImVec2(safe_pad, safe_pad);
-            if (len > 0.0f) dir_vec /= len;
-            ImVec2 extra(0,0);
-            if (dir_vec.x > 0) extra.x += safe.x;
-            if (dir_vec.x < 0) extra.x -= safe.x;
-
-            if (dir_vec.y > 0) extra.y += safe.y;
-            if (dir_vec.y < 0) extra.y -= safe.y;
-
-            ImVec2 size_offset(
-                (dir_vec.x == 0 ? -td->size.x * 0.5f : (dir_vec.x < 0 ? -td->size.x : 0)),
-                (dir_vec.y == 0 ? -td->size.y * 0.5f : (dir_vec.y < 0 ? -td->size.y : 0))
-            );
-            base_pos = target 
-                    + dir_vec * td->spacing_mouse 
-                    + extra
-                    + size_offset;
-            base_dir = td->dir;
-        }   
-        else
-        {
-            ImVec2 target = td->mouse;
-
-            if (flags & ToolTipFlags_FollowMouse_Fixed_X)
-                target.x = td->center.x;
-            if (flags & ToolTipFlags_FollowMouse_Fixed_Y)
-                target.y = td->center.y;
-
-            base_pos = target - ImVec2(td->size.x * 0.5f, td->size.y + td->spacing_mouse);
-            base_dir = SliderTooltipData::TooltipDir_Up;
-
-            td->lock_dir = false;
-        }
-
-        // APPLY
-        td->pos = base_pos;
-        td->dir = base_dir;
-
-        if (flags & ToolTipFlags_ClampItem) {
-            limit_min = td->pos_item;
-            limit_max = td->pos_item + td->size_item;
-
-            // Xử lý Item quá nhỏ: Mở rộng vùng giới hạn để Tooltip không bị kẹt
-            if (td->size_item.x < td->size.x) {
-                float cx = td->pos_item.x + td->size_item.x * 0.5f;
-                limit_min.x = cx - td->size.x * 0.5f;
-                limit_max.x = cx + td->size.x * 0.5f;
-            }
-            if (td->size_item.y < td->size.y) {
-                float cy = td->pos_item.y + td->size_item.y * 0.5f;
-                limit_min.y = cy - td->size.y * 0.5f;
-                limit_max.y = cy + td->size.y * 0.5f;
-            }
-        }
-        bool is_x_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_X);
-        bool is_y_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_Y);
-
-        if (flags & ToolTipFlags_ClampItem) {
-            if (!is_x_fixed) 
-                td->pos.x = ImClamp(td->pos.x, limit_min.x + td->padding, limit_max.x - td->size.x - td->padding);
-            
-            if (!is_y_fixed)
-                td->pos.y = ImClamp(td->pos.y, limit_min.y + td->padding, limit_max.y - td->size.y - td->padding);
-        }
-        
-        // clamp
-        if (flags & ToolTipFlags_ClampWindow){
-            td->pos.x = ImClamp(td->pos.x, view_min.x + td->padding, view_max.x - td->size.x - td->padding);
-            td->pos.y = ImClamp(td->pos.y, view_min.y + td->padding, view_max.y - td->size.y - td->padding);
-        }
-
-        ImVec2 draw_pos = td->pos, draw_size = td->size;
-        if (flags & ToolTipFlags_Ease && td->anim)
-        {
-            td->anim->pos = ImLerp(td->anim->pos, td->pos, SMOOTH_LERP(td->anim->speedease, td->dt));
-            td->anim->size = ImLerp(td->anim->size, td->size, SMOOTH_LERP(td->anim->speedease, td->dt));
-            draw_pos = td->anim->pos; draw_size = td->anim->size;
-        }
-
-        float scale = 1.0f;
-
-        if (flags & ToolTipFlags_Scale)
-        {
-            scale = 0.85f + 0.15f * alpha;
-        }
-        ImVec2 center = draw_pos + draw_size * 0.5f;
-        ImVec2 half = (draw_size * scale) * 0.5f;
-
-        ImVec2 pmin = center - half;
-        ImVec2 pmax = center + half;
-
-        ImVec2 scaled = ImVec2((pmax.x - pmin.x), (pmax.y - pmin.y));
-
-        // =========================
-        // ARROW + ANCHOR (360°)
-        // =========================
-        float aw = 5.0f * scale;
-        float ah = 5.0f * scale;
-        float r  = td->rounding;
-
-        ImVec2 ref = (flags & (ToolTipFlags_FollowMouse | ToolTipFlags_FollowMouse_Fixed_Y)) 
-            ? td->mouse : td->center;
-
-        // Smooth dir
-        ImVec2 target_dir = ref - center;
-        float dist = ImLength(target_dir);
-        //float len = sqrtf(target_dir.x * target_dir.x + target_dir.y * target_dir.y);
-        ImVec2 dir = target_dir;
-        if (dist > 0.0f) dir /= dist;
-        //if (len > 0.0f) dir /= len;
-        if(td->anim && flags & ToolTipFlags_Ease){
-            td->anim->last_arrow_dir = ImLerp(
-                td->anim->last_arrow_dir,
-                dir,
-                SMOOTH_LERP(td->anim->speedease, td->dt)
-            );
-            dir = td->anim->last_arrow_dir;
-            float len = ImLength(dir);
-            if (len > 0.0f) dir /= len;
-        }
-        
-        float k = ImClamp(dist / 200.0f, 0.0f, 1.0f);
-        //float k = ImClamp(len / 200.0f, 0.0f, 1.0f);
-        k = k * k * (3.0f - 2.0f * k); // smoothstep
-
-        float aw_dyn = ImLerp(td->arrow_width * td->arrow_scale_min * scale, td->arrow_width * td->arrow_scale_max * scale, k);
-        float ah_dyn = ImLerp(td->arrow_height * td->arrow_scale_min * scale, td->arrow_height * td->arrow_scale_max * scale, k);
-
-        //float blend = fabsf(fabsf(dir.x) - fabsf(dir.y));
-        //if (blend < 0.2f)
-        float dot = fabsf(dir.x * dir.y);
-        if (dot > 0.45f)
-        {
-            aw_dyn *= 0.7f;
-            ah_dyn *= 0.7f;
-        }
-
-        float pad = td->rounding + aw_dyn + td->edge_safe_padding;
-
-        // =========================
-        // PROJECT TO RECT
-        // =========================
-        float hx = (pmax.x - pmin.x) * 0.5f;
-        float hy = (pmax.y - pmin.y) * 0.5f;
-
-        float tx = (fabsf(dir.x) > 1e-5f) ? hx / fabsf(dir.x) : FLT_MAX;
-        float ty = (fabsf(dir.y) > 1e-5f) ? hy / fabsf(dir.y) : FLT_MAX;
-
-        float t = ImMin(tx, ty);
-        ImVec2 anchor = center + dir * t;
-
-        // =========================
-        // DETECT REGION
-        // =========================
-        float eps = ImMax(0.5f, scale * 0.5f);
-
-        bool near_left   = fabs(anchor.x - pmin.x) < eps;
-        bool near_right  = fabs(anchor.x - pmax.x) < eps;
-        bool near_top    = fabs(anchor.y - pmin.y) < eps;
-        bool near_bottom = fabs(anchor.y - pmax.y) < eps;
-
-        bool is_corner =
-            (near_top && near_left) ||
-            (near_top && near_right) ||
-            (near_bottom && near_left) ||
-            (near_bottom && near_right);
-
-        // =========================
-        // TANGENT / NORMAL
-        // =========================
-        ImVec2 tangent, normal;
-        ImVec2 corner_center;
-        // ---- CORNER MODE ----
-        if (is_corner && r > 0.0f)
-        {
-
-            if (near_top && near_left)         corner_center = {pmin.x + r, pmin.y + r};
-            else if (near_top && near_right)   corner_center = {pmax.x - r, pmin.y + r};
-            else if (near_bottom && near_left) corner_center = {pmin.x + r, pmax.y - r};
-            else                               corner_center = {pmax.x - r, pmax.y - r};
-
-            ImVec2 v = anchor - corner_center;
-            float l = ImLength(v);
-
-            if (l > 0.0f) v /= l;
-
-            anchor = corner_center + v * r;
-
-            normal = v;
-            tangent = ImVec2(-normal.y, normal.x);
-        }
-        // ---- EDGE MODE ----
-        else
-        {
-            enum Edge {Top, Bottom, Left, Right};
-            Edge edge;
-
-            if (near_top) edge = Top;
-            else if (near_bottom) edge = Bottom;
-            else if (near_left) edge = Left;
-            else edge = Right;
-
-            float min_x = pmin.x + r + aw_dyn;
-            float max_x = pmax.x - r - aw_dyn;
-            float min_y = pmin.y + r + aw_dyn;
-            float max_y = pmax.y - r - aw_dyn;
-
-            if (edge == Top || edge == Bottom)
-                anchor.x = ImClamp(anchor.x, min_x, max_x);
-            else
-                anchor.y = ImClamp(anchor.y, min_y, max_y);
-
-            if (edge == Top)        { tangent = ImVec2(1,0); normal = ImVec2(0,-1); }
-            else if (edge == Bottom){ tangent = ImVec2(1,0); normal  = ImVec2(0,1); }
-            else if (edge == Left)  { tangent = ImVec2(0,1); normal  = ImVec2(-1,0);}
-            else                    { tangent = ImVec2(0,1); normal = ImVec2(1,0); }
-        }
-
-        // =========================
-        // ARROW POINTS
-        // =========================
-        ImVec2 arrow_p1 = anchor - tangent * aw_dyn;
-        ImVec2 arrow_p2 = anchor + tangent * aw_dyn;
-        ImVec2 arrow_p3 = anchor + normal  * ah_dyn;
-        // =========================
-        // CUSTOM TOOLTIP (OVERRIDE)
-        // =========================
-        if (tooltip_cb)tooltip_cb(Phase::Draw, Slot::Draw_layer0, td, td->draw_list);
-
-        if (!td->skip_draw)
-        {
-            bool draw_arrow = !(flags & ToolTipFlags_NoArrow) && !td->skip_draw_arrow;
-            ImDrawList* dl = td->draw_list;
-            dl->PathClear();
-
-            const int ARC_SEG = 8;
-            auto Arc = [&](ImVec2 c, float a0, float a1) {
-                dl->PathArcTo(c, r, a0, a1, ARC_SEG);
-            };
-
-            // 1. ---- TOP EDGE (Bắt đầu từ đây)
-            if (draw_arrow && near_top && !is_corner)
-            {
-                float left  = pmin.x + r;
-                float right = pmax.x - r;
-                float x1 = ImClamp(arrow_p1.x, left, right);
-                float x2 = ImClamp(arrow_p2.x, left, right);
-
-                dl->PathLineTo(ImVec2(x1, pmin.y));
-                dl->PathLineTo(arrow_p3);
-                dl->PathLineTo(ImVec2(x2, pmin.y));
-                dl->PathLineTo(ImVec2(pmax.x - r, pmin.y)); // Điểm kết thúc cạnh top
-            }
-            else
-            {
-                dl->PathLineTo(ImVec2(pmin.x + r, pmin.y)); // Điểm bắt đầu cạnh top
-                dl->PathLineTo(ImVec2(pmax.x - r, pmin.y)); // Điểm kết thúc cạnh top
-            }
-
-            // 2. ---- TOP RIGHT CORNER
-            Arc({pmax.x - r, pmin.y + r}, IM_PI*1.5f, IM_PI*2.0f);
-
-            // 3. ---- RIGHT EDGE
-            if (draw_arrow && near_right && !is_corner)
-            {
-               // dl->PathLineTo(ImVec2(pmax.x, arrow_p1.y));
-                dl->PathLineTo(arrow_p1);
-                dl->PathLineTo(arrow_p3);
-                dl->PathLineTo(arrow_p2);
-                dl->PathLineTo(ImVec2(pmax.x, pmax.y - r));
-            }
-            else
-            {
-                dl->PathLineTo(ImVec2(pmax.x, pmax.y - r));
-            }
-
-            // 4. ---- BOTTOM RIGHT CORNER
-            Arc({pmax.x - r, pmax.y - r}, 0.0f, IM_PI*0.5f);
-
-            // 5. ---- BOTTOM EDGE
-            if (draw_arrow && near_bottom && !is_corner)
-            {
-                dl->PathLineTo(ImVec2(arrow_p2.x, pmax.y));
-                dl->PathLineTo(arrow_p2);
-                dl->PathLineTo(arrow_p3);
-                dl->PathLineTo(arrow_p1);
-                dl->PathLineTo(ImVec2(pmin.x + r, pmax.y));
-            }
-            else
-            {
-                dl->PathLineTo(ImVec2(pmin.x + r, pmax.y));
-            }
-
-            // 6. ---- BOTTOM LEFT CORNER
-            Arc({pmin.x + r, pmax.y - r}, IM_PI*0.5f, IM_PI);
-
-            // 7. ---- LEFT EDGE
-            if (draw_arrow && near_left && !is_corner)
-            {
-                dl->PathLineTo(ImVec2(pmin.x, arrow_p2.y));
-                dl->PathLineTo(arrow_p2);
-                dl->PathLineTo(arrow_p3);
-                dl->PathLineTo(arrow_p1);
-                dl->PathLineTo(ImVec2(pmin.x, pmin.y + r));
-            }
-            else
-            {
-                dl->PathLineTo(ImVec2(pmin.x, pmin.y + r));
-            }
-
-            // 8. ---- TOP LEFT CORNER (Kết thúc vòng lặp tại đây)
-            Arc({pmin.x + r, pmin.y + r}, IM_PI, IM_PI*1.5f);
-
             // =========================
-            // CORNER ARROW (Giữ nguyên logic vẽ đè hoặc chèn vào Path)
+            // INIT DATA
             // =========================
-            if (draw_arrow && is_corner)
-            {
-                // Lưu ý: Nếu dùng Corner Arrow, logic này sẽ vẽ một "vết cắt" 
-                // đè lên các arc đã vẽ. Bạn có thể cần xóa logic Path ở trên 
-                // hoặc sửa lại hàm Arc() nếu muốn mượt hoàn toàn.
-                float angle = atan2f(anchor.y - corner_center.y, anchor.x - corner_center.x);
-                float delta = td->arrow_corner_bias * (ah_dyn / r);
-                float a0, a1;
+            if (cfg.show_text)
+                item.seek_value = seek_v;
 
-                if (near_top && near_left)         { a0 = IM_PI; a1 = IM_PI*1.5f; }
-                else if (near_top && near_right)   { a0 = IM_PI*1.5f; a1 = IM_PI*2.0f; }
-                else if (near_bottom && near_right){ a0 = 0.0f; a1 = IM_PI*0.5f; }
-                else                               { a0 = IM_PI*0.5f; a1 = IM_PI; }
+            cfg.col_bg = ImGui::GetColorU32(ImGuiCol_PopupBg);
+            cfg.col_text = ImGui::GetColorU32(ImGuiCol_Text);
+            cfg.col_border = ImGui::GetColorU32(ImGuiCol_Border);
+            cfg.col_title = ImGui::GetColorU32(ImGuiCol_CheckMark);
+            cfg.col_extra = ImGui::GetColorU32(ImGuiCol_Header);
 
-                dl->PathArcTo(corner_center, r, a0, angle - delta);
-                dl->PathLineTo(arrow_p1);
-                dl->PathLineTo(arrow_p3);
-                dl->PathLineTo(arrow_p2);
-                dl->PathArcTo(corner_center, r, angle + delta, a1);
+            // default text
+            if (cfg.show_text)
+                cfg.text = Format(cfg.format, item.active ? item.value : item.seek_value);
+
+            if (tooltip_cb) tooltip_cb(Phase::Init, Slot::None, td, NULL);
+
+            cfg.col_bg = ImGui::GetColorU32(cfg.col_bg, alpha);
+            cfg.col_text = ImGui::GetColorU32(cfg.col_text, alpha);
+            cfg.col_border = ImGui::GetColorU32(cfg.col_border, alpha);
+            cfg.col_title = ImGui::GetColorU32(cfg.col_title, alpha);
+            cfg.col_extra = ImGui::GetColorU32(cfg.col_extra, alpha);
+
+            // default size
+            float max_content_w = ImMax(1.0f, cfg.max_width - cfg.padding_content * 2);
+            float max_content_h = ImMax(1.0f, cfg.max_height - cfg.padding_content * 2);
+            ImVec2 img_size = cfg.image_size;
+
+            if ((cfg.last_raw_title != cfg.title) && cfg.show_title) {
+                cfg.cached_title = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.title, max_content_w, cfg.title_max_lines);
+                cfg.last_raw_title = cfg.title;
             }
-
-            if (!td->skip_draw_bg)
-                dl->PathFillConvex(td->col_bg);
-
-            if (!td->skip_draw_border && !(flags & ToolTipFlags_NoBorder))
-                dl->PathStroke(td->col_border, ImDrawFlags_Closed, td->border_thickness);
-        }
-        if (tooltip_cb)tooltip_cb(Phase::Draw, Slot::Draw_layer1, td, td->draw_list);
-        if (!td->skip_draw_text && !td->skip_draw)
-        {
-            float pos_y = pmin.y + td->padding_content;
-            // Hàm helper để vẽ text căn lề
-            auto DrawWrappedLines = [&](const std::vector<std::string>& lines, ImU32 color) {
-                for (const auto& line : lines) {
-                    ImVec2 sz = td->font->CalcTextSizeA(td->fontsize, FLT_MAX, 0.0f, line.c_str());
-                    float draw = pmin.x + td->padding_content;
-                    if (td->align == SliderTooltipData::Center)
-                        draw += (scaled.x - sz.x) * 0.5f - td->padding_content;
-                    else if (td->align == SliderTooltipData::Right)
-                        draw += (scaled.x - sz.x);
-
-                    td->draw_list->AddText(td->font, td->fontsize, ImVec2(draw, pos_y), color, line.c_str());
-                    pos_y += sz.y + td->spacing_content; // 2.0f là line spacing
-                }
-            };
-
-            if (td->layout == SliderTooltipData::Layout_Vertical)
-            {
-                // IMAGE
-                if (td->show_image && td->image)
-                {
-                    ImVec2 img_pos(
-                        pmin.x + (scaled.x - img_size.x) * 0.5f,
-                        pos_y
+            if ((cfg.last_raw_extra != cfg.extra) && cfg.show_extra) {
+                cfg.cached_extra = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.extra, max_content_w, cfg.title_max_lines);
+                cfg.last_raw_extra = cfg.extra;
+            }
+            if ((cfg.last_raw_text != cfg.text) && cfg.show_text) {
+                cfg.cached_text = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.text, max_content_w, cfg.title_max_lines);
+                cfg.last_raw_text = cfg.text;
+            }
+            
+            if (cfg.show_image) {
+                if (cfg.lock_aspect) {
+                    img_size = FitSizeWithAspect(
+                        img_size,
+                        cfg.max_width,
+                        max_content_h * 0.6f, // image không chiếm full height
+                        cfg.aspect_ratio
                     );
-
-
-                    td->draw_list->AddImage(td->image, img_pos, img_pos + img_size);
-                    pos_y += img_size.y + td->spacing_content;
                 }
-
-                // TITLE
-                if (td->show_title) DrawWrappedLines(td->cached_title, td->col_title);
-                // VALUA
-                if (td->show_text) DrawWrappedLines(td->cached_text, td->col_text);
-                // EXTRA
-                if (td->show_extra) DrawWrappedLines(td->cached_extra, td->col_extra);
-    
+            } else {
+                img_size = ImVec2(0, 0);
             }
-            else if (td->layout == SliderTooltipData::Layout_Horizontal) 
-            {
-                float current_x = pmin.x + td->padding_content;
-                float current_y = pmin.y + td->padding_content;
 
-                // 1. VẼ ẢNH (Bên trái)
-                if (td->show_image && td->image) {
-                    // Căn giữa ảnh theo chiều dọc của toàn bộ content
-                    float img_y = pmin.y + (scaled.y - img_size.y) * 0.5f;
-                    ImVec2 img_pos(current_x, img_y);
-                    td->draw_list->AddImage(td->image, img_pos, img_pos + img_size);
-                    
-                    // Dịch chuyển tọa độ X của khối text sang phải sau ảnh
-                    current_x += img_size.x + td->spacing_content;
+            ImVec2 title_size = ImVec2(0, 0);
+            ImVec2 extra_size = ImVec2(0, 0);
+            ImVec2 text_size = ImVec2(0, 0);
+
+            auto MeasureLines = [&](const std::vector<std::string>& lines) {
+                ImVec2 res(0, 0);
+                for (const auto& l : lines) {
+                    ImVec2 sz = cfg.font->CalcTextSizeA(cfg.fontsize, FLT_MAX, 0.0f, l.c_str());
+                    res.x = ImMax(res.x, sz.x);
+                    res.y += sz.y; // Cộng dồn chiều cao
+                }
+                // Thêm khoảng cách giữa các dòng (line spacing)
+                if (lines.size() > 1) res.y += (lines.size() - 1) * cfg.spacing_content; 
+                return res;
+            };
+
+            if (cfg.show_title)  title_size = MeasureLines(cfg.cached_title);
+            if (cfg.show_extra)  extra_size = MeasureLines(cfg.cached_extra);
+            if (cfg.show_text)   text_size  = MeasureLines(cfg.cached_text);
+
+            // ===== LAYOUT =====
+            float content_w = 0.0f;
+            float content_h = 0.0f;
+
+            if (cfg.layout == ImGuiTooltip::Layout_Vertical)
+            {
+                content_w = text_size.x;
+                if (cfg.show_title) content_w = ImMax(content_w, title_size.x);
+                if (cfg.show_extra) content_w = ImMax(content_w, extra_size.x);
+                if (cfg.show_image) content_w = ImMax(content_w, img_size.x);
+
+                if (cfg.show_image) content_h += img_size.y + cfg.spacing_content;
+                if (cfg.show_title) content_h += title_size.y + cfg.spacing_content;
+                
+                content_h += text_size.y; 
+                
+                if (cfg.show_extra) content_h += cfg.spacing_content + extra_size.y;
+            }
+            else // Horizontal
+            {
+                float text_block_h = text_size.y;
+                float text_block_w = text_size.x;
+                
+                if (cfg.show_title) {
+                    text_block_h += title_size.y + cfg.spacing_content;
+                    text_block_w = ImMax(text_block_w, title_size.x);
+                }
+                if (cfg.show_extra) {
+                    text_block_h += extra_size.y + cfg.spacing_content;
+                    text_block_w = ImMax(text_block_w, extra_size.x);
                 }
 
-                // 2. VẼ KHỐI TEXT (Bên phải)
-                // Tính toán lại chiều rộng khả dụng cho cột text
-                float text_column_w = pmax.x - td->padding_content - current_x;
-                
-                // Tính tổng chiều cao khối text để căn giữa dọc (Vertical Center)
-                float total_text_h = text_size.y;
-                if (td->show_title) total_text_h += title_size.y + td->spacing_content;
-                if (td->show_extra) total_text_h += extra_size.y + td->spacing_content;
-                
-                float start_text_y = pmin.y + (scaled.y - total_text_h) * 0.5f;
+                content_w = text_block_w;
+                content_h = text_block_h;
 
-                // Helper vẽ text cho Layout ngang
-                auto DrawLinesHorizontal = [&](const std::vector<std::string>& lines, ImU32 color, float& y_offset) {
-                    for (const auto& line : lines) {
-                        ImVec2 sz = td->font->CalcTextSizeA(td->fontsize, FLT_MAX, 0.0f, line.c_str());
-                        float draw_x = current_x;
+                if (cfg.show_image) {
+                    content_w += img_size.x + cfg.spacing_content;
+                    content_h = ImMax(content_h, img_size.y);
+                }
+            }
 
-                        // Căn lề ngang (Align) trong phạm vi cột text
-                        if (td->align == SliderTooltipData::Center)
-                            draw_x += (text_column_w - sz.x) * 0.5f;
-                        else if (td->align == SliderTooltipData::Right)
-                            draw_x += (text_column_w - sz.x);
+            content_w = ImMin(content_w, max_content_w);
+            content_h = ImMin(content_h, max_content_h);
 
-                        td->draw_list->AddText(td->font, td->fontsize, ImVec2(draw_x, y_offset), color, line.c_str());
-                        y_offset += sz.y + 2.0f; // Line spacing
+            content_w = ImMax(content_w, 1.0f);
+            content_h = ImMax(content_h, 1.0f);
+
+            td->out_size = ImVec2(
+                content_w + cfg.padding_content * 2,
+                content_h + cfg.padding_content * 2
+            );
+
+            ImVec2 view_min = ImGui::GetMainViewport()->Pos;
+            ImVec2 view_max = view_min + ImGui::GetMainViewport()->Size;
+            ImVec2 limit_min = view_min;
+            ImVec2 limit_max = view_max;
+
+            auto GetDirVector = [&](ImGuiTooltip::TooltipDirection dir)
+            {
+                switch (dir)
+                {
+                case ImGuiTooltip::Dir_Up:        return ImVec2(0, -1);
+                case ImGuiTooltip::Dir_Down:      return ImVec2(0, 1);
+                case ImGuiTooltip::Dir_Left:      return ImVec2(-1, 0);
+                case ImGuiTooltip::Dir_Right:     return ImVec2(1, 0);
+                case ImGuiTooltip::Dir_UpLeft:    return ImVec2(-1, -1);
+                case ImGuiTooltip::Dir_UpRight:   return ImVec2(1, -1);
+                case ImGuiTooltip::Dir_DownLeft:  return ImVec2(-1, 1);
+                case ImGuiTooltip::Dir_DownRight: return ImVec2(1, 1);
+                }
+                return ImVec2(0, -1);
+            };
+
+            auto ComputeBestPosition = [&](ImVec2 target, ImVec2& out_pos, ImGuiTooltip::TooltipDirection& out_dir)
+            {
+                ImVec2 item_min = item.pos;
+                ImVec2 item_max = item.pos + item.size;
+
+                struct Candidate {
+                    ImVec2 pos;
+                    ImGuiTooltip::TooltipDirection dir;
+                    float score;
+                };
+
+                Candidate best = {};
+                best.score = -FLT_MAX;
+
+                auto Test = [&](ImVec2 pos, ImGuiTooltip::TooltipDirection dir)
+                {
+                    ImVec2 pmax = pos + td->out_size;
+
+                    float overflow =
+                        ImMax(0.0f, view_min.x - pos.x) +
+                        ImMax(0.0f, view_min.y - pos.y) +
+                        ImMax(0.0f, pmax.x - view_max.x) +
+                        ImMax(0.0f, pmax.y - view_max.y);
+
+                    bool overlap =
+                        !(pmax.x < item_min.x || pos.x > item_max.x ||
+                        pmax.y < item_min.y || pos.y > item_max.y);
+
+                    float score = -overflow * 10.0f;
+                    if (!overlap) score += 1000.0f;
+
+                    if (score > best.score) {
+                        best = {pos, dir, score};
                     }
                 };
 
-                float run_y = start_text_y;
+                // TOP
+                Test(ImVec2(target.x - td->out_size.x * 0.5f, item_min.y - td->out_size.y - cfg.spacing_mouse), ImGuiTooltip::Dir_Up);
+                // BOTTOM
+                Test(ImVec2(target.x - td->out_size.x * 0.5f, item_max.y + cfg.spacing_mouse), ImGuiTooltip::Dir_Down);
+                // RIGHT
+                Test(ImVec2(item_max.x + cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Right);
+                // LEFT
+                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Left);
+                
+                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpLeft);
+                Test(ImVec2(item_max.x + cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpRight);
+                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownLeft);
+                Test(ImVec2(item_max.x + cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownRight);
 
-                // Vẽ theo thứ tự Title -> Text (Time) -> Extra
-                if (td->show_title) {
-                    DrawLinesHorizontal(td->cached_title, td->col_title, run_y);
-                    run_y += td->spacing_content;
+                out_pos = best.pos;
+                out_dir = best.dir;
+            };
+
+            ImVec2 base_pos;
+            ImGuiTooltip::TooltipDirection base_dir = ImGuiTooltip::Dir_Up;
+        
+            // ===== PRIORITY =====
+            if (flags & ToolTipFlags_Fixed)
+            {
+                base_dir = ImGuiTooltip::Dir_Up;
+                base_pos = ImVec2(
+                    item.center.x - td->out_size.x * 0.5f,
+                    item.center.y - td->out_size.y - cfg.spacing_mouse
+                );
+                cfg.lock_dir = false;
+            }
+            else if (flags & ToolTipFlags_AutoPosition)
+            {
+                ImVec2 target = item.mouse;
+
+                if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
+                if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
+
+                if (!cfg.lock_dir)
+                {
+                    ImVec2 tmp_pos;
+                    ImGuiTooltip::TooltipDirection tmp_dir;
+
+                    ComputeBestPosition(target, tmp_pos, tmp_dir);
+
+                    cfg.dir = tmp_dir;
+                    cfg.lock_dir = true;
                 }
-                if(td->show_text)
-                    DrawLinesHorizontal(td->cached_text, td->col_text, run_y);
 
-                if (td->show_extra) {
-                    run_y += td->spacing_content;
-                    DrawLinesHorizontal(td->cached_extra, td->col_extra, run_y);
+                ImVec2 dir_vec = GetDirVector(cfg.dir);
+                float len = sqrtf(dir_vec.x * dir_vec.x + dir_vec.y * dir_vec.y);
+                float safe_pad = 6.0f;
+                ImVec2 safe = item.cursor_size + ImVec2(safe_pad, safe_pad);
+                if (len > 0.0f) dir_vec /= len;
+                
+                ImVec2 extra(0,0);
+                if (dir_vec.x > 0) extra.x += safe.x;
+                if (dir_vec.x < 0) extra.x -= safe.x;
+                if (dir_vec.y > 0) extra.y += safe.y;
+                if (dir_vec.y < 0) extra.y -= safe.y;
+
+                ImVec2 size_offset(
+                    (dir_vec.x == 0 ? -td->out_size.x * 0.5f : (dir_vec.x < 0 ? -td->out_size.x : 0)),
+                    (dir_vec.y == 0 ? -td->out_size.y * 0.5f : (dir_vec.y < 0 ? -td->out_size.y : 0))
+                );
+                base_pos = target 
+                        + dir_vec * cfg.spacing_mouse 
+                        + extra
+                        + size_offset;
+                base_dir = cfg.dir;
+            }   
+            else
+            {
+                ImVec2 target = item.mouse;
+
+                if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
+                if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
+
+                base_pos = target - ImVec2(td->out_size.x * 0.5f, td->out_size.y + cfg.spacing_mouse);
+                base_dir = ImGuiTooltip::Dir_Up;
+
+                cfg.lock_dir = false;
+            }
+
+            // APPLY
+            td->out_pos = base_pos;
+            cfg.dir = base_dir;
+
+            if (flags & ToolTipFlags_ClampItem) {
+                limit_min = item.pos;
+                limit_max = item.pos + item.size;
+
+                if (item.size.x < td->out_size.x) {
+                    float cx = item.pos.x + item.size.x * 0.5f;
+                    limit_min.x = cx - td->out_size.x * 0.5f;
+                    limit_max.x = cx + td->out_size.x * 0.5f;
+                }
+                if (item.size.y < td->out_size.y) {
+                    float cy = item.pos.y + item.size.y * 0.5f;
+                    limit_min.y = cy - td->out_size.y * 0.5f;
+                    limit_max.y = cy + td->out_size.y * 0.5f;
                 }
             }
+            bool is_x_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_X);
+            bool is_y_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_Y);
+
+            if (flags & ToolTipFlags_ClampItem) {
+                if (!is_x_fixed) 
+                    td->out_pos.x = ImClamp(td->out_pos.x, limit_min.x + cfg.padding, limit_max.x - td->out_size.x - cfg.padding);
+                
+                if (!is_y_fixed)
+                    td->out_pos.y = ImClamp(td->out_pos.y, limit_min.y + cfg.padding, limit_max.y - td->out_size.y - cfg.padding);
+            }
+            
+            // clamp
+            if (flags & ToolTipFlags_ClampWindow){
+                td->out_pos.x = ImClamp(td->out_pos.x, view_min.x + cfg.padding, view_max.x - td->out_size.x - cfg.padding);
+                td->out_pos.y = ImClamp(td->out_pos.y, view_min.y + cfg.padding, view_max.y - td->out_size.y - cfg.padding);
+            }
+
+            ImVec2 draw_pos = td->out_pos, draw_size = td->out_size;
+            if (flags & ToolTipFlags_Ease && anim)
+            {
+                anim->pos = ImLerp(anim->pos, td->out_pos, SMOOTH_LERP(anim->speedease, cfg.dt));
+                anim->size = ImLerp(anim->size, td->out_size, SMOOTH_LERP(anim->speedease, cfg.dt));
+                draw_pos = anim->pos; draw_size = anim->size;
+            }
+
+                    
+            // ==============================================================
+            // [THÊM MỚI] CẬP NHẬT KÍCH THƯỚC VÀ VỊ TRÍ CỬA SỔ BEGIN TẠI ĐÂY
+            // ==============================================================
+            ImGui::SetWindowPos(draw_pos);
+            ImGui::SetWindowSize(draw_size);
+
+            // [TÙY CHỌN AN TOÀN] Ép trực tiếp vào struct Window để tránh 
+            // độ trễ 1 frame (lag 1 khung hình) của hàm SetWindow...
+            ImGuiWindow* current_window = ImGui::GetCurrentWindow();
+            current_window->Pos = draw_pos;
+            current_window->Size = draw_size;
+            current_window->SizeFull = draw_size;
+            
+            // Mở rộng ClipRect để đảm bảo các thành phần vẽ tràn viền 
+            // (như mũi tên hoặc bóng đổ) không bị ImGui cắt mất
+            current_window->DrawList->PushClipRect(
+                ImVec2(draw_pos.x - 50.0f, draw_pos.y - 50.0f), 
+                ImVec2(draw_pos.x + draw_size.x + 50.0f, draw_pos.y + draw_size.y + 50.0f)
+            );
+            // ==============================================================
+
+            float scale = 1.0f;
+
+            if (flags & ToolTipFlags_Scale)
+            {
+                scale = 0.85f + 0.15f * alpha;
+            }
+            ImVec2 center = draw_pos + draw_size * 0.5f;
+            ImVec2 half = (draw_size * scale) * 0.5f;
+
+            ImVec2 pmin = center - half;
+            ImVec2 pmax = center + half;
+
+            ImVec2 scaled = ImVec2((pmax.x - pmin.x), (pmax.y - pmin.y));
+
+            // =========================
+            // ARROW + ANCHOR (360°)
+            // =========================
+            float aw = 5.0f * scale;
+            float ah = 5.0f * scale;
+            float r  = cfg.rounding;
+
+            ImVec2 ref = (flags & (ToolTipFlags_FollowMouse | ToolTipFlags_FollowMouse_Fixed_Y)) 
+                ? item.mouse : item.center;
+
+            // Smooth dir
+            ImVec2 target_dir = ref - center;
+            float dist = ImLength(target_dir);
+            ImVec2 dir = target_dir;
+            if (dist > 0.0f) dir /= dist;
+            
+            if(anim && flags & ToolTipFlags_Ease){
+                anim->last_arrow_dir = ImLerp(
+                    anim->last_arrow_dir,
+                    dir,
+                    SMOOTH_LERP(anim->speedease, cfg.dt)
+                );
+                dir = anim->last_arrow_dir;
+                float len = ImLength(dir);
+                if (len > 0.0f) dir /= len;
+            }
+            
+            float k = ImClamp(dist / 200.0f, 0.0f, 1.0f);
+            k = k * k * (3.0f - 2.0f * k); // smoothstep
+
+            float aw_dyn = ImLerp(cfg.arrow_width * cfg.arrow_scale_min * scale, cfg.arrow_width * cfg.arrow_scale_max * scale, k);
+            float ah_dyn = ImLerp(cfg.arrow_height * cfg.arrow_scale_min * scale, cfg.arrow_height * cfg.arrow_scale_max * scale, k);
+
+            float dot = fabsf(dir.x * dir.y);
+            if (dot > 0.45f)
+            {
+                aw_dyn *= 0.7f;
+                ah_dyn *= 0.7f;
+            }
+
+            float pad = cfg.rounding + aw_dyn + cfg.edge_safe_padding;
+
+            // =========================
+            // PROJECT TO RECT
+            // =========================
+            float hx = (pmax.x - pmin.x) * 0.5f;
+            float hy = (pmax.y - pmin.y) * 0.5f;
+
+            float tx = (fabsf(dir.x) > 1e-5f) ? hx / fabsf(dir.x) : FLT_MAX;
+            float ty = (fabsf(dir.y) > 1e-5f) ? hy / fabsf(dir.y) : FLT_MAX;
+
+            float t = ImMin(tx, ty);
+            ImVec2 anchor = center + dir * t;
+
+            // =========================
+            // DETECT REGION
+            // =========================
+            float eps = ImMax(0.5f, scale * 0.5f);
+
+            bool near_left   = fabs(anchor.x - pmin.x) < eps;
+            bool near_right  = fabs(anchor.x - pmax.x) < eps;
+            bool near_top    = fabs(anchor.y - pmin.y) < eps;
+            bool near_bottom = fabs(anchor.y - pmax.y) < eps;
+
+            bool is_corner =
+                (near_top && near_left) ||
+                (near_top && near_right) ||
+                (near_bottom && near_left) ||
+                (near_bottom && near_right);
+
+            // =========================
+            // TANGENT / NORMAL
+            // =========================
+            ImVec2 tangent, normal;
+            ImVec2 corner_center;
+            
+            // ---- CORNER MODE ----
+            if (is_corner && r > 0.0f)
+            {
+                if (near_top && near_left)        corner_center = {pmin.x + r, pmin.y + r};
+                else if (near_top && near_right)  corner_center = {pmax.x - r, pmin.y + r};
+                else if (near_bottom && near_left)corner_center = {pmin.x + r, pmax.y - r};
+                else                              corner_center = {pmax.x - r, pmax.y - r};
+
+                ImVec2 v = anchor - corner_center;
+                float l = ImLength(v);
+                if (l > 0.0f) v /= l;
+                anchor = corner_center + v * r;
+                normal = v;
+                tangent = ImVec2(-normal.y, normal.x);
+            }
+            // ---- EDGE MODE ----
+            else
+            {
+                enum Edge {Top, Bottom, Left, Right};
+                Edge edge;
+
+                if (near_top) edge = Top;
+                else if (near_bottom) edge = Bottom;
+                else if (near_left) edge = Left;
+                else edge = Right;
+
+                float min_x = pmin.x + r + aw_dyn;
+                float max_x = pmax.x - r - aw_dyn;
+                float min_y = pmin.y + r + aw_dyn;
+                float max_y = pmax.y - r - aw_dyn;
+
+                if (edge == Top || edge == Bottom)
+                    anchor.x = ImClamp(anchor.x, min_x, max_x);
+                else
+                    anchor.y = ImClamp(anchor.y, min_y, max_y);
+
+                if (edge == Top)        { tangent = ImVec2(1,0); normal = ImVec2(0,-1); }
+                else if (edge == Bottom){ tangent = ImVec2(1,0); normal  = ImVec2(0,1); }
+                else if (edge == Left)  { tangent = ImVec2(0,1); normal  = ImVec2(-1,0);}
+                else                    { tangent = ImVec2(0,1); normal = ImVec2(1,0); }
+            }
+
+            // =========================
+            // ARROW POINTS
+            // =========================
+            ImVec2 arrow_p1 = anchor - tangent * aw_dyn;
+            ImVec2 arrow_p2 = anchor + tangent * aw_dyn;
+            ImVec2 arrow_p3 = anchor + normal  * ah_dyn;
+            
+            // =========================
+            // CUSTOM TOOLTIP (OVERRIDE)
+            // =========================
+            if (tooltip_cb) tooltip_cb(Phase::Draw, Slot::Draw_layer0, td, cfg.draw_list);
+
+
+
+            if (!cfg.skip_draw)
+            {
+                bool draw_arrow = !(flags & ToolTipFlags_NoArrow) && !cfg.skip_draw_arrow;
+                ImDrawList* dl = cfg.draw_list;
+                cfg.draw_list->PathClear();
+
+                const int ARC_SEG = 8;
+                auto Arc = [&](ImVec2 c, float a0, float a1) {
+                    dl->PathArcTo(c, r, a0, a1, ARC_SEG);
+                };
+
+                // 1. ---- TOP EDGE
+                if (draw_arrow && near_top && !is_corner)
+                {
+                    float left  = pmin.x + r;
+                    float right = pmax.x - r;
+                    float x1 = ImClamp(arrow_p1.x, left, right);
+                    float x2 = ImClamp(arrow_p2.x, left, right);
+
+                    dl->PathLineTo(ImVec2(x1, pmin.y));
+                    dl->PathLineTo(arrow_p3);
+                    dl->PathLineTo(ImVec2(x2, pmin.y));
+                    dl->PathLineTo(ImVec2(pmax.x - r, pmin.y));
+                }
+                else
+                {
+                    dl->PathLineTo(ImVec2(pmin.x + r, pmin.y)); 
+                    dl->PathLineTo(ImVec2(pmax.x - r, pmin.y)); 
+                }
+
+                // 2. ---- TOP RIGHT CORNER
+                Arc({pmax.x - r, pmin.y + r}, IM_PI*1.5f, IM_PI*2.0f);
+
+                // 3. ---- RIGHT EDGE
+                if (draw_arrow && near_right && !is_corner)
+                {
+                    dl->PathLineTo(arrow_p1);
+                    dl->PathLineTo(arrow_p3);
+                    dl->PathLineTo(arrow_p2);
+                    dl->PathLineTo(ImVec2(pmax.x, pmax.y - r));
+                }
+                else
+                {
+                    dl->PathLineTo(ImVec2(pmax.x, pmax.y - r));
+                }
+
+                // 4. ---- BOTTOM RIGHT CORNER
+                Arc({pmax.x - r, pmax.y - r}, 0.0f, IM_PI*0.5f);
+
+                // 5. ---- BOTTOM EDGE
+                if (draw_arrow && near_bottom && !is_corner)
+                {
+                    dl->PathLineTo(ImVec2(arrow_p2.x, pmax.y));
+                    dl->PathLineTo(arrow_p2);
+                    dl->PathLineTo(arrow_p3);
+                    dl->PathLineTo(arrow_p1);
+                    dl->PathLineTo(ImVec2(pmin.x + r, pmax.y));
+                }
+                else
+                {
+                    dl->PathLineTo(ImVec2(pmin.x + r, pmax.y));
+                }
+
+                // 6. ---- BOTTOM LEFT CORNER
+                Arc({pmin.x + r, pmax.y - r}, IM_PI*0.5f, IM_PI);
+
+                // 7. ---- LEFT EDGE
+                if (draw_arrow && near_left && !is_corner)
+                {
+                    dl->PathLineTo(ImVec2(pmin.x, arrow_p2.y));
+                    dl->PathLineTo(arrow_p2);
+                    dl->PathLineTo(arrow_p3);
+                    dl->PathLineTo(arrow_p1);
+                    dl->PathLineTo(ImVec2(pmin.x, pmin.y + r));
+                }
+                else
+                {
+                    dl->PathLineTo(ImVec2(pmin.x, pmin.y + r));
+                }
+
+                // 8. ---- TOP LEFT CORNER
+                Arc({pmin.x + r, pmin.y + r}, IM_PI, IM_PI*1.5f);
+
+                // =========================
+                // CORNER ARROW
+                // =========================
+                if (draw_arrow && is_corner)
+                {
+                    float angle = atan2f(anchor.y - corner_center.y, anchor.x - corner_center.x);
+                    float delta = cfg.arrow_corner_bias * (ah_dyn / r);
+                    float a0, a1;
+
+                    if (near_top && near_left)         { a0 = IM_PI; a1 = IM_PI*1.5f; }
+                    else if (near_top && near_right)   { a0 = IM_PI*1.5f; a1 = IM_PI*2.0f; }
+                    else if (near_bottom && near_right){ a0 = 0.0f; a1 = IM_PI*0.5f; }
+                    else                               { a0 = IM_PI*0.5f; a1 = IM_PI; }
+
+                    dl->PathArcTo(corner_center, r, a0, angle - delta);
+                    dl->PathLineTo(arrow_p1);
+                    dl->PathLineTo(arrow_p3);
+                    dl->PathLineTo(arrow_p2);
+                    dl->PathArcTo(corner_center, r, angle + delta, a1);
+                }
+
+                if (!cfg.skip_draw_bg)
+                    dl->PathFillConvex(cfg.col_bg);
+
+                if (!cfg.skip_draw_border && !(flags & ToolTipFlags_NoBorder))
+                    dl->PathStroke(cfg.col_border, ImDrawFlags_Closed, cfg.border_thickness);
+            }
+            
+            if (tooltip_cb) tooltip_cb(Phase::Draw, Slot::Draw_layer1, td, cfg.draw_list);
+            
+            if (!cfg.skip_draw_text && !cfg.skip_draw)
+            {
+                float pos_y = pmin.y + cfg.padding_content;
+                
+                auto DrawWrappedLines = [&](const std::vector<std::string>& lines, ImU32 color) {
+                    for (const auto& line : lines) {
+                        ImVec2 sz = cfg.font->CalcTextSizeA(cfg.fontsize, FLT_MAX, 0.0f, line.c_str());
+                        float draw = pmin.x + cfg.padding_content;
+                        if (cfg.align == ImGuiTooltip::Align_Center)
+                            draw += (scaled.x - sz.x) * 0.5f - cfg.padding_content;
+                        else if (cfg.align == ImGuiTooltip::Align_Right)
+                            draw += (scaled.x - sz.x);
+
+                        cfg.draw_list->AddText(cfg.font, cfg.fontsize, ImVec2(draw, pos_y), color, line.c_str());
+                        pos_y += sz.y + cfg.spacing_content;
+                    }
+                };
+
+                if (cfg.layout == ImGuiTooltip::Layout_Vertical)
+                {
+                    if (cfg.show_image && cfg.image)
+                    {
+                        ImVec2 img_pos(
+                            pmin.x + (scaled.x - img_size.x) * 0.5f,
+                            pos_y
+                        );
+                        cfg.draw_list->AddImage(cfg.image, img_pos, img_pos + img_size);
+                        pos_y += img_size.y + cfg.spacing_content;
+                    }
+
+                    if (cfg.show_title) DrawWrappedLines(cfg.cached_title, cfg.col_title);
+                    if (cfg.show_text)  DrawWrappedLines(cfg.cached_text, cfg.col_text);
+                    if (cfg.show_extra) DrawWrappedLines(cfg.cached_extra, cfg.col_extra);
+                }
+                else if (cfg.layout == ImGuiTooltip::Layout_Horizontal) 
+                {
+                    float current_x = pmin.x + cfg.padding_content;
+                    float current_y = pmin.y + cfg.padding_content;
+
+                    if (cfg.show_image && cfg.image) {
+                        float img_y = pmin.y + (scaled.y - img_size.y) * 0.5f;
+                        ImVec2 img_pos(current_x, img_y);
+                        cfg.draw_list->AddImage(cfg.image, img_pos, img_pos + img_size);
+                        current_x += img_size.x + cfg.spacing_content;
+                    }
+
+                    float text_column_w = pmax.x - cfg.padding_content - current_x;
+                    float total_text_h = text_size.y;
+                    if (cfg.show_title) total_text_h += title_size.y + cfg.spacing_content;
+                    if (cfg.show_extra) total_text_h += extra_size.y + cfg.spacing_content;
+                    
+                    float start_text_y = pmin.y + (scaled.y - total_text_h) * 0.5f;
+
+                    auto DrawLinesHorizontal = [&](const std::vector<std::string>& lines, ImU32 color, float& y_offset) {
+                        for (const auto& line : lines) {
+                            ImVec2 sz = cfg.font->CalcTextSizeA(cfg.fontsize, FLT_MAX, 0.0f, line.c_str());
+                            float draw_x = current_x;
+
+                            if (cfg.align == ImGuiTooltip::Align_Center)
+                                draw_x += (text_column_w - sz.x) * 0.5f;
+                            else if (cfg.align == ImGuiTooltip::Align_Right)
+                                draw_x += (text_column_w - sz.x);
+
+                            cfg.draw_list->AddText(cfg.font, cfg.fontsize, ImVec2(draw_x, y_offset), color, line.c_str());
+                            y_offset += sz.y + 2.0f; 
+                        }
+                    };
+
+                    float run_y = start_text_y;
+
+                    if (cfg.show_title) {
+                        DrawLinesHorizontal(cfg.cached_title, cfg.col_title, run_y);
+                        run_y += cfg.spacing_content;
+                    }
+                    if (cfg.show_text)
+                        DrawLinesHorizontal(cfg.cached_text, cfg.col_text, run_y);
+
+                    if (cfg.show_extra) {
+                        run_y += cfg.spacing_content;
+                        DrawLinesHorizontal(cfg.cached_extra, cfg.col_extra, run_y);
+                    }
+                }
+            }
+            ImGui::End();
         }
     }
 }
+
 static void SliderRenderBar(float* v, SliderState* state, SliderRenderData* rd, SliderFlags flags = SliderFlags_None ,SliderRenderCallback render_cb = nullptr){
     
     bool is_expanding = rd->bar_hovered || rd->active || rd->grab_hovered;
@@ -3219,9 +3205,9 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
         }
     }
 
-    // =========================
+    // ========================
     // NAV SUPPORT
-    // =========================
+    // ========================
     if (state->g->NavId == state->id && state->g->NavActivatePressedId == state->id)
         ImGui::SetActiveID(state->id, window);
 
@@ -3256,40 +3242,41 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
     // TOOLTIP
     // =========================
     state->tooltip_id = ImHashData(&state->id, sizeof(ImGuiID), 0xA546823);
-    SliderTooltipData* td = (SliderTooltipData*)window->StateStorage.GetVoidPtr(state->tooltip_id);
+    TooltipData* td = (TooltipData*)window->StateStorage.GetVoidPtr(state->tooltip_id);
     if (!td) {
         // Cấp phát bộ nhớ an toàn trong ImGui
-        td = (SliderTooltipData*)IM_ALLOC(sizeof(SliderTooltipData));
-        IM_PLACEMENT_NEW(td) SliderTooltipData();
+        td = (TooltipData*)IM_ALLOC(sizeof(TooltipData));
+        IM_PLACEMENT_NEW(td) TooltipData();
         window->StateStorage.SetVoidPtr(state->tooltip_id, td);
     }
     if((flags & SliderFlags_TooltipFade) && (flags & SliderFlags_TooltipEase)){
         state->tooltip_anim_id = ImHashData(&state->tooltip_id, sizeof(ImGuiID), 0xA444682);
-        td->anim = (SliderTooltipData::TooltipAnimState*)window->StateStorage.GetVoidPtr(state->tooltip_anim_id);
+        td->anim = (TooltipAnimState*)window->StateStorage.GetVoidPtr(state->tooltip_anim_id);
         if(!td->anim) {
-            td->anim = (SliderTooltipData::TooltipAnimState*)IM_ALLOC(sizeof(SliderTooltipData::TooltipAnimState));
-            IM_PLACEMENT_NEW(td->anim) SliderTooltipData::TooltipAnimState();
+            td->anim = (TooltipAnimState*)IM_ALLOC(sizeof(TooltipAnimState));
+            IM_PLACEMENT_NEW(td->anim) TooltipAnimState();
             window->StateStorage.SetVoidPtr(state->tooltip_anim_id, td->anim);
         }
     }
     // =========================
     // INIT DATA
     // =========================
-    td->value = *v;
-    td->v_min = v_min;
-    td->range = state->range;
-    td->dt = state->dt;
-    td->pos_item = state->pos;
-    td->size_item = state->size;
-    td->mouse = state->mouse;
-    td->hovered_time = state->g->HoveredIdTimer;
-    td->active = state->active;
-    td->hovered = state->hovered;
-    td->font = state->font;
-    td->fontsize = state->fontsize;
-    td->center.y = state->grab_center.y - state->grab_radius;
-    td->draw_list =state->draw_list;
-    td->format = format;
+    td->item.value = *v;
+    td->item.v_min = v_min;
+    td->item.range = state->range;
+    td->config.dt = state->dt;
+    td->item.pos = state->pos;
+    td->item.size = state->size;
+    td->item.mouse = state->mouse;
+    td->item.hovered_time = state->g->HoveredIdTimer;
+    td->item.active = state->active;
+    td->item.hovered = state->hovered;
+    td->config.font = state->font;
+    td->config.fontsize = state->fontsize;
+    td->item.center.y = state->grab_center.y - state->grab_radius;
+    td->config.format = format;
+    td->config.id = state->id;
+
     ToolTipFlags tdflags = ToolTipFlags_ClampItem;
 
     if(flags & SliderFlags_TooltipAlwaysShowAction) tdflags |= ToolTipFlags_AlwaysShowAction;
@@ -3302,8 +3289,11 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
     if(flags & SliderFlags_TooltipNoArrow) tdflags |= ToolTipFlags_NoArrow;
     if(flags & SliderFlags_TooltipNoBorder) tdflags |= ToolTipFlags_NoBorder;
     if(flags & SliderFlags_TooltipScale) tdflags |= ToolTipFlags_Scale;
+    
+    // Tiến hành tính toán layout nâng cao và vẽ nội dung trong ToolTipEx
+    ToolTipEx(td ,tdflags , tooltip_cb);
 
-    if(td ) ToolTipEx(td ,tdflags , tooltip_cb);
+
     
     state->slider_id = ImHashData(&state->id, sizeof(ImGuiID), 0xA1234567);
     SliderRenderData* rd = (SliderRenderData*)window->StateStorage.GetVoidPtr(state->slider_id );
@@ -3328,67 +3318,83 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
 
     return changed;
 }
-bool CSImGui::ToolTip(const char* label, float delay, ToolTipFlags flags){
-
+bool CSImGui::ToolTip(const char* label, float delay, ToolTipFlags flags) {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
+    
+    // Nếu cửa sổ cha bị thu nhỏ hoặc skip item, ta không cần xử lý tooltip nữa
+    if (window->SkipItems) return false;
+
     const char* label_end = strstr(label, "##");
-    ImGuiID id = window->GetID((label_end ) ? label_end : label);
-    SliderTooltipData* state = (SliderTooltipData*)window->StateStorage.GetVoidPtr(id);
+    ImGuiID id = window->GetID((label_end) ? label_end : label);
+    TooltipData* state = (TooltipData*)window->StateStorage.GetVoidPtr(id);
     if (!state) {
-        // Cấp phát bộ nhớ an toàn trong ImGui
-        state = (SliderTooltipData*)IM_ALLOC(sizeof(SliderTooltipData));
-        IM_PLACEMENT_NEW(state) SliderTooltipData();
+        state = (TooltipData*)IM_ALLOC(sizeof(TooltipData));
+        IM_PLACEMENT_NEW(state) TooltipData();
         window->StateStorage.SetVoidPtr(id, state);
     }
-    if((flags & ToolTipFlags_Ease) && (flags & ToolTipFlags_Fade)){
+
+    if ((flags & ToolTipFlags_Ease) && (flags & ToolTipFlags_Fade)) {
         ImGuiID anim_id = ImHashData(&id, sizeof(ImGuiID), 0xA449682);
-        state->anim = (SliderTooltipData::TooltipAnimState*)window->StateStorage.GetVoidPtr(anim_id);
-        if(!state->anim) {
-            state->anim = (SliderTooltipData::TooltipAnimState*)IM_ALLOC(sizeof(SliderTooltipData::TooltipAnimState));
-            IM_PLACEMENT_NEW(state->anim) SliderTooltipData::TooltipAnimState();
+        state->anim = (TooltipAnimState*)window->StateStorage.GetVoidPtr(anim_id);
+        if (!state->anim) {
+            state->anim = (TooltipAnimState*)IM_ALLOC(sizeof(TooltipAnimState));
+            IM_PLACEMENT_NEW(state->anim) TooltipAnimState();
             window->StateStorage.SetVoidPtr(anim_id, state->anim);
         }
     }
-    if (window->SkipItems) return false;
 
-    state->draw_list = window->DrawList;
-    state->dt = ImGui::GetIO().DeltaTime;
-    state->font = ImGui::GetFont();
-    state->fontsize = ImGui::GetFontSize();
-    state->mouse = ImGui::GetIO().MousePos;
+    auto& cfg = state->config;
+    auto& item = state->item;
 
-    state->hovered = ImGui::IsItemHovered();
-    state->active = ImGui::IsItemActive();
-    state->pos_item = ImGui::GetItemRectMin();
-    state->size_item = ImGui::GetItemRectSize();
-    state->center = state->pos_item + state->size_item * 0.5f;
 
-    if(state->hovered)state->hovered_time += state->dt;
-    else state->hovered_time = 0;
-    state->hover_delay = delay;
-    if(label_end)
-        state->title = Format("%.*s",(int)(label_end - label),label);
+    // --- CẬP NHẬT TRẠNG THÁI TỪ CỬA SỔ CHA ---
+    cfg.dt = ImGui::GetIO().DeltaTime;
+    cfg.font = ImGui::GetFont();
+    cfg.fontsize = ImGui::GetFontSize();
+    item.mouse = ImGui::GetIO().MousePos;
+    cfg.id = id;
+
+    // Bắt tương tác dựa trên Item vừa vẽ ở cửa sổ cha
+    item.hovered = ImGui::IsItemHovered();
+    item.active = ImGui::IsItemActive();
+    item.pos = ImGui::GetItemRectMin();
+    item.size = ImGui::GetItemRectSize();
+    item.center = item.pos + item.size * 0.5f;
+    cfg.max_width = 500.0f;
+    cfg.max_height = 500.0f;
+    cfg.title_max_lines = 5;
+
+    if (item.hovered) item.hovered_time += cfg.dt;
+    else item.hovered_time = 0;
+    item.hover_delay = delay;
+
+    if (label_end)
+        cfg.title = Format("%.*s", (int)(label_end - label), label);
     else 
-        state->title = label;
+        cfg.title = label;
 
-    state->show_title = false;
+    cfg.show_title = !cfg.title.empty();
+    cfg.show_text = false;
 
-    state->show_text = false;
-    state->show_title = !state->title.empty();
+    item.cursor_size = ImGui::GetIO().MouseDrawCursor
+        ? ImVec2(16, 16)
+        : ImGui::GetMouseCursor() == ImGuiMouseCursor_Arrow
+            ? ImVec2(16, 16)
+            : ImVec2(20, 20);
 
-    state->cursor_size = ImGui::GetIO().MouseDrawCursor
-    ? ImVec2(16,16)   // fallback
-    : ImGui::GetMouseCursor() == ImGuiMouseCursor_Arrow
-        ? ImVec2(16,16)
-        : ImVec2(20,20); // rough estimate
 
-    ToolTipFlags flags_ex = ToolTipFlags_ClampWindow|
-                            ToolTipFlags_FollowMouse|
-                            ToolTipFlags_AutoPosition|
-                            flags;
+    // --- KHỞI TẠO CỬA SỔ TOOLTIP RIÊNG BIỆT ---
+
+    ToolTipFlags flags_ex = ToolTipFlags_FollowMouse | ToolTipFlags_AutoPosition | ToolTipFlags_ClampWindow | flags;
+    
+    // Tiến hành tính toán layout nâng cao và vẽ nội dung trong ToolTipEx
     ToolTipEx(state, flags_ex);
+
+
+
     return true;
 }
+
 bool CSImGui::ModernSliderFloat(const char* label, float* v,
                          float v_min, float v_max, 
                         float height, float grab_radius, 
@@ -3508,36 +3514,34 @@ bool CSImGui::ModernArrowButton(const char* str_id, ImGuiDir dir, ImVec2 size) {
     
     return pressed;
 }
-void CSImGui::ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds, const char* id){
-    // 1. Xử lý delay
-    bool shouldShow = SetDelayHover(hovering, delaySeconds, id);
+void CSImGui::ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds)
+{
+    ImGuiID base_id  = ImGui::GetID(text);
 
-    // 2. Quản lý Alpha riêng biệt cho từng tooltip bằng Storage ID của ImGui
-    // Điều này giúp nhiều tooltip không bị dùng chung 1 biến alpha tĩnh
-    ImGuiID storage_id = ImGui::GetID(id);
-    float* pAlpha = ImGui::GetStateStorage()->GetFloatRef(storage_id, 0.0f);
+    ImGuiID delay_id = ImHashStr("delay", 0, base_id);
+    ImGuiID alpha_id = ImHashStr("alpha", 0, base_id);
 
-    // 3. Cập nhật hiệu ứng Fade (Tăng tốc độ fade ra để cảm giác nhạy hơn)
-    float fadeSpeed = 12.0f; 
+    bool shouldShow = SetDelayHover(hovering, delaySeconds, delay_id);
+
+    float* pAlpha = ImGui::GetStateStorage()->GetFloatRef(alpha_id, 0.0f);
+
+    float fadeSpeed = 12.0f;
     UpdateHoverAnim(*pAlpha, shouldShow, fadeSpeed);
 
-    // Ngắt sớm nếu alpha quá nhỏ để tiết kiệm hiệu năng
     if (*pAlpha <= 0.001f)
         return;
 
-    // 4. Thiết lập Style trước khi Begin
-    // Sử dụng ImGuiWindowFlags_AlwaysAutoResize để giữ kích thước ổn định
-    ImGui::PushStyleColor(ImGuiCol_PopupBg, GetColors(Col_PopupBg)); // Màu nền Tooltip
-    ImGui::PushStyleColor(ImGuiCol_Border,  GetColors(Col_Border)); // Màu viền
-    ImGui::PushStyleColor(ImGuiCol_Text,    GetColors(Col_Text)); // Màu chữ
+    ImGui::PushStyleColor(ImGuiCol_PopupBg, GetColors(Col_PopupBg));
+    ImGui::PushStyleColor(ImGuiCol_Border,  GetColors(Col_Border));
+    ImGui::PushStyleColor(ImGuiCol_Text,    GetColors(Col_Text));
 
-    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);                      // Giữ hiệu ứng fade in/out
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));  // Căn lề trong (Padding)
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);                // Bo góc (Rounding)
-    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);              // Độ dày viền
-    ImGui::SetNextWindowBgAlpha(*pAlpha); 
+    ImGui::PushStyleVar(ImGuiStyleVar_Alpha, *pAlpha);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, ImVec2(10.0f, 8.0f));
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 6.0f);
+    ImGui::PushStyleVar(ImGuiStyleVar_WindowBorderSize, 1.0f);
 
-    // Render Tooltip
+    ImGui::SetNextWindowBgAlpha(*pAlpha);
+
     if (ImGui::BeginTooltip())
     {
         ImGui::TextUnformatted(text);

@@ -129,110 +129,109 @@ struct ThemeTransition {
     bool active = false;
 };
 
-struct SliderTooltipData
+namespace ImGuiTooltip 
 {
-    // ===== INPUT =====
-    float value = 0.0f;
-    float seek_value = 0.0f;
-    float hovered_time =0.0f;
+    enum Alignment { 
+        Align_Left, 
+        Align_Center, 
+        Align_Right 
+    };
 
-    bool active = false;
-    bool hovered = false;
-    bool show_tooltip =false;
-    
-    float hover_delay = 0.2f;
-    float range = 0.0f;
-    float dt = 8.0f;
-    float fontsize = 12.0f;
-    float v_min = 0.0f;
-    ImFont *font;
-    ImDrawList *draw_list;
-
-    ImVec2 center = ImVec2(0, 0);
-    ImVec2 pos_item = ImVec2(0, 0);
-    ImVec2 size_item = ImVec2(0, 0);
-    ImVec2 mouse = ImVec2(0, 0);
-    ImVec2 cursor_size = ImVec2(0, 0);
-
-    // ===== TEXT =====
-    //char text[128];
-    //char title[286];
-    //char extra[564];
-
-    std::string text;
-    std::string title;
-    std::string extra;
-
-    bool show_title = false;
-    bool show_extra = false;
-    bool show_text = true;
-
-    int title_max_lines = 2;
-    const char* format = "%.03f";
-
-    enum Alignment { Left, Center, Right };
-    Alignment align = Center;
-    // ===== IMAGE =====
-    ImTextureID image = 0;
-    ImVec2 image_size = ImVec2(0,0);
-    bool show_image = false;
-
-    // ===== LAYOUT =====
-    enum LayoutMode
-    {
+    enum LayoutMode {
         Layout_Vertical,   // image -> title -> text
         Layout_Horizontal, // image | text
         Layout_Custom
     };
-    LayoutMode layout = Layout_Vertical;
-    bool lock_dir = false;
 
     enum TooltipDirection {
-        TooltipDir_Up,
-        TooltipDir_Down,
-        TooltipDir_Left,
-        TooltipDir_Right,
-        TooltipDir_UpLeft,
-        TooltipDir_UpRight,
-        TooltipDir_DownLeft,
-        TooltipDir_DownRight
+        Dir_Up, Dir_Down, Dir_Left, Dir_Right,
+        Dir_UpLeft, Dir_UpRight, Dir_DownLeft, Dir_DownRight
     };
+}
 
-    TooltipDirection dir = TooltipDir_Down;
+struct TooltipItemData
+{
+    // Trạng thái tương tác
+    bool is_visible = false; // Có thể dùng để kiểm soát hiển thị tooltip từ bên ngoài nếu cần
+    bool active = false;
+    bool hovered = false;
+    float hovered_time = 0.0f;
+    float hover_delay = 0.2f;
 
+    // Dữ liệu giá trị của Item
+    float value = 0.0f;
+    float seek_value = 0.0f;
+    float v_min = 0.0f;
+    float range = 0.0f;
+
+    // Không gian / Tọa độ của Item
+    ImVec2 center = ImVec2(0, 0);
+    ImVec2 pos = ImVec2(0, 0);       // Thay cho pos_item cũ
+    ImVec2 size = ImVec2(0, 0);      // Thay cho size_item cũ
+    ImVec2 mouse = ImVec2(0, 0);
+    ImVec2 cursor_size = ImVec2(0, 0);
+};
+
+struct TooltipBeginData
+{
+    // ===== IMGUI CONTEXT =====
+    ImGuiID id = 0;
+    ImFont* font = nullptr;
+    ImDrawList* draw_list = nullptr;
+    float dt = 8.0f;
+    float fontsize = 12.0f;
+
+    // ===== NỘI DUNG (TEXT) =====
+    std::string text;
+    std::string title;
+    std::string extra;
+    bool show_title = false;
+    bool show_extra = false;
+    bool show_text = true;
+    int title_max_lines = 2;
+    const char* format = "%.03f";
+    ImGuiTooltip::Alignment align = ImGuiTooltip::Align_Center;
+
+    // Cache string (Dùng nội bộ để check thay đổi)
     std::vector<std::string> cached_title;
     std::vector<std::string> cached_text;
     std::vector<std::string> cached_extra;
-
-    std::string last_raw_title; // Để kiểm tra thay đổi
+    std::string last_raw_title;
     std::string last_raw_text;
     std::string last_raw_extra;
+
+    // ===== NỘI DUNG (IMAGE) =====
+    ImTextureID image = 0;
+    ImVec2 image_size = ImVec2(0, 0);
+    bool show_image = false;
+    float aspect_ratio = 16.0f / 9.0f;
+    bool lock_aspect = true;
+
+    // ===== LAYOUT & KIỂU DÁNG =====
+    ImGuiTooltip::LayoutMode layout = ImGuiTooltip::Layout_Vertical;
+    ImGuiTooltip::TooltipDirection dir = ImGuiTooltip::Dir_Down;
+    bool lock_dir = false;
 
     float padding_content = 6.0f;
     float spacing_content = 4.0f;
     float padding = 12.0f;
     float spacing_mouse = 12.0f;
-
     float rounding = 4.0f;
     float border_thickness = 1.0f;
+    float edge_safe_padding = 1.0f;
 
+    // Cấu hình mũi tên (Arrow)
     float arrow_width = 5.0f;
     float arrow_height = 5.0f;
-
     float arrow_scale_min = 0.5f;
     float arrow_scale_max = 1.2f;
-
     float arrow_corner_bias = 0.25f;
 
-    float edge_safe_padding = 1.0f;
-    // ===== SIZE LIMIT =====
-    float max_width  = 260.0f;
+    // Giới hạn kích thước
+    float max_width = 260.0f;
     float max_height = 200.0f;
 
-    float aspect_ratio = 16.0f / 9.0f; // cho image
-    bool lock_aspect = true;
-
-    //=======Colors=======
+    // ===== MÀU SẮC =====
     ImU32 col_bg = IM_COL32(0, 0, 0, 200);
     ImU32 col_text = IM_COL32(255, 255, 255, 255);
     ImU32 col_border = IM_COL32(255, 255, 255, 255);
@@ -244,25 +243,30 @@ struct SliderTooltipData
     bool skip_draw_border = false;
     bool skip_draw_text = false;
     bool skip_draw_arrow = false;
-    
     bool skip_draw = false;
+};
+struct TooltipAnimState
+{
+    float alpha = 0.0f;
+    float speedfade = 12.0f;
+    float speedease = 15.0f;
+    ImVec2 pos = ImVec2(0, 0);
+    ImVec2 size = ImVec2(0, 0);
+    ImVec2 last_arrow_dir = ImVec2(0, -1);
+};
+struct TooltipData
+{
+    TooltipItemData  item;
+    TooltipBeginData config;
 
-    // ===== OUTPUT =====
-    ImVec2 pos = ImVec2(0,0);
-    ImVec2 size = ImVec2(0,0);
+    // Dùng con trỏ cho anim như cách làm cũ của bạn để có thể 
+    // trỏ đến một bộ quản lý animation cấp cao hơn nếu cần.
+    TooltipAnimState* anim = nullptr; 
 
-    struct TooltipAnimState
-    {
-        float alpha = 0.0f;
-        float speedfade = 12.0f;
-        float speedease = 15.0f;
-        ImVec2 pos = ImVec2(0,0);
-        ImVec2 size = ImVec2(0,0);
-
-        ImVec2 last_arrow_dir = ImVec2(0, -1);
-
-    }* anim = nullptr; // pointer đến struct animation để có thể điều khiển hiệu ứng mượt mà từ callback render
-
+    // ===== KẾT QUẢ OUTPUT =====
+    // Kích thước/Vị trí thực tế sau khi tính toán (nếu cần lấy ngược ra ngoài)
+    ImVec2 out_pos = ImVec2(0, 0);
+    ImVec2 out_size = ImVec2(0, 0);
 };
 
 struct SliderRenderData
@@ -514,10 +518,10 @@ struct SliderSeekResult
 };
 using OldIconFn = void(*)(ImDrawList*, ImVec2, ImVec2, ImU32);
 using SliderRenderCallback = std::function<void(Phase phase , Slot slot, SliderRenderData* data, ImDrawList* draw_list)>;
-using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, SliderTooltipData* data, ImDrawList* draw_list)>; 
+using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, TooltipData* data, ImDrawList* draw_list)>; 
+using TooltipCallback = std::function<void(Phase phase, Slot slot, TooltipData* data, ImDrawList* draw_list)>; 
 using SliderSeekCallback = std::function<SliderSeekResult(const SliderSeekRequest*)>;
 using SliderNavCallback = std::function<void(float value, bool nav_left, bool nav_right)>;
-
 
 namespace CSImGui{
     struct TableCol {
@@ -643,7 +647,7 @@ namespace CSImGui{
     bool ModernInputText(const char* label, char* buf, size_t buf_size, ImGuiInputTextFlags flags = 0);
     bool ModernSmallButton(const char* label);
     bool ModernArrowButton(const char* str_id, ImGuiDir dir, ImVec2 size = ImVec2(0, 0));
-    void ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds, const char* id);
+    void ShowTooltipDelayed(const char* text, bool hovering, double delaySeconds);
     bool ModernToggle(const char* str_id, bool* v, bool enabled = true, float scale = 1.0f);
     void ModernHeader(const char* title, float scale = 1.0f);
     void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
