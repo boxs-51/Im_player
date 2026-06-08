@@ -1,7 +1,6 @@
 #pragma once
-
-#include "globals.h"
 #include "utils.h"
+#include "globals.h"
 
 #include <string>
 #include <vector>
@@ -62,10 +61,17 @@ public:
     int  GetActiveFilterCount();
     void ResetAllToDefaults();
     void UpdateParam(const std::string& id, const std::string& key, float value);
+    void BatchUpdateParams(const std::vector<std::tuple<std::string, std::string, float>>& updates);
     
     void SyncAll();
     void SaveToFile();
     void LoadFromFile();
+    
+    // New methods for audio track management
+    void AddAudioTrack(const std::string& trackId, const std::string& lang, const std::string& codec);
+    void SelectAudioTrack(const std::string& trackId);
+    void SetChannelMode(const std::string& mode); // "mono", "stereo", "surround"
+    const std::vector<std::pair<std::string, std::string>>& GetAudioTracks() const { return m_audioTracks; }
     
     AudioFilter* FindFilter(const std::string& id);
     const std::vector<AudioFilter>& GetFilters() const { return m_filters; }
@@ -74,7 +80,12 @@ private:
     AudioFilterManager() = default;
     mpv_handle* mpv = nullptr;
     std::vector<AudioFilter> m_filters;
+    std::map<std::string, int> m_filterIndex; // Cache for O(1) lookups
+    std::vector<std::pair<std::string, std::string>> m_audioTracks; // (trackId, language)
+    std::string m_currentAudioTrack;
+    std::string m_channelMode = "stereo";
+    bool m_needsSync = false; // Track if sync is needed
 
-    std::string path = AutoPath<std::string>("%ROOT%" ,"data" ,"fillter_audio.json");
+    std::string path ;//= { AutoPath<std::string>("%ROOT%" ,"data" ,"fillter_audio.json")};
 
 };

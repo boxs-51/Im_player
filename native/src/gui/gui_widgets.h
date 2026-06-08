@@ -10,6 +10,10 @@
 #include <map>
 #include <regex>
 #include <functional>
+#include <mpv/filter/video_filter_manager.h>
+#include <mpv/filter/audio_filter_manager.h>
+class VideoFilterManager;
+class AudioFilterManager;
 
 struct PlayPauseData
 {
@@ -108,6 +112,13 @@ bool DrawComboPopupBody(
         float custom_width = 200.0f, 
         int max_items_visible = 5,
         std::function<bool(std::string&)> on_validate_confirm = nullptr);
+
+// Audio/Video Control UI Functions
+void DrawAudioTrackSelector(AudioFilterManager& audioMgr);
+void DrawChannelDistributionControls(AudioFilterManager& audioMgr);
+void DrawAudioFilterPanel(AudioFilterManager& audioMgr);
+void DrawVideoFilterPanel(VideoFilterManager& videoMgr);
+
 
 
 

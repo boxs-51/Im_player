@@ -2099,367 +2099,365 @@ static void ToolTipEx(TooltipData* td, ToolTipFlags flags = ToolTipFlags_None, T
         }
     }
 
-    
     if (alpha > 0.01f) // Nếu tooltip đang hiển thị (đã qua ngưỡng mờ), vẽ nó lên
     {
-        ImVec2 tooltip_target_pos = item.mouse + ImVec2(16, 16);
-        ImGui::SetNextWindowPos(tooltip_target_pos, ImGuiCond_Always);
-
-        // Tạo tổ hợp Flags đặc trưng cho một Tooltip độc lập hoàn hảo
-        ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar 
-                                      | ImGuiWindowFlags_NoResize 
-                                      | ImGuiWindowFlags_NoMove 
-                                      | ImGuiWindowFlags_NoSavedSettings 
-                                      | ImGuiWindowFlags_AlwaysAutoResize 
-                                      | ImGuiWindowFlags_Tooltip // Ép cửa sổ nằm trên mọi Layer khác
-                                      | ImGuiWindowFlags_NoBackground;
-
-        // Tạo một mã định danh duy nhất cho Window Tooltip tránh xung đột danh tính (ID Collision)
-        char window_name[64];
-        ImFormatString(window_name, sizeof(window_name), "##custom_tooltip_%08X", cfg.id);
-
-        if (ImGui::Begin(window_name, NULL, window_flags)) {
-            // ĐÂY LÀ ĐIỂM QUAN TRỌNG: Lấy DrawList của chính CỬA SỔ MỚI này thay vì cửa sổ cha
-            cfg.draw_list = ImGui::GetWindowDrawList();
-
-            float seek_v = 0.0f;
-            if (cfg.show_text) {
-                float t_mouse = ImClamp((item.mouse.x - item.pos.x) / item.size.x, 0.0f, 1.0f);
-                seek_v = item.v_min + t_mouse * item.range;
-            }
-            
-            // =========================
-            // INIT DATA
-            // =========================
-            if (cfg.show_text)
-                item.seek_value = seek_v;
-
-            cfg.col_bg = ImGui::GetColorU32(ImGuiCol_PopupBg);
-            cfg.col_text = ImGui::GetColorU32(ImGuiCol_Text);
-            cfg.col_border = ImGui::GetColorU32(ImGuiCol_Border);
-            cfg.col_title = ImGui::GetColorU32(ImGuiCol_CheckMark);
-            cfg.col_extra = ImGui::GetColorU32(ImGuiCol_Header);
-
-            // default text
-            if (cfg.show_text)
-                cfg.text = Format(cfg.format, item.active ? item.value : item.seek_value);
-
-            if (tooltip_cb) tooltip_cb(Phase::Init, Slot::None, td, NULL);
-
-            cfg.col_bg = ImGui::GetColorU32(cfg.col_bg, alpha);
-            cfg.col_text = ImGui::GetColorU32(cfg.col_text, alpha);
-            cfg.col_border = ImGui::GetColorU32(cfg.col_border, alpha);
-            cfg.col_title = ImGui::GetColorU32(cfg.col_title, alpha);
-            cfg.col_extra = ImGui::GetColorU32(cfg.col_extra, alpha);
-
-            // default size
-            float max_content_w = ImMax(1.0f, cfg.max_width - cfg.padding_content * 2);
-            float max_content_h = ImMax(1.0f, cfg.max_height - cfg.padding_content * 2);
-            ImVec2 img_size = cfg.image_size;
-
-            if ((cfg.last_raw_title != cfg.title) && cfg.show_title) {
-                cfg.cached_title = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.title, max_content_w, cfg.title_max_lines);
-                cfg.last_raw_title = cfg.title;
-            }
-            if ((cfg.last_raw_extra != cfg.extra) && cfg.show_extra) {
-                cfg.cached_extra = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.extra, max_content_w, cfg.title_max_lines);
-                cfg.last_raw_extra = cfg.extra;
-            }
-            if ((cfg.last_raw_text != cfg.text) && cfg.show_text) {
-                cfg.cached_text = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.text, max_content_w, cfg.title_max_lines);
-                cfg.last_raw_text = cfg.text;
-            }
-            
-            if (cfg.show_image) {
-                if (cfg.lock_aspect) {
-                    img_size = FitSizeWithAspect(
-                        img_size,
-                        cfg.max_width,
-                        max_content_h * 0.6f, // image không chiếm full height
-                        cfg.aspect_ratio
-                    );
-                }
-            } else {
-                img_size = ImVec2(0, 0);
-            }
-
-            ImVec2 title_size = ImVec2(0, 0);
-            ImVec2 extra_size = ImVec2(0, 0);
-            ImVec2 text_size = ImVec2(0, 0);
-
-            auto MeasureLines = [&](const std::vector<std::string>& lines) {
-                ImVec2 res(0, 0);
-                for (const auto& l : lines) {
-                    ImVec2 sz = cfg.font->CalcTextSizeA(cfg.fontsize, FLT_MAX, 0.0f, l.c_str());
-                    res.x = ImMax(res.x, sz.x);
-                    res.y += sz.y; // Cộng dồn chiều cao
-                }
-                // Thêm khoảng cách giữa các dòng (line spacing)
-                if (lines.size() > 1) res.y += (lines.size() - 1) * cfg.spacing_content; 
-                return res;
-            };
-
-            if (cfg.show_title)  title_size = MeasureLines(cfg.cached_title);
-            if (cfg.show_extra)  extra_size = MeasureLines(cfg.cached_extra);
-            if (cfg.show_text)   text_size  = MeasureLines(cfg.cached_text);
-
-            // ===== LAYOUT =====
-            float content_w = 0.0f;
-            float content_h = 0.0f;
-
-            if (cfg.layout == ImGuiTooltip::Layout_Vertical)
-            {
-                content_w = text_size.x;
-                if (cfg.show_title) content_w = ImMax(content_w, title_size.x);
-                if (cfg.show_extra) content_w = ImMax(content_w, extra_size.x);
-                if (cfg.show_image) content_w = ImMax(content_w, img_size.x);
-
-                if (cfg.show_image) content_h += img_size.y + cfg.spacing_content;
-                if (cfg.show_title) content_h += title_size.y + cfg.spacing_content;
-                
-                content_h += text_size.y; 
-                
-                if (cfg.show_extra) content_h += cfg.spacing_content + extra_size.y;
-            }
-            else // Horizontal
-            {
-                float text_block_h = text_size.y;
-                float text_block_w = text_size.x;
-                
-                if (cfg.show_title) {
-                    text_block_h += title_size.y + cfg.spacing_content;
-                    text_block_w = ImMax(text_block_w, title_size.x);
-                }
-                if (cfg.show_extra) {
-                    text_block_h += extra_size.y + cfg.spacing_content;
-                    text_block_w = ImMax(text_block_w, extra_size.x);
-                }
-
-                content_w = text_block_w;
-                content_h = text_block_h;
-
-                if (cfg.show_image) {
-                    content_w += img_size.x + cfg.spacing_content;
-                    content_h = ImMax(content_h, img_size.y);
-                }
-            }
-
-            content_w = ImMin(content_w, max_content_w);
-            content_h = ImMin(content_h, max_content_h);
-
-            content_w = ImMax(content_w, 1.0f);
-            content_h = ImMax(content_h, 1.0f);
-
-            td->out_size = ImVec2(
-                content_w + cfg.padding_content * 2,
-                content_h + cfg.padding_content * 2
-            );
-
-            ImVec2 view_min = ImGui::GetMainViewport()->Pos;
-            ImVec2 view_max = view_min + ImGui::GetMainViewport()->Size;
-            ImVec2 limit_min = view_min;
-            ImVec2 limit_max = view_max;
-
-            auto GetDirVector = [&](ImGuiTooltip::TooltipDirection dir)
-            {
-                switch (dir)
-                {
-                case ImGuiTooltip::Dir_Up:        return ImVec2(0, -1);
-                case ImGuiTooltip::Dir_Down:      return ImVec2(0, 1);
-                case ImGuiTooltip::Dir_Left:      return ImVec2(-1, 0);
-                case ImGuiTooltip::Dir_Right:     return ImVec2(1, 0);
-                case ImGuiTooltip::Dir_UpLeft:    return ImVec2(-1, -1);
-                case ImGuiTooltip::Dir_UpRight:   return ImVec2(1, -1);
-                case ImGuiTooltip::Dir_DownLeft:  return ImVec2(-1, 1);
-                case ImGuiTooltip::Dir_DownRight: return ImVec2(1, 1);
-                }
-                return ImVec2(0, -1);
-            };
-
-            auto ComputeBestPosition = [&](ImVec2 target, ImVec2& out_pos, ImGuiTooltip::TooltipDirection& out_dir)
-            {
-                ImVec2 item_min = item.pos;
-                ImVec2 item_max = item.pos + item.size;
-
-                struct Candidate {
-                    ImVec2 pos;
-                    ImGuiTooltip::TooltipDirection dir;
-                    float score;
-                };
-
-                Candidate best = {};
-                best.score = -FLT_MAX;
-
-                auto Test = [&](ImVec2 pos, ImGuiTooltip::TooltipDirection dir)
-                {
-                    ImVec2 pmax = pos + td->out_size;
-
-                    float overflow =
-                        ImMax(0.0f, view_min.x - pos.x) +
-                        ImMax(0.0f, view_min.y - pos.y) +
-                        ImMax(0.0f, pmax.x - view_max.x) +
-                        ImMax(0.0f, pmax.y - view_max.y);
-
-                    bool overlap =
-                        !(pmax.x < item_min.x || pos.x > item_max.x ||
-                        pmax.y < item_min.y || pos.y > item_max.y);
-
-                    float score = -overflow * 10.0f;
-                    if (!overlap) score += 1000.0f;
-
-                    if (score > best.score) {
-                        best = {pos, dir, score};
-                    }
-                };
-
-                // TOP
-                Test(ImVec2(target.x - td->out_size.x * 0.5f, item_min.y - td->out_size.y - cfg.spacing_mouse), ImGuiTooltip::Dir_Up);
-                // BOTTOM
-                Test(ImVec2(target.x - td->out_size.x * 0.5f, item_max.y + cfg.spacing_mouse), ImGuiTooltip::Dir_Down);
-                // RIGHT
-                Test(ImVec2(item_max.x + cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Right);
-                // LEFT
-                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Left);
-                
-                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpLeft);
-                Test(ImVec2(item_max.x + cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpRight);
-                Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownLeft);
-                Test(ImVec2(item_max.x + cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownRight);
-
-                out_pos = best.pos;
-                out_dir = best.dir;
-            };
-
-            ImVec2 base_pos;
-            ImGuiTooltip::TooltipDirection base_dir = ImGuiTooltip::Dir_Up;
+        float seek_v = 0.0f;
+        if (cfg.show_text) {
+            float t_mouse = ImClamp((item.mouse.x - item.pos.x) / item.size.x, 0.0f, 1.0f);
+            seek_v = item.v_min + t_mouse * item.range;
+        }
         
-            // ===== PRIORITY =====
-            if (flags & ToolTipFlags_Fixed)
-            {
-                base_dir = ImGuiTooltip::Dir_Up;
-                base_pos = ImVec2(
-                    item.center.x - td->out_size.x * 0.5f,
-                    item.center.y - td->out_size.y - cfg.spacing_mouse
+        // =========================
+        // INIT DATA
+        // =========================
+        if (cfg.show_text)
+            item.seek_value = seek_v;
+
+        cfg.col_bg = ImGui::GetColorU32(ImGuiCol_PopupBg);
+        cfg.col_text = ImGui::GetColorU32(ImGuiCol_Text);
+        cfg.col_border = ImGui::GetColorU32(ImGuiCol_Border);
+        cfg.col_title = ImGui::GetColorU32(ImGuiCol_CheckMark);
+        cfg.col_extra = ImGui::GetColorU32(ImGuiCol_Header);
+
+        // default text
+        if (cfg.show_text)
+            cfg.text = Format(cfg.format, item.active ? item.value : item.seek_value);
+
+        if (tooltip_cb) tooltip_cb(Phase::Init, Slot::None, td, NULL);
+
+        cfg.col_bg = ImGui::GetColorU32(cfg.col_bg, alpha);
+        cfg.col_text = ImGui::GetColorU32(cfg.col_text, alpha);
+        cfg.col_border = ImGui::GetColorU32(cfg.col_border, alpha);
+        cfg.col_title = ImGui::GetColorU32(cfg.col_title, alpha);
+        cfg.col_extra = ImGui::GetColorU32(cfg.col_extra, alpha);
+
+        // default size
+        float max_content_w = ImMax(1.0f, cfg.max_width - cfg.padding_content * 2);
+        float max_content_h = ImMax(1.0f, cfg.max_height - cfg.padding_content * 2);
+        ImVec2 img_size = cfg.image_size;
+
+        if ((cfg.last_raw_title != cfg.title) && cfg.show_title) {
+            cfg.cached_title = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.title, max_content_w, cfg.title_max_lines);
+            cfg.last_raw_title = cfg.title;
+        }
+        if ((cfg.last_raw_extra != cfg.extra) && cfg.show_extra) {
+            cfg.cached_extra = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.extra, max_content_w, cfg.title_max_lines);
+            cfg.last_raw_extra = cfg.extra;
+        }
+        if ((cfg.last_raw_text != cfg.text) && cfg.show_text) {
+            cfg.cached_text = TextUtils::WrapTextToLines(cfg.font, cfg.fontsize, cfg.text, max_content_w, cfg.title_max_lines);
+            cfg.last_raw_text = cfg.text;
+        }
+        
+        if (cfg.show_image) {
+            if (cfg.lock_aspect) {
+                img_size = FitSizeWithAspect(
+                    img_size,
+                    cfg.max_width,
+                    max_content_h * 0.6f, // image không chiếm full height
+                    cfg.aspect_ratio
                 );
-                cfg.lock_dir = false;
             }
-            else if (flags & ToolTipFlags_AutoPosition)
-            {
-                ImVec2 target = item.mouse;
+        } else {
+            img_size = ImVec2(0, 0);
+        }
 
-                if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
-                if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
+        ImVec2 title_size = ImVec2(0, 0);
+        ImVec2 extra_size = ImVec2(0, 0);
+        ImVec2 text_size = ImVec2(0, 0);
 
-                if (!cfg.lock_dir)
-                {
-                    ImVec2 tmp_pos;
-                    ImGuiTooltip::TooltipDirection tmp_dir;
-
-                    ComputeBestPosition(target, tmp_pos, tmp_dir);
-
-                    cfg.dir = tmp_dir;
-                    cfg.lock_dir = true;
-                }
-
-                ImVec2 dir_vec = GetDirVector(cfg.dir);
-                float len = sqrtf(dir_vec.x * dir_vec.x + dir_vec.y * dir_vec.y);
-                float safe_pad = 6.0f;
-                ImVec2 safe = item.cursor_size + ImVec2(safe_pad, safe_pad);
-                if (len > 0.0f) dir_vec /= len;
-                
-                ImVec2 extra(0,0);
-                if (dir_vec.x > 0) extra.x += safe.x;
-                if (dir_vec.x < 0) extra.x -= safe.x;
-                if (dir_vec.y > 0) extra.y += safe.y;
-                if (dir_vec.y < 0) extra.y -= safe.y;
-
-                ImVec2 size_offset(
-                    (dir_vec.x == 0 ? -td->out_size.x * 0.5f : (dir_vec.x < 0 ? -td->out_size.x : 0)),
-                    (dir_vec.y == 0 ? -td->out_size.y * 0.5f : (dir_vec.y < 0 ? -td->out_size.y : 0))
-                );
-                base_pos = target 
-                        + dir_vec * cfg.spacing_mouse 
-                        + extra
-                        + size_offset;
-                base_dir = cfg.dir;
-            }   
-            else
-            {
-                ImVec2 target = item.mouse;
-
-                if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
-                if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
-
-                base_pos = target - ImVec2(td->out_size.x * 0.5f, td->out_size.y + cfg.spacing_mouse);
-                base_dir = ImGuiTooltip::Dir_Up;
-
-                cfg.lock_dir = false;
+        auto MeasureLines = [&](const std::vector<std::string>& lines) {
+            ImVec2 res(0, 0);
+            for (const auto& l : lines) {
+                ImVec2 sz = cfg.font->CalcTextSizeA(cfg.fontsize, FLT_MAX, 0.0f, l.c_str());
+                res.x = ImMax(res.x, sz.x);
+                res.y += sz.y; // Cộng dồn chiều cao
             }
+            // Thêm khoảng cách giữa các dòng (line spacing)
+            if (lines.size() > 1) res.y += (lines.size() - 1) * cfg.spacing_content; 
+            return res;
+        };
 
-            // APPLY
-            td->out_pos = base_pos;
-            cfg.dir = base_dir;
+        if (cfg.show_title)  title_size = MeasureLines(cfg.cached_title);
+        if (cfg.show_extra)  extra_size = MeasureLines(cfg.cached_extra);
+        if (cfg.show_text)   text_size  = MeasureLines(cfg.cached_text);
 
-            if (flags & ToolTipFlags_ClampItem) {
-                limit_min = item.pos;
-                limit_max = item.pos + item.size;
+        // ===== LAYOUT =====
+        float content_w = 0.0f;
+        float content_h = 0.0f;
 
-                if (item.size.x < td->out_size.x) {
-                    float cx = item.pos.x + item.size.x * 0.5f;
-                    limit_min.x = cx - td->out_size.x * 0.5f;
-                    limit_max.x = cx + td->out_size.x * 0.5f;
-                }
-                if (item.size.y < td->out_size.y) {
-                    float cy = item.pos.y + item.size.y * 0.5f;
-                    limit_min.y = cy - td->out_size.y * 0.5f;
-                    limit_max.y = cy + td->out_size.y * 0.5f;
-                }
-            }
-            bool is_x_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_X);
-            bool is_y_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_Y);
+        if (cfg.layout == ImGuiTooltip::Layout_Vertical)
+        {
+            content_w = text_size.x;
+            if (cfg.show_title) content_w = ImMax(content_w, title_size.x);
+            if (cfg.show_extra) content_w = ImMax(content_w, extra_size.x);
+            if (cfg.show_image) content_w = ImMax(content_w, img_size.x);
 
-            if (flags & ToolTipFlags_ClampItem) {
-                if (!is_x_fixed) 
-                    td->out_pos.x = ImClamp(td->out_pos.x, limit_min.x + cfg.padding, limit_max.x - td->out_size.x - cfg.padding);
-                
-                if (!is_y_fixed)
-                    td->out_pos.y = ImClamp(td->out_pos.y, limit_min.y + cfg.padding, limit_max.y - td->out_size.y - cfg.padding);
-            }
+            if (cfg.show_image) content_h += img_size.y + cfg.spacing_content;
+            if (cfg.show_title) content_h += title_size.y + cfg.spacing_content;
             
-            // clamp
-            if (flags & ToolTipFlags_ClampWindow){
-                td->out_pos.x = ImClamp(td->out_pos.x, view_min.x + cfg.padding, view_max.x - td->out_size.x - cfg.padding);
-                td->out_pos.y = ImClamp(td->out_pos.y, view_min.y + cfg.padding, view_max.y - td->out_size.y - cfg.padding);
+            content_h += text_size.y; 
+            
+            if (cfg.show_extra) content_h += cfg.spacing_content + extra_size.y;
+        }
+        else // Horizontal
+        {
+            float text_block_h = text_size.y;
+            float text_block_w = text_size.x;
+            
+            if (cfg.show_title) {
+                text_block_h += title_size.y + cfg.spacing_content;
+                text_block_w = ImMax(text_block_w, title_size.x);
+            }
+            if (cfg.show_extra) {
+                text_block_h += extra_size.y + cfg.spacing_content;
+                text_block_w = ImMax(text_block_w, extra_size.x);
             }
 
-            ImVec2 draw_pos = td->out_pos, draw_size = td->out_size;
-            if (flags & ToolTipFlags_Ease && anim)
+            content_w = text_block_w;
+            content_h = text_block_h;
+
+            if (cfg.show_image) {
+                content_w += img_size.x + cfg.spacing_content;
+                content_h = ImMax(content_h, img_size.y);
+            }
+        }
+
+        content_w = ImMin(content_w, max_content_w);
+        content_h = ImMin(content_h, max_content_h);
+
+        content_w = ImMax(content_w, 1.0f);
+        content_h = ImMax(content_h, 1.0f);
+
+        td->out_size = ImVec2(
+            content_w + cfg.padding_content * 2,
+            content_h + cfg.padding_content * 2
+        );
+
+        ImVec2 view_min = ImGui::GetMainViewport()->Pos;
+        ImVec2 view_max = view_min + ImGui::GetMainViewport()->Size;
+        ImVec2 limit_min = view_min;
+        ImVec2 limit_max = view_max;
+
+        auto GetDirVector = [&](ImGuiTooltip::TooltipDirection dir)
+        {
+            switch (dir)
             {
-                anim->pos = ImLerp(anim->pos, td->out_pos, SMOOTH_LERP(anim->speedease, cfg.dt));
-                anim->size = ImLerp(anim->size, td->out_size, SMOOTH_LERP(anim->speedease, cfg.dt));
-                draw_pos = anim->pos; draw_size = anim->size;
+            case ImGuiTooltip::Dir_Up:        return ImVec2(0, -1);
+            case ImGuiTooltip::Dir_Down:      return ImVec2(0, 1);
+            case ImGuiTooltip::Dir_Left:      return ImVec2(-1, 0);
+            case ImGuiTooltip::Dir_Right:     return ImVec2(1, 0);
+            case ImGuiTooltip::Dir_UpLeft:    return ImVec2(-1, -1);
+            case ImGuiTooltip::Dir_UpRight:   return ImVec2(1, -1);
+            case ImGuiTooltip::Dir_DownLeft:  return ImVec2(-1, 1);
+            case ImGuiTooltip::Dir_DownRight: return ImVec2(1, 1);
+            }
+            return ImVec2(0, -1);
+        };
+
+        auto ComputeBestPosition = [&](ImVec2 target, ImVec2& out_pos, ImGuiTooltip::TooltipDirection& out_dir)
+        {
+            ImVec2 item_min = item.pos;
+            ImVec2 item_max = item.pos + item.size;
+
+            struct Candidate {
+                ImVec2 pos;
+                ImGuiTooltip::TooltipDirection dir;
+                float score;
+            };
+
+            Candidate best = {};
+            best.score = -FLT_MAX;
+
+            auto Test = [&](ImVec2 pos, ImGuiTooltip::TooltipDirection dir)
+            {
+                ImVec2 pmax = pos + td->out_size;
+
+                float overflow =
+                    ImMax(0.0f, view_min.x - pos.x) +
+                    ImMax(0.0f, view_min.y - pos.y) +
+                    ImMax(0.0f, pmax.x - view_max.x) +
+                    ImMax(0.0f, pmax.y - view_max.y);
+
+                bool overlap =
+                    !(pmax.x < item_min.x || pos.x > item_max.x ||
+                    pmax.y < item_min.y || pos.y > item_max.y);
+
+                float score = -overflow * 10.0f;
+                if (!overlap) score += 1000.0f;
+
+                if (score > best.score) {
+                    best = {pos, dir, score};
+                }
+            };
+
+            // TOP
+            Test(ImVec2(target.x - td->out_size.x * 0.5f, item_min.y - td->out_size.y - cfg.spacing_mouse), ImGuiTooltip::Dir_Up);
+            // BOTTOM
+            Test(ImVec2(target.x - td->out_size.x * 0.5f, item_max.y + cfg.spacing_mouse), ImGuiTooltip::Dir_Down);
+            // RIGHT
+            Test(ImVec2(item_max.x + cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Right);
+            // LEFT
+            Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, target.y - td->out_size.y * 0.5f), ImGuiTooltip::Dir_Left);
+            
+            Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpLeft);
+            Test(ImVec2(item_max.x + cfg.spacing_mouse, item_min.y - td->out_size.y), ImGuiTooltip::Dir_UpRight);
+            Test(ImVec2(item_min.x - td->out_size.x - cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownLeft);
+            Test(ImVec2(item_max.x + cfg.spacing_mouse, item_max.y), ImGuiTooltip::Dir_DownRight);
+
+            out_pos = best.pos;
+            out_dir = best.dir;
+        };
+
+        ImVec2 base_pos;
+        ImGuiTooltip::TooltipDirection base_dir = ImGuiTooltip::Dir_Up;
+    
+        // ===== PRIORITY =====
+        if (flags & ToolTipFlags_Fixed)
+        {
+            base_dir = ImGuiTooltip::Dir_Up;
+            base_pos = ImVec2(
+                item.center.x - td->out_size.x * 0.5f,
+                item.center.y - td->out_size.y - cfg.spacing_mouse
+            );
+            cfg.lock_dir = false;
+        }
+        else if (flags & ToolTipFlags_AutoPosition)
+        {
+            ImVec2 target = item.mouse;
+
+            if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
+            if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
+
+            if (!cfg.lock_dir)
+            {
+                ImVec2 tmp_pos;
+                ImGuiTooltip::TooltipDirection tmp_dir;
+
+                ComputeBestPosition(target, tmp_pos, tmp_dir);
+
+                cfg.dir = tmp_dir;
+                cfg.lock_dir = true;
             }
 
-                    
+            ImVec2 dir_vec = GetDirVector(cfg.dir);
+            float len = sqrtf(dir_vec.x * dir_vec.x + dir_vec.y * dir_vec.y);
+            float safe_pad = 6.0f;
+            ImVec2 safe = item.cursor_size + ImVec2(safe_pad, safe_pad);
+            if (len > 0.0f) dir_vec /= len;
+            
+            ImVec2 extra(0,0);
+            if (dir_vec.x > 0) extra.x += safe.x;
+            if (dir_vec.x < 0) extra.x -= safe.x;
+            if (dir_vec.y > 0) extra.y += safe.y;
+            if (dir_vec.y < 0) extra.y -= safe.y;
+
+            ImVec2 size_offset(
+                (dir_vec.x == 0 ? -td->out_size.x * 0.5f : (dir_vec.x < 0 ? -td->out_size.x : 0)),
+                (dir_vec.y == 0 ? -td->out_size.y * 0.5f : (dir_vec.y < 0 ? -td->out_size.y : 0))
+            );
+            base_pos = target 
+                    + dir_vec * cfg.spacing_mouse 
+                    + extra
+                    + size_offset;
+            base_dir = cfg.dir;
+        }   
+        else
+        {
+            ImVec2 target = item.mouse;
+
+            if (flags & ToolTipFlags_FollowMouse_Fixed_X) target.x = item.center.x;
+            if (flags & ToolTipFlags_FollowMouse_Fixed_Y) target.y = item.center.y;
+
+            base_pos = target - ImVec2(td->out_size.x * 0.5f, td->out_size.y + cfg.spacing_mouse);
+            base_dir = ImGuiTooltip::Dir_Up;
+
+            cfg.lock_dir = false;
+        }
+
+        // APPLY
+        td->out_pos = base_pos;
+        cfg.dir = base_dir;
+
+        if (flags & ToolTipFlags_ClampItem) {
+            limit_min = item.pos;
+            limit_max = item.pos + item.size;
+
+            if (item.size.x < td->out_size.x) {
+                float cx = item.pos.x + item.size.x * 0.5f;
+                limit_min.x = cx - td->out_size.x * 0.5f;
+                limit_max.x = cx + td->out_size.x * 0.5f;
+            }
+            if (item.size.y < td->out_size.y) {
+                float cy = item.pos.y + item.size.y * 0.5f;
+                limit_min.y = cy - td->out_size.y * 0.5f;
+                limit_max.y = cy + td->out_size.y * 0.5f;
+            }
+        }
+        bool is_x_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_X);
+        bool is_y_fixed = (flags & ToolTipFlags_Fixed) || (flags & ToolTipFlags_FollowMouse_Fixed_Y);
+
+        if (flags & ToolTipFlags_ClampItem) {
+            if (!is_x_fixed) 
+                td->out_pos.x = ImClamp(td->out_pos.x, limit_min.x + cfg.padding, limit_max.x - td->out_size.x - cfg.padding);
+            
+            if (!is_y_fixed)
+                td->out_pos.y = ImClamp(td->out_pos.y, limit_min.y + cfg.padding, limit_max.y - td->out_size.y - cfg.padding);
+        }
+        
+        // clamp
+        if (flags & ToolTipFlags_ClampWindow){
+            td->out_pos.x = ImClamp(td->out_pos.x, view_min.x + cfg.padding, view_max.x - td->out_size.x - cfg.padding);
+            td->out_pos.y = ImClamp(td->out_pos.y, view_min.y + cfg.padding, view_max.y - td->out_size.y - cfg.padding);
+        }
+
+        ImVec2 draw_pos = td->out_pos, draw_size = td->out_size;
+        if (flags & ToolTipFlags_Ease && anim)
+        {
+            anim->pos = ImLerp(anim->pos, td->out_pos, SMOOTH_LERP(anim->speedease, cfg.dt));
+            anim->size = ImLerp(anim->size, td->out_size, SMOOTH_LERP(anim->speedease, cfg.dt));
+            draw_pos = anim->pos; draw_size = anim->size;
+        }
+ 
             // ==============================================================
             // [THÊM MỚI] CẬP NHẬT KÍCH THƯỚC VÀ VỊ TRÍ CỬA SỔ BEGIN TẠI ĐÂY
             // ==============================================================
-            ImGui::SetWindowPos(draw_pos);
-            ImGui::SetWindowSize(draw_size);
 
-            // [TÙY CHỌN AN TOÀN] Ép trực tiếp vào struct Window để tránh 
-            // độ trễ 1 frame (lag 1 khung hình) của hàm SetWindow...
-            ImGuiWindow* current_window = ImGui::GetCurrentWindow();
-            current_window->Pos = draw_pos;
-            current_window->Size = draw_size;
-            current_window->SizeFull = draw_size;
-            
-            // Mở rộng ClipRect để đảm bảo các thành phần vẽ tràn viền 
-            // (như mũi tên hoặc bóng đổ) không bị ImGui cắt mất
-            current_window->DrawList->PushClipRect(
-                ImVec2(draw_pos.x - 50.0f, draw_pos.y - 50.0f), 
-                ImVec2(draw_pos.x + draw_size.x + 50.0f, draw_pos.y + draw_size.y + 50.0f)
-            );
+            ImGui::SetNextWindowPos(draw_pos, ImGuiCond_Always);
+            ImGui::SetNextWindowSize(draw_size, ImGuiCond_Always);
+
+            // Tạo tổ hợp Flags đặc trưng cho một Tooltip độc lập hoàn hảo
+            ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoTitleBar 
+                                        | ImGuiWindowFlags_NoResize 
+                                        | ImGuiWindowFlags_NoMove 
+                                        | ImGuiWindowFlags_NoSavedSettings 
+                                        | ImGuiWindowFlags_AlwaysAutoResize 
+                                        | ImGuiWindowFlags_Tooltip // Ép cửa sổ nằm trên mọi Layer khác
+                                        | ImGuiWindowFlags_NoBackground;
+
+            // Tạo một mã định danh duy nhất cho Window Tooltip tránh xung đột danh tính (ID Collision)
+            char window_name[64];
+            ImFormatString(window_name, sizeof(window_name), "##custom_tooltip_%08X", cfg.id);
+
+            if (ImGui::Begin(window_name, NULL, window_flags)) {
+                // ĐÂY LÀ ĐIỂM QUAN TRỌNG: Lấy DrawList của chính CỬA SỔ MỚI này thay vì cửa sổ cha
+                cfg.draw_list = ImGui::GetWindowDrawList();
+
+                // [TÙY CHỌN AN TOÀN] Ép trực tiếp vào struct Window để tránh 
+                // độ trễ 1 frame (lag 1 khung hình) của hàm SetWindow...
+                ImGuiWindow* current_window = ImGui::GetCurrentWindow();
+                current_window->Pos = draw_pos;
+                current_window->Size = draw_size;
+                current_window->SizeFull = draw_size;
+
+                current_window->DC.CursorStartPos = draw_pos + ImVec2(cfg.padding_content, cfg.padding_content);
+                
+                // Mở rộng ClipRect để đảm bảo các thành phần vẽ tràn viền 
+                // (như mũi tên hoặc bóng đổ) không bị ImGui cắt mất
+                current_window->DrawList->PushClipRect(
+                    ImVec2(draw_pos.x - 50.0f, draw_pos.y - 50.0f), 
+                    ImVec2(draw_pos.x + draw_size.x + 50.0f, draw_pos.y + draw_size.y + 50.0f)
+                );
             // ==============================================================
 
             float scale = 1.0f;
@@ -2605,8 +2603,6 @@ static void ToolTipEx(TooltipData* td, ToolTipFlags flags = ToolTipFlags_None, T
             // CUSTOM TOOLTIP (OVERRIDE)
             // =========================
             if (tooltip_cb) tooltip_cb(Phase::Draw, Slot::Draw_layer0, td, cfg.draw_list);
-
-
 
             if (!cfg.skip_draw)
             {
@@ -2804,6 +2800,7 @@ static void ToolTipEx(TooltipData* td, ToolTipFlags flags = ToolTipFlags_None, T
                     }
                 }
             }
+            current_window->DrawList->PopClipRect();
             ImGui::End();
         }
     }
@@ -3679,6 +3676,88 @@ void CSImGui::DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
             dl->AddRect(cardMin,cardMax,borderCol,r,ImDrawFlags_RoundCornersBottomLeft,style.borderThickness);
             dl->PopClipRect();
         }
+    }
+}
+
+// ============================================
+// AUDIO CONTROLS UI
+// ============================================
+void DrawAudioTrackSelector(AudioFilterManager& audioMgr) {
+    if (ImGui::BeginCombo("##AudioTrack", "Select Audio Track")) {
+        for (const auto& [display, id] : audioMgr.GetAudioTracks()) {
+            if (ImGui::Selectable(display.c_str())) {
+                audioMgr.SelectAudioTrack(id);
+            }
+        }
+        ImGui::EndCombo();
+    }
+}
+
+void DrawChannelDistributionControls(AudioFilterManager& audioMgr) {
+    ImGui::Text("Channel Distribution:");
+    ImGui::SameLine();
+    
+    if (ImGui::RadioButton("Mono", true)) {
+        audioMgr.SetChannelMode("mono");
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Stereo", true)) {
+        audioMgr.SetChannelMode("stereo");
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Surround", true)) {
+        audioMgr.SetChannelMode("surround");
+    }
+}
+
+void DrawAudioFilterPanel(AudioFilterManager& audioMgr) {
+    if (ImGui::BeginTabItem("Audio Filters")) {
+        ImGui::Text("Active Filters: %d", audioMgr.GetActiveFilterCount());
+        ImGui::Separator();
+        
+        for (auto& filter : const_cast<std::vector<AudioFilter>&>(audioMgr.GetFilters())) {
+            bool enabled = audioMgr.IsFilterEnabled(filter.id);
+            if (ImGui::Checkbox(filter.id.c_str(), &enabled)) {
+                audioMgr.SetFilterEnabled(filter.id, enabled);
+            }
+            
+            if (enabled) {
+                ImGui::Indent();
+                for (auto& [key, param] : filter.params) {
+                    ImGui::SliderFloat(("##" + filter.id + "_" + key).c_str(), 
+                        &param.current, param.min, param.max, "%.2f");
+                    audioMgr.UpdateParam(filter.id, key, param.current);
+                }
+                ImGui::Unindent();
+            }
+        }
+        ImGui::EndTabItem();
+    }
+}
+
+void DrawVideoFilterPanel(VideoFilterManager& videoMgr) {
+    if (ImGui::BeginTabItem("Video Filters")) {
+        ImGui::Text("Available Video Filters:");
+        ImGui::Separator();
+        
+        for (auto& [label, filter] : const_cast<std::map<std::string, VideoFilter>&>(videoMgr.GetFilters())) {
+            bool enabled = filter.enabled;
+            if (ImGui::Checkbox(label.c_str(), &enabled)) {
+                filter.enabled = enabled;
+                videoMgr.Toggle(label);
+            }
+            
+            if (enabled) {
+                ImGui::Indent();
+                for (auto& param : filter.params) {
+                    ImGui::SliderFloat(("##" + label + "_" + param.name).c_str(),
+                        &param.value, param.min, param.max, "%.2f");
+                    videoMgr.UpdateParam(label, param.name, param.value);
+                }
+                ImGui::Unindent();
+            }
+        }
+        ImGui::EndTabItem();
     }
 }
 

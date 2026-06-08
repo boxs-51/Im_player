@@ -653,6 +653,6 @@ namespace CSImGui{
     void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
         const ImVec2& cardMax,const ImVec2& holeMin,const ImVec2& holeMax,
         ImU32 fillCol,ImU32 borderCol,const CardHoleStyle& style);
-    bool ToolTip(const char* label , float delay = 3.0f, ToolTipFlags flags = ToolTipFlags_None);
+    bool ToolTip(const char* label , float delay = 3.0f, ToolTipFlags flags = ToolTipFlags_Animation);
 }
 

@@ -1,4 +1,4 @@
-#include "mpv/fillter/audio_fillter_manager.h"
+#include <mpv/filter/audio_filter_manager.h>
 #include <sstream>
 
 AudioFilterManager& AudioFilterManager::Instance() {
@@ -66,6 +66,7 @@ void AudioFilterManager::Init(mpv_handle* h) {
 
 void AudioFilterManager::AddFilter(const std::string& id, const std::string& name) {
     m_filters.push_back({id, name, false, {}});
+    m_filterIndex[id] = m_filters.size() - 1; // Cache the index
 }
 
 void AudioFilterManager::RegisterParam(const std::string& id, const std::string& key, float min, float max, float def) {
@@ -190,6 +191,21 @@ void AudioFilterManager::UpdateParam(const std::string& id, const std::string& k
     }
 }
 
+void AudioFilterManager::BatchUpdateParams(const std::vector<std::tuple<std::string, std::string, float>>& updates) {
+    for (const auto& [id, key, value] : updates) {
+        for (auto& f : m_filters) {
+            if (f.id == id && f.params.count(key)) {
+                float clamped = value;
+                if (clamped < f.params[key].min) clamped = f.params[key].min;
+                if (clamped > f.params[key].max) clamped = f.params[key].max;
+                f.params[key].current = clamped;
+                break;
+            }
+        }
+    }
+    SyncAll(); // Single sync for batch updates
+}
+
 void AudioFilterManager::ToggleFilter(const std::string& id, bool state) {
     for (auto& f : m_filters) {
         if (f.id == id) {
@@ -235,9 +251,38 @@ int AudioFilterManager::GetActiveFilterCount() {
 }
 
 AudioFilter* AudioFilterManager::FindFilter(const std::string& id) {
-    for (auto& f : m_filters) {
-        if (f.id == id) return &f;
+    auto it = m_filterIndex.find(id);
+    if (it != m_filterIndex.end() && it->second < m_filters.size()) {
+        return &m_filters[it->second];
     }
     return nullptr;
+}
+
+void AudioFilterManager::AddAudioTrack(const std::string& trackId, const std::string& lang, const std::string& codec) {
+    m_audioTracks.push_back({trackId + " [" + lang + "] (" + codec + ")", trackId});
+}
+
+void AudioFilterManager::SelectAudioTrack(const std::string& trackId) {
+    if (!mpv) return;
+    m_currentAudioTrack = trackId;
+    const char* cmd[] = {"audio", trackId.c_str(), NULL};
+    mpv_command(mpv, cmd);
+}
+
+void AudioFilterManager::SetChannelMode(const std::string& mode) {
+    if (!mpv) return;
+    m_channelMode = mode;
+    
+    // Apply channel upmix/downmix
+    if (mode == "mono") {
+        const char* cmd[] = {"af", "pan=mono|c0=0.5*c0+0.5*c1", NULL};
+        mpv_command(mpv, cmd);
+    } else if (mode == "stereo") {
+        const char* cmd[] = {"af", "", NULL};
+        mpv_command(mpv, cmd);
+    } else if (mode == "surround") {
+        const char* cmd[] = {"af", "pan=5.1|FL=c0|FR=c1|FC=c0+c1|LFE=0|BL=c0|BR=c1", NULL};
+        mpv_command(mpv, cmd);
+    }
 }
 

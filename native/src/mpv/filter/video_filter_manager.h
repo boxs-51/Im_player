@@ -2,6 +2,7 @@
 #include <mpv/client.h>
 #include <string>
 #include <map>
+#include <unordered_map>
 
 struct VFParam {
     std::string name;
@@ -30,21 +31,30 @@ struct VideoFilter {
         return "@" + label + ":" + name + "=" + p_str;
     }
 };
+
 class VideoFilterManager {
 public:
     static VideoFilterManager& Instance();
     void Init(mpv_handle* h);
+    
     // Đăng ký các filter phổ biến
     void SetupDefaultFilters();
+    void AddFilter(const std::string& label, const std::string& name);
+    void AddFilterParam(const std::string& label, const std::string& paramName, 
+                       float value, float min, float max, float defaultVal);
 
     void UpdateParam(std::string label, std::string pName, float val);
+    void BatchUpdateParams(const std::vector<std::tuple<std::string, std::string, float>>& updates);
 
     void Toggle(std::string label);
-
     void Apply();
+    
+    const std::map<std::string, VideoFilter>& GetFilters() const { return filters; }
+    VideoFilter* FindFilter(const std::string& label);
 
 private:
     mpv_handle* mpv;
     std::map<std::string, VideoFilter> filters;
+    std::unordered_map<std::string, int> filterIndex; // Cache for O(1) lookups
     VideoFilterManager() = default;
 };

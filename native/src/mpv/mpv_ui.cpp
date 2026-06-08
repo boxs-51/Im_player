@@ -573,6 +573,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
                 td->config.max_width = 240.0f;
                 td->config.max_height = 180.0f;
                 td->config.align = ImGuiTooltip::Align_Center;
+                td->config.padding = 0.0f;
             }
         },
 
