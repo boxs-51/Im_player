@@ -3682,4 +3682,86 @@ void CSImGui::DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
     }
 }
 
+// ============================================
+// AUDIO CONTROLS UI
+// ============================================
+void DrawAudioTrackSelector(AudioFilterManager& audioMgr) {
+    if (ImGui::BeginCombo("##AudioTrack", "Select Audio Track")) {
+        for (const auto& [display, id] : audioMgr.GetAudioTracks()) {
+            if (ImGui::Selectable(display.c_str())) {
+                audioMgr.SelectAudioTrack(id);
+            }
+        }
+        ImGui::EndCombo();
+    }
+}
+
+void DrawChannelDistributionControls(AudioFilterManager& audioMgr) {
+    ImGui::Text("Channel Distribution:");
+    ImGui::SameLine();
+    
+    if (ImGui::RadioButton("Mono", true)) {
+        audioMgr.SetChannelMode("mono");
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Stereo", true)) {
+        audioMgr.SetChannelMode("stereo");
+    }
+    ImGui::SameLine();
+    if (ImGui::RadioButton("Surround", true)) {
+        audioMgr.SetChannelMode("surround");
+    }
+}
+
+void DrawAudioFilterPanel(AudioFilterManager& audioMgr) {
+    if (ImGui::BeginTabItem("Audio Filters")) {
+        ImGui::Text("Active Filters: %d", audioMgr.GetActiveFilterCount());
+        ImGui::Separator();
+        
+        for (auto& filter : const_cast<std::vector<AudioFilter>&>(audioMgr.GetFilters())) {
+            bool enabled = audioMgr.IsFilterEnabled(filter.id);
+            if (ImGui::Checkbox(filter.id.c_str(), &enabled)) {
+                audioMgr.SetFilterEnabled(filter.id, enabled);
+            }
+            
+            if (enabled) {
+                ImGui::Indent();
+                for (auto& [key, param] : filter.params) {
+                    ImGui::SliderFloat(("##" + filter.id + "_" + key).c_str(), 
+                        &param.current, param.min, param.max, "%.2f");
+                    audioMgr.UpdateParam(filter.id, key, param.current);
+                }
+                ImGui::Unindent();
+            }
+        }
+        ImGui::EndTabItem();
+    }
+}
+
+void DrawVideoFilterPanel(VideoFilterManager& videoMgr) {
+    if (ImGui::BeginTabItem("Video Filters")) {
+        ImGui::Text("Available Video Filters:");
+        ImGui::Separator();
+        
+        for (auto& [label, filter] : const_cast<std::map<std::string, VideoFilter>&>(videoMgr.GetFilters())) {
+            bool enabled = filter.enabled;
+            if (ImGui::Checkbox(label.c_str(), &enabled)) {
+                filter.enabled = enabled;
+                videoMgr.Toggle(label);
+            }
+            
+            if (enabled) {
+                ImGui::Indent();
+                for (auto& param : filter.params) {
+                    ImGui::SliderFloat(("##" + label + "_" + param.name).c_str(),
+                        &param.value, param.min, param.max, "%.2f");
+                    videoMgr.UpdateParam(label, param.name, param.value);
+                }
+                ImGui::Unindent();
+            }
+        }
+        ImGui::EndTabItem();
+    }
+}
+
 

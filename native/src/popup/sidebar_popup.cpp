@@ -121,7 +121,6 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
 
         if (visible){
             LoadThumbnail(v);
-            TrimThumbnailCache();
         }
     }
 
@@ -416,12 +415,15 @@ void RenderVideoList()
     static char last_buf[256] = "";
     static bool keywordPopupOpenPrev = false;
     static std::vector<int> g_filteredKeywordIndices;
+    static std::vector<std::string> g_keywordsLowerCached; // Cache for lowercase keywords
+    static bool keywordsCacheValid = false;
 
     // --- Load keyword once ---
     if (!keywordsLoaded && !g_loading)
     {
         UpdateVideoData(VideoSource::Keywords, "", 20);
         keywordsLoaded = true;
+        keywordsCacheValid = false; // Invalidate cache when keywords change
     }
 
     // ================= TOP CONTROLS =================
@@ -476,6 +478,15 @@ void RenderVideoList()
         g_keywordSelected = -1;
         g_filteredKeywordIndices.clear();
 
+        // Rebuild lowercase cache if needed or keywords changed
+        if (!keywordsCacheValid || g_keywordsLowerCached.size() != g_keywords.size()) {
+            g_keywordsLowerCached.clear();
+            for (const auto& kw : g_keywords) {
+                g_keywordsLowerCached.push_back(ToLower(kw));
+            }
+            keywordsCacheValid = true;
+        }
+
         std::string key = ToLower(search_buf);
         auto tokens = SplitWords(key);
 
@@ -487,7 +498,7 @@ void RenderVideoList()
 
         for (int i = 0; i < (int)g_keywords.size(); i++)
         {
-            std::string kw = ToLower(g_keywords[i]);
+            const std::string& kw = g_keywordsLowerCached[i]; // Use cached lowercase
 
             if (!key.empty() && kw.rfind(key, 0) == 0)
             {
@@ -770,6 +781,7 @@ void RenderVideoList()
 
     // ================= VIDEO LIST =================
     ProcessThumbnailQueue();
+    TrimThumbnailCache(); // Move outside render loop for performance
 
     ImGui::BeginChild("video_list",
         ImGui::GetContentRegionAvail(),

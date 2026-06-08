@@ -33,6 +33,7 @@ add_executable(imgui_player WIN32
     native/src/mpv/mpv_data.cpp
 
     native/src/mpv/fillter/audio_fillter_manager.cpp
+    native/src/mpv/fillter/video_fillter_manager.cpp
 
     native/src/mpv/shaders/shader_manager.cpp
     native/src/mpv/scripts/script_manager.cpp
