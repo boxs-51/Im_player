@@ -58,6 +58,7 @@ add_executable(imgui_player WIN32
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
     native/src/popup/popup_url.cpp
+    native/src/popup/popup_audio_control.cpp
     native/src/popup/popup.cpp
     native/src/popup/reusable_popup.cpp
     native/src/popup/sidebar_popup.cpp
