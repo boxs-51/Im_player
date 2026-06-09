@@ -3,11 +3,15 @@
 #include "popup_url.h"
 #include "popup_about_video.h"
 #include "sidebar_popup.h"
+#include "popup_audio_control.h"
+#include "popup_test.h"
 
 extern ReusablePopup Popup_Url;   
 extern ReusablePopup videoInfoPopup;
 extern ReusablePopup SettingPopup;
 extern ReusablePopup SidarBarPopup;
+extern ReusablePopup AudioControlPopup;
+extern ReusablePopup TestPopup;
 
 std::vector<ReusablePopup*>& GetAllPopups() ;
 

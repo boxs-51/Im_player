@@ -19,9 +19,7 @@ class ScriptManager
 {
 private:
     ScriptManager() = default; // Private constructor cho Singleton
-
     mpv_handle* mpv = nullptr;
-
     std::map<std::string, ScriptInfo> m_scripts; // Key là path để đảm bảo duy nhất
 
 public:

@@ -222,7 +222,7 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     ImDrawList* draw_list = ImGui::GetWindowDrawList();
 
     //CSImGui::ShowTooltipDelayed(label, is_hovered, 1.5f);
-    CSImGui::ToolTip(label, is_hovered, 1.5f);
+    CSImGui::ToolTip(label, 1.5f , ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
 
 
     // 2. Vẽ Text với hiệu ứng trượt và màu sắc động

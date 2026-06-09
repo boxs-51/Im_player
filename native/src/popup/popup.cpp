@@ -4,12 +4,16 @@ ReusablePopup Popup_Url;
 ReusablePopup videoInfoPopup;
 ReusablePopup SettingPopup;
 ReusablePopup SidarBarPopup;
+ReusablePopup AudioControlPopup;
+ReusablePopup TestPopup;
 
 std::vector<ReusablePopup*> allReusablePopups = {
     &Popup_Url,
     &videoInfoPopup,
     &SettingPopup,
-    &SidarBarPopup
+    &SidarBarPopup,
+    &AudioControlPopup,
+    &TestPopup
 };
 
 bool IsAnyPopupOpen() {
@@ -38,12 +42,20 @@ void RenderAllPopups() {
     if (SidarBarPopup.IsOpen()) {
         RenderSidarBarPopup(SidarBarPopup);
     }
+    if (AudioControlPopup.IsOpen()) {
+        RenderAudioControlPopup(AudioControlPopup);
+    }
+    if (TestPopup.IsOpen()) {
+        RenderTestPopup(TestPopup);
+    }
 }
 void OffPopup(){
     Popup_Url.Close();
     videoInfoPopup.Close();
     SidarBarPopup.Close();
     SettingPopup.Close();
+    AudioControlPopup.Close();
+    TestPopup.Close();
 }
 
 

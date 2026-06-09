@@ -4,6 +4,7 @@
 #include "utils.h"
 #include "imgui.h"
 
+#include "gui/gui.h"
 #include "windows/windows_borderless_state.h"
 #include "windows/windows_borderless.h"
 
@@ -211,7 +212,9 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImU32 closeColor = IM_COL32(35,35,35,255);       // mặc định đỏ vừa phải
     if (activeClose)  closeColor = IM_COL32(220,50,50,150);   // click đỏ rực rỡ
     else if (hoveredClose) closeColor = IM_COL32(220,50,50,255);  // hover đỏ tươi hơn
-    
+
+    CSImGui::ToolTip("Close", 2.0f, ToolTipFlags_Animation);
+
     dl->AddRectFilled(closePos, closePos + btnSize, closeColor, 4.0f);
     {
         // ----- Xác định center -----
@@ -269,6 +272,9 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImU32 maxColor = IM_COL32(35,35,35,255);
     if (hoveredMax) maxColor = IM_COL32(60,60,60,255);
     if (activeMax)  maxColor = IM_COL32(90,90,90,255);
+
+    CSImGui::ToolTip(state.IsMax ? "Restore" : "Maximize", 2.0f, ToolTipFlags_Animation);
+
     dl->AddRectFilled(maxPos, maxPos + btnSize, maxColor, 4.0f);
     {
         float iconPad     = 7.0f;    // khoảng cách từ viền nút đến icon
@@ -312,6 +318,9 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImU32 minColor = IM_COL32(35,35,35,255);
     if (hoveredMin) minColor = IM_COL32(60,60,60,255);
     if (activeMin)  minColor = IM_COL32(90,90,90,255);
+
+    CSImGui::ToolTip("Minimize", 2.0f, ToolTipFlags_Animation);
+
     dl->AddRectFilled(minPos, minPos + btnSize, minColor, 4.0f);
     {
         float linesize = 30.f;

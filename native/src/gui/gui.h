@@ -598,7 +598,7 @@ namespace CSImGui{
     bool SecondaryButton(const char* label, const ImVec2& size = ImVec2(0, 0));
 
     bool ModernButtonEx(const char* label, const ImVec2& size_arg = ImVec2(0, 0));
-    bool ModernCheckbox(const char* label, bool* v, CheckboxStyle style = CheckboxStyle::Tick);
+    bool ModernCheckbox(const char* label, bool* v, CheckboxStyle style = CheckboxStyle::Tick, const ImVec2& size_arg = ImVec2(0, 0));
 
     bool ModernInputTextMultiline(const char* label, char* buf, size_t buf_size, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0);
     bool ModernInputTextMultiline(const char* label, std::string& str, const ImVec2& size = ImVec2(-1, 0), ImGuiInputTextFlags flags = 0);
@@ -653,6 +653,6 @@ namespace CSImGui{
     void DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
         const ImVec2& cardMax,const ImVec2& holeMin,const ImVec2& holeMax,
         ImU32 fillCol,ImU32 borderCol,const CardHoleStyle& style);
-    bool ToolTip(const char* label , float delay = 3.0f, ToolTipFlags flags = ToolTipFlags_Animation);
+    bool ToolTip(const char* label , float delay = 3.0f, ToolTipFlags flags = ToolTipFlags_None);
 }
 

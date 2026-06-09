@@ -177,6 +177,18 @@ bool HandlePopupHotkeys(const SDL_Event* e) {
                 } else {OpenSettingPopup(SettingPopup);}    
                 return true; 
             }
+            case SDLK_o:
+            {
+                if (AudioControlPopup.IsOpen()) {AudioControlPopup.Close();
+                } else {OpenAudioControlPopup(AudioControlPopup);}    
+                return true; 
+            }
+            case SDLK_t:
+            {
+                if (TestPopup.IsOpen()) {TestPopup.Close();
+                } else {OpenTestPopup(TestPopup);}    
+                return true; 
+            }
             default:
                 break;
         }

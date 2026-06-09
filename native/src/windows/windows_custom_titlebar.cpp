@@ -122,7 +122,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         case WM_NCHITTEST: {
 
             if(g_DragResizeState.IsFullscreen_video) {
-                g_DragResizeState.debugInfo = "HTCLIENT (Max/FS)";
+                g_DragResizeState.debugInfo = "HTCLIENT (FS)";
                 return HTCLIENT;
             }
             POINT pt{ GET_X_LPARAM(lParam), GET_Y_LPARAM(lParam) };
@@ -136,7 +136,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
             
             if (edge != ResizeEdge::NONE) {
                 if (g_DragResizeState.IsMax) {
-                    g_DragResizeState.debugInfo = "HTCLIENT (Max/FS)";
+                    g_DragResizeState.debugInfo = "HTCLIENT (Max)";
                     return HTCLIENT;
                 }
                 switch (edge) {

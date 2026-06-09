@@ -556,5 +556,7 @@ void ShowSettingsPopup(bool& closePopup_setting) {
 
 // Render popup mỗi frame
 void RenderSettingPopup(ReusablePopup& popup) {
-    popup.Render();
+    if(popup.IsOpen()) {
+        popup.Render();
+    }
 }

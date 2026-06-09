@@ -22,17 +22,55 @@ struct AudioFilter {
     std::string name;     // Tên filter thực tế của libavfilter (VD: bass)
     bool enabled;
     std::map<std::string, FilterParam> params;
+    std::string group; // Nhóm filter (VD: "Equalizer", "Dynamics", "Special")
 
     // Hàm tạo chuỗi khởi tạo cho MPV. 
     // Trả về định dạng: @id:name=key1=val1:key2=val2
     std::string GetInitString() const {
         std::string res = "@" + id + ":" + name;
         if (!params.empty()) {
+            
+            // 1. XỬ LÝ ĐẶC BIỆT CHO CHORUS: Ép cấu hình mảng tránh lỗi "Both delays & decays..."
+            if (name == "chorus") {
+                float in_gain = params.count("in_gain") ? params.at("in_gain").current : 0.40f;
+                float out_gain = params.count("out_gain") ? params.at("out_gain").current : 0.40f;
+                in_gain = std::clamp(in_gain, 0.0f, 1.0f);
+                out_gain = std::clamp(out_gain, 0.0f, 1.0f);
+
+                // Cú pháp chuẩn: chorus=in_gain:out_gain:delays:decays:speeds:depths
+                res += "=" + std::to_string(in_gain) + ":" + std::to_string(out_gain) + ":40:0.25:0.3:2.0";
+                return res;
+            }
+
+            // 2. XỬ LÝ ĐẶC BIỆT CHO FLANGER: Tránh lỗi phân tách tham số dạng chuỗi phức tạp của FFmpeg
+            /*
+            if (name == "flanger") {
+                float delay = params.count("delay") ? params.at("delay").current : 0.0f;
+                float depth = params.count("depth") ? params.at("depth").current : 2.0f;
+                delay = std::clamp(delay, 0.0f, 30.0f);
+                depth = std::clamp(depth, 0.0f, 10.0f);
+
+                // Cú pháp định danh vị trí FFmpeg: flanger=delay:depth:regen:width:speed:shape:phase
+                // Gán regen=70.0 (feedback), width=71.0, speed=0.5 (Hz), shape=sinusoidal, phase=90.0
+                res += "=" + std::to_string(delay) + ":" + std::to_string(depth) + ":70:71:0.5:quad:90";
+                return res;
+            }*/
+
+            // 3. Cấu trúc lặp sinh chuỗi Key-Value thông thường cho các bộ lọc còn lại
             res += "=";
             bool first = true;
             for (const auto& [key, p] : params) {
                 if (!first) res += ":";
-                res += key + "=" + std::to_string(p.current);
+                
+                float final_value = p.current;
+                
+                // Chuyển đổi dB sang tuyến tính (Linear Coefficient) cho acompressor threshold
+                if (name == "acompressor" && key == "threshold") {
+                    final_value = std::pow(10.0f, p.current / 20.0f);
+                    final_value = std::clamp(final_value, 0.00001f, 1.0f);
+                }
+
+                res += key + "=" + std::to_string(final_value);
                 first = false;
             }
         }
@@ -50,7 +88,7 @@ public:
 
     void Init(mpv_handle* h);
     
-    void AddFilter(const std::string& id, const std::string& name);
+    void AddFilter(const std::string& id, const std::string& name, const std::string& group);
     void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);
     
     void ResetFilter(const std::string& id);
@@ -76,6 +114,9 @@ public:
     AudioFilter* FindFilter(const std::string& id);
     const std::vector<AudioFilter>& GetFilters() const { return m_filters; }
 
+    std::string GetChannelMode() const { return m_channelMode; }
+    std::string GetCurrentAudioTrack() const { return m_currentAudioTrack; }
+
 private:
     AudioFilterManager() = default;
     mpv_handle* mpv = nullptr;
@@ -86,6 +127,6 @@ private:
     std::string m_channelMode = "stereo";
     bool m_needsSync = false; // Track if sync is needed
 
-    std::string path ;//= { AutoPath<std::string>("%ROOT%" ,"data" ,"fillter_audio.json")};
+    std::string path;
 
 };

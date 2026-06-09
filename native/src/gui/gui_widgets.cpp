@@ -1302,7 +1302,7 @@ bool CSImGui::ModernButtonEx(const char* label, const ImVec2& size_arg) {
     return true;
 }
 
-bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
+bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style, const ImVec2& size_arg) {
     ImGuiWindow* window = ImGui::GetCurrentWindow();
     if (window->SkipItems) return false;
 
@@ -1310,15 +1310,17 @@ bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
     const ImGuiStyle& imStyle = g.Style;
     const ImGuiID id = window->GetID(label);
 
-    // 1. Tính toán kích thước
-    float square_sz = ImGui::GetFrameHeight(); // Kích thước chuẩn của checkbox
+    // 1. Tính toán kích thước Động dựa trên tham số truyền vào
+    // Nếu size_arg không được truyền, mặc định lấy GetFrameHeight() của hệ thống
+    float square_sz = (size_arg.x > 0.0f) ? size_arg.x : ImGui::GetFrameHeight(); 
     ImVec2 label_size = ImGui::CalcTextSize(label, NULL, true);
     
     ImVec2 pos = window->DC.CursorPos;
-    // Tổng vùng tương tác bao gồm cả Box và Label
     const ImRect total_bb(pos, pos + ImVec2(square_sz + (label_size.x > 0 ? imStyle.ItemInnerSpacing.x + label_size.x : 0), square_sz));
     
-    ImGui::ItemSize(total_bb, imStyle.FramePadding.y);
+    // Đồng bộ hóa FramePadding theo tỷ lệ kích thước mới để tránh bị lệch dòng
+    float padding_y = (size_arg.x > 0.0f) ? 0.0f : imStyle.FramePadding.y;
+    ImGui::ItemSize(total_bb, padding_y);
     if (!ImGui::ItemAdd(total_bb, id)) return false;
 
     // 2. Tương tác
@@ -1331,32 +1333,28 @@ bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
     *pT = ImClamp(*pT + (*v ? g.IO.DeltaTime * 12.0f : -g.IO.DeltaTime * 12.0f), 0.0f, 1.0f);
 
     // 4. Vẽ Box nền
-    // Bo góc hoàn toàn nếu là Circle, bo nhẹ nếu là kiểu khác
     float rounding = (style == CheckboxStyle::Circle) ? square_sz * 0.5f : 4.0f;
     ImU32 col_bg = ImGui::GetColorU32((held && hovered) ? GetColors(Col_FrameBgActive) : hovered ? GetColors(Col_FrameBgHovered) : GetColors(Col_FrameBg));
     
     window->DrawList->AddRectFilled(pos, pos + ImVec2(square_sz, square_sz), col_bg, rounding);
-    
-    // Vẽ viền mỏng để trông sắc nét hơn
     window->DrawList->AddRect(pos, pos + ImVec2(square_sz, square_sz), ImGui::GetColorU32(ToIUCol32(GetColors(Col_Border)), 0.5f), rounding);
 
-    // 5. Vẽ nội dung Check (Dựa trên enum Style)
+    // 5. Vẽ nội dung Check (Co giãn tỷ lệ 100% theo square_sz mới)
     if (*pT > 0.01f) {
         ImVec2 center = pos + ImVec2(square_sz * 0.5f, square_sz * 0.5f);
         ImU32 check_col = ImGui::GetColorU32(GetColors(Col_CheckMark));
-        // Hiệu ứng Fade Alpha theo animation
         check_col = (check_col & 0x00FFFFFF) | ((uint32_t)(*pT * 255) << 24);
 
         if (style == CheckboxStyle::Circle) {
             window->DrawList->AddCircleFilled(center, (square_sz * 0.25f) * *pT, check_col);
         }
         else if (style == CheckboxStyle::Square) {
-            float pad = square_sz * 0.25f * (1.0f - *pT + 1.0f); // Nở ra từ tâm
+            float pad = square_sz * 0.25f * (1.0f - *pT + 1.0f);
             window->DrawList->AddRectFilled(pos + ImVec2(pad, pad), pos + ImVec2(square_sz - pad, square_sz - pad), check_col, 2.0f);
         }
         else if (style == CheckboxStyle::Tick) {
-            // Vẽ dấu tích bằng đường thẳng (Polyline)
-            float thickness = 2.0f;
+            // Tự động điều chỉnh độ dày nét vẽ (thickness) tỷ lệ thuận với kích thước hộp Checkbox
+            float thickness = (square_sz < 18.0f) ? 1.5f : 2.0f; 
             float size = square_sz * 0.6f * *pT;
             float x0 = center.x - size * 0.5f, y0 = center.y;
             float x1 = center.x - size * 0.1f, y1 = center.y + size * 0.4f;
@@ -1369,10 +1367,8 @@ bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
         }
     }
 
-    // 6. CĂN GIỮA LABEL THEO CHIỀU DỌC (FIX)
+    // 6. Căn giữa Label theo trục Y pixel-perfect
     if (label_size.x > 0.0f) {
-        // Tính toán offset Y để text nằm chính giữa Box theo pixel-perfect
-        // font_size là chiều cao text, square_sz là chiều cao Box
         float text_y_offset = (square_sz - g.FontSize) * 0.5f;
         ImVec2 text_pos = ImVec2(pos.x + square_sz + imStyle.ItemInnerSpacing.x, pos.y + text_y_offset);
         
@@ -1383,6 +1379,7 @@ bool CSImGui::ModernCheckbox(const char* label, bool* v, CheckboxStyle style) {
 
     return pressed;
 }
+
 // Callback hỗ trợ riêng cho std::string
 int StringResizeCallback(ImGuiInputTextCallbackData* data)
 {
@@ -1438,22 +1435,59 @@ bool CSImGui::ModernInputTextMultiline(const char* label, char* buf, size_t buf_
     ImGui::PopStyleVar(3);
     return changed;
 }
-bool CSImGui::ModernInputTextMultiline(const char* label, std::string& str, const ImVec2& size , ImGuiInputTextFlags flags) {
+bool CSImGui::ModernInputTextMultiline(const char* label, std::string& str, const ImVec2& size, ImGuiInputTextFlags flags) {
     ImGuiID id = ImGui::GetCurrentWindow()->GetID(label);
     
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 6.0f);
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(10, 10));
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1.0f);
 
-    ImGui::PushStyleColor(ImGuiCol_FrameBg,          GetColors(Col_FrameBg));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg,         GetColors(Col_FrameBg));
     ImGui::PushStyleColor(ImGuiCol_FrameBgHovered,   GetColors(Col_FrameBgHovered));
     ImGui::PushStyleColor(ImGuiCol_FrameBgActive,    GetColors(Col_FrameBgActive));
     ImGui::PushStyleColor(ImGuiCol_Border,           GetColors(Col_Border)); 
     ImGui::PushStyleColor(ImGuiCol_Text,             GetColors(Col_Text));
 
-    // Ép thêm flag Resize và dùng Callback
+    // 1️⃣ BẮT BUỘC: Ép flag CallbackResize
     flags |= ImGuiInputTextFlags_CallbackResize;
-    bool changed = ImGui::InputTextMultiline(label, (char*)str.c_str(), str.capacity() + 1, size, flags, StringResizeCallback, (void*)&str);
+
+    // 2️⃣ ĐẢM BẢO: Chuỗi không được rỗng khi lấy con trỏ buffer, ít nhất phải có ký tự \0
+    if (str.empty()) {
+        str.resize(1, '\0');
+    }
+
+    // 3️⃣ CHUẨN XÁC: Định nghĩa một Lambda callback cục bộ ngay tại đây để đồng bộ std::string
+    auto InputTextCallback = [](ImGuiInputTextCallbackData* data) -> int {
+        if (data->EventFlag == ImGuiInputTextFlags_CallbackResize) {
+            std::string* local_str = (std::string*)data->UserData;
+            IM_ASSERT(data->Buf == local_str->data()); // Kiểm tra an toàn vùng nhớ
+            
+            // Co giãn thực tế theo nhu cầu của ImGui
+            local_str->resize(data->BufTextLen);
+            
+            // Cập nhật lại con trỏ buffer mới sau khi resize cho ImGui quản lý tiếp
+            data->Buf = (char*)local_str->data();
+        }
+        return 0;
+    };
+
+    // 4️⃣ TRUYỀN BUFFER: Dùng str.data() thay vì (char*)str.c_str() 
+    // Độ dài truyền vào là str.capacity() chứ không lấy size, để tận dụng vùng nhớ cấp phát sẵn
+    bool changed = ImGui::InputTextMultiline(
+        label, 
+        (char*)str.data(), 
+        str.capacity() + 1, 
+        size, 
+        flags, 
+        InputTextCallback, 
+        (void*)&str
+    );
+
+    // 5️⃣ ĐỒNG BỘ: Thu gọn kích thước thực tế của std::string về đúng số lượng ký tự đã nhập
+    // Do ImGui chỉ ghi đè dữ liệu, ta cần cập nhật lại độ dài (length) chuẩn cho std::string
+    if (changed) {
+        str.resize(strlen(str.data()));
+    }
 
     float* pFocusAnim = ImGui::GetStateStorage()->GetFloatRef(id + 1, 0.0f);
     RenderModernInputEffect(id, pFocusAnim);
@@ -1543,6 +1577,10 @@ bool CSImGui::ModernSelectable(const char* label, bool selected, ImGuiSelectable
     ImVec2 size = ImGui::CalcItemSize(size_arg, ImGui::GetContentRegionAvail().x, ImGui::GetTextLineHeightWithSpacing() + 8.0f);
     const ImRect bb(pos, ImVec2(pos.x + size.x, pos.y + size.y));
 
+    // 🌟 QUAN TRỌNG: Cần đăng ký Item với ImGui TRƯỚC KHI xử lý ButtonBehavior
+    ImGui::ItemSize(size);
+    if (!ImGui::ItemAdd(bb, id)) return false;
+
     // 2. Quản lý Animation qua Storage
     // tHover: 0.0f -> 1.0f (hiệu ứng di chuột)
     // tSelect: 0.0f -> 1.0f (hiệu ứng khi được chọn)
@@ -1604,10 +1642,6 @@ bool CSImGui::ModernSelectable(const char* label, bool selected, ImGuiSelectable
         window->DrawList->AddText(ImVec2(pos.x + textOffsetX, pos.y + (size.y - g.FontSize) * 0.5f), 
                                 ImGui::ColorConvertFloat4ToU32(textColor), label);
     }
-
-    // 7. Kết thúc item
-    ImGui::ItemSize(size);
-    ImGui::ItemAdd(bb, id);
 
     return pressed;
 }
@@ -2433,7 +2467,9 @@ static void ToolTipEx(TooltipData* td, ToolTipFlags flags = ToolTipFlags_None, T
                                         | ImGuiWindowFlags_NoSavedSettings 
                                         | ImGuiWindowFlags_AlwaysAutoResize 
                                         | ImGuiWindowFlags_Tooltip // Ép cửa sổ nằm trên mọi Layer khác
-                                        | ImGuiWindowFlags_NoBackground;
+                                        | ImGuiWindowFlags_NoBackground
+                                        | ImGuiWindowFlags_NoScrollbar
+                                        | ImGuiWindowFlags_NoScrollWithMouse;
 
             // Tạo một mã định danh duy nhất cho Window Tooltip tránh xung đột danh tính (ID Collision)
             char window_name[64];
@@ -3085,9 +3121,11 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
     ImRect bb(pos, pos + size);
     ImGui::ItemSize(bb);
     if (!ImGui::ItemAdd(bb, state->id)) return false;
+
+    bool is_disabled = (state->g->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
     
-    state->hovered = ImGui::ItemHoverable(bb, state->id , ImGuiItemFlags_None);
-    state->active = (state->g->ActiveId == state->id);
+    state->hovered = is_disabled ? false : ImGui::ItemHoverable(bb, state->id , ImGuiItemFlags_None);
+    state->active = !is_disabled && (state->g->ActiveId == state->id);
     if (flags & SliderFlags_EnableSmoothPreview)
         state->display_v = state->preview->GetDisplayValue(*v);
     else
@@ -3205,31 +3243,34 @@ bool CSImGui::ModernSliderFloatEx(const char* label, float* v,
     // ========================
     // NAV SUPPORT
     // ========================
-    if (state->g->NavId == state->id && state->g->NavActivatePressedId == state->id)
-        ImGui::SetActiveID(state->id, window);
-
-    if (state->active && state->g->NavId == state->id && state->g->NavInputSource == ImGuiInputSource_Keyboard)
+    if (!is_disabled)
     {
-        bool left  = ImGui::IsKeyPressed(ImGuiKey_LeftArrow);
-        bool right = ImGui::IsKeyPressed(ImGuiKey_RightArrow);
+        if (state->g->NavId == state->id && state->g->NavActivatePressedId == state->id)
+            ImGui::SetActiveID(state->id, window);
 
-        if (nav_cb)
+        if (state->active && state->g->NavId == state->id && state->g->NavInputSource == ImGuiInputSource_Keyboard)
         {
-            if ((left || right))
-                nav_cb(*v, left, right);
-        }
-        else if (!(flags & SliderFlags_NoNav))
-        {
-            float step = state->range * 0.01f;
+            bool left  = ImGui::IsKeyPressed(ImGuiKey_LeftArrow);
+            bool right = ImGui::IsKeyPressed(ImGuiKey_RightArrow);
 
-            float old = *v;
+            if (nav_cb)
+            {
+                if ((left || right))
+                    nav_cb(*v, left, right);
+            }
+            else if (!(flags & SliderFlags_NoNav))
+            {
+                float step = state->range * 0.01f;
 
-            if (left)  *v -= step;
-            if (right) *v += step;
+                float old = *v;
 
-            *v = ImClamp(*v, v_min, v_max);
-            if (*v != old)
-                changed = true;
+                if (left)  *v -= step;
+                if (right) *v += step;
+
+                *v = ImClamp(*v, v_min, v_max);
+                if (*v != old)
+                    changed = true;
+            }
         }
     }
 
@@ -3382,7 +3423,7 @@ bool CSImGui::ToolTip(const char* label, float delay, ToolTipFlags flags) {
 
     // --- KHỞI TẠO CỬA SỔ TOOLTIP RIÊNG BIỆT ---
 
-    ToolTipFlags flags_ex = ToolTipFlags_FollowMouse | ToolTipFlags_AutoPosition | ToolTipFlags_ClampWindow | flags;
+    ToolTipFlags flags_ex = ToolTipFlags_FollowMouse | ToolTipFlags_AutoPosition | flags;
     
     // Tiến hành tính toán layout nâng cao và vẽ nội dung trong ToolTipEx
     ToolTipEx(state, flags_ex);
@@ -3678,87 +3719,3 @@ void CSImGui::DrawCardWithHole(ImDrawList* dl,const ImVec2& cardMin,
         }
     }
 }
-
-// ============================================
-// AUDIO CONTROLS UI
-// ============================================
-void DrawAudioTrackSelector(AudioFilterManager& audioMgr) {
-    if (ImGui::BeginCombo("##AudioTrack", "Select Audio Track")) {
-        for (const auto& [display, id] : audioMgr.GetAudioTracks()) {
-            if (ImGui::Selectable(display.c_str())) {
-                audioMgr.SelectAudioTrack(id);
-            }
-        }
-        ImGui::EndCombo();
-    }
-}
-
-void DrawChannelDistributionControls(AudioFilterManager& audioMgr) {
-    ImGui::Text("Channel Distribution:");
-    ImGui::SameLine();
-    
-    if (ImGui::RadioButton("Mono", true)) {
-        audioMgr.SetChannelMode("mono");
-    }
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Stereo", true)) {
-        audioMgr.SetChannelMode("stereo");
-    }
-    ImGui::SameLine();
-    if (ImGui::RadioButton("Surround", true)) {
-        audioMgr.SetChannelMode("surround");
-    }
-}
-
-void DrawAudioFilterPanel(AudioFilterManager& audioMgr) {
-    if (ImGui::BeginTabItem("Audio Filters")) {
-        ImGui::Text("Active Filters: %d", audioMgr.GetActiveFilterCount());
-        ImGui::Separator();
-        
-        for (auto& filter : const_cast<std::vector<AudioFilter>&>(audioMgr.GetFilters())) {
-            bool enabled = audioMgr.IsFilterEnabled(filter.id);
-            if (ImGui::Checkbox(filter.id.c_str(), &enabled)) {
-                audioMgr.SetFilterEnabled(filter.id, enabled);
-            }
-            
-            if (enabled) {
-                ImGui::Indent();
-                for (auto& [key, param] : filter.params) {
-                    ImGui::SliderFloat(("##" + filter.id + "_" + key).c_str(), 
-                        &param.current, param.min, param.max, "%.2f");
-                    audioMgr.UpdateParam(filter.id, key, param.current);
-                }
-                ImGui::Unindent();
-            }
-        }
-        ImGui::EndTabItem();
-    }
-}
-
-void DrawVideoFilterPanel(VideoFilterManager& videoMgr) {
-    if (ImGui::BeginTabItem("Video Filters")) {
-        ImGui::Text("Available Video Filters:");
-        ImGui::Separator();
-        
-        for (auto& [label, filter] : const_cast<std::map<std::string, VideoFilter>&>(videoMgr.GetFilters())) {
-            bool enabled = filter.enabled;
-            if (ImGui::Checkbox(label.c_str(), &enabled)) {
-                filter.enabled = enabled;
-                videoMgr.Toggle(label);
-            }
-            
-            if (enabled) {
-                ImGui::Indent();
-                for (auto& param : filter.params) {
-                    ImGui::SliderFloat(("##" + label + "_" + param.name).c_str(),
-                        &param.value, param.min, param.max, "%.2f");
-                    videoMgr.UpdateParam(label, param.name, param.value);
-                }
-                ImGui::Unindent();
-            }
-        }
-        ImGui::EndTabItem();
-    }
-}
-
-

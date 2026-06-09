@@ -29,7 +29,7 @@ void ReusablePopup::Render() {
     }
 
     // Tăng kích thước mặc định nếu cần để trông cân đối hơn
-    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 300), ImVec2(1920, 1080));
+    ImGui::SetNextWindowSizeConstraints(ImVec2(400, 350), ImVec2(FLT_MAX, FLT_MAX));
 
     // --- BẮT ĐẦU STYLE HIỆN ĐẠI ---
     CSImGui::PushModernWindowStyle();

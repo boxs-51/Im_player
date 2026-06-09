@@ -6,10 +6,12 @@
 struct UrlCacheItem {
     std::string utf8;
     std::string truncated;
+    bool selectedForDelete = false;
 };
 struct FileCacheItem {
     std::string utf8;
     std::string truncated;
+    bool selectedForDelete = false;
 };
 struct PopupData {
     

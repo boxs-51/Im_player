@@ -1,407 +1,334 @@
 #include "popup_audio_control.h"
+#include "audio_filter_manager.h"
+#include "gui/gui.h"
 #include <imgui.h>
-#include <nlohmann/json.hpp>
-#include <fstream>
-#include <sstream>
+#include <vector>
+#include <string>
+#include <iomanip>
 #include <cmath>
-#include <filesystem>
-#include <log.h>
 
-using json = nlohmann::json;
-namespace fs = std::filesystem;
+// =========================================================================
+// HỆ THỐNG LOGGER REALTIME TÍCH HỢP TRONG POPUP
+// =========================================================================
+struct AudioPopupLogger {
+    std::vector<std::string> Items;
+    bool ScrollToBottom = false;
 
-// ==================== AudioControlState ====================
-
-std::string AudioControlState::ToString() const {
-    std::stringstream ss;
-    
-    // Build filter chain for MPV af property
-    std::vector<std::string> filters;
-    
-    // Add equalizer (5-band EQ)
-    std::stringstream eq_params;
-    eq_params << "f=";
-    // Format: frequency in Hz, gain in dB, bandwidth in octaves
-    // 60 Hz, 250 Hz, 1 kHz, 4 kHz, 16 kHz
-    const float freqs[] = {60.0f, 250.0f, 1000.0f, 4000.0f, 16000.0f};
-    const float bandwidth = 0.9f; // Standard bandwidth for graphic EQ
-    
-    for (int i = 0; i < 5; i++) {
-        if (i > 0) eq_params << " ";
-        eq_params << freqs[i] << "Hz:" << eq_bands[i] << "dB:" << bandwidth << "oct";
+    void Log(const std::string& text) {
+        Items.push_back(text);
+        ScrollToBottom = true;
     }
-    filters.push_back("@eq:equalizer=" + eq_params.str());
-    
-    // Add bass filter
-    if (std::abs(bass) > 0.01f) {
-        std::stringstream bass_params;
-        bass_params << "g=" << bass << ":f=100:w_type=h";
-        filters.push_back("@bass:bass=" + bass_params.str());
+
+    void Clear() { Items.clear(); }
+
+    void Draw() {
+        CSImGui::ModernHeader("--- Nhật ký hệ thống âm thanh (Realtime Logs) ---", 0.9f);
+        ImGui::BeginChild("AudioLogScrolling", ImVec2(0, 100), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+        
+        for (const auto& item : Items) {
+            if (item.find("[FAIL]") != std::string::npos || item.find("Error") != std::string::npos || item.find("Xung đột") != std::string::npos) {
+                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", item.c_str());
+            } else if (item.find("[PASS]") != std::string::npos || item.find("Thành công") != std::string::npos || item.find("Preset") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%s", item.c_str());
+            } else {
+                ImGui::TextUnformatted(item.c_str());
+            }
+        }
+        
+        ImGui::PopStyleVar();
+        if (ScrollToBottom) { ImGui::SetScrollHereY(1.0f); ScrollToBottom = false; }
+        ImGui::EndChild();
     }
+};
+
+static AudioPopupLogger g_AudioLogger;
+
+// =========================================================================
+// UI COMPONENTS ĐỒNG BỘ QUA CSIMGUI VÀ AUDIOFILTERMANAGER
+// =========================================================================
+
+void DrawAudioTrackSelector(AudioFilterManager& audioMgr) {
+    std::string current_track = audioMgr.GetCurrentAudioTrack();
+    if (current_track.empty()) current_track = "Mặc định / Không tìm thấy";
+
+    ImGui::TextDisabled("Kênh Audio Track:");
     
-    // Add treble filter
-    if (std::abs(treble) > 0.01f) {
-        std::stringstream treble_params;
-        treble_params << "g=" << treble << ":f=10000:w_type=h";
-        filters.push_back("@treble:treble=" + treble_params.str());
+    std::vector<std::string> options;
+    for (const auto& [id, display] : audioMgr.GetAudioTracks()) {
+        options.push_back(display);
     }
-    
-    // Add normalization
-    if (normalize) {
-        filters.push_back("@norm:loudnorm=I=-23:TP=-1.5:LRA=11");
-    }
-    
-    // Add surround upmix if enabled
-    if (surround_enabled) {
-        filters.push_back("@surround:pan=stereo|FL=0.5*FL+0.707*FC+0.707*SL|FR=0.5*FR+0.707*FC+0.707*SR");
-    }
-    
-    // Join all filters
-    for (size_t i = 0; i < filters.size(); i++) {
-        ss << filters[i];
-        if (i < filters.size() - 1) ss << ",";
-    }
-    
-    return ss.str();
-}
+    if (options.empty()) options.push_back("Mặc định / Không tìm thấy");
 
-// ==================== AudioControlManager ====================
-
-AudioControlManager& AudioControlManager::Instance() {
-    static AudioControlManager instance;
-    return instance;
-}
-
-void AudioControlManager::Init(mpv_handle* handle) {
-    mpv_handle_ = handle;
-    config_path_ = AutoPath<std::string>("%ROOT%", "data", "audio_control.json");
-    LoadFromFile();
-}
-
-void AudioControlManager::Shutdown() {
-    SaveToFile();
-    mpv_handle_ = nullptr;
-}
-
-void AudioControlManager::SetMasterVolume(float volume) {
-    state_.master_volume = std::clamp(volume, 0.0f, 100.0f);
-    if (mpv_handle_) {
-        int volume_int = static_cast<int>(state_.master_volume);
-        mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_INT64, &volume_int);
-    }
-    SyncToMPV();
-}
-
-void AudioControlManager::SetBass(float db) {
-    state_.bass = std::clamp(db, -24.0f, 24.0f);
-    SyncToMPV();
-}
-
-void AudioControlManager::SetTreble(float db) {
-    state_.treble = std::clamp(db, -24.0f, 24.0f);
-    SyncToMPV();
-}
-
-void AudioControlManager::SetEQBand(int band_idx, float db) {
-    if (band_idx >= 0 && band_idx < 5) {
-        state_.eq_bands[band_idx] = std::clamp(db, -24.0f, 24.0f);
-    }
-    SyncToMPV();
-}
-
-void AudioControlManager::SetNormalize(bool enabled) {
-    state_.normalize = enabled;
-    SyncToMPV();
-}
-
-void AudioControlManager::SetSurroundMode(bool enabled) {
-    state_.surround_enabled = enabled;
-    SyncToMPV();
-}
-
-void AudioControlManager::ApplyPreset(AudioPreset preset) {
-    state_.current_preset = preset;
-    
-    // Reset to defaults first
-    state_.master_volume = 100.0f;
-    state_.bass = 0.0f;
-    state_.treble = 0.0f;
-    state_.normalize = false;
-    state_.surround_enabled = false;
-    for (auto& band : state_.eq_bands) {
-        band = 0.0f;
-    }
-    
-    switch (preset) {
-        case AudioPreset::Normal:
-            // Already reset to defaults
-            break;
-            
-        case AudioPreset::BassBoost:
-            state_.bass = 12.0f;
-            state_.treble = -6.0f;
-            state_.eq_bands[0] = 6.0f;  // 60 Hz
-            state_.eq_bands[1] = 6.0f;  // 250 Hz
-            break;
-            
-        case AudioPreset::TrebleBoost:
-            state_.treble = 12.0f;
-            state_.bass = -6.0f;
-            state_.eq_bands[3] = 6.0f;  // 4 kHz
-            state_.eq_bands[4] = 6.0f;  // 16 kHz
-            break;
-            
-        case AudioPreset::Flat:
-            // All zeros, no normalization
-            state_.normalize = false;
-            break;
-            
-        case AudioPreset::Custom:
-            // Keep current state
-            break;
-    }
-    
-    SyncToMPV();
-}
-
-void AudioControlManager::SavePreset(const std::string& name) {
-    json presets_json;
-    std::string presets_path = AutoPath<std::string>("%ROOT%", "data", "audio_presets.json");
-    
-    // Load existing presets
-    if (fs::exists(presets_path)) {
-        try {
-            std::ifstream file(presets_path);
-            presets_json = json::parse(file);
-        } catch (...) {
-            presets_json = json::object();
+    // Thay thế Combo mặc định bằng NormalCombo sang trọng của CSImGui
+    if (CSImGui::NormalCombo("##AudioTrackCombo", current_track, options, 240.0f)) {
+        for (const auto& [id, display] : audioMgr.GetAudioTracks()) {
+            if (display == current_track) {
+                audioMgr.SelectAudioTrack(id);
+                g_AudioLogger.Log("Chuyển Audio Track sang ID: " + id + " [" + display + "]");
+                break;
+            }
         }
     }
-    
-    // Save current state as preset
-    json preset_data = {
-        {"master_volume", state_.master_volume},
-        {"bass", state_.bass},
-        {"treble", state_.treble},
-        {"eq_bands", state_.eq_bands},
-        {"normalize", state_.normalize},
-        {"surround_enabled", state_.surround_enabled}
-    };
-    
-    presets_json[name] = preset_data;
-    
-    try {
-        std::ofstream file(presets_path);
-        file << presets_json.dump(2);
-    } catch (const std::exception& e) {
-        //LOG(logERROR) << "Failed to save audio preset: " << e.what();
+}
+
+void DrawChannelDistributionControls(AudioFilterManager& audioMgr) {
+    std::string current_mode = audioMgr.GetChannelMode();
+    ImGui::TextDisabled("Hệ chuyển đổi Channel Out:");
+    ImGui::Spacing();
+
+    // Thiết kế hệ chuyển đổi kênh dạng danh sách Selectable hiện đại của CSImGui thay cho RadioButton
+    if (CSImGui::ModernSelectable("Mono (Trộn đơn kênh)", current_mode == "mono", 0)) {
+        audioMgr.SetChannelMode("mono");
+        g_AudioLogger.Log("Thiết lập lại cấu hình kênh loa -> mono");
+    }
+    ImGui::Spacing();
+    if (CSImGui::ModernSelectable("Stereo (Kênh đôi tiêu chuẩn)", current_mode == "stereo", 0)) {
+        audioMgr.SetChannelMode("stereo");
+        g_AudioLogger.Log("Thiết lập lại cấu hình kênh loa -> stereo");
+    }
+    ImGui::Spacing();
+    if (CSImGui::ModernSelectable("Surround (Vòm giả lập 5.1)", current_mode == "surround", 0)) {
+        audioMgr.SetChannelMode("surround");
+        g_AudioLogger.Log("Thiết lập lại cấu hình kênh loa -> surround");
     }
 }
 
-void AudioControlManager::LoadPreset(const std::string& name) {
-    std::string presets_path = AutoPath<std::string>("%ROOT%", "data", "audio_presets.json");
+void DrawAudioDashboardTab(AudioFilterManager& afMgr) {
+    CSImGui::BeginCard();
+    CSImGui::ModernHeader("Phím Tắt Tiện Ích", 1.0f);
+    ImGui::Spacing();
     
-    try {
-        if (fs::exists(presets_path)) {
-            std::ifstream file(presets_path);
-            json presets_json = json::parse(file);
+    if (CSImGui::ModernButton("Bật Tất Cả Bộ Lọc", ImVec2(0.0f, 0.0f), true)) {
+        afMgr.SetAllFiltersState(true);
+        g_AudioLogger.Log("[PASS] Đã kích hoạt đồng loạt tất cả bộ lọc hiện có.");
+    }
+    ImGui::Spacing();
+    if (CSImGui::SecondaryButton("Tắt Tất Cả Bộ Lọc", ImVec2(0.0f, 0.0f))) {
+        afMgr.SetAllFiltersState(false);
+        g_AudioLogger.Log("[PASS] Đã hủy kích hoạt toàn bộ các bộ lọc.");
+    }
+    ImGui::Spacing();
+    if (CSImGui::SecondaryButton("Reset Về Mặc Định Core", ImVec2(0.0f, 0.0f))) {
+        afMgr.ResetAllToDefaults();
+        g_AudioLogger.Log("[Preset] Đã đưa các bộ lọc về cấu hình an toàn.");
+    }
+    CSImGui::EndCard();
+    
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    DrawAudioTrackSelector(afMgr);
+
+    CSImGui::BeginCard();
+    CSImGui::ModernHeader("Trạng Thái Thiết Bị Đầu Ra", 1.0f);
+    ImGui::Spacing();
+    if(CSImGui::BeginInfoTable("AudioOutputInfoTable", 2, 150.0f)) {
+    CSImGui::InfoRow("Core Engine:", "libmpv Active");
+    CSImGui::InfoRow("Audio Output:", "WASAPI (Exclusive)");
+    CSImGui::InfoRow("Sample Rate:", "48000 Hz");
+    CSImGui::InfoRow("Latency Control:", "Low Overhead");
+    CSImGui::EndInfoTable();
+    }
+    CSImGui::EndCard();
+}
+
+void DrawEqualizerAndChannelTab(AudioFilterManager& afMgr) {
+    ImVec2 avail = ImGui::GetContentRegionAvail();
+    CSImGui::ModernHeader("Định Chính Equalizer (Graphic EQ)", 1.0f);
+    ImGui::Spacing();
+
+    auto* f_eq = afMgr.FindFilter("f_eq");
+    bool eq_enabled = f_eq ? f_eq->enabled : false;
+
+    if (CSImGui::ModernCheckbox("Kích Hoạt Equalizer Engine", &eq_enabled, CheckboxStyle::Tick)) {
+        afMgr.SetFilterEnabled("f_eq", eq_enabled);
+        g_AudioLogger.Log(std::string("Thay đổi trạng thái Equalizer -> ") + (eq_enabled ? "BẬT" : "TẮT"));
+    }
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+
+    if (f_eq) {
+        if (!eq_enabled) ImGui::BeginDisabled();
+
+        const char* bands[5] = { "Sub-Bass (60 Hz)", "Bass/Low (250 Hz)", "Midrange (1 kHz)", "Upper-Mid (4 kHz)", "Treble/High (16 kHz)" };
+        const char* keys[5]  = { "gain0", "gain1", "gain2", "gain3", "gain4" };
+
+        for (int i = 0; i < 5; i++) {
+            ImGui::PushID(i);
             
-            if (presets_json.contains(name)) {
-                auto& preset = presets_json[name];
-                state_.master_volume = preset.value("master_volume", 100.0f);
-                state_.bass = preset.value("bass", 0.0f);
-                state_.treble = preset.value("treble", 0.0f);
-                state_.normalize = preset.value("normalize", false);
-                state_.surround_enabled = preset.value("surround_enabled", false);
-                
-                auto eq = preset.value("eq_bands", std::array<float, 5>{});
-                for (size_t i = 0; i < 5 && i < eq.size(); i++) {
-                    state_.eq_bands[i] = eq[i];
+            float current_gain = f_eq->params.count(keys[i]) ? f_eq->params.at(keys[i]).current : 0.0f;
+            
+            // Hiển thị nhãn tên dải tần
+            ImGui::TextDisabled("%s", bands[i]);
+            
+            // Ép Slider và Input số nằm cùng một hàng ngang cho gọn
+            
+            float slider_width = avail.x - 80.0f; // Dành chỗ cho Input số bên phải
+            // Sử dụng hàm ModernSliderFloat với cấu hình animation mặc định, độ cao thanh 4.0f, bán kính grab 6.0f
+            if (CSImGui::ModernSliderFloat((std::string("##slider_") + keys[i]).c_str(), 
+                                           &current_gain, -20.0f, 20.0f, 
+                                           4.0f, 6.0f, "%.1f dB", slider_width
+                                           )) 
+            {
+                afMgr.UpdateParam("f_eq", keys[i], current_gain);
+                g_AudioLogger.Log("Cập nhật EQ Band [" + std::string(bands[i]) + "] -> " + std::to_string(current_gain) + " dB");
+            }
+            
+            // Ô nhập số tinh chỉnh nhanh nằm ngay cạnh bên phải của slider
+            ImGui::SameLine();
+            if (ImGui::InputFloat((std::string("##input_") + keys[i]).c_str(), &current_gain, 0.0f, 0.0f, "%.1f")) {
+                current_gain = std::clamp(current_gain, -20.0f, 20.0f);
+                afMgr.UpdateParam("f_eq", keys[i], current_gain);
+            }
+
+            ImGui::PopID();
+            ImGui::Spacing(); // Khoảng cách giãn giữa các hàng EQ
+        }
+
+        if (!eq_enabled) ImGui::EndDisabled();
+    }
+
+    CSImGui::ModernHeader("Cấu Hình Kênh Loa", 1.0f);
+    ImGui::Spacing();
+    DrawChannelDistributionControls(afMgr);
+
+}
+
+void DrawDynamicMatrixTab(AudioFilterManager& afMgr) {
+    CSImGui::ModernHeader("Bộ Lọc Hệ Thống (Audio Filter Dynamic Matrix)", 1.0f);
+    ImGui::Spacing();
+
+    // Vòng lặp tự động sinh giao diện từ Core cấu hình của AudioFilterManager
+    for (const auto& filterRef : afMgr.GetFilters()) {
+        // LOẠI TRỪ: Không hiển thị f_eq ở đây vì đã được đưa ra ngoài tab mặc định chuyên nghiệp
+        if (filterRef.id == "f_eq") continue;
+
+        auto* f = afMgr.FindFilter(filterRef.id);
+        if (!f) continue;
+
+        ImGui::PushID(f->id.c_str());
+
+        std::string header_title = "[" + f->id + "] " + f->name;
+        if (CSImGui::ModernCollapsingHeader(header_title.c_str())) {
+            CSImGui::BeginCard();
+            
+            bool isEnabled = f->enabled;
+            if (CSImGui::ModernCheckbox("Bật bộ lọc hiệu ứng", &isEnabled, CheckboxStyle::Tick)) {
+                afMgr.SetFilterEnabled(f->id, isEnabled);
+                g_AudioLogger.Log("Thay đổi trạng thái bộ lọc " + f->id + " -> " + (isEnabled ? "BẬT" : "TẮT"));
+            }
+            
+            ImGui::SameLine(ImGui::GetWindowWidth() - 160.0f);
+            if (CSImGui::ModernSmallButton("Reset bộ lọc")) {
+                afMgr.ResetFilter(f->id);
+                g_AudioLogger.Log("Đưa bộ lọc " + f->id + " về cấu hình mặc định.");
+            }
+
+            // Sinh Slider động dựa trên đặc tính tham số
+            if (f->enabled && !f->params.empty()) {
+                ImGui::Spacing();
+                ImGui::Indent(15.0f);
+                for (auto& [key, param] : f->params) {
+                    float val = param.current;
+                    ImGui::Text("%s:", key.c_str());
+                    
+                    // Thiết lập đơn vị hiển thị thông minh (Hz / dB) dựa trên tên key tham số
+                    const char* fmt = "%.2f";
+                    if (param.max > 500.0f) fmt = "%.0f Hz";
+                    else if (key == "g" || key == "volume" || key == "threshold") fmt = "%.1f dB";
+
+                    ImGui::PushID(key.c_str());
+                    // Sử dụng Slider nâng cao của bạn có tích hợp hiệu ứng Animation và Tooltip
+                    if (CSImGui::ModernSliderFloat("##dyn_slider", &val, param.min, param.max, 4.0f, 6.0f, fmt, -1.0f, SliderFlags_Default)) {
+                        afMgr.UpdateParam(f->id, key, val);
+                        g_AudioLogger.Log("Cập nhật realtime " + f->id + " -> " + key + ": " + std::to_string(val));
+                    }
+                    ImGui::PopID();
                 }
-                
-                state_.current_preset = AudioPreset::Custom;
-                SyncToMPV();
+                ImGui::Unindent(15.0f);
             }
+            CSImGui::EndCard();
+            ImGui::Spacing();
         }
-    } catch (const std::exception& e) {
-        //LOG(logERROR) << "Failed to load audio preset: " << e.what();
+        ImGui::PopID();
     }
 }
 
-void AudioControlManager::SyncToMPV() {
-    if (!mpv_handle_) return;
+// =========================================================================
+// HÀM ĐIỀU HƯỚNG CORE POPUP (ENTRY POINT)
+// =========================================================================
+
+void ShowAudioControlPopup(bool& closePopup_AudioControl) {
+    auto& afMgr = AudioFilterManager::Instance();
     
-    try {
-        // Set master volume
-        int volume_int = static_cast<int>(state_.master_volume);
-        mpv_set_property(mpv_handle_, "volume", MPV_FORMAT_INT64, &volume_int);
+    // Áp dụng kiến trúc Tab-Bar hiện đại thông qua CSImGui
+    if (CSImGui::BeginModernTabBar("##AudioSystemMainTabs")) {
         
-        // Build and set audio filter chain
-        std::string filter_string = state_.ToString();
-        if (!filter_string.empty()) {
-            const char* filter_c_str = filter_string.c_str();
-            mpv_set_property(mpv_handle_, "af", MPV_FORMAT_STRING, &filter_c_str);
-        } else {
-            // Clear filters
-            const char* empty = "";
-            mpv_set_property(mpv_handle_, "af", MPV_FORMAT_STRING, &empty);
+        // Tab 1: Mặc định định chính EQ và Hệ chuyển đổi kênh loa đầu ra (Yêu cầu chính)
+        if (CSImGui::ModernTabItem("Định Chính EQ & Kênh Out")) {
+            ImGui::Spacing();
+            DrawEqualizerAndChannelTab(afMgr);
+            CSImGui::EndModernTabItem();
         }
-    } catch (const std::exception& e) {
-       // LOG(logERROR) << "Failed to sync audio controls to MPV: " << e.what();
-    }
-}
 
-void AudioControlManager::SaveToFile() {
-    try {
-        fs::create_directories(AutoPath<std::string>("%ROOT%", "data"));
-        
-        json config = {
-            {"master_volume", state_.master_volume},
-            {"bass", state_.bass},
-            {"treble", state_.treble},
-            {"eq_bands", state_.eq_bands},
-            {"normalize", state_.normalize},
-            {"surround_enabled", state_.surround_enabled},
-            {"current_preset", static_cast<int>(state_.current_preset)}
-        };
-        
-        std::ofstream file(config_path_);
-        file << config.dump(2);
-    } catch (const std::exception& e) {
-        //LOG(logERROR) << "Failed to save audio control settings: " << e.what();
-    }
-}
-
-void AudioControlManager::LoadFromFile() {
-    try {
-        if (fs::exists(config_path_)) {
-            std::ifstream file(config_path_);
-            json config = json::parse(file);
-            
-            state_.master_volume = config.value("master_volume", 100.0f);
-            state_.bass = config.value("bass", 0.0f);
-            state_.treble = config.value("treble", 0.0f);
-            state_.normalize = config.value("normalize", false);
-            state_.surround_enabled = config.value("surround_enabled", false);
-            
-            auto eq = config.value("eq_bands", std::array<float, 5>{});
-            for (size_t i = 0; i < 5 && i < eq.size(); i++) {
-                state_.eq_bands[i] = eq[i];
-            }
-            
-            int preset_int = config.value("current_preset", 0);
-            state_.current_preset = static_cast<AudioPreset>(preset_int);
+        // Tab 2: Quản lý tổng quan Audio Dashboard
+        if (CSImGui::ModernTabItem("Bảng Tổng Quan (Audio Dashboard)")) {
+            ImGui::Spacing();
+            DrawAudioDashboardTab(afMgr);
+            CSImGui::EndModernTabItem();
         }
-    } catch (const std::exception& e) {
-        //LOG(logERROR) << "Failed to load audio control settings: " << e.what();
-    }
-}
 
-// ==================== UI Functions ====================
-
-void DrawAudioControlPanel() {
-    auto& mgr = AudioControlManager::Instance();
-    auto& state = mgr.GetMutableState();
-    
-    ImGui::SetNextItemWidth(300.0f);
-    
-    // Master Volume Slider (0-100%)
-    if (ImGui::SliderFloat("Master Volume##vol", &state.master_volume, 0.0f, 100.0f, "%.0f%%")) {
-        mgr.SetMasterVolume(state.master_volume);
-    }
-    
-    ImGui::Separator();
-    
-    // Bass Control (-24 to +24 dB)
-    if (ImGui::SliderFloat("Bass##bass", &state.bass, -24.0f, 24.0f, "%.1f dB")) {
-        mgr.SetBass(state.bass);
-    }
-    
-    // Treble Control (-24 to +24 dB)
-    if (ImGui::SliderFloat("Treble##treble", &state.treble, -24.0f, 24.0f, "%.1f dB")) {
-        mgr.SetTreble(state.treble);
-    }
-    
-    ImGui::Separator();
-    ImGui::Text("Equalizer Bands:");
-    ImGui::Separator();
-    
-    // 5-Band EQ (60Hz, 250Hz, 1kHz, 4kHz, 16kHz)
-    const char* band_labels[] = {"60 Hz", "250 Hz", "1 kHz", "4 kHz", "16 kHz"};
-    for (int i = 0; i < 5; i++) {
-        ImGui::SetNextItemWidth(250.0f);
-        std::string slider_id = "##eq_" + std::to_string(i);
-        if (ImGui::SliderFloat(slider_id.c_str(), &state.eq_bands[i], -24.0f, 24.0f, "%.1f dB")) {
-            mgr.SetEQBand(i, state.eq_bands[i]);
+        // Tab 3: Matrix động quét tự động cấu hình JSON còn lại
+        if (CSImGui::ModernTabItem("Bộ Lọc Hệ Thống Matrix")) {
+            ImGui::Spacing();
+            DrawDynamicMatrixTab(afMgr);
+            CSImGui::EndModernTabItem();
         }
-        ImGui::SameLine();
-        ImGui::Text("%s", band_labels[i]);
+
+        CSImGui::EndModernTabBar();
     }
-    
+
+    ImGui::Spacing();
     ImGui::Separator();
-    ImGui::Text("Audio Presets:");
-    ImGui::Separator();
-    
-    // Presets Section
-    if (ImGui::Button("Normal##preset", ImVec2(120.0f, 0.0f))) {
-        mgr.ApplyPreset(AudioPreset::Normal);
+    ImGui::Spacing();
+
+    // Khối hiển thị màn hình Console Nhật ký Realtime Logs ở đáy popup
+    g_AudioLogger.Draw();
+
+    // Khối thanh điều hướng tác vụ & Lưu trữ đĩa cứng ở chân trang (Footer)
+    ImGui::Spacing();
+    if (CSImGui::SecondaryButton("Xóa Nhật Ký Log", ImVec2(130, 28))) {
+        g_AudioLogger.Clear();
     }
     ImGui::SameLine();
-    
-    if (ImGui::Button("Bass Boost##preset", ImVec2(120.0f, 0.0f))) {
-        mgr.ApplyPreset(AudioPreset::BassBoost);
+    if (CSImGui::ModernButton("Ghi Cấu Hình (Save JSON)", ImVec2(180, 28), true)) {
+        afMgr.SaveToFile();
+        g_AudioLogger.Log("[PASS] Đã đồng bộ toàn bộ pipeline xuống file JSON thành công.");
     }
     ImGui::SameLine();
-    
-    if (ImGui::Button("Treble Boost##preset", ImVec2(120.0f, 0.0f))) {
-        mgr.ApplyPreset(AudioPreset::TrebleBoost);
+    if (CSImGui::SecondaryButton("Nạp Từ File JSON", ImVec2(140, 28))) {
+        afMgr.LoadFromFile();
+        g_AudioLogger.Log("[PASS] Đã ép nạp lại dữ liệu từ tệp cấu hình JSON.");
     }
-    ImGui::SameLine();
-    
-    if (ImGui::Button("Flat##preset", ImVec2(120.0f, 0.0f))) {
-        mgr.ApplyPreset(AudioPreset::Flat);
-    }
-    
-    ImGui::Separator();
-    
-    // Normalize & Surround
-    if (ImGui::Checkbox("Normalize Audio##norm", &state.normalize)) {
-        mgr.SetNormalize(state.normalize);
-    }
-    ImGui::SameLine();
-    if (ImGui::Checkbox("Surround Mode##surr", &state.surround_enabled)) {
-        mgr.SetSurroundMode(state.surround_enabled);
-    }
-    
-    ImGui::Separator();
-    
-    // Save/Load buttons
-    if (ImGui::Button("Save Settings##audio", ImVec2(150.0f, 0.0f))) {
-        mgr.SaveToFile();
-    }
-    ImGui::SameLine();
-    
-    if (ImGui::Button("Reset to Defaults##audio", ImVec2(150.0f, 0.0f))) {
-        mgr.ApplyPreset(AudioPreset::Normal);
+    ImGui::SameLine(ImGui::GetWindowWidth() - 95.0f);
+    if (CSImGui::SecondaryButton("Đóng", ImVec2(80, 28))) {
+        closePopup_AudioControl = true;
     }
 }
 
-// Static popup state
-static bool g_audio_popup_open = false;
-
-void OpenAudioControlPopup() {
-    g_audio_popup_open = true;
+void OpenAudioControlPopup(ReusablePopup& popup) {
+    CSImGui::PushModernWindowStyle();
+    popup.Open("Hệ Thống Quản Lý & Tinh Chỉnh Âm Thanh", [](bool& closePopup_AudioControl) {
+        ShowAudioControlPopup(closePopup_AudioControl);  
+    });
+    CSImGui::PopModernWindowStyle();
 }
 
-void RenderAudioControlPopup(bool& is_open) {
-    if (!is_open) return;
-    
-    ImVec2 center = ImGui::GetMainViewport()->GetCenter();
-    ImGui::SetNextWindowPos(center, ImGuiCond_Appearing, ImVec2(0.5f, 0.5f));
-    ImGui::SetNextWindowSize(ImVec2(600.0f, 500.0f), ImGuiCond_Appearing);
-    
-    if (ImGui::Begin("Audio Controls##popup", &is_open, ImGuiWindowFlags_NoMove)) {
-        DrawAudioControlPanel();
-        ImGui::End();
+void RenderAudioControlPopup(ReusablePopup& popup) {
+    if (popup.IsOpen()) {
+        popup.Render();
     }
 }

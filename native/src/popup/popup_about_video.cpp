@@ -52,7 +52,7 @@ void ShowMediaInfo() {
 
             // Hover → hiện full
             //CSImGui::ShowTooltipDelayed(full.c_str(), ImGui::IsItemHovered(), 5.0);
-            CSImGui::ToolTip(full.c_str(), ImGui::IsItemHovered(), 5.0);
+            CSImGui::ToolTip(full.c_str(), 5.0 , ToolTipFlags_Animation);
 
         }
         ImGui::EndChild();
@@ -516,12 +516,6 @@ void ShowDuBugInFo(){
 
     
 }
-
-void OpenVideoInfoPopup(ReusablePopup& popup) {
-    popup.Open("Video Info", [](bool& closePopup_VideoInFo) {
-        ShowVideoInfoPopup(closePopup_VideoInFo);  // truyền ref
-    });
-}
 void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
     //ImVec2 avail = ImGui::GetContentRegionAvail();
 
@@ -572,7 +566,15 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
     //    EndModernChild();
     //}
 }
+void OpenVideoInfoPopup(ReusablePopup& popup) {
+    popup.Open("Video Info", [](bool& closePopup_VideoInFo) {
+        ShowVideoInfoPopup(closePopup_VideoInFo);  // truyền ref
+    });
+}
+
 void RenderVideoInfoPopup(ReusablePopup& popup){
     // Render popup mỗi frame
-    popup.Render();
+    if(popup.IsOpen()) {
+        popup.Render();
+    }
 }

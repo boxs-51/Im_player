@@ -141,6 +141,7 @@ void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
             case SDL_WINDOWEVENT_MOVED:
             case SDL_WINDOWEVENT_MAXIMIZED:
             case SDL_WINDOWEVENT_RESTORED:
+            case SDL_WINDOWEVENT_SIZE_CHANGED:
                 UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
                 break;
         }
@@ -343,7 +344,7 @@ void RenderUI(const PlaybackState& state ){
     ShowAllWindows();
 
     if(state == PlaybackState::Idle){
-        //RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
+        RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
     if (render_video ||
@@ -554,6 +555,7 @@ int main(int argc, char** argv) {
         PlaybackState state = GetPlaybackState();
         if(g_DragResizeState.ToggleFullscreen){
             SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
+            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
             g_DragResizeState.ToggleFullscreen =false;
         }
         bool g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
@@ -561,7 +563,7 @@ int main(int argc, char** argv) {
         while (SDL_PollEvent(&e)) {
            HandleMainWindowEvent(&e ,g_WindowVisible);
         }
-    
+
         mpv_update_seek_pending(mpv.mpv);
         // Giả sử vòng lặp chính (Main Loop) của bạn chạy ở 60Hz hoặc không giới hạn
         double targetInterval = 1; // Mặc định: Render mỗi frame (Max speed)
