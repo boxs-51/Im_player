@@ -28,12 +28,15 @@ struct LogEntry {
     std::string message;
     LogLevel level;
 };
+
 // Cấu trúc lưu trữ thông số của từng Parameter trong bộ lọc
 struct FilterParam {
     float current; // Giá trị hiện tại
     float min;     // Giá trị nhỏ nhất cho phép
     float max;     // Giá trị lớn nhất cho phép
     float def;     // Giá trị mặc định ban đầu
+
+    float lastSent = 999999.0f;
 };
 
 // Cấu trúc lưu trữ thông tin của một Bộ lọc Âm thanh (Audio Filter)
@@ -147,7 +150,7 @@ public:
     void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
 
     // Hàm public cho UI gọi lấy dữ liệu lên vẽ
-    std::vector<LogEntry> GetLogs();
+    const std::vector<LogEntry>& GetLogs()  ;
     void ClearLogs();
 
 private:
@@ -167,6 +170,31 @@ private:
 
     // Đẩy toàn bộ chuỗi filter logic xuống MPV Core thông qua "af" property
     void SyncAll();
+
+private:
+    // Cấu trúc gom cụm dữ liệu đầu vào phục vụ phân tích toán thuật AI
+    struct AudioContext {
+        double volume;
+        double speed;
+        int64_t sample_rate;
+        int64_t channel_count;
+        double bitrate_kbps;
+        std::string codec;
+        bool is_audio_only;
+
+        double output_peak;
+        double output_loudness;
+    };
+
+    // 4 Trợ lý xử lý phân rã (Sub-modules)
+    AudioContext ExtractCurrentContext();
+    bool CheckEnvironmentHysteresis(const AudioContext& ctx);
+    void AnalyzeContextAndCalculateTargets(const AudioContext& ctx, std::vector<float>& targetGains, 
+                                           bool& target_crystalizer, float& crystalizer_i,
+                                           bool& target_stereo, float& stereo_m,
+                                           bool& target_comp, float& comp_th, float& comp_rt,
+                                           bool& target_reverb, std::string& reverb_preset); // Hiệu ứng mới
+    void DispatchParametersToMPV(bool need_sync_structure, bool parameter_changed);
 
 private:
     mpv_handle* mpv;

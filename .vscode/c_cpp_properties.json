@@ -9,7 +9,7 @@
                 "${workspaceFolder}/native/include/mpv",      
                 "${workspaceFolder}/native/src/mpv/shaders",      
                 "${workspaceFolder}/native/src/mpv/scripts", 
-                "${workspaceFolder}/native/src/mpv/fillter", 
+                "${workspaceFolder}/native/src/mpv/filter", 
                 
 
                 "${workspaceFolder}/native/include/nlohmann",  

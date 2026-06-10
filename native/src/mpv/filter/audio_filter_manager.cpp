@@ -10,7 +10,6 @@ AudioFilterManager& AudioFilterManager::Instance() {
     static AudioFilterManager instance;
     return instance;
 }
-
 void AudioFilterManager::Init(mpv_handle* h) { 
     mpv = h; 
     path = AutoPath<std::string>("%ROOT%", "data", "audio_filter.json");
@@ -80,7 +79,7 @@ void AudioFilterManager::Init(mpv_handle* h) {
     // =========================================================================
     // Bộ tăng cường âm lượng: Map hệ số thực từ 0.0f (Mute) -> 1.3f (130%)
     AddFilter("f_vol_booster", "volume", "outer_gain_node");
-    RegisterParam("f_vol_booster", "volume", 0.0f, 1.3f, 1.0f); 
+    RegisterParam("f_vol_booster", "volume", 0.0f, 1.5f, 1.0f); 
 
     // Bộ nén chuyên dụng: Gom đều tín hiệu, kéo sàn âm nhỏ lên
     AddFilter("f_out_compressor", "acompressor", "outer_stabilizer");
@@ -159,8 +158,25 @@ void AudioFilterManager::EvaluateSystemSafety() {
 
     // Cờ chống đệ quy vô hạn (Reentrancy Guard)
     static bool isEvaluating = false;
-    if (isEvaluating) return;
-    isEvaluating = true;
+
+    if (isEvaluating)
+        return;
+
+    struct ScopeGuard
+    {
+        bool& flag;
+        ScopeGuard(bool& f) : flag(f)
+        {
+            flag = true;
+        }
+
+        ~ScopeGuard()
+        {
+            flag = false;
+        }
+    };
+
+    ScopeGuard guard(isEvaluating);
 
     float totalGainAccumulation = 0.0f;
 
@@ -191,7 +207,15 @@ void AudioFilterManager::EvaluateSystemSafety() {
                 if (vol_node->enabled && mpv) {
                     std::string val_str = std::to_string(targetVol);
                     const char* cmd[] = {"af-command", "f_volume", "volume", val_str.c_str(), NULL};
-                    mpv_command(mpv, cmd);
+                    int err = mpv_command(mpv, cmd);
+
+                    if (err < 0)
+                    {
+                        std::string log_msg = "[MPV] af-command failed for filter: f_volume with value: " + val_str;
+                        AddLog(
+                            log_msg,
+                            LogLevel::Error);
+                    }
                 }
             }
         } else {
@@ -199,12 +223,19 @@ void AudioFilterManager::EvaluateSystemSafety() {
                 vol_node->params["volume"].current = 0.0f; 
                 if (vol_node->enabled && mpv) {
                     const char* cmd[] = {"af-command", "f_volume", "volume", "0.00", NULL};
-                    mpv_command(mpv, cmd);
+                    int err = mpv_command(mpv, cmd);
+
+                    if (err < 0)
+                    {
+                        std::string log_msg = "[MPV] af-command failed for filter: f_volume";
+                        AddLog(
+                            log_msg,
+                            LogLevel::Error);
+                    }
                 }
             }
         }
     }
-    isEvaluating = false; // Mở khóa Guard
 }
 
 void AudioFilterManager::RegisterParam(const std::string& id, const std::string& key, float min, float max, float def) {
@@ -227,22 +258,38 @@ void AudioFilterManager::SaveToFile() {
     std::ofstream f(path);
     if (!f.is_open()) return;
     for (const auto& filter : m_filters) {
-        f << "[Filter]:" << filter.id << "|" << (filter.enabled ? "1" : "0") << "\n";
+        f << "[Filter]:" 
+        << filter.id 
+        << "|" 
+        << (filter.enabled ? "1" : "0") 
+        << "|" 
+        << (filter.isBypassManagement ? "1" : "0")
+        << "\n";
         for (const auto& [key, p] : filter.params) {
             f << key << ":" << p.current << "\n";
         }
     }
 }
 
-void AudioFilterManager::ResetAllToDefaults() {
-    for (auto& filter : m_filters) {
-        filter.enabled = false; 
-        for (auto& [key, p] : filter.params) {
-            p.current = p.def; 
+void AudioFilterManager::ResetAllToDefaults()
+{
+    for (auto& filter : m_filters)
+    {
+        filter.enabled = false;
+
+        for (auto& [key, p] : filter.params)
+        {
+            p.current = p.def;
         }
     }
-    m_channelMode = "stereo"; 
-    SyncAll(); 
+
+    m_channelMode = "stereo";
+
+    m_currentPreset = AudioPreset::Flat;
+    m_autoMode = false;
+    m_globalBypass = false;
+
+    SyncAll();
 }
 
 void AudioFilterManager::LoadFromFile() {
@@ -259,12 +306,15 @@ void AudioFilterManager::LoadFromFile() {
         if (line.empty()) continue;
         
         if (line.rfind("[Filter]:", 0) == 0) {
-            size_t delim = line.find('|');
-            if (delim != std::string::npos) {
-                current_id = line.substr(9, delim - 9);
-                bool enabled = (line.substr(delim + 1) == "1");
+            size_t d1 = line.find('|');
+            size_t d2 = line.find('|', d1 + 1);
+            if (d2 != std::string::npos) {
+                current_id = line.substr(9, d1 - 9);
+                bool enabled = line.substr(d1 + 1, d2 - d1 - 1) == "1";
+                bool bypass =   line.substr(d2 + 1) == "1";
                 if (auto* filter = FindFilter(current_id)) {
                     filter->enabled = enabled;
+                    filter->isBypassManagement = bypass;
                     parse_success = true;
                 } else {
                     current_id = "";
@@ -304,8 +354,13 @@ void AudioFilterManager::SyncAll() {
     }
 
     for (const auto& f : m_filters) {
+
         if (f.enabled) {
             std::string init_str = "";
+            if (f.id == "f_vol_booster" ||
+                f.id == "f_out_compressor" ||
+                f.id == "f_out_limiter")
+                continue;
             if (f.name == "equalizer") {
                 std::string freq = "1000";
                 if (f.id == "eq_b0") freq = "31";
@@ -396,7 +451,14 @@ void AudioFilterManager::UpdateParam(const std::string& id, const std::string& k
                 std::string val_str = ss.str();
 
                 const char* cmd[] = {"af-command", id.c_str(), key.c_str(), val_str.c_str(), NULL};
-                mpv_command(mpv, cmd);
+                int err = mpv_command(mpv, cmd);
+
+                if (err < 0)
+                {
+                    AddLog(
+                        "[MPV] af-command failed for filter: " + id,
+                        LogLevel::Error);
+                }
             }
         }
     }
@@ -483,261 +545,185 @@ void AudioFilterManager::SetChannelMode(const std::string& mode) {
     }
 }
 
-void AudioFilterManager::UpdateAdaptiveFilters() {
-    // 1. KIỂM TRA ĐIỀU KIỆN TIÊN QUYẾT BẰNG BIẾN THÀNH VIÊN THỰC TẾ
-    if (!m_autoMode || !mpv || m_globalBypass) return;
+AudioFilterManager::AudioContext AudioFilterManager::ExtractCurrentContext() {
+    AudioContext ctx;
+    ctx.volume = (double)g_playbackStatus.volume;
+    ctx.speed  = g_playbackStatus.speed;
+    ctx.sample_rate   = (int64_t)g_videoInfo.g_audioarams.asamplerate;
+    ctx.channel_count = (int64_t)g_videoInfo.g_audioarams.channel_count;
+    ctx.bitrate_kbps   = (double)(g_videoInfo.abitrate / 1000);
+    ctx.codec = g_videoInfo.acodec;
+    ctx.is_audio_only = g_videoInfo.width == 0 && g_videoInfo.height == 0;
 
-    // 2. THROTTLING - GIỚI HẠN TẦN SUẤT QUÉT (150ms một lần giúp giảm CPU tuyệt đối)
-    static auto lastUpdateTime = std::chrono::steady_clock::now();
-    auto currentTime = std::chrono::steady_clock::now();
-    auto elapsedTime = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime).count();
-    if (elapsedTime < 150) return; 
-    lastUpdateTime = currentTime;
+    // Đọc dữ liệu phản hồi thực tế từ MPV Core
+    double mpv_peak = 0.0;
+    mpv_get_property(mpv, "audio-out-peak", MPV_FORMAT_DOUBLE, &mpv_peak);
+    ctx.output_peak = mpv_peak;
 
-    // 3. TRÍCH XUẤT TRẠNG THÁI REAL-TIME TỪ STRUCT GỐC CỦA BẠN
-    double current_volume = (double)g_playbackStatus.volume;
-    double current_speed  = g_playbackStatus.speed;
-    
-    // Đọc thông số Demuxer/Stream chính xác của file đang phát
-    int64_t sample_rate   = (int64_t)g_videoInfo.g_audioarams.asamplerate;
-    int64_t channel_count = (int64_t)g_videoInfo.g_audioarams.channel_count;
-    double bitrate_kbps   = (double)(g_videoInfo.abitrate / 1000); // g_videoInfo.abitrate lưu bps
-    
-    std::string codec_name = g_videoInfo.acodec;         // Codec âm thanh (vd: "aac", "mp3", "flac")
-    bool is_audio_only     = g_videoInfo.width == 0 && g_videoInfo.height == 0; // Nếu width/height = 0 tức là file nhạc thuần
+    double mpv_loudness = -50.0; // Mặc định âm cực nhỏ nếu không có luồng
+    mpv_get_property(mpv, "audio-out-detected-device-loudness", MPV_FORMAT_DOUBLE, &mpv_loudness);
+    ctx.output_loudness = mpv_loudness;
 
-    // 4. HYSTERESIS - BỘ LỌC NHIỄU BIẾN ĐỘNG THÔNG SỐ (Chống spam tính toán)
+    return ctx;
+}
+
+bool AudioFilterManager::CheckEnvironmentHysteresis(const AudioContext& ctx) {
     static double last_volume = -999.0;
     static double last_bitrate = -999.0;
     static double last_speed = -1.0;
     static int64_t last_channels = -1;
     static AudioPreset last_preset = static_cast<AudioPreset>(-1);
 
-    // Phát hiện thay đổi môi trường đủ lớn
-    bool environment_changed = (std::abs(current_volume - last_volume) > 1.5) || 
-                               (std::abs(bitrate_kbps - last_bitrate) > 10.0) ||
-                               (std::abs(current_speed - last_speed) > 0.05) ||
-                               (channel_count != last_channels) ||
-                               (m_currentPreset != last_preset);
-    if (environment_changed) {
-        std::string ai_msg = "[AI Matrix] Context altered. Volume: " + std::to_string((int)current_volume) + 
-                            "%, Codec: " + codec_name + ", Speed: " + std::to_string(current_speed);
+    bool changed = (std::abs(ctx.volume - last_volume) > 1.5) || 
+                   (std::abs(ctx.bitrate_kbps - last_bitrate) > 10.0) ||
+                   (std::abs(ctx.speed - last_speed) > 0.05) ||
+                   (ctx.channel_count != last_channels) ||
+                   (m_currentPreset != last_preset);
+
+    if (changed) {
+        last_volume = ctx.volume;
+        last_bitrate = ctx.bitrate_kbps;
+        last_speed = ctx.speed;
+        last_channels = ctx.channel_count;
+        last_preset = m_currentPreset;
+
+        std::string ai_msg = "[AI Matrix] Context altered. Volume: " + std::to_string((int)last_volume) + 
+                            "%, Codec: " + ctx.codec + ", Speed: " + std::to_string(last_speed);
         AddLog(ai_msg, LogLevel::AI_Action);
     }
-    
-    last_volume = current_volume;
-    last_bitrate = bitrate_kbps;
-    last_speed = current_speed;
-    last_channels = channel_count;
-    last_preset = m_currentPreset;
+    return changed;
+}
 
-    // 5. KHỞI TẠO MA TRẬN TARGET GAINS CHO 10 BĂNG TẦN EQUALIZER (Từ eq_b0 đến eq_b9)
-    std::vector<float> targetGains(10, 0.0f);
-
+void AudioFilterManager::AnalyzeContextAndCalculateTargets(
+    const AudioContext& ctx, std::vector<float>& targetGains, 
+    bool& target_crystalizer, float& crystalizer_i,
+    bool& target_stereo, float& stereo_m,
+    bool& target_comp, float& comp_th, float& comp_rt,
+    bool& target_reverb, std::string& reverb_preset) 
+{
+    // Cài đặt Preset EQ chuẩn ban đầu
     switch (m_currentPreset) {
         case AudioPreset::Pop:
         {
             targetGains = {0.0f, 1.0f, 2.0f, 3.0f, 4.0f, 4.0f, 3.5f, 2.0f, 1.0f, 0.0f};
-            std::string msg = "[Preset Applied] Pop preset activated: Boosting mid-high frequencies for vocal clarity and brightness.";
-            AddLog(msg, LogLevel::Info);
             break;
         }
         case AudioPreset::Rock:
         {
             targetGains = {5.0f, 4.0f, 3.0f, 1.0f, -1.0f, -1.0f, 1.5f, 3.0f, 4.5f, 5.0f};
-            std::string msg_rock = "[Preset Applied] Rock preset activated: Emphasizing bass and treble for a more aggressive sound.";
-            AddLog(msg_rock, LogLevel::Info);
             break;
         }
         case AudioPreset::EDM_Dance:
         {
             targetGains = {6.5f, 5.5f, 4.0f, 1.5f, 0.0f, 0.0f, 2.0f, 3.5f, 5.0f, 6.0f};
-            std::string msg_edm = "[Preset Applied] EDM/Dance preset activated: Supercharging bass and adding sparkle to highs for club vibes.";
-            AddLog(msg_edm, LogLevel::Info);
             break;
          }   
         case AudioPreset::Classical:
         {
             targetGains = {-2.0f, -1.0f, 1.0f, 2.0f, 2.5f, 3.0f, 3.5f, 4.0f, 3.0f, 2.0f};
-            std::string msg_classical = "[Preset Applied] Classical preset activated: Enhancing clarity and presence while maintaining warmth.";
-            AddLog(msg_classical, LogLevel::Info);
             break;
         }    
         case AudioPreset::Flat:
         default:
         {
             targetGains = {0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f};
-            std::string msg_flat = "[Preset Applied] Flat preset activated: Neutral frequency response for accurate audio reproduction.";
-            AddLog(msg_flat, LogLevel::Info);
             break;
         }    
     }
 
-    // Các biến trạng thái mục tiêu của node hiệu ứng bổ trợ
-    bool target_crystalizer_enabled = false;
-    float target_crystalizer_i = 2.0f;
-    bool target_stereo_enabled = false;
-    float target_stereo_m = 2.5f;
-    bool target_comp_enabled = false;
-    float target_comp_threshold = -12.0f;
-    float target_comp_ratio = 2.0f;
-
-    // =========================================================================
-    // TOÁN THUẬT AI: ĐIỀU CHỈNH CHI TIẾT THEO NGỮ CẢNH DỮ LIỆU
-    // =========================================================================
-
-    // Kịch bản A: Nhận biết Codec và độ nén dữ liệu (Phục hồi âm thanh)
-    if (codec_name == "mp3" || codec_name == "aac" || (bitrate_kbps > 0.0 && bitrate_kbps < 192.0)) {
-        targetGains[0] += 2.5f; // Bù dải Sub-bass bị mất mát khi nén nén lossy
-        targetGains[9] += 3.5f; // Kích dải Treble cao bị lẹm tần số (High-shelf cut)
-        target_crystalizer_enabled = true;
-        target_crystalizer_i = 3.8f; // Tăng cường độ tinh khiết âm thanh
-    } else if (codec_name == "flac" || codec_name == "wav" || sample_rate > 48000) {
-        // Audio chất lượng cao / Studio: Giữ nguyên âm mộc gốc, tắt các hiệu ứng can thiệp giả tạo
-        target_crystalizer_enabled = false;
+    // --- KỊCH BẢN 1: Phục hồi lossy codec ---
+    if (ctx.codec == "mp3" || ctx.codec == "aac" || (ctx.bitrate_kbps > 0.0 && ctx.bitrate_kbps < 192.0)) {
+        targetGains[0] += 2.5f; targetGains[9] += 3.5f;
+        target_crystalizer = true; crystalizer_i = 3.8f;
     }
 
-    // Kịch bản B: Phân tách hành vi giữa Xem Phim (Có Luồng Video) và Nghe Nhạc Mộc
-    if (!is_audio_only) {
-        // ĐANG XEM PHIM/VIDEO: Đẩy dải trung âm để làm nổi bật giọng thoại (Dialogue Boost)
-        targetGains[4] += 2.0f; // Tần số ~400Hz làm ấm giọng nói
-        targetGains[5] += 3.0f; // Tần số ~1kHz làm rõ lời thoại, không bị tiếng bom nổ/tiếng động nền át
-        
-        // Giả lập âm thanh vòm rộng nếu đang dùng thiết bị 2 kênh (Tai nghe/Loa Stereo)
-        if (channel_count == 2) {
-            target_stereo_enabled = true;
-            target_stereo_m = 3.5f; // Không gian rộng hơn dành cho phim ảnh
-        }
+    // --- KỊCH BẢN 2: Tối ưu Phim / Nhạc & Giả lập không gian ---
+    if (!ctx.is_audio_only) {
+        targetGains[4] += 2.0f; targetGains[5] += 3.0f; // Đẩy lời thoại ấm hơn
+        if (ctx.channel_count == 2) { target_stereo = true; stereo_m = 3.5f; }
     } else {
-        // NGHE NHẠC THUẦN TÚY: Chỉ áp dụng Stereo Extender nếu nghe EDM
-        if (channel_count == 2 && m_currentPreset == AudioPreset::EDM_Dance) {
-            target_stereo_enabled = true;
-            target_stereo_m = 2.5f;
+        if (ctx.channel_count == 2 && m_currentPreset == AudioPreset::EDM_Dance) {
+            target_stereo = true; stereo_m = 2.5f;
         }
     }
 
-    // Kịch bản C: Loudness Contour (Bù tai người khi Volume nhỏ) & Động học Compressor
-    if (current_volume < 30.0) {
-        targetGains[0] += 4.0f; targetGains[1] += 3.0f; // Kích Bass khi nghe nhỏ
-        targetGains[8] += 2.0f; targetGains[9] += 3.0f; // Kích Treble
-        target_comp_enabled = true;
-        target_comp_threshold = -22.0f; // Thu hẹp dải động để nghe rõ chi tiết nhỏ ban đêm
-        target_comp_ratio = 1.8f;
-    } else if (current_volume > 85.0) {
-        // Bảo vệ màng loa / Chống vỡ tiếng (Clipping) khi âm lượng quá lớn
-        for (int i = 0; i < 10; ++i) {
-            if (targetGains[i] > 1.0f) targetGains[i] *= 0.4f; 
-        }
-        target_comp_enabled = true;
-        target_comp_threshold = -5.0f;
-        target_comp_ratio = 4.0f; // Ép đỉnh âm thanh lớn xuống cứng rắn hơn
+    // --- KỊCH BẢN 3: Chế độ nghe đêm ban đêm / Chống quá tải màng loa ---
+    if (ctx.volume < 30.0) {
+        targetGains[0] += 4.0f; targetGains[9] += 3.0f; // Kích Loudness contour
+        target_comp = true; comp_th = -22.0f; comp_rt = 1.8f;
+    } else if (ctx.volume > 85.0) {
+        for (int i = 0; i < 10; ++i) if (targetGains[i] > 1.0f) targetGains[i] *= 0.4f;
+        target_comp = true; comp_th = -5.0f; comp_rt = 4.0f;
     }
 
-    // Kịch bản D: Tự động bù trừ chói tai khi người dùng tua nhanh tốc độ phát (Speed Compensation)
-    if (current_speed > 1.25) {
-        // Tua nhanh làm tần số giọng nói bị đẩy cao lên dải chói tai (Pitch-shift giả lập). Hạ bớt Treble.
-        targetGains[7] -= 1.5f;
-        targetGains[8] -= 2.5f;
-        targetGains[9] -= 3.5f;
+    // --- KỊCH BẢN TUA NHANH (Speed Pitch Compensate) ---
+    if (ctx.speed > 1.25) {
+        targetGains[7] -= 1.5f; targetGains[8] -= 2.5f; targetGains[9] -= 3.5f;
     }
 
     // =========================================================================
-    // NỘI SUY TUYẾN TÍNH (LERP) ĐỂ CHUYỂN ÂM MƯỢT MÀ VÀ KIỂM TRA ĐỒNG BỘ
+    // KHÔNG GIAN PHÁT TRIỂN: THÊM CÁC HIỆU ỨNG MỚI TẠI ĐÂY
     // =========================================================================
-    bool need_sync_structure = false; 
-    bool parameter_changed = false;   
-    
-    const float alpha = 0.20f;  // Hệ số vuốt mịn (20% mỗi chu kỳ quét)
-    const float epsilon = 0.05f;
+    // Ví dụ: Kịch bản 4: Tự động bật Reverb (Vang phòng) nếu là file nhạc nhẹ Acoustic/Nhạc thuần
+    if (ctx.is_audio_only && m_currentPreset == AudioPreset::Classical) {
+        target_reverb = true;
+        reverb_preset = "large_hall"; // Gợi ý cấu hình chuỗi vang rộng
+    } else {
+        target_reverb = false;
+    }
+    // =========================================================================
+    // VÒNG PHẢN HỒI THÔNG MINH: TỰ HIỆU CHỈNH BỘ ỔN ĐỊNH NGOẠI VI
+    // =========================================================================
+    auto* out_comp = FindFilter("f_out_compressor");
+    auto* out_lim  = FindFilter("f_out_limiter");
 
-    // 1. Áp dụng Lerp cho 10 băng tần EQ từ cấu trúc lưu trữ nội bộ m_filters
-    for (int i = 0; i < 10; ++i) {
-        std::string band_id = "eq_b" + std::to_string(i);
-        auto* filter = FindFilter(band_id);
-        if (filter && !filter->isBypassManagement) {
-            if (!filter->enabled) {
-                filter->enabled = true;
-                need_sync_structure = true;
-            }
+    if (out_comp && out_lim) {
+        float current_comp_th = out_comp->params["threshold"].current;
+        float current_comp_mk = out_comp->params["makeup"].current;
+        float current_lim_th  = out_lim->params["threshold"].current;
+
+        // TÌNH HUỐNG 1: Âm thanh sau hiệu chỉnh bị quá tải (Quá sát ngưỡng rè)
+        if (ctx.output_peak > 0.95) {
+            // Hạ trần giới hạn chống rè xuống thấp hơn một chút để an toàn (-1.5dB hoặc -2.0dB)
+            out_lim->params["threshold"].current = std::max(-3.0f, current_lim_th - 0.2f);
             
-            float current_g = filter->params["g"].current;
-            float dest_g = targetGains[i];
+            // Ép bộ nén hoạt động sớm hơn để ghìm đỉnh âm thanh xuống
+            out_comp->params["threshold"].current = std::max(-28.0f, current_comp_th - 0.5f);
             
-            if (std::abs(current_g - dest_g) > epsilon) {
-                filter->params["g"].current = current_g + alpha * (dest_g - current_g);
-                parameter_changed = true;
-            } else {
-                filter->params["g"].current = dest_g;
-            }
+            // Giảm nhẹ makeup gain để tránh kích nổ âm thanh
+            out_comp->params["makeup"].current = std::max(1.0f, current_comp_mk - 0.1f);
+            
+            AddLog("[AI Self-Calibrate] Peak danger detected (" + std::to_string(ctx.output_peak) + "). Tightening Stabilizer.", LogLevel::AI_Action);
+        }
+        
+        // TÌNH HUỐNG 2: Biên độ an toàn nhưng âm lượng tổng thể sau hiệu chỉnh bị sụt giảm quá sâu
+        else if (ctx.output_loudness < -30.0 && ctx.volume > 50.0) {
+            // Nới lỏng trần Limiter về sát trần mộc (-0.5dB)
+            out_lim->params["threshold"].current = std::min(-0.5f, current_lim_th + 0.1f);
+            
+            // Kéo sàn âm lượng nhỏ lên bằng cách tăng dần makeup gain
+            out_comp->params["makeup"].current = std::min(4.0f, current_comp_mk + 0.05f);
+            
+            // Đẩy nhẹ ngưỡng nén lên cao để âm thanh dynamic hơn
+            out_comp->params["threshold"].current = std::min(-12.0f, current_comp_th + 0.2f);
         }
     }
+}
 
-    // Lambda Helper xử lý Lerp mượt cho các Node bổ trợ tự động
-    auto processSmoothFilter = [&](const std::string& id, bool target_state, const std::string& param_key, float target_val) {
-        auto* filter = FindFilter(id);
-        if (!filter || filter->isBypassManagement) return;
-
-        if (filter->enabled != target_state) {
-            filter->enabled = target_state;
-            need_sync_structure = true;
-        }
-
-        if (filter->enabled && filter->params.count(param_key)) {
-            float current_val = filter->params[param_key].current;
-            if (std::abs(current_val - target_val) > epsilon) {
-                filter->params[param_key].current = current_val + alpha * (target_val - current_val);
-                parameter_changed = true;
-            } else {
-                filter->params[param_key].current = target_val;
-            }
-        }
-    };
-
-    // 2. Thực thi mượt cho Crystalizer & Stereo Extender
-    processSmoothFilter("f_crystalizer", target_crystalizer_enabled, "i", target_crystalizer_i);
-    processSmoothFilter("f_stereo", target_stereo_enabled, "m", target_stereo_m);
-
-    // 3. Thực thi mượt cho Compressor
-    auto* comp = FindFilter("f_comp");
-    if (comp && !comp->isBypassManagement) {
-        if (comp->enabled != target_comp_enabled) {
-            comp->enabled = target_comp_enabled;
-            need_sync_structure = true;
-        }
-        if (comp->enabled) {
-            float curr_th = comp->params["threshold"].current;
-            float curr_rt = comp->params["ratio"].current;
-
-            if (std::abs(curr_th - target_comp_threshold) > epsilon) {
-                comp->params["threshold"].current = curr_th + alpha * (target_comp_threshold - curr_th);
-                parameter_changed = true;
-            }
-            if (std::abs(curr_rt - target_comp_ratio) > epsilon) {
-                comp->params["ratio"].current = curr_rt + alpha * (target_comp_ratio - curr_rt);
-                parameter_changed = true;
-            }
-        }
-    }
-
-    // =========================================================================
-    // GIAO TIẾP IPC XUỐNG MPV CORE: CHỐNG SPAM LỆNH ĐỒNG BỘ VÔ ÍCH
-    // =========================================================================
+void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool parameter_changed) {
     if (need_sync_structure) {
-        // Chỉ chạy khi có sự thay đổi về mặt kiến trúc chuỗi (Bật/Tắt hẳn một Node bộ lọc)
         EvaluateSystemSafety();
         SyncAll(); 
     } 
     else if (parameter_changed) {
-        // Hiệu năng cao: Giữ nguyên chuỗi bộ lọc 'af' hiện tại, chỉ đẩy các vi thông số thay đổi qua af-command
         EvaluateSystemSafety();
 
         for (const auto& filter : m_filters) {
             if (filter.enabled && !filter.isBypassManagement) {
                 for (const auto& [key, p] : filter.params) {
-                    // Biến tạm lưu giá trị an toàn trước khi đẩy qua IPC
                     float value_to_send = p.current;
 
-                    // XỬ LÝ ĐẶC BIỆT CHO COMPRESSOR THRESHOLD TRONG LUỒNG AI
+                    // Áp dụng bộ khóa dải nén acompressor an toàn (Sửa lỗi crash popup)
                     if (filter.name == "acompressor" && key == "threshold") {
                         value_to_send = std::pow(10.0f, p.current / 20.0f);
                         if (value_to_send < 0.000976563f) value_to_send = 0.000976563f;
@@ -745,21 +731,113 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
                     }
 
                     std::ostringstream ss;
-                    if (filter.name == "acompressor" && key == "threshold") {
+                    if ((filter.name == "acompressor" && (key == "threshold" || key == "makeup")) || filter.id == "f_vol_booster") {
                         ss << std::fixed << std::setprecision(5) << value_to_send;
                     } else {
                         ss << std::fixed << std::setprecision(2) << value_to_send;
                     }
                     std::string val_str = ss.str();
 
-                    // Sử dụng hàm chuẩn cấu trúc mảng char* của mpv_command giống header của bạn
                     const char* cmd[] = {"af-command", filter.id.c_str(), key.c_str(), val_str.c_str(), NULL};
                     mpv_command(mpv, cmd);
                 }
             }
         }
     }
-    // TRẠNG THÁI TĨNH: Nếu tất cả giá trị thực đạt trạng thái cân bằng mục tiêu -> Khóa hoàn toàn, không gọi gì xuống MPV.
+}
+void AudioFilterManager::UpdateAdaptiveFilters() {
+    // 1. Kiểm tra điều kiện tiên quyết
+    if (!m_autoMode || !mpv || m_globalBypass) return;
+
+    // 2. Throttling - Giới hạn tần suất tính toán (150ms)
+    static auto lastUpdateTime = std::chrono::steady_clock::now();
+    auto currentTime = std::chrono::steady_clock::now();
+    if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime).count() < 150) return; 
+    lastUpdateTime = currentTime;
+
+    // 3. Trích xuất thông tin thông qua Module phân rã 1
+    AudioContext ctx = ExtractCurrentContext();
+
+    // 4. Kiểm tra độ nhiễu Hysteresis thông qua Module phân rã 2
+    if (CheckEnvironmentHysteresis(ctx)) {
+        std::string ai_msg = "[AI Matrix] Context altered. Volume: " + std::to_string((int)ctx.volume) + 
+                            "%, Codec: " + ctx.codec + ", Speed: " + std::to_string(ctx.speed);
+        AddLog(ai_msg, LogLevel::AI_Action);
+    }
+    
+    // 5. Khởi tạo biến lưu trữ mục tiêu
+    std::vector<float> targetGains(10, 0.0f);
+    bool target_crystalizer = false; float crystalizer_i = 2.0f;
+    bool target_stereo = false;      float stereo_m = 2.5f;
+    bool target_comp = false;        float comp_th = -12.0f; float comp_rt = 2.0f;
+    bool target_reverb = false;      std::string reverb_preset = "none"; // Biến hiệu ứng mới
+
+    // 6. Tính toán toán thuật thông qua Module phân rã 3
+    AnalyzeContextAndCalculateTargets(ctx, targetGains, target_crystalizer, crystalizer_i,
+                                      target_stereo, stereo_m, target_comp, comp_th, comp_rt,
+                                      target_reverb, reverb_preset);
+
+    // 7. Nội suy tuyến tính (Lerp) làm mịn chuyển âm mượt mà
+    bool need_sync_structure = false; 
+    bool parameter_changed = false;   
+    const float alpha = 0.20f;
+    const float epsilon = 0.05f;
+
+    // Thao tác Lerp 10 băng tần Equalizer
+    for (int i = 0; i < 10; ++i) {
+        if (auto* filter = FindFilter("eq_b" + std::to_string(i))) {
+            if (!filter->isBypassManagement) {
+                if (!filter->enabled) { filter->enabled = true; need_sync_structure = true; }
+                float current_g = filter->params["g"].current;
+                float dest_g = targetGains[i];
+                if (std::abs(current_g - dest_g) > epsilon) {
+                    filter->params["g"].current = current_g + alpha * (dest_g - current_g);
+                    parameter_changed = true;
+                } else { filter->params["g"].current = dest_g; }
+            }
+        }
+    }
+
+    // Lambda Helper xử lý các node hiệu ứng động mượt mà
+    auto processSmoothFilter = [&](const std::string& id, bool target_state, const std::string& param_key, float target_val) {
+        auto* filter = FindFilter(id);
+        if (!filter || filter->isBypassManagement) return;
+        if (filter->enabled != target_state) { filter->enabled = target_state; need_sync_structure = true; }
+        if (filter->enabled && filter->params.count(param_key)) {
+            float current_val = filter->params[param_key].current;
+            if (std::abs(current_val - target_val) > epsilon) {
+                filter->params[param_key].current = current_val + alpha * (target_val - current_val);
+                parameter_changed = true;
+            } else { filter->params[param_key].current = target_val; }
+        }
+    };
+
+    processSmoothFilter("f_crystalizer", target_crystalizer, "i", crystalizer_i);
+    processSmoothFilter("f_stereo", target_stereo, "m", stereo_m);
+
+    // Xử lý Lerp riêng cho Compressor đa tham số
+    if (auto* comp = FindFilter("f_comp")) {
+        if (!comp->isBypassManagement) {
+            if (comp->enabled != target_comp) { comp->enabled = target_comp; need_sync_structure = true; }
+            if (comp->enabled) {
+                float curr_th = comp->params["threshold"].current;
+                float curr_rt = comp->params["ratio"].current;
+                if (std::abs(curr_th - comp_th) > epsilon) { comp->params["threshold"].current = curr_th + alpha * (comp_th - curr_th); parameter_changed = true; }
+                if (std::abs(curr_rt - comp_rt) > epsilon) { comp->params["ratio"].current = curr_rt + alpha * (comp_rt - curr_rt); parameter_changed = true; }
+            }
+        }
+    }
+
+    // Xử lý logic bật tắt cho bộ lọc mới Reverb (Ví dụ mẫu kết nối cấu trúc)
+    if (auto* reverb = FindFilter("f_reverb")) {
+        if (!reverb->isBypassManagement && reverb->enabled != target_reverb) {
+            reverb->enabled = target_reverb;
+            need_sync_structure = true;
+        }
+    }
+
+    // 8. Đẩy dữ liệu đồng bộ xuống MPV core bằng Module phân rã 4
+    DispatchParametersToMPV(need_sync_structure, parameter_changed);
 }
 
 void AudioFilterManager::SetCurrentPreset(AudioPreset preset) {
@@ -792,6 +870,7 @@ void AudioFilterManager::SetAdaptiveMode(bool enabled, AudioPreset preset) {
     }
 }
 
+
 void AudioFilterManager::AddLog(const std::string& message, LogLevel level) {
     std::lock_guard<std::mutex> lock(m_logMutex);
 
@@ -820,7 +899,7 @@ void AudioFilterManager::AddLog(const std::string& message, LogLevel level) {
     std::cout << "[" << entry.timestamp << "] " << message << "\n";
 }
 
-std::vector<LogEntry> AudioFilterManager::GetLogs() {
+const std::vector<LogEntry>& AudioFilterManager::GetLogs()  {
     std::lock_guard<std::mutex> lock(m_logMutex);
     return m_logs; // Trả về một bản sao an toàn cho luồng UI render
 }
