@@ -5,12 +5,12 @@
 #include <string>
 #include <sstream>
 #include <iomanip>
-
+auto logs = AudioFilterManager::Instance().GetLogs();
 // Cấu trúc Logger Realtime để theo dõi sự kiện
 struct LocalLogger {
     std::vector<std::string> Items;
     bool ScrollToBottom = false;
-
+    
     void Log(const std::string& text) {
         Items.push_back(text);
         ScrollToBottom = true;
@@ -19,18 +19,41 @@ struct LocalLogger {
     void Clear() { Items.clear(); }
 
     void Draw() {
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "--- Nhật ký gọi lệnh (Realtime Logs) ---");
-        ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 150), true, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "--- Nhật ký gọi lệnh & Hệ thống AI (Realtime Logs) ---");
+        ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 180), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
+        
         for (const auto& item : Items) {
-            if (item.find("[FAIL]") != std::string::npos || item.find("Error") != std::string::npos) {
-                ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", item.c_str());
+            // Phân loại màu sắc log dựa trên tiền tố sự kiện
+            if (item.find("[SAFETY]") != std::string::npos || item.find("[FAIL]") != std::string::npos) {
+                ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", item.c_str()); // Đỏ - Cảnh báo an toàn phần cứng
+            } else if (item.find("[ADAPTIVE AI]") != std::string::npos) {
+                ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "%s", item.c_str());  // Xanh Cyan - AI can thiệp mạch động
+            } else if (item.find("[BYPASS]") != std::string::npos) {
+                ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%s", item.c_str());  // Cam - Vượt tuyến quản lý
             } else if (item.find("[PASS]") != std::string::npos || item.find("Thành công") != std::string::npos) {
-                ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%s", item.c_str());
+                ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%s", item.c_str());  // Xanh lá - Thành công
             } else {
-                ImGui::TextUnformatted(item.c_str());
+                ImGui::TextUnformatted(item.c_str()); // Màu mặc định cho log thủ công
             }
         }
+        for (const auto& log : logs) {
+            // Thiết lập màu sắc riêng biệt cho từng loại Log để giao diện trực quan
+            ImVec4 text_color;
+            switch (log.level) {
+                case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; // Màu Vàng
+                case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; // Màu Đỏ
+                case LogLevel::AI_Action:  text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; // Màu Xanh AI
+                case LogLevel::Info:
+                default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; // Màu Trắng xám
+            }
+
+            // In dòng Log ra UI: [Thời gian] Tin nhắn
+            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
+            ImGui::SameLine();
+            ImGui::TextColored(text_color, "%s", log.message.c_str());
+        }
+        
         ImGui::PopStyleVar();
         if (ScrollToBottom) { ImGui::SetScrollHereY(1.0f); ScrollToBottom = false; }
         ImGui::EndChild();
@@ -42,28 +65,51 @@ static LocalLogger g_PopupLogger;
 void ShowTestPopup(bool& closePopup_Test) {
     AudioFilterManager& manager = AudioFilterManager::Instance();
 
+    // Trích xuất dữ liệu thô real-time từ lõi mpv thông qua manager để đưa lên màn hình debug
+    int64_t sample_rate = 0;
+    int64_t channel_count = 0;
+    double bitrate_bps = 0.0;
+    double current_volume = 0.0;
+    mpv_handle* mpv = manager.GetMpvHandle(); // Đảm bảo bạn đã có hàm getter này trong Manager
+    
+    if (mpv) {
+        mpv_get_property(mpv, "volume", MPV_FORMAT_DOUBLE, &current_volume);
+        mpv_get_property(mpv, "audio-params/samplerate", MPV_FORMAT_INT64, &sample_rate);
+        mpv_get_property(mpv, "audio-params/channel-count", MPV_FORMAT_INT64, &channel_count);
+        mpv_get_property(mpv, "audio-bitrate", MPV_FORMAT_DOUBLE, &bitrate_bps);
+    }
     // =========================================================================
-    // PHẦN 1: BẢNG GIÁM SÁT TRẠNG THÁI CHI TIẾT (MANAGER STATE MONITOR)
+    // PHẦN 1: BẢNG GIÁM SÁT TRẠNG THÁI CHI TIẾT + ĐỌC THÔNG SỐ AUDIO TRACK
     // =========================================================================
-    if (ImGui::CollapsingHeader("1. Trạng thái chi tiết từ Manager (Core State)", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("1. Giám sát hệ thống Core & Phân tích Track Audio", ImGuiTreeNodeFlags_DefaultOpen)) {
         
+
+        ImGui::Columns(4, "TrackAnalysisColumns", false);
+        ImGui::Text("Volume: %.1f dB", current_volume); ImGui::NextColumn();
+        ImGui::Text("Sample Rate: %lld Hz", sample_rate); ImGui::NextColumn();
+        ImGui::Text("Số Kênh: %lld Ch", channel_count); ImGui::NextColumn();
+        ImGui::Text("Bitrate: %.1f kbps", bitrate_bps / 1000.0);
+        ImGui::Columns(1);
+        
+        ImGui::Separator();
+        ImGui::Spacing();
+
         ImGui::Columns(3, "GlobalStateColumns", false);
-        ImGui::Text("Kênh hiện tại: %s", manager.GetChannelMode().c_str()); 
-        ImGui::NextColumn();
-        ImGui::Text("Số Filter đang chạy: %d", manager.GetActiveFilterCount());
-        ImGui::NextColumn();
-        ImGui::Text("Track đang chọn: %s", manager.GetCurrentAudioTrack().c_str());
+        ImGui::Text("Kênh Output: %s", manager.GetChannelMode().c_str()); ImGui::NextColumn();
+        ImGui::Text("Filter Hoạt Động: %d", manager.GetActiveFilterCount()); ImGui::NextColumn();
+        ImGui::Text("Quản Lý An Toàn: %s", manager.IsGlobalBypassEnabled() ? "BYPASS" : "ACTIVE");
         ImGui::Columns(1);
         
         ImGui::Spacing();
 
+        // Bảng kết xuất cấu trúc ma trận filter
         static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
-        
-        if (ImGui::BeginTable("ManagerInternalTable", 4, flags)) {
-            ImGui::TableSetupColumn("ID Bộ Lọc", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-            ImGui::TableSetupColumn("Tên Gốc (MPV)", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-            ImGui::TableSetupColumn("Trạng Thái", ImGuiTableColumnFlags_WidthFixed, 90.0f);
-            ImGui::TableSetupColumn("Tham Số Hiện Tại Trong Bộ Nhớ (Key: Value)");
+        if (ImGui::BeginTable("ManagerInternalTable", 5, flags)) {
+            ImGui::TableSetupColumn("ID Node", ImGuiTableColumnFlags_WidthFixed, 80.0f);
+            ImGui::TableSetupColumn("Bộ Lọc FFmpeg", ImGuiTableColumnFlags_WidthFixed, 100.0f);
+            ImGui::TableSetupColumn("Nhóm", ImGuiTableColumnFlags_WidthFixed, 110.0f);
+            ImGui::TableSetupColumn("Trạng Thái", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+            ImGui::TableSetupColumn("Giá Trị Bộ Nhớ Realtime (Key: Value)");
             ImGui::TableHeadersRow();
 
             for (const auto& f : manager.GetFilters()) {
@@ -76,15 +122,22 @@ void ShowTestPopup(bool& closePopup_Test) {
                 ImGui::TextUnformatted(f.name.c_str());
 
                 ImGui::TableSetColumnIndex(2);
+                ImGui::TextDisabled("%s", f.group.empty() ? "None" : f.group.c_str());
+
+                ImGui::TableSetColumnIndex(3);
                 if (f.enabled) {
                     ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "● ENABLED");
                 } else {
                     ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "○ DISABLED");
                 }
+                if (f.isBypassManagement) {
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "[BYPASS]");
+                }
 
-                ImGui::TableSetColumnIndex(3);
+                ImGui::TableSetColumnIndex(4);
                 if (f.params.empty()) {
-                    ImGui::TextDisabled("Không có tham số.");
+                    ImGui::TextDisabled("Không cấu hình tham số.");
                 } else {
                     std::string param_dump = "";
                     for (const auto& [key, p] : f.params) {
@@ -100,77 +153,157 @@ void ShowTestPopup(bool& closePopup_Test) {
     }
 
     // =========================================================================
-    // PHẦN 2: BẢNG ĐIỀU KHIỂN CHI TIẾT TỰ ĐỘNG (DYNAMIC INTERACTIVE CONTROLS)
+    // PHẦN 2: BẢNG ĐIỀU KHIỂN CHẾ ĐỘ THÔNG MINH (ADAPTIVE ENGINE & BYPASS CONTROLS)
     // =========================================================================
-    if (ImGui::CollapsingHeader("2. Cấu hình chi tiết bộ lọc (Audio Matrix)", ImGuiTreeNodeFlags_DefaultOpen)) {
+    if (ImGui::CollapsingHeader("2. Trợ lý AI & Điều khiển Vượt tuyến (Adaptive Matrix)", ImGuiTreeNodeFlags_DefaultOpen)) {
         
-        // Nút tính năng nhanh cho toàn bộ hệ thống
-        if (ImGui::Button("Bật tất cả bộ lọc")) {
-            manager.SetAllFiltersState(true);
-            g_PopupLogger.Log("Kích hoạt đồng loạt tất cả bộ lọc.");
+        // --- KHỐI ĐIỀU KHIỂN BIÊN ĐỘ QUẢN LÝ (GLOBAL BYPASS) ---
+        bool globalBypass = manager.IsGlobalBypassEnabled();
+        ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(1.0f, 0.4f, 0.0f, 0.4f));
+        if (ImGui::Checkbox("HỦY BỎ TOÀN BỘ HỆ THỐNG QUẢN LÝ (Global Bypass Security & Conflicts)", &globalBypass)) {
+            manager.SetGlobalBypassMode(globalBypass);
+            g_PopupLogger.Log(std::string("[BYPASS] Thay đổi trạng thái Global Bypass Manager -> ") + (globalBypass ? "ENABLED (Tự do chỉnh ép xung)" : "DISABLED (Kích hoạt bảo vệ)"));
         }
-        ImGui::SameLine();
-        if (ImGui::Button("Tắt tất cả bộ lọc")) {
-            manager.SetAllFiltersState(false);
-            g_PopupLogger.Log("Hủy kích hoạt đồng loạt tất cả bộ lọc.");
+        ImGui::PopStyleColor();
+        
+        ImGui::Spacing();
+        ImGui::Separator();
+        ImGui::Spacing();
+
+        // --- KHỐI ĐIỀU KHIỂN TRỢ LÝ THÔNG MINH (ADAPTIVE AI) ---
+        // 1. Lưu lại trạng thái gốc TRƯỚC KHI Checkbox thay đổi nó
+        bool autoMode = manager.IsAdaptiveMode();
+        bool wasAutoMode = autoMode; 
+
+        // 2. Chỉ Push màu nếu TRƯỚC ĐÓ chế độ tự động đã bật
+        if (wasAutoMode) {
+            ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.0f, 0.6f, 0.8f, 1.0f));
+            ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(0.0f, 1.0f, 1.0f, 1.0f));
+        }
+
+        // 3. Render Checkbox (Biến autoMode có thể bị thay đổi tại đây)
+        if (ImGui::Checkbox("KÍCH HOẠT ĐIỀU CHỈNH CHẤT ÂM TỰ ĐỘNG (Adaptive AI Engine)", &autoMode)) {
+            manager.SetAdaptiveMode(autoMode, manager.GetCurrentPreset());
+            g_PopupLogger.Log(std::string("[ADAPTIVE AI] Trạng thái bộ máy điều tiết tự động -> ") + (autoMode ? "BẬT" : "TẮT (Trả cấu hình mộc)"));
+        }
+
+        // 4. Đồng bộ Pop dựa trên trạng thái GỐC (wasAutoMode) thay vì trạng thái MỚI
+        if (wasAutoMode) {
+            ImGui::PopStyleColor(2);
+        }
+
+        if (autoMode) {
+            ImGui::Indent(25.0f);
+            const char* presetNames[] = { "Cân bằng Studio (Flat)", "Nhạc Trẻ / Pop Vocal", "Heavy Rock / Metal", "EDM / Dance Floor", "Cổ điển / Classical" };
+            int currentPresetIdx = static_cast<int>(manager.GetCurrentPreset());
+            
+            ImGui::SetNextItemWidth(250.0f);
+            if (ImGui::Combo("Phong cách âm nhạc chủ đạo", &currentPresetIdx, presetNames, IM_ARRAYSIZE(presetNames))) {
+                manager.SetCurrentPreset(static_cast<AudioPreset>(currentPresetIdx));
+                g_PopupLogger.Log(std::string("[ADAPTIVE AI] Chuyển đổi Profile đáp tuyến tần số: ") + presetNames[currentPresetIdx]);
+            }
+            
+            // Đẩy lệnh tính toán tự động real-time
+            manager.UpdateAdaptiveFilters();
+            
+            // Ghi Log tự động ra Monitor nếu có sự biến động lớn từ track
+            static double last_logged_vol = 0.0;
+            if (std::abs(current_volume - last_logged_vol) > 15.0) {
+                if (current_volume < 30.0) g_PopupLogger.Log("[ADAPTIVE AI] Phát hiện âm lượng nhỏ. Đang bù gain dải tần hình chữ V (Loudness Equalization).");
+                else if (current_volume > 80.0) g_PopupLogger.Log("[SAFETY] Phát hiện âm lượng vượt ngưỡng an toàn phần cứng. Tự động ép nén phẳng EQ để bảo vệ loa chống rách màng.");
+                last_logged_vol = current_volume;
+            }
+
+            ImGui::Unindent(25.0f);
         }
 
         ImGui::Spacing();
         ImGui::Separator();
         ImGui::Spacing();
 
-        // Vòng lặp quét tự động qua từng filter có trong manager
-        // Giờ đây bất cứ filter nào thêm ở Init() sẽ tự động xuất hiện ở đây
+        // --- DANH SÁCH CHI TIẾT TỪNG FILTER VÀ CÁC NÚT KHÓA TAY TỪNG PHẦN ---
+        if (ImGui::Button("Bật toàn bộ hệ thống")) {
+            manager.SetAllFiltersState(true);
+            g_PopupLogger.Log("Người dùng ép bật thủ công toàn bộ các Node Filter.");
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Tắt toàn bộ hệ thống")) {
+            manager.SetAllFiltersState(false);
+            g_PopupLogger.Log("Người dùng ép tắt thủ công toàn bộ các Node Filter.");
+        }
+
+        ImGui::Spacing();
+
         for (const auto& filterRef : manager.GetFilters()) {
-            // Lấy con trỏ non-const từ manager để có thể cập nhật trực tiếp qua UI
             auto* f = manager.FindFilter(filterRef.id);
             if (!f) continue;
 
-            ImGui::PushID(f->id.c_str()); // Tránh trùng lặp ID ImGui cho các widget giống nhau
+            ImGui::PushID(f->id.c_str());
 
+            // Checkbox điều khiển cơ bản
             bool isEnabled = f->enabled;
-            // Hiển thị Checkbox bật/tắt chính cho Filter
             if (ImGui::Checkbox("##toggle", &isEnabled)) {
                 manager.SetFilterEnabled(f->id, isEnabled);
-                g_PopupLogger.Log("Thay đổi trạng thái " + f->id + " -> " + (isEnabled ? "ON" : "OFF"));
+                g_PopupLogger.Log("Thao tác thủ công: Thay đổi Node " + f->id + " -> " + (isEnabled ? "BẬT" : "TẮT"));
             }
             
             ImGui::SameLine();
-            // Đổi màu chữ tiêu đề dựa trên trạng thái hoạt động của filter
-            if (f->enabled) {
-                ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "[%s] - %s", f->id.c_str(), f->name.c_str());
+            
+            // Nút Quản lý Vượt tuyến (Bypass Node) - Cho phép giành lại quyền điều khiển từ AI
+            if (f->isBypassManagement) {
+                ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
+                if (ImGui::Button("Mở Khóa AI")) {
+                    manager.SetFilterBypassMode(f->id, false);
+                    g_PopupLogger.Log("[BYPASS] Trả lại quyền quản lý Node " + f->id + " cho Hệ thống Tự động.");
+                }
+                ImGui::PopStyleColor();
             } else {
-                ImGui::TextDisabled("[%s] - %s", f->id.c_str(), f->name.c_str());
+                if (ImGui::Button(" Khóa Tay ")) {
+                    manager.SetFilterBypassMode(f->id, true);
+                    g_PopupLogger.Log("[BYPASS] Tách biệt thành công Node " + f->id + " khỏi sự quản lý của AI.");
+                }
             }
 
-            // Nếu filter được bật, hoặc filter có tham số -> hiển thị vùng tinh chỉnh slider bên dưới
-            if (f->enabled && !f->params.empty()) {
-                ImGui::Indent(30.0f); // Đẩy lùi vào trong để tạo phân cấp UI trực quan
+            ImGui::SameLine();
+            // Đổi màu hiển thị tiêu đề node
+            if (f->enabled) {
+                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "[%s] Node %s (Group: %s)", f->id.c_str(), f->name.c_str(), f->group.c_str());
+            } else {
+                ImGui::TextDisabled("[%s] Node %s", f->id.c_str(), f->name.c_str());
+            }
+
+            // Vùng vẽ Slider tinh chỉnh cho từng tham số bên trong Filter
+            if (!f->params.empty()) {
+                ImGui::Indent(35.0f);
                 
-                // Quét qua map tham số của filter hiện tại
+                // Nếu đang bật Adaptive AI điều khiển tự động và node này KHÔNG được chọn khóa tay -> Khóa các thanh kéo Slider
+                bool lockWidgets = autoMode && !f->isBypassManagement;
+                if (lockWidgets) ImGui::BeginDisabled();
+
                 for (auto& [key, param] : f->params) {
                     float val = param.current;
-                    std::string label = key + "##" + f->id; // Gắn tag ID để tránh trùng label giữa các filter
+                    std::string label = key + "##" + f->id;
                     
-                    // Thiết lập định dạng hiển thị số thực tùy biến dựa theo dải tần hoặc âm lượng
                     const char* format = "%.2f";
                     if (param.max > 1000.0f) format = "%.0f Hz";
                     else if (key == "g" || key == "volume" || key == "threshold") format = "%.1f dB";
 
                     if (ImGui::SliderFloat(label.c_str(), &val, param.min, param.max, format)) {
-                        // Gọi hàm UpdateParam tối ưu realtime xuống mpv
                         manager.UpdateParam(f->id, key, val);
-                        g_PopupLogger.Log("Slider chỉnh " + f->id + " -> " + key + ": " + std::to_string(val));
+                        g_PopupLogger.Log("Cập nhật tham số " + f->id + " -> " + key + ": " + std::to_string(val));
                     }
                 }
-                
-                // Nút Reset nhanh tham số của riêng bộ lọc này về mặc định
-                if (ImGui::Button("Reset bộ lọc này")) {
-                    manager.ResetFilter(f->id);
-                    g_PopupLogger.Log("Đã đưa bộ lọc " + f->id + " về giá trị mặc định.");
+
+                if (lockWidgets) ImGui::EndDisabled();
+
+                if (!lockWidgets) {
+                    ImGui::SameLine();
+                    if (ImGui::Button("Reset Node")) {
+                        manager.ResetFilter(f->id);
+                        g_PopupLogger.Log("Đã khôi phục mặc định thông số cho riêng Node: " + f->id);
+                    }
                 }
-                ImGui::Unindent(30.0f);
-                ImGui::Spacing();
+                ImGui::Unindent(35.0f);
             }
             
             ImGui::PopID();
@@ -179,25 +312,25 @@ void ShowTestPopup(bool& closePopup_Test) {
 
         // --- Cấu hình Kênh & File I/O ---
         ImGui::Spacing();
-        ImGui::Text("Cấu hình Luồng đầu ra (Channel Mode):");
+        ImGui::Text("Cấu hình Luồng đầu ra (Channel Matrix):");
         const char* modes[] = { "stereo", "mono", "surround" };
         for (int n = 0; n < 3; n++) {
             if (ImGui::Button(modes[n])) {
                 manager.SetChannelMode(modes[n]);
-                g_PopupLogger.Log(std::string("Thiết lập luồng đầu ra -> ") + modes[n]);
+                g_PopupLogger.Log(std::string("Thiết lập lại cấu hình ma trận kênh -> ") + modes[n]);
             }
             if (n < 2) ImGui::SameLine();
         }
 
         ImGui::Spacing();
-        if (ImGui::Button("Lưu Cấu Hình (Save)")) {
+        if (ImGui::Button("Lưu Cấu Hình (Save To Disk)")) {
             manager.SaveToFile();
-            g_PopupLogger.Log("Cấu hình hiện tại đã được ghi xuống đĩa.");
+            g_PopupLogger.Log("[PASS] Toàn bộ trạng thái phần cứng, Preset, cấu hình Bypass đã ghi xuống file JSON.");
         }
         ImGui::SameLine();
-        if (ImGui::Button("Tải Cấu Hình (Load)")) {
+        if (ImGui::Button("Tải Cấu Hình (Load From Disk)")) {
             manager.LoadFromFile();
-            g_PopupLogger.Log("Đã nạp lại cấu hình từ file.");
+            g_PopupLogger.Log("[PASS] Đã đồng bộ ngược trạng thái hoạt động từ file lưu trữ hệ thống.");
         }
     }
 
@@ -206,18 +339,18 @@ void ShowTestPopup(bool& closePopup_Test) {
     ImGui::Spacing();
 
     // =========================================================================
-    // PHẦN 3: LOG MONITOR
+    // PHẦN 3: LOG MONITOR WINDOW
     // =========================================================================
     g_PopupLogger.Draw();
 
     ImGui::Spacing();
-    if (ImGui::Button("Xóa Logs")) g_PopupLogger.Clear();
+    if (ImGui::Button("Xóa bộ nhớ tạm Logs")) g_PopupLogger.Clear();
     ImGui::SameLine();
-    if (ImGui::Button("Đóng")) closePopup_Test = true;
+    if (ImGui::Button("Thoát Bảng Kiểm Thử")) closePopup_Test = true;
 }
 
 void OpenTestPopup(ReusablePopup& popup) {
-    popup.Open("Audio Filter & Log Dashboard", [](bool& closePopup_Test) {
+    popup.Open("Audio Filter & Advanced Diagnostics Engine Dashboard", [](bool& closePopup_Test) {
         ShowTestPopup(closePopup_Test);  
     });
 }

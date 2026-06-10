@@ -23,9 +23,8 @@ struct AudioPopupLogger {
 
     void Draw() {
         CSImGui::ModernHeader("--- Nhật ký hệ thống âm thanh (Realtime Logs) ---", 0.9f);
-        ImGui::BeginChild("AudioLogScrolling", ImVec2(0, 100), true, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 1));
-        
+        CSImGui::BeginModernChild("AudioLogScrolling", ImVec2(0, 100), true, ImGuiWindowFlags_HorizontalScrollbar);
+
         for (const auto& item : Items) {
             if (item.find("[FAIL]") != std::string::npos || item.find("Error") != std::string::npos || item.find("Xung đột") != std::string::npos) {
                 ImGui::TextColored(ImVec4(1.0f, 0.4f, 0.4f, 1.0f), "%s", item.c_str());
@@ -36,9 +35,8 @@ struct AudioPopupLogger {
             }
         }
         
-        ImGui::PopStyleVar();
         if (ScrollToBottom) { ImGui::SetScrollHereY(1.0f); ScrollToBottom = false; }
-        ImGui::EndChild();
+        CSImGui::EndModernChild();
     }
 };
 
@@ -135,66 +133,85 @@ void DrawAudioDashboardTab(AudioFilterManager& afMgr) {
 }
 
 void DrawEqualizerAndChannelTab(AudioFilterManager& afMgr) {
-    ImVec2 avail = ImGui::GetContentRegionAvail();
-    CSImGui::ModernHeader("Định Chính Equalizer (Graphic EQ)", 1.0f);
+    CSImGui::ModernHeader("Định Chính Equalizer (5-Band Mặc Định)", 1.0f);
     ImGui::Spacing();
 
-    auto* f_eq = afMgr.FindFilter("f_eq");
-    bool eq_enabled = f_eq ? f_eq->enabled : false;
+    // Lấy band đầu tiên làm mốc đại diện để kiểm tra trạng thái Bật/Tắt của cả hệ thống EQ
+    auto* eq_master = afMgr.FindFilter("eq_band0");
+    bool eq_enabled = eq_master ? eq_master->enabled : false;
 
     if (CSImGui::ModernCheckbox("Kích Hoạt Equalizer Engine", &eq_enabled, CheckboxStyle::Tick)) {
-        afMgr.SetFilterEnabled("f_eq", eq_enabled);
-        g_AudioLogger.Log(std::string("Thay đổi trạng thái Equalizer -> ") + (eq_enabled ? "BẬT" : "TẮT"));
+        // Bật hoặc tắt đồng loạt cả 5 dải tần
+        afMgr.SetFilterEnabled("eq_band0", eq_enabled);
+        afMgr.SetFilterEnabled("eq_band1", eq_enabled);
+        afMgr.SetFilterEnabled("eq_band2", eq_enabled);
+        afMgr.SetFilterEnabled("eq_band3", eq_enabled);
+        afMgr.SetFilterEnabled("eq_band4", eq_enabled);
+        g_AudioLogger.Log(std::string("Thay đổi trạng thái Toàn bộ Hệ EQ -> ") + (eq_enabled ? "BẬT" : "TẮT"));
     }
+    
     ImGui::Spacing();
     ImGui::Separator();
     ImGui::Spacing();
 
-    if (f_eq) {
-        if (!eq_enabled) ImGui::BeginDisabled();
+    if (!eq_enabled) ImGui::BeginDisabled();
 
-        const char* bands[5] = { "Sub-Bass (60 Hz)", "Bass/Low (250 Hz)", "Midrange (1 kHz)", "Upper-Mid (4 kHz)", "Treble/High (16 kHz)" };
-        const char* keys[5]  = { "gain0", "gain1", "gain2", "gain3", "gain4" };
+    const char* bands[5] = { "Sub-Bass (60 Hz)", "Bass/Low (250 Hz)", "Midrange (1 kHz)", "Upper-Mid (4 kHz)", "Treble/High (16 kHz)" };
+    const char* filter_ids[5] = { "eq_band0", "eq_band1", "eq_band2", "eq_band3", "eq_band4" };
+
+    if (ImGui::BeginTable("EQ_Grid_Core", 3, ImGuiTableFlags_SizingFixedFit | ImGuiTableFlags_NoHostExtendX)) {
+        ImGui::TableSetupColumn("Label", ImGuiTableColumnFlags_WidthFixed, 140.0f);
+        ImGui::TableSetupColumn("Slider", ImGuiTableColumnFlags_WidthStretch);
+        ImGui::TableSetupColumn("Input", ImGuiTableColumnFlags_WidthFixed, 65.0f);
 
         for (int i = 0; i < 5; i++) {
+            auto* f_band = afMgr.FindFilter(filter_ids[i]);
+            if (!f_band) continue;
+
+            ImGui::TableNextRow(ImGuiTableRowFlags_None, 24.0f);
+            
+            // Cột 1: Label dải tần
+            ImGui::TableSetColumnIndex(0);
+            ImGui::AlignTextToFramePadding();
+            ImGui::TextDisabled("%s", bands[i]);
+
+            // Cột 2: Slider điều chỉnh gain 'g'
+            ImGui::TableSetColumnIndex(1);
             ImGui::PushID(i);
             
-            float current_gain = f_eq->params.count(keys[i]) ? f_eq->params.at(keys[i]).current : 0.0f;
-            
-            // Hiển thị nhãn tên dải tần
-            ImGui::TextDisabled("%s", bands[i]);
-            
-            // Ép Slider và Input số nằm cùng một hàng ngang cho gọn
-            
-            float slider_width = avail.x - 80.0f; // Dành chỗ cho Input số bên phải
-            // Sử dụng hàm ModernSliderFloat với cấu hình animation mặc định, độ cao thanh 4.0f, bán kính grab 6.0f
-            if (CSImGui::ModernSliderFloat((std::string("##slider_") + keys[i]).c_str(), 
-                                           &current_gain, -20.0f, 20.0f, 
-                                           4.0f, 6.0f, "%.1f dB", slider_width
-                                           )) 
-            {
-                afMgr.UpdateParam("f_eq", keys[i], current_gain);
-                g_AudioLogger.Log("Cập nhật EQ Band [" + std::string(bands[i]) + "] -> " + std::to_string(current_gain) + " dB");
+            float current_gain = f_band->params.count("g") ? f_band->params.at("g").current : 0.0f;
+            float available_width = ImGui::GetContentRegionAvail().x;
+
+            if (CSImGui::ModernSliderFloat("##slider", &current_gain, -20.0f, 20.0f, 4.0f, 6.0f, "%.1f dB", available_width)) {
+                afMgr.UpdateParam(filter_ids[i], "g", current_gain);
+                g_AudioLogger.Log("Cập nhật " + std::string(bands[i]) + " -> " + std::to_string(current_gain) + " dB");
             }
-            
-            // Ô nhập số tinh chỉnh nhanh nằm ngay cạnh bên phải của slider
-            ImGui::SameLine();
-            if (ImGui::InputFloat((std::string("##input_") + keys[i]).c_str(), &current_gain, 0.0f, 0.0f, "%.1f")) {
+
+            // Cột 3: Ô nhập số trực tiếp
+            ImGui::TableSetColumnIndex(2);
+            ImGui::SetNextItemWidth(65.0f);
+            if (ImGui::InputFloat("##input", &current_gain, 0.0f, 0.0f, "%.1f")) {
                 current_gain = std::clamp(current_gain, -20.0f, 20.0f);
-                afMgr.UpdateParam("f_eq", keys[i], current_gain);
+                afMgr.UpdateParam(filter_ids[i], "g", current_gain);
+                g_AudioLogger.Log("Nhập thủ công " + std::string(bands[i]) + " -> " + std::to_string(current_gain) + " dB");
             }
-
+            
             ImGui::PopID();
-            ImGui::Spacing(); // Khoảng cách giãn giữa các hàng EQ
         }
-
-        if (!eq_enabled) ImGui::EndDisabled();
+        ImGui::EndTable();
     }
 
-    CSImGui::ModernHeader("Cấu Hình Kênh Loa", 1.0f);
-    ImGui::Spacing();
-    DrawChannelDistributionControls(afMgr);
+    if (!eq_enabled) ImGui::EndDisabled();
 
+    // Khối cấu hình kênh loa giữ nguyên phía dưới
+    ImGui::Spacing();
+    ImGui::Separator();
+    ImGui::Spacing();
+    CSImGui::ModernHeader("Cấu Hình Kênh Loa (Output Channels)", 1.0f);
+    ImGui::Spacing();
+    CSImGui::BeginCard();
+    DrawChannelDistributionControls(afMgr);
+    CSImGui::EndCard();
 }
 
 void DrawDynamicMatrixTab(AudioFilterManager& afMgr) {
