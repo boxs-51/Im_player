@@ -142,11 +142,11 @@ void DrawEqualizerAndChannelTab(AudioFilterManager& afMgr) {
 
     if (CSImGui::ModernCheckbox("Kích Hoạt Equalizer Engine", &eq_enabled, CheckboxStyle::Tick)) {
         // Bật hoặc tắt đồng loạt cả 5 dải tần
-        afMgr.SetFilterEnabled("eq_band0", eq_enabled);
-        afMgr.SetFilterEnabled("eq_band1", eq_enabled);
-        afMgr.SetFilterEnabled("eq_band2", eq_enabled);
-        afMgr.SetFilterEnabled("eq_band3", eq_enabled);
-        afMgr.SetFilterEnabled("eq_band4", eq_enabled);
+        afMgr.ToggleFilter("eq_band0", eq_enabled);
+        afMgr.ToggleFilter("eq_band1", eq_enabled);
+        afMgr.ToggleFilter("eq_band2", eq_enabled);
+        afMgr.ToggleFilter("eq_band3", eq_enabled);
+        afMgr.ToggleFilter("eq_band4", eq_enabled);
         g_AudioLogger.Log(std::string("Thay đổi trạng thái Toàn bộ Hệ EQ -> ") + (eq_enabled ? "BẬT" : "TẮT"));
     }
     
@@ -234,7 +234,7 @@ void DrawDynamicMatrixTab(AudioFilterManager& afMgr) {
             
             bool isEnabled = f->enabled;
             if (CSImGui::ModernCheckbox("Bật bộ lọc hiệu ứng", &isEnabled, CheckboxStyle::Tick)) {
-                afMgr.SetFilterEnabled(f->id, isEnabled);
+                afMgr.ToggleFilter(f->id, isEnabled);
                 g_AudioLogger.Log("Thay đổi trạng thái bộ lọc " + f->id + " -> " + (isEnabled ? "BẬT" : "TẮT"));
             }
             

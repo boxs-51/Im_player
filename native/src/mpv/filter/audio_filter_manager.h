@@ -10,50 +10,54 @@
 #include <mpv/client.h>
 
 enum class AudioPreset {
-    Flat,       // Cân bằng phòng thu
-    Pop,        // Tập trung vào giọng ca sĩ (Vocal) và độ sáng
-    Rock,       // Đẩy dải Trầm và Cao sắc nét, dải Trung hơi lõm (V-Shape)
-    EDM_Dance,  // Kích dải Siêu Trầm (Sub-Bass) và Treble tí tách
-    Classical   // Tối ưu dải Trung Cao (Mid-High) cho nhạc cụ dây/piano
+    Flat,           // Cân bằng phòng thu
+    Pop,            // Tập trung vào giọng ca sĩ (Vocal) và độ sáng
+    Rock,           // Đẩy dải Trầm và Cao sắc nét, dải Trung hơi lõm (V-Shape)
+    EDM_Dance,      // Kích dải Siêu Trầm (Sub-Bass) và Treble tí tách
+    Classical,      // Tối ưu dải Trung Cao cho nhạc cụ dây/piano
+    // --- CÁC PRESET MỚI BỔ SUNG ---
+    Acoustic,       // Chuyên trị nhạc cụ gỗ, guitar, tôn giọng mộc mạc
+    Gaming_FPS,     // Lọc dải trầm, tăng dải Trung-Cao để nghe rõ tiếng bước chân/súng
+    Movie_Cinema,   // Giả lập rạp phim: Đẩy Sub-bass tạo độ rung chấn và tăng rõ lời thoại
+    Deep_Bass       // Chỉ tập trung tăng cường độ lực cho dải siêu trầm (Basshead)
 };
-// Định nghĩa các cấp độ Log để UI dễ dàng đổi màu sắc (Trắng, Vàng, Đỏ)
+
 enum class LogLevel {
     Info,
     Warning,
     Error,
     AI_Action
 };
+
 struct LogEntry {
     std::string timestamp;
     std::string message;
     LogLevel level;
 };
 
-// Cấu trúc lưu trữ thông số của từng Parameter trong bộ lọc
+// Cấu trúc lưu trữ thông số Parameter nâng cấp
 struct FilterParam {
-    float current; // Giá trị hiện tại
-    float min;     // Giá trị nhỏ nhất cho phép
-    float max;     // Giá trị lớn nhất cho phép
-    float def;     // Giá trị mặc định ban đầu
+    float current;     // Giá trị thời gian thực hiện tại (AI có thể thay đổi liên tục)
+    float min;         // Giá trị nhỏ nhất cho phép
+    float max;         // Giá trị lớn nhất cho phép
+    float def;         // Giá trị mặc định ban đầu
+    float user_target; // Ghi nhớ giá trị gốc do CHÍNH NGƯỜI DÙNG thiết lập/kéo trên UI
 
     float lastSent = 999999.0f;
 };
 
-// Cấu trúc lưu trữ thông tin của một Bộ lọc Âm thanh (Audio Filter)
 struct AudioFilter {
-    std::string id;       // Định danh duy nhất (Ví dụ: "eq_b0", "f_bass")
-    std::string name;     // Tên bộ lọc thực tế trong FFmpeg (Ví dụ: "equalizer", "bass")
-    bool enabled;         // Trạng thái Bật/Tắt
-    std::map<std::string, FilterParam> params; // Danh sách các tham số đi kèm
-    std::string group;    // Nhóm bộ lọc để xử lý xung đột loại trừ (Ví dụ: "spatial", "dynamics")
+    std::string id;       
+    std::string name;     
+    bool enabled;         
+    std::map<std::string, FilterParam> params; 
+    std::string group;    
 
-    bool isBypassManagement = false; // Cờ đặc biệt để loại trừ khỏi hệ thống quản lý xung đột nhóm (Dành cho bộ lọc bypass)
-    // Hàm sinh chuỗi khởi tạo chuẩn Key-Value cho các bộ lọc thông thường
+    bool isBypassManagement = false; 
+
     std::string GetInitString() const {
         std::string res = "@" + id + ":" + name;
         if (!params.empty()) {
-            
-            // XỬ LÝ ĐẶC BIỆT CHO CHORUS: Ép cấu hình mảng tránh lỗi FFmpeg core
             if (name == "chorus") {
                 float in_gain = params.count("in_gain") ? params.at("in_gain").current : 0.40f;
                 float out_gain = params.count("out_gain") ? params.at("out_gain").current : 0.40f;
@@ -61,17 +65,21 @@ struct AudioFilter {
                 return res;
             }
 
+
             res += "=";
             bool first = true;
             for (const auto& [key, p] : params) {
                 if (!first) res += ":";
                 float final_value = p.current;
                 
-                // Tự động chuyển đổi dB sang cấu trúc tuyến tính cho acompressor threshold
+                // Quy đổi an toàn từ dB sang tuyến tính khi khởi tạo chuỗi cho acompressor
                 if (name == "acompressor" && key == "threshold") {
                     final_value = std::pow(10.0f, p.current / 20.0f);
-                    if (final_value < 0.00001f) final_value = 0.00001f;
+                    if (final_value < 0.000976563f) final_value = 0.000976563f;
                     if (final_value > 1.0f) final_value = 1.0f;
+                }
+                if (id == "f_volume" && key == "volume") {
+                    final_value = std::pow(10.0f, p.current / 20.0f);
                 }
                 res += key + "=" + std::to_string(final_value);
                 first = false;
@@ -81,26 +89,45 @@ struct AudioFilter {
     }
 };
 
-// Cấu trúc thông tin Track âm thanh bổ trợ
 struct AudioTrackInfo {
     std::string displayName;
     std::string trackId;
 };
 
-// Lớp Quản lý Hệ thống Bộ lọc và Tinh chỉnh Âm thanh (Singleton Pattern)
+struct AdaptiveTargets {
+    // 1. Mảng 12 dải tần EQ Graphic
+    std::vector<float> eq_gains = std::vector<float>(12, 0.0f);
+    
+    // 2. Nhóm bộ lọc chức năng không gian / cốt lõi
+    bool crystalizer_enabled = false;
+    float crystalizer_i = 2.0f;
+    
+    bool stereo_enabled = false;
+    float stereo_m = 2.5f;
+    
+    bool comp_enabled = false;
+    float comp_th = -12.0f;
+    float comp_rt = 2.0f;
+    
+    bool reverb_enabled = false;
+    std::string reverb_preset = "none";
+
+    // 3. Nhóm mạch ngoại vi (Booster / Stabilizer) do AI tính toán hạ trần chống cháy
+    float booster_volume = 0.0f;
+    float out_comp_threshold = -12.0f;
+    float out_comp_makeup = 0.0f;
+    float out_lim_threshold = -1.0f;
+};
+
 class AudioFilterManager {
 public:
     static AudioFilterManager& Instance();
 
-    // Cấm sao chép Instance (Bảo vệ tính toàn vẹn của Singleton)
     AudioFilterManager(const AudioFilterManager&) = delete;
     AudioFilterManager& operator=(const AudioFilterManager&) = delete;
 
-    // Khởi tạo và cấu hình core hệ thống
     void Init(mpv_handle* h);
     
-    // Quản lý trạng thái và đồng bộ bộ lọc xuống libmpv
-    void SetFilterEnabled(const std::string& id, bool enabled);
     void ToggleFilter(const std::string& id, bool state);
     void SetAllFiltersState(bool enabled);
     bool IsFilterEnabled(const std::string& id);
@@ -112,25 +139,23 @@ public:
     void SetCurrentPreset(AudioPreset preset);
     void UpdateAdaptiveFilters();
 
-    // CƠ CHẾ BYPASS MỚI
     void SetFilterBypassMode(const std::string& id, bool bypassState);
     bool IsFilterBypassMode(const std::string& id);
     void SetGlobalBypassMode(bool bypassState);
     bool IsGlobalBypassEnabled() const { return m_globalBypass; }
+
+    void SetOuterStabilizerEnabled(bool enabled);
+    void SetOuterBoosterEnabled(bool enabled);
     
-    // Cập nhật giá trị thông số Real-time
     void UpdateParam(const std::string& id, const std::string& key, float value);
     void BatchUpdateParams(const std::vector<std::tuple<std::string, std::string, float>>& updates);
     
-    // Reset cấu hình bộ lọc
     void ResetFilter(const std::string& id);
     void ResetAllToDefaults();
     
-    // Giao tiếp Đọc/Ghi File lưu trữ dữ liệu (JSON/TXT)
     void SaveToFile();
     void LoadFromFile();
     
-    // Quản lý luồng Kênh Loa (Channel Mode) và Track âm thanh
     void SetChannelMode(const std::string& mode);
     std::string GetChannelMode() const { return m_channelMode; }
     
@@ -139,77 +164,82 @@ public:
     std::string GetCurrentAudioTrack() const { return m_currentAudioTrack; }
     const std::vector<AudioTrackInfo>& GetAudioTracks() const { return m_audioTracks; }
 
-    // Tìm kiếm nhanh bộ lọc theo ID để UI truy cập dữ liệu vẽ Slider
     AudioFilter* FindFilter(const std::string& id);
     const std::vector<AudioFilter>& GetFilters() const { return m_filters; }
 
     mpv_handle* GetMpvHandle() { return mpv; }
 
 public:
-    // Hàm đẩy Log vào hệ thống (Dùng trong nội bộ Manager)
-    void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
+    // Các biến quản lý độc lập được chuyển sang public để UI dễ tương tác
+    bool m_autoMode;                 // Chế độ Auto của AI toàn cục
+    bool m_enableOuterStabilizer;    // Quản lý riêng bộ Ổn định ngoại vi (f_out_compressor & f_out_limiter)
+    bool m_enableOuterBooster;       // Quản lý riêng bộ Tăng cường âm lượng ngoài (f_vol_booster)
 
-    // Hàm public cho UI gọi lấy dữ liệu lên vẽ
-    const std::vector<LogEntry>& GetLogs()  ;
+    void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
+    const std::vector<LogEntry>& GetLogs();
     void ClearLogs();
 
 private:
     std::vector<LogEntry> m_logs;
     std::mutex m_logMutex;
-    const size_t MAX_LOG_SIZE = 100; // Giới hạn bộ nhớ tránh tràn RAM khi chạy lâu
+    const size_t MAX_LOG_SIZE = 100;
     
 private:
-    AudioFilterManager() : mpv(nullptr), m_channelMode("stereo") {}
+    AudioFilterManager() : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
     ~AudioFilterManager() = default;
 
-    // Hàm helper nội bộ để đăng ký bộ lọc và tham số
     void AddFilter(const std::string& id, const std::string& name, const std::string& group);
     void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);
     
     void EvaluateSystemSafety();
-
-    // Đẩy toàn bộ chuỗi filter logic xuống MPV Core thông qua "af" property
     void SyncAll();
 
 private:
-    // Cấu trúc gom cụm dữ liệu đầu vào phục vụ phân tích toán thuật AI
     struct AudioContext {
-        double volume;
-        double speed;
-        int64_t sample_rate;
-        int64_t channel_count;
-        double bitrate_kbps;
-        std::string codec;
-        bool is_audio_only;
+        double volume = 0.0f;
+        double speed = 0.0f;
+        int64_t sample_rate = 0;
+        int64_t channel_count = 0;
+        double bitrate_kbps = 0.0f;
+        std::string codec = "";
+        bool is_audio_only = false;
 
-        double output_peak;
-        double output_loudness;
+        // --- HỆ THỐNG DỮ LIỆU ĐẦU VÀO TOÀN DIỆN TỪ EBUR128 ---
+        double loudness_momentary = 0.0f;   // lavfi.r128.M  -> Độ to tức thời (cửa sổ 400ms), nhạy bén với tiếng nổ/vocal giật mình
+        double loudness_shortterm = 0.0f;   // lavfi.r128.S  -> Độ to ngắn hạn (cửa sổ 3s), biểu thị cảm nhận âm lượng thực tế
+        double loudness_integrated = 0.0f;  // lavfi.r128.I  -> Độ to trung bình tích lũy từ đầu file đến hiện tại
+        double loudness_range = 0.0f;       // lavfi.r128.LRA -> Dải động (độ chênh lệch âm lượng giữa các phân đoạn)
+        double loudness_lra_low = 0.0f;   // lavfi.r128.LRA.low  -> Ngưỡng đáy năng lượng tích lũy (LUFS)
+        double loudness_lra_high = 0.0f;  // lavfi.r128.LRA.high -> Ngưỡng đỉnh năng lượng tích lũy (LUFS)
+        
+        double true_peak = 0.0f;            // lavfi.r128.true_peak     -> Đỉnh sóng thực cao nhất (Hệ tuyến tính 0.0 -> 1.0)
+        double true_peak_ch0 = 0.0f;        // lavfi.r128.true_peak_ch0 -> Đỉnh sóng thực kênh trái (Linear)
+        double true_peak_ch1 = 0.0f;        // lavfi.r128.true_peak_ch1 -> Đỉnh sóng thực kênh phải (Linear)
+
     };
 
-    // 4 Trợ lý xử lý phân rã (Sub-modules)
     AudioContext ExtractCurrentContext();
     bool CheckEnvironmentHysteresis(const AudioContext& ctx);
-    void AnalyzeContextAndCalculateTargets(const AudioContext& ctx, std::vector<float>& targetGains, 
-                                           bool& target_crystalizer, float& crystalizer_i,
-                                           bool& target_stereo, float& stereo_m,
-                                           bool& target_comp, float& comp_th, float& comp_rt,
-                                           bool& target_reverb, std::string& reverb_preset); // Hiệu ứng mới
+    AdaptiveTargets AnalyzeContextAndCalculateTargets(const AudioContext& ctx);
+
     void DispatchParametersToMPV(bool need_sync_structure, bool parameter_changed);
 
 private:
+    
     mpv_handle* mpv;
     std::string path;
     std::string m_channelMode;
     std::string m_currentAudioTrack;
     
     std::vector<AudioFilter> m_filters;
-    std::unordered_map<std::string, size_t> m_filterIndex; // Bảng băm index tối ưu tốc độ tìm kiếm O(1)
+    std::unordered_map<std::string, size_t> m_filterIndex; 
     std::vector<AudioTrackInfo> m_audioTracks;
 
     MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     VideoInfo& g_videoInfo = GetVideoInfo();
 
-    bool m_globalBypass = false; // Cờ tắt toàn bộ hệ thống quản lý xung đột (Dành cho trường hợp cực đoan)
-    bool m_autoMode = false;
+    const int MIN_EQ_BANDS = 12;
+
+    bool m_globalBypass = false; 
     AudioPreset m_currentPreset = AudioPreset::Flat;
 };

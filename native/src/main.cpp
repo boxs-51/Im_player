@@ -9,6 +9,8 @@
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
 
+#include <mpv/filter/audio_filter_manager.h>
+
 #include <popup/popup.h>
 
 #include "utils.h"
@@ -565,6 +567,9 @@ int main(int argc, char** argv) {
         }
 
         mpv_update_seek_pending(mpv.mpv);
+
+        // Đẩy lệnh tính toán tự động real-time
+        AudioFilterManager::Instance().UpdateAdaptiveFilters();
         // Giả sử vòng lặp chính (Main Loop) của bạn chạy ở 60Hz hoặc không giới hạn
         double targetInterval = 1; // Mặc định: Render mỗi frame (Max speed)
 
