@@ -90,14 +90,14 @@ void AudioFilterManager::Init(mpv_handle* h) {
     RegisterParam("f_out_compressor", "ratio",     1.0f, 20.0f, 4.0f);    
     RegisterParam("f_out_compressor", "attack",    0.01f, 100.0f, 5.0f);   
     RegisterParam("f_out_compressor", "release",   10.0f, 1000.0f, 50.0f); 
-    RegisterParam("f_out_compressor", "makeup",    1.0f, 10.0f, 2.0f);     
+    RegisterParam("f_out_compressor", "makeup",    1.0f, 64.0f, 2.0f);     
 
     AddFilter("f_out_limiter", "acompressor", "outer_stabilizer");
     RegisterParam("f_out_limiter", "threshold", -30.0f, 0.0f, -1.0f);   
     RegisterParam("f_out_limiter", "ratio",     1.0f, 20.0f, 20.0f);  
     RegisterParam("f_out_limiter", "attack",    0.01f, 100.0f, 1.0f);   
     RegisterParam("f_out_limiter", "release",   10.0f, 1000.0f, 100.0f);
-    RegisterParam("f_out_limiter", "makeup",    1.0f, 10.0f, 1.0f);     
+    RegisterParam("f_out_limiter", "makeup",    1.0f, 64.0f, 1.0f);     
 }
 
 void AudioFilterManager::AddFilter(const std::string& id, const std::string& name, const std::string& group) {
@@ -734,6 +734,7 @@ bool AudioFilterManager::CheckEnvironmentHysteresis(const AudioContext& ctx) {
 AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const AudioContext& ctx) 
 {   
     AdaptiveTargets targets;
+    
     // 1. Khởi tạo cấu hình Preset cơ bản
     switch (m_currentPreset) {
         case AudioPreset::Pop:          targets.eq_gains = { -2.0f, -1.0f, 0.0f, 2.0f, 3.0f, 4.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f }; break;
@@ -743,48 +744,48 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
         case AudioPreset::Acoustic:     targets.eq_gains = { 2.0f, 2.0f, 3.0f, 1.0f, 0.0f, 2.0f, 3.0f, 4.0f, 4.0f, 3.0f, 3.0f, 2.0f }; break;
         case AudioPreset::Gaming_FPS:   targets.eq_gains = { -8.0f, -6.0f, -4.0f, -2.0f, 1.0f, 3.0f, 4.0f, 7.0f, 6.0f, 5.0f, 2.0f, 0.0f }; break;
         case AudioPreset::Movie_Cinema: targets.eq_gains = { 7.0f, 6.0f, 4.0f, 1.0f, -1.0f, 2.0f, 4.0f, 5.0f, 3.0f, 2.0f, 3.0f, 4.0f }; break;
-        case AudioPreset::Deep_Bass:    targets.eq_gains = { 9.0f, 9.0f, 8.0f, 5.0f, 2.0f, 0.0f, -1.0f, -1.0f, 0.0f, 1.0f, 2.0f, 2.0f }; break;
+        case AudioPreset::Deep_Bass:    targets.eq_gains = { 8.0f, 8.5f, 7.5f, 2.0f, -1.0f, -2.0f, -1.5f, 0.0f, 0.5f, 1.0f, 1.5f, 1.0f }; break;
         case AudioPreset::Flat:
         default:                        targets.eq_gains = { 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f }; break;
     }
 
-    // --- BIẾN ĐIỀU PHỐI AI TRUNG GIAN CHO CÁC BỘ LỌC NGOẠI VI ---
-    // Ngăn chặn việc ghi đè trực tiếp lên cấu trúc .current của filter làm hỏng mạch mượt tiếng
-    bool is_transient_shock = false;
-    bool is_night_mode_active = false;
+    // =========================================================================
+    // CƠ CHẾ LẤY TRUNG BÌNH GIẢM NHẠY CẢM (EMA METRICS SMOOTHING)
+    // =========================================================================
+    // Sử dụng hệ số alpha nhỏ (0.15 - 0.25) để lọc bỏ các đỉnh nhiễu giật cục
+    const double alpha_fast = 0.25;
+    const double alpha_slow = 0.10;
+    
+    // Khởi tạo mềm nếu chạy lần đầu
+    if (m_smoothedTruePeak <= 0.0) m_smoothedTruePeak = ctx.true_peak;
+    if (m_smoothedShortTerm >= 0.0) m_smoothedShortTerm = ctx.loudness_shortterm;
+
+    m_smoothedTruePeak  = (alpha_fast * ctx.true_peak) + ((1.0 - alpha_fast) * m_smoothedTruePeak);
+    m_smoothedShortTerm = (alpha_slow * ctx.loudness_shortterm) + ((1.0 - alpha_slow) * m_smoothedShortTerm);
+
+    bool is_transient_shock = (ctx.loudness_momentary - m_smoothedShortTerm) > 8.0; // So với nền trung bình chậm
+    bool channel_clipping   = (ctx.true_peak_ch0 > 0.98 || ctx.true_peak_ch1 > 0.98);
     float recommended_vocal_boost = 0.0f;
 
-    // 2. Phân tích đặc tính động học (EBUR128 Metrics)
-    double transient_delta = ctx.loudness_momentary - ctx.loudness_shortterm;
-    if (transient_delta > 7.0) {
-        is_transient_shock = true; // Phát hiện tiếng súng, tiếng nổ đột ngột
-    }
-
-    // Thích ứng dải động rộng (LRA)
+    // Phân tích đặc tính môi trường (Giữ nguyên logic nền của bạn)
     if (ctx.loudness_range > 12.0) {
-        targets.comp_enabled = true;
-        targets.comp_th = -24.0f; 
-        targets.comp_rt = 3.0f;   
-        recommended_vocal_boost += 2.0f; // Đề xuất đẩy dải trung cho phim bom tấn
+        targets.comp_enabled = true; targets.comp_th = -24.0f; targets.comp_rt = 3.0f;   
+        recommended_vocal_boost += 2.0f;
     } 
-    else if (ctx.loudness_range > 0.1 && ctx.loudness_range < 4.0) {
-        if (!targets.comp_enabled) {
-            targets.comp_th = -10.0f;
-            targets.comp_rt = 1.5f;
-        }
+    else if (ctx.loudness_range > 0.1 && ctx.loudness_range < 4.0 && !targets.comp_enabled) {
+        targets.comp_th = -10.0f; targets.comp_rt = 1.5f;
     }
 
-    // Quản lý năng lượng lớn tích lũy (Integrated Loudness)
     if (ctx.loudness_integrated > -13.0) {
-        for (size_t i = 0; i < targets.eq_gains.size(); ++i) { // Thay bằng kích thước thực m_filters hoặc vector
-            if (targets.eq_gains[i] > 0.0f) targets.eq_gains[i] *= 0.7f;
+        for (size_t i = 0; i < targets.eq_gains.size(); ++i) {
+            if (targets.eq_gains[i] > 0.0f) {
+                float penalty = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.90f : 0.7f;
+                targets.eq_gains[i] *= penalty;
+            }
         }
     }
 
-    // Kiểm tra vỡ đỉnh độc lập kênh trái / phải để tự vệ
-    bool channel_clipping = (ctx.true_peak_ch0 > 0.98 || ctx.true_peak_ch1 > 0.98);
-
-    // 3. Phân tích thuộc tính File & Môi trường nghe
+    // Tích hợp thuộc tính File & Volume thích ứng
     if (ctx.codec == "mp3" || ctx.codec == "aac" || (ctx.bitrate_kbps > 0.0 && ctx.bitrate_kbps < 192.0)) {
         targets.eq_gains[0] += 2.5f; targets.eq_gains[9] += 3.5f;
         targets.crystalizer_enabled = true; targets.crystalizer_i = 3.8f;
@@ -793,112 +794,152 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
     if (!ctx.is_audio_only) {
         targets.eq_gains[4] += 2.0f; targets.eq_gains[5] += 3.0f; 
         if (ctx.channel_count == 2) { targets.stereo_enabled = true; targets.stereo_m = 3.5f; }
-    } else {
-        if (ctx.channel_count == 2 && m_currentPreset == AudioPreset::EDM_Dance) { targets.stereo_enabled = true; targets.stereo_m = 2.5f; }
     }
 
-    // Sửa lỗi vòng lặp cứng (12 -> targets.eq_gains.size() để quét hết 12-Band)
     if (ctx.volume < 30.0) {
         targets.eq_gains[0] += 4.0f; targets.eq_gains[9] += 3.0f; 
         targets.comp_enabled = true; targets.comp_th = -22.0f; targets.comp_rt = 1.8f;
     } else if (ctx.volume > 85.0) {
-        for (size_t i = 0; i < targets.eq_gains.size(); ++i) { 
-            if (targets.eq_gains[i] > 1.0f) targets.eq_gains[i] *= 0.4f;
+        for (float& gain : targets.eq_gains) 
+        { 
+            if (gain > 1.0f) {
+                float vol_scale = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.75f : 0.4f;
+                gain *= vol_scale; 
+            }
         }
         targets.comp_enabled = true; targets.comp_th = -5.0f; targets.comp_rt = 4.0f;
     }
 
-    if (ctx.speed > 1.25) {
-        targets.eq_gains[7] -= 1.5f; targets.eq_gains[8] -= 2.5f; targets.eq_gains[9] -= 3.5f;
-    }
-
-    if (ctx.is_audio_only && m_currentPreset == AudioPreset::Classical) {
-        targets.reverb_enabled = true; targets.reverb_preset = "large_hall";
-    } else {
-        targets.reverb_enabled = false;
-    }
-
-    // Phân tích trạng thái Night Mode độc lập
+    // Áp dụng tăng cường dải Trung (Vocal) một cách mượt mà
     if (ctx.loudness_lra_low < -36.0 && ctx.loudness_lra_low > -99.0) {
-        is_night_mode_active = true;
         recommended_vocal_boost += 1.5f;
     }
-
-    // Áp dụng tăng cường dải Trung (Vocal) một lần duy nhất dựa trên các phân tích phía trên
     if (recommended_vocal_boost > 0.0f) {
-        targets.eq_gains[5] += std::min(2.0f, recommended_vocal_boost * 0.8f); // 500Hz
-        targets.eq_gains[6] += recommended_vocal_boost;                       // 1000Hz (Vocal Core)
-        targets.eq_gains[7] += std::min(2.0f, recommended_vocal_boost * 0.8f); // 1500Hz
+        targets.eq_gains[5] += std::min(2.0f, recommended_vocal_boost * 0.8f);
+        targets.eq_gains[6] += recommended_vocal_boost; // Vocal Core
+        targets.eq_gains[7] += std::min(2.0f, recommended_vocal_boost * 0.8f);
     }
 
     // =========================================================================
-    // ĐIỀU PHỐI HỆ THỐNG NGOẠI VI KHÔNG XUNG ĐỘT (SMOOTH REAL-TIME FEEDBACK)
+    // ĐIỀU PHỐI STABILIZER ĐỘC LẬP THEO PRESET (ANTI-PUMPING & MAX SMOOTHNESS)
     // =========================================================================
-    
-    // 1. Quản lý linh hoạt Bộ kích âm (Outer Booster)
-    if (m_enableOuterBooster) {
-        auto* vol_boost = FindFilter("f_vol_booster");
-        if (vol_boost && vol_boost->enabled) {
-            float active_boost = vol_boost->params["volume"].current;
-            
-            // Nếu vỡ đỉnh kênh đơn lẻ HOẶC vỡ đỉnh tổng quát -> Hạ nhiệt khẩn cấp
-            if (channel_clipping || ctx.true_peak > 0.98) {
-                targets.booster_volume = std::max(1.0f, active_boost - 0.06f);
-            } 
-            else if (ctx.loudness_shortterm < -35.0 && active_boost < vol_boost->params["volume"].user_target) {
-                // Chỉ hồi phục khi môi trường thực sự yên tĩnh an toàn
-                targets.booster_volume = std::min(vol_boost->params["volume"].user_target, active_boost + 0.01f);
-            }
-        }
-    }
-
-    // 2. Quản lý Bộ ổn định đa tầng (Outer Stabilizer - Compressor & Limiter)
     if (m_enableOuterStabilizer) {
         auto* out_comp = FindFilter("f_out_compressor");
         auto* out_lim  = FindFilter("f_out_limiter");
 
         if (out_comp && out_lim) {
-            // Bước 1: Thu thập trạng thái hiện tại
-            float next_comp_th = out_comp->params["threshold"].current;
-            float next_comp_mk = out_comp->params["makeup"].current;
-            float next_lim_th  = out_lim->params["threshold"].current;
+            float curr_comp_th = out_comp->params["threshold"].current;
+            float curr_comp_mk = out_comp->params["makeup"].current;
+            float curr_lim_th  = out_lim->params["threshold"].current;
 
-            // Bước 2: Đánh giá mạch điều kiện theo ĐỘ ƯU TIÊN GIẢM DẦN
+            // --- BƯỚC A: ĐỊNH HÌNH BIÊN ĐỘ THEO THỂ LOẠI NHẠC (PRESET-AWARE) ---
+            float preset_target_th  = -12.0f; // Mặc định trung tính
+            float preset_max_makeup = 2.0f;
+            float step_modifier     = 1.0f;   // Hệ số kiểm soát tốc độ thích ứng
 
-            // --- CẤP ĐỘ 1: BẢO VỆ KHẨN CẤP (Ập tới khi vỡ đỉnh sóng / Shock tín hiệu) ---
+            switch (m_currentPreset) {
+                case AudioPreset::Classical:
+                case AudioPreset::Acoustic:
+                    // Nhạc cổ điển/nhạc cụ cần bảo tồn Dynamic tối đa -> Ít nén, nhả nhanh
+                    preset_target_th  = -6.0f; 
+                    preset_max_makeup = 1.0f;
+                    step_modifier     = 0.5f; // Chuyển đổi siêu chậm, siêu mượt
+                    break;
+                case AudioPreset::EDM_Dance:
+                case AudioPreset::Rock:
+                    // Nhạc điện tử cần độ đặc, độ lực -> Cho phép nén sâu hơn nhưng giữ makeup thấp để tránh pumping
+                    preset_target_th  = -16.0f;
+                    preset_max_makeup = 1.5f;
+                    step_modifier     = 1.2f; // Phản ứng nhanh theo nhịp beat
+                    break;
+                case AudioPreset::Movie_Cinema:
+                case AudioPreset::Gaming_FPS:
+                    // Phim ảnh/Gaming dải động cực rộng -> Cần ép sâu để nghe rõ tiếng chân/thì thầm
+                    preset_target_th  = -20.0f;
+                    preset_max_makeup = 3.5f;
+                    step_modifier     = 1.5f;
+                    break;
+                case AudioPreset::Deep_Bass:
+                    // Đẩy ngưỡng trần nén lên cao (-6dB) để Compressor không chạm được vào phần thân của tiếng Bass
+                    preset_target_th  = -6.0f;  
+                    preset_max_makeup = 1.0f;   // Không đẩy makeup quá cao gây vỡ trần số
+                    step_modifier     = 0.5f;   // Nhả nén và di chuyển siêu chậm để bảo toàn độ lực (Punchy)
+                    break;
+                default:
+                    break;
+            }
+
+            // --- BƯỚC B: MẠCH ĐIỀU KHIỂN THÍCH ỨNG DỰA TRÊN DỮ LIỆU ĐÃ LỌC TRUNG BÌNH ---
+
+            // CẤP ĐỘ 1: BẢO VỆ KHẨN CẤP (Dựa trên sóng thực tế để tránh Clip)
             if (is_transient_shock) {
-                targets.out_comp_threshold = -28.0f; // Ép sâu khẩn cấp hãm tiếng súng/tiếng nổ
-                targets.out_comp_makeup = 1.0f;   // Không kích nền âm thanh dội lại
+                // GIẢI PHÁP: Không ép sâu Compressor nữa (tránh bóp nghẹt bài hát).
+                // Giữ nguyên Compressor ở mức nông, để mặc Limiter xử lý đỉnh nhọn.
+                targets.out_comp_threshold = std::max(-12.0f, curr_comp_th - 0.3f); 
+                targets.out_comp_makeup    = std::max(1.0f,   curr_comp_mk - 0.05f); // Hạ makeup rất nhẹ
             }
-            else if (ctx.true_peak > 0.95) {
-                targets.out_lim_threshold  = std::max(-3.0f, next_lim_th - 0.2f);   // Khóa trần trên chặn Clip số
-                targets.out_comp_threshold = std::max(-28.0f, next_comp_th - 0.5f);
-                targets.out_comp_makeup = std::max(1.0f, next_comp_mk - 0.1f);
+            else if (channel_clipping || m_smoothedTruePeak > 0.96) {
+                // Tập trung dùng Limiter để khóa trần ngọn sóng kỹ thuật số
+                float cl_distance = std::abs(curr_lim_th - (-5.0f));
+                targets.out_lim_threshold  = std::max(-5.0f,  curr_lim_th - (0.15f * cl_distance * step_modifier));
+                
+                // Nâng sàn nén khẩn cấp của Compressor lên -14dB (thay vì -24dB như cũ)
+                targets.out_comp_threshold = std::max(-14.0f, curr_comp_th - 0.4f);
+                targets.out_comp_makeup    = std::max(1.0f,   curr_comp_mk - 0.1f);
             }
-            // --- CẤP ĐỘ 2: THÍCH ỨNG TRẠNG THÁI MÔI TRƯỜNG (Chỉ chạy khi không bị đe dọa vỡ đỉnh) ---
+            // CẤP ĐỘ 2: TRẠNG THÁI ỔN ĐỊNH BÌNH THƯỜNG (Hồi phục giải phóng âm thanh)
             else {
-                // Xử lý kịch bản Night Mode / Clear Voice
-                if (is_night_mode_active) {
-                    targets.out_comp_threshold = -23.0f; // Hạ ngưỡng vừa phải để bắt được lời thì thầm
-                    
-                    float dynamic_gap = (float)(ctx.loudness_lra_high - ctx.loudness_lra_low);
-                    targets.out_comp_makeup = (dynamic_gap > 15.0f) ? 3.2f : 2.0f; // Bù âm thông minh tăng âm lượng hội thoại nhỏ
+                // Trả Limiter về mức nghỉ an toàn nhanh hơn một chút để giải phóng Dynamic
+                targets.out_lim_threshold = std::min(-0.2f, curr_lim_th + 0.08f);
+
+                if (m_smoothedShortTerm < -28.0) {
+                    // Âm thanh nhỏ: Bù đắp nhưng không cho phép Compressor lún sâu hơn -12dB
+                    float soft_target_th = std::max(preset_target_th, -12.0f); 
+                    float th_dist = std::abs(curr_comp_th - soft_target_th);
+                    targets.out_comp_threshold = std::min(soft_target_th, curr_comp_th + (0.06f * th_dist));
+                    targets.out_comp_makeup    = std::min(preset_max_makeup, curr_comp_mk + 0.04f);
                 }
-                // Xử lý kịch bản âm lượng nhỏ cần bù đắp thông thường
-                else if (ctx.loudness_shortterm < -30.0 && ctx.volume > 50.0) {
-                    targets.out_lim_threshold  = std::min(-0.5f, next_lim_th + 0.1f);
-                    targets.out_comp_makeup = std::min(4.0f, next_comp_mk + 0.05f);
-                    targets.out_comp_threshold = std::min(-12.0f, next_comp_th + 0.2f);
+                else {
+                    // Âm thanh đủ tiêu chuẩn: Đẩy Compressor về vùng "trong suốt" (Transparent Leveling)
+                    // Ngưỡng nghỉ đặt ở -4dB có nghĩa là Compressor gần như chỉ chạm nhẹ vào các nốt cao nhất
+                    float th_dist = std::abs(curr_comp_th - (-4.0f)); 
+                    targets.out_comp_threshold = std::min(-4.0f, curr_comp_th + (0.10f * th_dist * step_modifier));
+                    targets.out_comp_makeup    = std::max(1.0f,  curr_comp_mk - 0.05f);
                 }
 
-                // --- KIỂM SOÁT CHỐNG NGHẸT TIẾNG (ANTI-PUMPING) ---
-                // Áp dụng làm bộ lọc giới hạn chặn dưới (Constraint filter) để bảo vệ đoạn cao trào
-                if (ctx.loudness_shortterm >= (ctx.loudness_lra_high - 2.0)) {
-                    targets.out_comp_threshold = std::max(next_comp_th, -16.0f); // Không cho phép nén quá sâu khi nhạc đang cao trào đều
+                // --- KIỂM SOÁT ANTI-PUMPING NÂNG CAO (BẢO VỆ ĐOẠN CAO TRÀO) ---
+                // Khi tín hiệu đạt đỉnh dải động (Điệp khúc, Drop nhạc)
+                if (m_smoothedShortTerm >= (ctx.loudness_lra_high - 2.0)) {
+                    // Nâng hẳn sàn bảo vệ lên: Nhạc nhẹ/Cổ điển giữ ở -5dB, Nhạc mạnh giữ ở -8dB.
+                    // Điều này chặn đứng việc Compressor tiếp tục siết tiếng khi nhạc vào cao trào.
+                    float safe_floor = (m_currentPreset == AudioPreset::Classical || m_currentPreset == AudioPreset::Acoustic) ? -5.0f : -8.0f;
+                    targets.out_comp_threshold = std::max(targets.out_comp_threshold, safe_floor);
+                    
+                    // Nới lỏng tỷ lệ bóp gain bù để tránh âm thanh bị "thụt thò" (pumping)
+                    if (targets.out_comp_makeup > 1.0f) {
+                        targets.out_comp_makeup *= 0.96f; // Chỉ lùi nhẹ 4% thay vì gắt 12% như bản cũ
+                    }
                 }
             }
         }
     }
+
+    // 3. Quản lý Bộ kích âm Booster (Lọc mượt tương tự)
+    if (m_enableOuterBooster) {
+        auto* vol_boost = FindFilter("f_vol_booster");
+        if (vol_boost && vol_boost->enabled) {
+            float active_boost = vol_boost->params["volume"].current;
+            float user_target  = vol_boost->params["volume"].user_target;
+            
+            if (channel_clipping || m_smoothedTruePeak > 0.98) {
+                targets.booster_volume = std::max(1.0f, active_boost - 0.05f);
+            } 
+            else if (m_smoothedShortTerm < -32.0 && active_boost < user_target) {
+                targets.booster_volume = std::min(user_target, active_boost + 0.01f);
+            }
+        }
+    }
+
     return targets;
 }
 
@@ -945,31 +986,40 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
 
 void AudioFilterManager::UpdateAdaptiveFilters() {
     
-    // Giới hạn tần suất xử lý chu kỳ real-time (Throttling)
+    // 1. Giới hạn tần suất xử lý chu kỳ real-time (Throttling) để bảo vệ IPC pipe của MPV
     static auto lastUpdateTime = std::chrono::steady_clock::now();
     auto currentTime = std::chrono::steady_clock::now();
     if (std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - lastUpdateTime).count() < 150) return;
 
     lastUpdateTime = currentTime;
 
-    AudioContext ctx =  ExtractCurrentContext();
-    //CheckEnvironmentHysteresis(ctx);
-    
+    AudioContext ctx = ExtractCurrentContext();
     if (!m_autoMode || !mpv || m_globalBypass) return;
 
+    // Lấy mục tiêu đã được lọc trung bình động (EMA) từ tầng phân tích
     AdaptiveTargets targets = AnalyzeContextAndCalculateTargets(ctx);
  
-    std::vector<float> eq_gains(12, 0.0f);
-
-    const float alpha = 0.20f;  // Hệ số nội suy mượt Lerp
-    const float epsilon = 0.05f;
-
     bool need_sync_structure = false;
-    bool parameter_changed = true;
-    // Trợ thủ 1: Đồng bộ trạng thái ON/OFF của Filter
-    auto syncFilterState = [&](const std::string& id, bool target_state) -> AudioFilter* {
+    bool parameter_changed = false; // SỬA LỖI: Khởi tạo false để tối ưu hóa băng thông gửi lệnh
+
+    const float epsilon = 0.02f; // Thu hẹp sai số để tiệm cận độ chính xác cao hơn
+
+    // =========================================================================
+    // TRỢ THỦ 1: HOÃN BẬT/TẮT STRUCTURAL (SOFT BYPASS / DE-CLICKING)
+    // =========================================================================
+    // Thay vì tắt filter ngay lập tức, ta giữ nó bật cho đến khi tham số cốt lõi lerp về 0
+    auto syncFilterStateAdaptive = [&](const std::string& id, bool target_state, float current_core_val, float neutral_val) -> AudioFilter* {
         auto* filter = FindFilter(id);
         if (!filter || filter->isBypassManagement) return nullptr;
+
+        // Nếu muốn TẮT, nhưng tham số chưa kịp lùi về trạng thái trung tính (neutral) -> Hoãn tắt để tránh tiếng Pop
+        if (!target_state && filter->enabled) {
+            if (std::abs(current_core_val - neutral_val) > 0.1f) {
+                return filter; // Tiếp tục giữ filter bật để Lerp hạ cánh an toàn
+            }
+        }
+
+        // Thực thi bật/tắt khi đã thực sự an toàn
         if (filter->enabled != target_state) {
             filter->enabled = target_state;
             need_sync_structure = true;
@@ -977,76 +1027,113 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
         return filter;
     };
 
-    // Trợ thủ 2: Thực hiện Lerp cho Filter Nội bộ (Sử dụng .current trực tiếp)
-    auto lerpInternalParam = [&](AudioFilter* filter, const std::string& param_key, float target_val) {
+    // =========================================================================
+    // TRỢ THỦ 2 & 3: LERP THÍCH ỨNG THEO HƯỚNG CHUYỂN ĐỘNG (ATTACK VS RELEASE)
+    // =========================================================================
+    // Âm thanh bị gắt khi "nhả" (Release) quá nhanh. Ta cần Attack nhanh để bảo vệ, Release chậm để mượt tiếng.
+    auto lerpParamBallistics = [&](AudioFilter* filter, const std::string& param_key, float target_val, 
+                                   float base_alpha, bool is_external, float custom_eps = 0.02f) {
         if (!filter || filter->isBypassManagement || !filter->enabled || !filter->params.count(param_key)) return;
-        float& current = filter->params[param_key].current;
-        if (std::abs(current - target_val) > epsilon) {
-            current += alpha * (target_val - current);
+        
+        auto& p = filter->params[param_key];
+        float& current = p.current;
+        float reference_val = is_external ? ((p.lastSent == 999999.0f) ? p.user_target : p.lastSent) : current;
+
+        if (std::abs(reference_val - target_val) > custom_eps) {
+            float final_alpha = base_alpha;
+
+            // Xử lý động học cho bộ nén/giới hạn âm lượng (Threshold / Volume)
+            if (param_key == "threshold" || param_key == "volume") {
+                if (target_val < reference_val) {
+                    // Chiều xu hướng ÉP XUỐNG (Attack Khẩn cấp) -> Cần nhanh để chống vỡ tiếng
+                    final_alpha = std::min(0.40f, base_alpha * 1.5f); 
+                } else {
+                    // Chiều xu hướng NHẢ RA (Release Hồi phục) -> Phải thật chậm để tránh nghẹt/bơm tiếng
+                    final_alpha = std::max(0.08f, base_alpha * 0.5f); 
+                }
+            }
+            // Xử lý động học cho Gain bù (Makeup Gain) hoặc Stereo
+            else if (param_key == "makeup" || param_key == "m" || param_key == "g") {
+                if (target_val > reference_val) {
+                    final_alpha = base_alpha * 0.6f; // Đẩy âm lượng nền lên từ từ, không giật mình
+                } else {
+                    final_alpha = base_alpha * 1.2f; // Hạ xuống nhanh hơn để tránh clip trần số
+                }
+            }
+
+            float next_val = reference_val + final_alpha * (target_val - reference_val);
+            
+            current = next_val;
+            if (is_external) p.lastSent = next_val;
             parameter_changed = true;
         } else {
             current = target_val;
-        }
-    };
-
-    // Trợ thủ 3: Thực hiện Lerp cho Filter Ngoại vi (Có cơ chế kiểm tra kênh lệnh cũ lastSent)
-    auto lerpExternalParam = [&](AudioFilter* filter, const std::string& param_key, float target_val, float custom_alpha, float custom_eps) {
-        if (!filter || filter->isBypassManagement || !filter->enabled || !filter->params.count(param_key)) return;
-        auto& p = filter->params[param_key];
-        float current_val = (p.lastSent == 999999.0f) ? p.user_target : p.lastSent;
-        
-        if (std::abs(current_val - target_val) > custom_eps) {
-            float next_val = current_val + custom_alpha * (target_val - current_val);
-            p.current = next_val;
-            p.lastSent = next_val;
-            parameter_changed = true;
+            if (is_external && p.lastSent != target_val) {
+                p.lastSent = target_val;
+                parameter_changed = true;
+            }
         }
     };
 
     // =========================================================================
-    // THỰC THI CHUỖI XỬ LÝ LERPPING SAU REFRACTOR: CỰC KỲ SẠCH SẼ
+    // THỰC THI CHUỖI XỬ LÝ THEO CHIẾN LƯỢC MƯỢT HÓA TOÀN DIỆN
     // =========================================================================
 
-    // 1. Lerp mượt mà cho 12 dải tần EQ Graphic
+    // 1. Cập nhật 12 dải tần EQ Graphic (Mềm hóa bằng cơ chế hoãn ngắt cấu trúc)
     for (int i = 0; i < 12; ++i) {
-        if (auto* filter = syncFilterState("eq_b" + std::to_string(i), true)) {
-            lerpInternalParam(filter, "g", targets.eq_gains[i]);
+        std::string eq_id = "eq_b" + std::to_string(i);
+        auto* filter = FindFilter(eq_id);
+        float current_gain = filter ? filter->params["g"].current : 0.0f;
+
+        // Luôn giữ EQ bật, hoặc chỉ tắt khi Gain đã lùi sát về 0.0f
+        if (auto* active_filter = syncFilterStateAdaptive(eq_id, true, current_gain, 0.0f)) {
+            lerpParamBallistics(active_filter, "g", targets.eq_gains[i], 0.22f, false);
         }
     }
 
-    // 2. Lerp mượt mà cho các Filter chức năng không gian nội bộ
-    if (auto* f = syncFilterState("f_crystalizer", targets.crystalizer_enabled)) {
-        lerpInternalParam(f, "i", targets.crystalizer_i);
-    }
-    if (auto* f = syncFilterState("f_stereo", targets.stereo_enabled)) {
-        lerpInternalParam(f, "m", targets.stereo_m);
-    }
-    if (auto* f = syncFilterState("f_comp", targets.comp_enabled)) {
-        lerpInternalParam(f, "threshold", targets.comp_th);
-        lerpInternalParam(f, "ratio", targets.comp_rt);
-
+    // 2. Cập nhật các Filter chức năng không gian nội bộ
+    float curr_cry_i = FindFilter("f_crystalizer") ? FindFilter("f_crystalizer")->params["i"].current : 0.0f;
+    if (auto* f = syncFilterStateAdaptive("f_crystalizer", targets.crystalizer_enabled, curr_cry_i, 0.0f)) {
+        lerpParamBallistics(f, "i", targets.crystalizer_i, 0.15f, false);
     }
 
-    // 3. Lerp mạch bảo vệ ngoại vi (Booster & Stabilizer) thông qua Trợ thủ 3
+    float curr_ste_m = FindFilter("f_stereo") ? FindFilter("f_stereo")->params["m"].current : 1.0f; // Trung tính của stereo là 1.0
+    if (auto* f = syncFilterStateAdaptive("f_stereo", targets.stereo_enabled, curr_ste_m, 1.0f)) {
+        lerpParamBallistics(f, "m", targets.stereo_m, 0.12f, false);
+    }
+
+    float curr_comp_th = FindFilter("f_comp") ? FindFilter("f_comp")->params["threshold"].current : 0.0f;
+    if (auto* f = syncFilterStateAdaptive("f_comp", targets.comp_enabled, curr_comp_th, 0.0f)) {
+        lerpParamBallistics(f, "threshold", targets.comp_th, 0.20f, false);
+        lerpParamBallistics(f, "ratio", targets.comp_rt, 0.20f, false);
+    }
+
+    // 3. Cập nhật Mạch bảo vệ ngoại vi (Gửi lệnh mượt xuống MPV)
     if (m_enableOuterBooster) {
-        if (auto* f = FindFilter("f_vol_booster")) { // Booster giữ nguyên trạng thái bật tắt ngoại vi
-            lerpExternalParam(f, "volume", targets.booster_volume, 0.15f, 0.01f);
+        if (auto* f = FindFilter("f_vol_booster")) {
+            lerpParamBallistics(f, "volume", targets.booster_volume, 0.15f, true, 0.005f);
         }
     }
 
     auto* out_comp = FindFilter("f_out_compressor");
     auto* out_lim  = FindFilter("f_out_limiter");
     if (out_comp && out_comp->enabled && out_lim && out_lim->enabled) {
-        lerpExternalParam(out_comp, "threshold", targets.out_comp_threshold, alpha, epsilon);
-        lerpExternalParam(out_comp, "makeup", targets.out_comp_makeup, alpha, epsilon);
-        lerpExternalParam(out_lim, "threshold", targets.out_lim_threshold, alpha, epsilon);
+        // Áp dụng định luật Dynamic Ballistics riêng cho bộ ổn định tầng cuối chống pumping
+        lerpParamBallistics(out_comp, "threshold", targets.out_comp_threshold, 0.18f, true);
+        lerpParamBallistics(out_comp, "makeup", targets.out_comp_makeup, 0.12f, true);
+        lerpParamBallistics(out_lim, "threshold", targets.out_lim_threshold, 0.25f, true);
     }
 
-    if (auto* reverb = syncFilterState("f_reverb", targets.reverb_enabled)) {
+    // Reverb Soft-Bypass
+    float curr_rev_mix = FindFilter("f_reverb") ? FindFilter("f_reverb")->params["mix"].current : 0.0f;
+    if (auto* reverb = syncFilterStateAdaptive("f_reverb", targets.reverb_enabled, curr_rev_mix, 0.0f)) {
+        lerpParamBallistics(reverb, "mix", targets.reverb_enabled ? 0.3f : 0.0f, 0.10f, false);
     }
 
-    DispatchParametersToMPV(need_sync_structure, parameter_changed);
-
+    // 4. Chỉ đẩy dữ liệu đi khi thực sự có biến động cấu trúc hoặc chỉ số thay đổi
+    if (need_sync_structure || parameter_changed) {
+        DispatchParametersToMPV(need_sync_structure, parameter_changed);
+    }
 }
 
 void AudioFilterManager::SetCurrentPreset(AudioPreset preset) {

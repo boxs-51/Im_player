@@ -242,4 +242,7 @@ private:
 
     bool m_globalBypass = false; 
     AudioPreset m_currentPreset = AudioPreset::Flat;
+
+    double m_smoothedTruePeak = 0.0f;
+    double m_smoothedShortTerm = 0.0f;
 };
