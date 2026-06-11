@@ -352,6 +352,7 @@ static void InitMPVObservers_Cache(mpv_handle* mpv) {
 static void InitMPVObservers_AllNode(mpv_handle* mpv) {
     // MPV_FORMAT_NODE: sẽ nhận toàn bộ giá trị có thể
     mpv_observe_property(mpv, 0, "/*", MPV_FORMAT_NODE);
+    mpv_observe_property(mpv, 0, "af-metadata/ebur_measurer", MPV_FORMAT_NODE);
 }
 // ===================================================
 // 🚀 Entry point
@@ -622,6 +623,61 @@ static void UpdateMetadata(const mpv_node* node) {
     g_videoInfo.metadata.swap(tmp);
 
 }
+void UpdateLoudnessMetadata(const mpv_node* node) {
+    if (!node || node->format != MPV_FORMAT_NODE_MAP) return;
+    mpv_node_list* list = node->u.list;
+    
+    // Hàm chuyển đổi an toàn từ chuỗi sang Double hệ dB
+    auto parse_db = [](const char* str) -> double {
+        if (!str || std::string(str) == "-inf") return -99.0;
+        try { return std::stod(str); } catch (...) { return -99.0; }
+    };
+    auto& ctx = g_videoInfo.g_audioarams;
+
+    for (int i = 0; i < list->num; i++) {
+        if (list->values[i].format != MPV_FORMAT_STRING) continue;
+        std::string key = list->keys[i];
+        const char* val_str = list->values[i].u.string;
+
+        if (key == "lavfi.r128.M") {
+            ctx.loudness_momentary = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.S") {
+            ctx.loudness_shortterm = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.I") {
+            ctx.loudness_integrated = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.LRA") {
+            try { ctx.loudness_range = std::stod(val_str); } catch (...) {}
+        } 
+        else if (key == "lavfi.r128.LRA.low") {
+            ctx.loudness_lra_low = parse_db(val_str);
+        }
+        else if (key == "lavfi.r128.LRA.high") {
+            ctx.loudness_lra_high = parse_db(val_str);
+        }
+        else if (key == "lavfi.r128.true_peak") {
+            ctx.true_peak = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.true_peaks_ch0") {
+            ctx.true_peak_ch0 = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.true_peaks_ch1") {
+            ctx.true_peak_ch1 = parse_db(val_str);
+        } 
+        else if (key == "lavfi.r128.sample_peaks_ch0") {
+            ctx.sample_peak_ch0 = parse_db(val_str);
+        }
+        else if (key == "lavfi.r128.sample_peaks_ch1") {
+            ctx.sample_peak_ch1 = parse_db(val_str);
+        }
+        else if (key == "lavfi.r128.sample_peak") {
+            ctx.sample_peak = parse_db(val_str);
+        }
+    }
+
+}
 void ProcessMPVEvents(mpv_handle* mpv ) {
     while (mpv_event* event = mpv_wait_event(mpv, 0)) {
         if(event->event_id == MPV_EVENT_NONE) break;
@@ -870,6 +926,9 @@ void ProcessMPVEvents(mpv_handle* mpv ) {
                     }
         
                     else if (strcmp(name, "audio-device-list") == 0)          UpdateAudioDeviceList((const mpv_node*)prop->data);
+                    else if (strcmp(name, "af-metadata/ebur_measurer") == 0) {
+                        UpdateLoudnessMetadata((const mpv_node*)prop->data);
+                    }
                     break;
                 }
                 case MPV_FORMAT_NODE_ARRAY:

@@ -94,6 +94,34 @@ struct AudioTrackInfo {
     std::string trackId;
 };
 
+struct AudioContext {
+    double volume = 0.0f;
+    double speed = 0.0f;
+    int64_t sample_rate = 0;
+    int64_t channel_count = 0;
+    double bitrate_kbps = 0.0f;
+    std::string codec = "";
+    bool is_audio_only = false;
+
+    // --- HỆ THỐNG DỮ LIỆU ĐẦU VÀO TOÀN DIỆN TỪ EBUR128 ---
+    double loudness_momentary = 0.0f;   // lavfi.r128.M  -> Độ to tức thời (cửa sổ 400ms), nhạy bén với tiếng nổ/vocal giật mình
+    double loudness_shortterm = 0.0f;   // lavfi.r128.S  -> Độ to ngắn hạn (cửa sổ 3s), biểu thị cảm nhận âm lượng thực tế
+    double loudness_integrated = 0.0f;  // lavfi.r128.I  -> Độ to trung bình tích lũy từ đầu file đến hiện tại
+    double loudness_range = 0.0f;       // lavfi.r128.LRA -> Dải động (độ chênh lệch âm lượng giữa các phân đoạn)
+    double loudness_lra_low = 0.0f;   // lavfi.r128.LRA.low  -> Ngưỡng đáy năng lượng tích lũy (LUFS)
+    double loudness_lra_high = 0.0f;  // lavfi.r128.LRA.high -> Ngưỡng đỉnh năng lượng tích lũy (LUFS)
+    
+    double true_peak = 0.0f;            // lavfi.r128.true_peak     -> Đỉnh sóng thực cao nhất (Hệ tuyến tính 0.0 -> 1.0)
+    double true_peak_ch0 = 0.0f;        // lavfi.r128.true_peak_ch0 -> Đỉnh sóng thực kênh trái (Linear)
+    double true_peak_ch1 = 0.0f;        // lavfi.r128.true_peak_ch1 -> Đỉnh sóng thực kênh phải (Linear)
+
+    double sample_peak = 0.0f;
+    double sample_peak_ch0 = 0.0f;
+    double sample_peak_ch1 = 0.0f;
+
+};
+
+
 struct AdaptiveTargets {
     // 1. Mảng 12 dải tần EQ Graphic
     std::vector<float> eq_gains = std::vector<float>(12, 0.0f);
@@ -137,7 +165,9 @@ public:
     bool IsAdaptiveMode() const { return m_autoMode; }
     AudioPreset GetCurrentPreset() const { return m_currentPreset; }
     void SetCurrentPreset(AudioPreset preset);
+
     void UpdateAdaptiveFilters();
+    const AudioContext& GetCurrentContext() const { return m_currentContext; }
 
     void SetFilterBypassMode(const std::string& id, bool bypassState);
     bool IsFilterBypassMode(const std::string& id);
@@ -195,28 +225,6 @@ private:
     void SyncAll();
 
 private:
-    struct AudioContext {
-        double volume = 0.0f;
-        double speed = 0.0f;
-        int64_t sample_rate = 0;
-        int64_t channel_count = 0;
-        double bitrate_kbps = 0.0f;
-        std::string codec = "";
-        bool is_audio_only = false;
-
-        // --- HỆ THỐNG DỮ LIỆU ĐẦU VÀO TOÀN DIỆN TỪ EBUR128 ---
-        double loudness_momentary = 0.0f;   // lavfi.r128.M  -> Độ to tức thời (cửa sổ 400ms), nhạy bén với tiếng nổ/vocal giật mình
-        double loudness_shortterm = 0.0f;   // lavfi.r128.S  -> Độ to ngắn hạn (cửa sổ 3s), biểu thị cảm nhận âm lượng thực tế
-        double loudness_integrated = 0.0f;  // lavfi.r128.I  -> Độ to trung bình tích lũy từ đầu file đến hiện tại
-        double loudness_range = 0.0f;       // lavfi.r128.LRA -> Dải động (độ chênh lệch âm lượng giữa các phân đoạn)
-        double loudness_lra_low = 0.0f;   // lavfi.r128.LRA.low  -> Ngưỡng đáy năng lượng tích lũy (LUFS)
-        double loudness_lra_high = 0.0f;  // lavfi.r128.LRA.high -> Ngưỡng đỉnh năng lượng tích lũy (LUFS)
-        
-        double true_peak = 0.0f;            // lavfi.r128.true_peak     -> Đỉnh sóng thực cao nhất (Hệ tuyến tính 0.0 -> 1.0)
-        double true_peak_ch0 = 0.0f;        // lavfi.r128.true_peak_ch0 -> Đỉnh sóng thực kênh trái (Linear)
-        double true_peak_ch1 = 0.0f;        // lavfi.r128.true_peak_ch1 -> Đỉnh sóng thực kênh phải (Linear)
-
-    };
 
     AudioContext ExtractCurrentContext();
     bool CheckEnvironmentHysteresis(const AudioContext& ctx);
@@ -245,4 +253,7 @@ private:
 
     double m_smoothedTruePeak = 0.0f;
     double m_smoothedShortTerm = 0.0f;
+    double m_smoothedSamplePeak = 0.0f;
+
+    AudioContext m_currentContext;
 };

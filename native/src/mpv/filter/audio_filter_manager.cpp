@@ -499,7 +499,7 @@ void AudioFilterManager::SyncAll() {
     }
 
     if (!full_af.empty()) full_af += ",";
-    full_af += "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=true]";
+    full_af += "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
     
     mpv_set_property_string(mpv, "af", full_af.c_str());
     
@@ -641,69 +641,31 @@ void AudioFilterManager::SetChannelMode(const std::string& mode) {
     }
 }
 
-AudioFilterManager::AudioContext AudioFilterManager::ExtractCurrentContext() {
+AudioContext AudioFilterManager::ExtractCurrentContext() {
     AudioContext ctx;
-    ctx.volume = (double)g_playbackStatus.volume;
-    ctx.speed  = g_playbackStatus.speed;
+
+    m_currentContext.volume = (double)g_playbackStatus.volume;
+    m_currentContext.speed  = g_playbackStatus.speed;
     ctx.sample_rate   = (int64_t)g_videoInfo.g_audioarams.asamplerate;
     ctx.channel_count = (int64_t)g_videoInfo.g_audioarams.channel_count;
     ctx.bitrate_kbps   = (double)(g_videoInfo.abitrate / 1000);
     ctx.codec = g_videoInfo.acodec;
     ctx.is_audio_only = g_videoInfo.width == 0 && g_videoInfo.height == 0;
 
-    mpv_node node;
-    // Lấy metadata thời gian thực từ bộ lọc có nhãn @ebur_measurer
-    if (mpv && mpv_get_property(mpv, "af-metadata/ebur_measurer", MPV_FORMAT_NODE, &node) >= 0) {
-        if (node.format == MPV_FORMAT_NODE_MAP) {
-            mpv_node_list* list = node.u.list;
-            
-            // Hàm chuyển đổi an toàn từ chuỗi sang Double hệ dB
-            auto parse_db = [](const char* str) -> double {
-                if (!str || std::string(str) == "-inf") return -99.0;
-                try { return std::stod(str); } catch (...) { return -99.0; }
-            };
+    ctx.loudness_momentary = g_videoInfo.g_audioarams.loudness_momentary;
+    ctx.loudness_shortterm = g_videoInfo.g_audioarams.loudness_shortterm;
+    ctx.loudness_integrated = g_videoInfo.g_audioarams.loudness_integrated;
+    ctx.loudness_range = g_videoInfo.g_audioarams.loudness_range;
+    ctx.loudness_lra_low = g_videoInfo.g_audioarams.loudness_lra_low;
+    ctx.loudness_lra_high = g_videoInfo.g_audioarams.loudness_lra_high;
 
-            for (int i = 0; i < list->num; i++) {
-                std::string key = list->keys[i];
-                if (list->values[i].format != MPV_FORMAT_STRING) continue;
-                const char* val_str = list->values[i].u.string;
+    ctx.true_peak = g_videoInfo.g_audioarams.true_peak;
+    ctx.true_peak_ch0 = g_videoInfo.g_audioarams.true_peak_ch0;
+    ctx.true_peak_ch1 = g_videoInfo.g_audioarams.true_peak_ch1;
 
-                if (key == "lavfi.r128.M") {
-                    ctx.loudness_momentary = parse_db(val_str);
-                } 
-                else if (key == "lavfi.r128.S") {
-                    ctx.loudness_shortterm = parse_db(val_str);
-                } 
-                else if (key == "lavfi.r128.I") {
-                    ctx.loudness_integrated = parse_db(val_str);
-                } 
-                else if (key == "lavfi.r128.LRA") {
-                    try { ctx.loudness_range = std::stod(val_str); } catch (...) {}
-                } 
-                else if (key == "lavfi.r128.LRA.low") {
-                    ctx.loudness_lra_low = parse_db(val_str);
-                }
-                else if (key == "lavfi.r128.LRA.high") {
-                    ctx.loudness_lra_high = parse_db(val_str);
-                }
-                else if (key == "lavfi.r128.true_peak") {
-                    double db = parse_db(val_str);
-                    ctx.true_peak = (db <= -99.0) ? 0.0 : std::pow(10.0, db / 20.0);
-                } 
-                else if (key == "lavfi.r128.true_peaks_ch0") {
-                    double db = parse_db(val_str);
-                    ctx.true_peak_ch0 = (db <= -99.0) ? 0.0 : std::pow(10.0, db / 20.0);
-                } 
-                else if (key == "lavfi.r128.true_peaks_ch1") {
-                    double db = parse_db(val_str);
-                    ctx.true_peak_ch1 = (db <= -99.0) ? 0.0 : std::pow(10.0, db / 20.0);
-                }
-
-            }
-        }
-        mpv_free_node_contents(&node);
-    }
-
+    ctx.sample_peak = g_videoInfo.g_audioarams.sample_peak;
+    ctx.sample_peak_ch0 = g_videoInfo.g_audioarams.sample_peak_ch0;
+    ctx.sample_peak_ch1 = g_videoInfo.g_audioarams.sample_peak_ch1;
 
     return ctx;
 }
@@ -735,7 +697,9 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
 {   
     AdaptiveTargets targets;
     
-    // 1. Khởi tạo cấu hình Preset cơ bản
+    // =========================================================================
+    // 1. KHỞI TẠO CẤU HÌNH PRESET CƠ BẢN (EQUALIZER GAINS)
+    // =========================================================================
     switch (m_currentPreset) {
         case AudioPreset::Pop:          targets.eq_gains = { -2.0f, -1.0f, 0.0f, 2.0f, 3.0f, 4.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f }; break;
         case AudioPreset::Rock:         targets.eq_gains = { 5.0f, 6.0f, 5.0f, 3.0f, -1.0f, -3.0f, -2.0f, 0.0f, 2.0f, 4.0f, 5.0f, 4.0f }; break;
@@ -750,24 +714,31 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
     }
 
     // =========================================================================
-    // CƠ CHẾ LẤY TRUNG BÌNH GIẢM NHẠY CẢM (EMA METRICS SMOOTHING)
+    // 2. MẠCH LỌC THỜI GIAN THỰC EMA (METRICS SMOOTHING)
     // =========================================================================
-    // Sử dụng hệ số alpha nhỏ (0.15 - 0.25) để lọc bỏ các đỉnh nhiễu giật cục
     const double alpha_fast = 0.25;
     const double alpha_slow = 0.10;
     
-    // Khởi tạo mềm nếu chạy lần đầu
-    if (m_smoothedTruePeak <= 0.0) m_smoothedTruePeak = ctx.true_peak;
-    if (m_smoothedShortTerm >= 0.0) m_smoothedShortTerm = ctx.loudness_shortterm;
+    if (m_smoothedTruePeak <= 0.0)   m_smoothedTruePeak = ctx.true_peak;
+    if (m_smoothedSamplePeak <= 0.0) m_smoothedSamplePeak = ctx.sample_peak; 
+    if (m_smoothedShortTerm >= 0.0)  m_smoothedShortTerm = ctx.loudness_shortterm;
 
-    m_smoothedTruePeak  = (alpha_fast * ctx.true_peak) + ((1.0 - alpha_fast) * m_smoothedTruePeak);
-    m_smoothedShortTerm = (alpha_slow * ctx.loudness_shortterm) + ((1.0 - alpha_slow) * m_smoothedShortTerm);
+    m_smoothedTruePeak   = (alpha_fast * ctx.true_peak) + ((1.0 - alpha_fast) * m_smoothedTruePeak);
+    m_smoothedSamplePeak = (alpha_fast * ctx.sample_peak) + ((1.0 - alpha_fast) * m_smoothedSamplePeak);
+    m_smoothedShortTerm  = (alpha_slow * ctx.loudness_shortterm) + ((1.0 - alpha_slow) * m_smoothedShortTerm);
 
-    bool is_transient_shock = (ctx.loudness_momentary - m_smoothedShortTerm) > 8.0; // So với nền trung bình chậm
-    bool channel_clipping   = (ctx.true_peak_ch0 > 0.98 || ctx.true_peak_ch1 > 0.98);
+    // [TỐI ƯU KHÓA 1]: Xác định shock cơ học dựa hoàn toàn vào sự thay đổi đột ngột của Momentary Loudness
+    bool is_transient_shock = (ctx.loudness_momentary - m_smoothedShortTerm) > 8.0; 
+
+    // [TỐI ƯU KHÓA 2]: CHỈ sử dụng Sample Peak thực tế để bắt Clipping kỹ thuật số.
+    // Loại bỏ hoàn toàn các biến true_peak_chX khỏi đây để không bị thuật toán codec lừa.
+    bool channel_clipping   = (ctx.sample_peak_ch0 > 0.98 || ctx.sample_peak_ch1 > 0.98 || ctx.sample_peak > 0.98);
+
+    // =========================================================================
+    // 3. LOGIC PHÂN TÍCH MÔI TRƯỜNG & TÍCH HỢP ĐẶC TÍNH FILE
+    // =========================================================================
     float recommended_vocal_boost = 0.0f;
 
-    // Phân tích đặc tính môi trường (Giữ nguyên logic nền của bạn)
     if (ctx.loudness_range > 12.0) {
         targets.comp_enabled = true; targets.comp_th = -24.0f; targets.comp_rt = 3.0f;   
         recommended_vocal_boost += 2.0f;
@@ -777,18 +748,22 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
     }
 
     if (ctx.loudness_integrated > -13.0) {
-        for (size_t i = 0; i < targets.eq_gains.size(); ++i) {
-            if (targets.eq_gains[i] > 0.0f) {
-                float penalty = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.90f : 0.7f;
-                targets.eq_gains[i] *= penalty;
-            }
-        }
+        float penalty = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.90f : 0.70f;
+        for (float& gain : targets.eq_gains) { if (gain > 0.0f) gain *= penalty; }
     }
 
-    // Tích hợp thuộc tính File & Volume thích ứng
     if (ctx.codec == "mp3" || ctx.codec == "aac" || (ctx.bitrate_kbps > 0.0 && ctx.bitrate_kbps < 192.0)) {
-        targets.eq_gains[0] += 2.5f; targets.eq_gains[9] += 3.5f;
-        targets.crystalizer_enabled = true; targets.crystalizer_i = 3.8f;
+        targets.eq_gains[0] += 2.5f; 
+        targets.eq_gains[9] += 3.5f;
+        targets.crystalizer_enabled = true; 
+        targets.crystalizer_i = 3.8f;
+
+        // [ỨNG DỤNG TRUE PEAK 2]: Bộ phanh chống chói tai (Anti-Harshness)
+        // Nếu thuật toán nội suy đang quá tải, việc ép thêm dải cao sẽ gây thảm họa xé tiếng
+        if (m_smoothedTruePeak > 1.03) {
+            targets.eq_gains[9] -= 1.5f;       // Hạ bớt dải Treble cao
+            targets.crystalizer_i *= 0.6f;     // Giảm 40% cường độ Crystalizer để chất âm mượt trở lại
+        }
     }
 
     if (!ctx.is_audio_only) {
@@ -800,28 +775,20 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
         targets.eq_gains[0] += 4.0f; targets.eq_gains[9] += 3.0f; 
         targets.comp_enabled = true; targets.comp_th = -22.0f; targets.comp_rt = 1.8f;
     } else if (ctx.volume > 85.0) {
-        for (float& gain : targets.eq_gains) 
-        { 
-            if (gain > 1.0f) {
-                float vol_scale = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.75f : 0.4f;
-                gain *= vol_scale; 
-            }
-        }
+        float vol_scale = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.75f : 0.40f;
+        for (float& gain : targets.eq_gains) { if (gain > 1.0f) gain *= vol_scale; }
         targets.comp_enabled = true; targets.comp_th = -5.0f; targets.comp_rt = 4.0f;
     }
 
-    // Áp dụng tăng cường dải Trung (Vocal) một cách mượt mà
-    if (ctx.loudness_lra_low < -36.0 && ctx.loudness_lra_low > -99.0) {
-        recommended_vocal_boost += 1.5f;
-    }
+    if (ctx.loudness_lra_low < -36.0 && ctx.loudness_lra_low > -99.0) recommended_vocal_boost += 1.5f;
     if (recommended_vocal_boost > 0.0f) {
         targets.eq_gains[5] += std::min(2.0f, recommended_vocal_boost * 0.8f);
-        targets.eq_gains[6] += recommended_vocal_boost; // Vocal Core
+        targets.eq_gains[6] += recommended_vocal_boost; 
         targets.eq_gains[7] += std::min(2.0f, recommended_vocal_boost * 0.8f);
     }
 
     // =========================================================================
-    // ĐIỀU PHỐI STABILIZER ĐỘC LẬP THEO PRESET (ANTI-PUMPING & MAX SMOOTHNESS)
+    // 4. MẠCH ĐIỀU PHỐI STABILIZER KHÔNG LỒNG NHAU (DECOUPLED PIPELINES)
     // =========================================================================
     if (m_enableOuterStabilizer) {
         auto* out_comp = FindFilter("f_out_compressor");
@@ -832,110 +799,112 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
             float curr_comp_mk = out_comp->params["makeup"].current;
             float curr_lim_th  = out_lim->params["threshold"].current;
 
-            // --- BƯỚC A: ĐỊNH HÌNH BIÊN ĐỘ THEO THỂ LOẠI NHẠC (PRESET-AWARE) ---
-            float preset_target_th  = -12.0f; // Mặc định trung tính
-            float preset_max_makeup = 2.0f;
-            float step_modifier     = 1.0f;   // Hệ số kiểm soát tốc độ thích ứng
+            // --- PHÂN LỚP A: ĐỊNH HÌNH GIÁ TRỊ ĐÍCH THEO THỂ LOẠI (PRESET BASELINE) ---
+            float base_comp_th   = -12.0f; 
+            float base_max_makeup = 2.0f;
+            float step_modifier   = 1.0f;   
 
             switch (m_currentPreset) {
                 case AudioPreset::Classical:
                 case AudioPreset::Acoustic:
-                    // Nhạc cổ điển/nhạc cụ cần bảo tồn Dynamic tối đa -> Ít nén, nhả nhanh
-                    preset_target_th  = -6.0f; 
-                    preset_max_makeup = 1.0f;
-                    step_modifier     = 0.5f; // Chuyển đổi siêu chậm, siêu mượt
-                    break;
+                    base_comp_th = -6.0f; base_max_makeup = 1.0f; step_modifier = 0.5f; break;
                 case AudioPreset::EDM_Dance:
                 case AudioPreset::Rock:
-                    // Nhạc điện tử cần độ đặc, độ lực -> Cho phép nén sâu hơn nhưng giữ makeup thấp để tránh pumping
-                    preset_target_th  = -16.0f;
-                    preset_max_makeup = 1.5f;
-                    step_modifier     = 1.2f; // Phản ứng nhanh theo nhịp beat
-                    break;
+                    base_comp_th = -16.0f; base_max_makeup = 1.5f; step_modifier = 1.2f; break;
                 case AudioPreset::Movie_Cinema:
                 case AudioPreset::Gaming_FPS:
-                    // Phim ảnh/Gaming dải động cực rộng -> Cần ép sâu để nghe rõ tiếng chân/thì thầm
-                    preset_target_th  = -20.0f;
-                    preset_max_makeup = 3.5f;
-                    step_modifier     = 1.5f;
-                    break;
+                    base_comp_th = -20.0f; base_max_makeup = 3.5f; step_modifier = 1.5f; break;
                 case AudioPreset::Deep_Bass:
-                    // Đẩy ngưỡng trần nén lên cao (-6dB) để Compressor không chạm được vào phần thân của tiếng Bass
-                    preset_target_th  = -6.0f;  
-                    preset_max_makeup = 1.0f;   // Không đẩy makeup quá cao gây vỡ trần số
-                    step_modifier     = 0.5f;   // Nhả nén và di chuyển siêu chậm để bảo toàn độ lực (Punchy)
-                    break;
+                    base_comp_th = -6.0f; base_max_makeup = 1.0f; step_modifier = 0.5f; break;
                 default:
                     break;
             }
 
-            // --- BƯỚC B: MẠCH ĐIỀU KHIỂN THÍCH ỨNG DỰA TRÊN DỮ LIỆU ĐÃ LỌC TRUNG BÌNH ---
+            // --- PHÂN LỚP B: ĐIỀU KHIỂN HỒI PHỤC TỰ NHIÊN (BASE EVOLUTION) ---
+            // Xu hướng trả Limiter về trạng thái mở dải động tuyến tính
+            // [ỨNG DỤNG TRUE PEAK 1]: Dự đoán méo Analog để siết trần bảo vệ (Ceiling Margin) một cách chậm rãi
+            float safe_lim_ceiling = -0.2f; 
+            if (m_smoothedTruePeak > 1.05) {
+                safe_lim_ceiling = -1.5f; // File nổ Inter-sample quá nặng, ép trần xuống sâu để cứu chip DAC
+            } else if (m_smoothedTruePeak > 1.00) {
+                safe_lim_ceiling = -0.8f; // Có hiện tượng vượt ngưỡng analog, hạ trần vừa phải
+            }
 
-            // CẤP ĐỘ 1: BẢO VỆ KHẨN CẤP (Dựa trên sóng thực tế để tránh Clip)
-            if (is_transient_shock) {
-                // GIẢI PHÁP: Không ép sâu Compressor nữa (tránh bóp nghẹt bài hát).
-                // Giữ nguyên Compressor ở mức nông, để mặc Limiter xử lý đỉnh nhọn.
-                targets.out_comp_threshold = std::max(-12.0f, curr_comp_th - 0.3f); 
-                targets.out_comp_makeup    = std::max(1.0f,   curr_comp_mk - 0.05f); // Hạ makeup rất nhẹ
-            }
-            else if (channel_clipping || m_smoothedTruePeak > 0.96) {
-                // Tập trung dùng Limiter để khóa trần ngọn sóng kỹ thuật số
-                float cl_distance = std::abs(curr_lim_th - (-5.0f));
-                targets.out_lim_threshold  = std::max(-5.0f,  curr_lim_th - (0.15f * cl_distance * step_modifier));
-                
-                // Nâng sàn nén khẩn cấp của Compressor lên -14dB (thay vì -24dB như cũ)
-                targets.out_comp_threshold = std::max(-14.0f, curr_comp_th - 0.4f);
-                targets.out_comp_makeup    = std::max(1.0f,   curr_comp_mk - 0.1f);
-            }
-            // CẤP ĐỘ 2: TRẠNG THÁI ỔN ĐỊNH BÌNH THƯỜNG (Hồi phục giải phóng âm thanh)
+            // Thay vì ép chết cứng vào -0.2f, ta hướng Limiter hồi phục về safe_lim_ceiling
+            targets.out_lim_threshold = std::min(safe_lim_ceiling, curr_lim_th + 0.12f);
+
+            // Sử dụng m_smoothedShortTerm kiểm soát vĩ mô toàn cục
+            if (m_smoothedShortTerm < -28.0) {
+                // Nhạc có nền âm lượng nhỏ: Bù đắp tinh tế và nâng nhẹ Compressor
+                float soft_target_th = std::max(base_comp_th, -12.0f); 
+                float th_dist = std::abs(curr_comp_th - soft_target_th);
+                targets.out_comp_threshold = std::min(soft_target_th, curr_comp_th + (0.06f * th_dist));
+                targets.out_comp_makeup    = std::min(base_max_makeup, curr_comp_mk + 0.04f);
+            } 
             else {
-                // Trả Limiter về mức nghỉ an toàn nhanh hơn một chút để giải phóng Dynamic
-                targets.out_lim_threshold = std::min(-0.2f, curr_lim_th + 0.08f);
+                // Nhạc vốn đã to (EDM/Pop): Đưa máy nén về trạng thái nghỉ ngơi thả lỏng (Transparent Leveling)
+                float th_dist = std::abs(curr_comp_th - (-4.0f)); 
+                targets.out_comp_threshold = std::min(-4.0f, curr_comp_th + (0.10f * th_dist * step_modifier));
+                targets.out_comp_makeup    = std::max(1.0f,   curr_comp_mk - 0.05f);
+            }
 
-                if (m_smoothedShortTerm < -28.0) {
-                    // Âm thanh nhỏ: Bù đắp nhưng không cho phép Compressor lún sâu hơn -12dB
-                    float soft_target_th = std::max(preset_target_th, -12.0f); 
-                    float th_dist = std::abs(curr_comp_th - soft_target_th);
-                    targets.out_comp_threshold = std::min(soft_target_th, curr_comp_th + (0.06f * th_dist));
-                    targets.out_comp_makeup    = std::min(preset_max_makeup, curr_comp_mk + 0.04f);
-                }
-                else {
-                    // Âm thanh đủ tiêu chuẩn: Đẩy Compressor về vùng "trong suốt" (Transparent Leveling)
-                    // Ngưỡng nghỉ đặt ở -4dB có nghĩa là Compressor gần như chỉ chạm nhẹ vào các nốt cao nhất
-                    float th_dist = std::abs(curr_comp_th - (-4.0f)); 
-                    targets.out_comp_threshold = std::min(-4.0f, curr_comp_th + (0.10f * th_dist * step_modifier));
-                    targets.out_comp_makeup    = std::max(1.0f,  curr_comp_mk - 0.05f);
-                }
+            // --- PHÂN LỚP C: CHUYÊN BIỆT GIẢM THIỂU SỐC ĐỘNG HỌC (TRANSIENT OVERRIDES) ---
+            if (is_transient_shock) {
+                targets.out_comp_threshold = std::max(-12.0f, targets.out_comp_threshold - 0.2f); 
+                targets.out_comp_makeup    = std::max(1.0f,   targets.out_comp_makeup - 0.04f);
+            }
 
-                // --- KIỂM SOÁT ANTI-PUMPING NÂNG CAO (BẢO VỆ ĐOẠN CAO TRÀO) ---
-                // Khi tín hiệu đạt đỉnh dải động (Điệp khúc, Drop nhạc)
-                if (m_smoothedShortTerm >= (ctx.loudness_lra_high - 2.0)) {
-                    // Nâng hẳn sàn bảo vệ lên: Nhạc nhẹ/Cổ điển giữ ở -5dB, Nhạc mạnh giữ ở -8dB.
-                    // Điều này chặn đứng việc Compressor tiếp tục siết tiếng khi nhạc vào cao trào.
-                    float safe_floor = (m_currentPreset == AudioPreset::Classical || m_currentPreset == AudioPreset::Acoustic) ? -5.0f : -8.0f;
-                    targets.out_comp_threshold = std::max(targets.out_comp_threshold, safe_floor);
-                    
-                    // Nới lỏng tỷ lệ bóp gain bù để tránh âm thanh bị "thụt thò" (pumping)
-                    if (targets.out_comp_makeup > 1.0f) {
-                        targets.out_comp_makeup *= 0.96f; // Chỉ lùi nhẹ 4% thay vì gắt 12% như bản cũ
-                    }
+            // --- PHÂN LỚP D: LÁ CHẮN BẢO VỆ CHỐNG OVERLOAD KÉP (CLIPPING PROTECTION) ---
+            // [TỐI ƯU KHÓA 3]: Chỉ kích hoạt mạch bóp nghẹt khẩn cấp này khi SAMPLE PEAK thực sự chạm trần nguy hiểm.
+            // Loại bỏ hoàn toàn m_smoothedTruePeak > 0.96 để nhạc hiện đại được "thở" tự nhiên ở các phân lớp trên.
+            if (channel_clipping || m_smoothedSamplePeak > 0.96) {
+                float highest_peak = std::max({(float)m_smoothedSamplePeak, (float)ctx.sample_peak});
+                float cl_severity  = std::min(1.5f, highest_peak / 0.96f); 
+
+                float cl_distance = std::abs(curr_lim_th - (-6.0f));
+                targets.out_lim_threshold  = std::max(-6.0f, curr_lim_th - (0.20f * cl_distance * cl_severity * step_modifier));
+                targets.out_comp_threshold = std::max(-15.0f, targets.out_comp_threshold - (0.5f * cl_severity));
+                targets.out_comp_makeup    = std::max(1.0f,   targets.out_comp_makeup - (0.15f * cl_severity));
+            }
+
+            // --- PHÂN LỚP E: BỘ LỌC CHỐNG PUMPING VÙNG CAO TRÀO (ANTI-PUMPING ENFORCEMENT) ---
+            if (m_smoothedShortTerm >= (ctx.loudness_lra_high - 2.0)) {
+                float safe_floor = (m_currentPreset == AudioPreset::Classical || m_currentPreset == AudioPreset::Acoustic) ? -5.0f : -8.0f;
+                targets.out_comp_threshold = std::max(targets.out_comp_threshold, safe_floor);
+                if (targets.out_comp_makeup > 1.0f) {
+                    targets.out_comp_makeup *= 0.97f; 
                 }
             }
         }
     }
 
-    // 3. Quản lý Bộ kích âm Booster (Lọc mượt tương tự)
+    // =========================================================================
+    // 5. QUẢN LÝ BỘ KÍCH ÂM BOOSTER (MẠCH HỒI PHỤC TUYẾN TÍNH AN TOÀN)
+    // =========================================================================
     if (m_enableOuterBooster) {
         auto* vol_boost = FindFilter("f_vol_booster");
         if (vol_boost && vol_boost->enabled) {
             float active_boost = vol_boost->params["volume"].current;
             float user_target  = vol_boost->params["volume"].user_target;
             
-            if (channel_clipping || m_smoothedTruePeak > 0.98) {
-                targets.booster_volume = std::max(1.0f, active_boost - 0.05f);
+            // TÌNH HUỐNG 1: Xả Boost khẩn cấp khi mẫu số (Sample Peak) chạm trần nguy hiểm (Attack nhanh)
+            if (channel_clipping || m_smoothedSamplePeak > 0.98 || ctx.sample_peak > 0.99) {
+                targets.booster_volume = std::max(1.0f, active_boost - 0.08f); 
             } 
-            else if (m_smoothedShortTerm < -32.0 && active_boost < user_target) {
-                targets.booster_volume = std::min(user_target, active_boost + 0.01f);
+            // TÌNH HUỐNG 2: Trạng thái an toàn, tự động đưa Booster về lại user_target (Release chậm mượt)
+            else {
+                if (active_boost < user_target) {
+                    // Tăng từ từ (+0.002f thay vì 0.01f) để người nghe không nhận ra âm lượng đang tăng (Chống Pumping)
+                    targets.booster_volume = std::min(user_target, active_boost + 0.002f);
+                } 
+                else if (active_boost > user_target) {
+                    // Nếu vì lý do gì đó lớn hơn target, hạ mượt về target
+                    targets.booster_volume = std::max(user_target, active_boost - 0.005f);
+                } 
+                else {
+                    // Đã bằng nhau thì duy trì ổn định
+                    targets.booster_volume = user_target;
+                }
             }
         }
     }
@@ -985,6 +954,8 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
 }
 
 void AudioFilterManager::UpdateAdaptiveFilters() {
+
+    m_currentContext = ExtractCurrentContext();
     
     // 1. Giới hạn tần suất xử lý chu kỳ real-time (Throttling) để bảo vệ IPC pipe của MPV
     static auto lastUpdateTime = std::chrono::steady_clock::now();
@@ -993,11 +964,10 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
 
     lastUpdateTime = currentTime;
 
-    AudioContext ctx = ExtractCurrentContext();
     if (!m_autoMode || !mpv || m_globalBypass) return;
 
     // Lấy mục tiêu đã được lọc trung bình động (EMA) từ tầng phân tích
-    AdaptiveTargets targets = AnalyzeContextAndCalculateTargets(ctx);
+    AdaptiveTargets targets = AnalyzeContextAndCalculateTargets(m_currentContext);
  
     bool need_sync_structure = false;
     bool parameter_changed = false; // SỬA LỖI: Khởi tạo false để tối ưu hóa băng thông gửi lệnh
@@ -1169,9 +1139,6 @@ void AudioFilterManager::SetAdaptiveMode(bool enabled, AudioPreset preset) {
             }
         }
         
-        //if (auto* c = FindFilter("f_crystalizer")) if (!c->isBypassManagement) c->enabled = false;
-        //if (auto* s = FindFilter("f_stereo")) if (!s->isBypassManagement) s->enabled = false;
-        //if (auto* cp = FindFilter("f_comp")) if (!cp->isBypassManagement) cp->enabled = false;
         
         EvaluateSystemSafety();
         SyncAll();
