@@ -63,6 +63,7 @@ void AudioFilterManager::SyncAll() {
     if (!full_af.empty()) full_af += ",";
     full_af += "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
     
+    
     mpv_set_property_string(mpv, "af", full_af.c_str());
 }
 
@@ -71,18 +72,23 @@ void AudioFilterManager::UpdateParam(const std::string& id, const std::string& k
         auto it = f->params.find(key);
         if (it != f->params.end()) { 
             auto& param = it->second;
-            if (id == "f_vol_booster" && key == "volume" && value > 1.5f) value /= 100.0f;
 
             value = std::clamp(value, param.min, param.max);
             param.user_target = value;
 
-            if (param.current == value) return; 
+            // Kiểm tra: Chỉ bỏ qua nếu current và lastSent ĐỀU ĐÃ khớp với value
+            if (std::abs(param.current - value) < 0.0001f && 
+                std::abs(param.lastSent - value) < 0.0001f) {
+                return; 
+            }
+            
             param.current = value;
             
             if (key == "g" || key == "volume") EvaluateSystemSafety();
 
             if (f->enabled && mpv) {
                 float value_to_send = param.current;
+                
                 if (f->name == "acompressor" && key == "threshold") {
                     value_to_send = std::pow(10.0f, param.current / 20.0f);
                     if (value_to_send < 0.000976563f) value_to_send = 0.000976563f;
@@ -92,15 +98,21 @@ void AudioFilterManager::UpdateParam(const std::string& id, const std::string& k
                 }
 
                 std::ostringstream ss;
-                if (f->name == "acompressor" && (key == "threshold" || key == "makeup")) {
+                ss.imbue(std::locale("C")); // FIX: Ép sử dụng dấu chấm '.' cho số thập phân thay vì dấu phẩy ','
+
+                if ((f->name == "acompressor" && (key == "threshold" || key == "makeup")) || f->id == "f_vol_booster") {
                     ss << std::fixed << std::setprecision(5) << value_to_send;
                 } else {
                     ss << std::fixed << std::setprecision(2) << value_to_send;
                 }
+                std::string val_str = ss.str();
 
-                const char* cmd[] = {"af-command", id.c_str(), key.c_str(), ss.str().c_str(), NULL};
+                const char* cmd[] = {"af-command", id.c_str(), key.c_str(), val_str.c_str(), NULL};
                 mpv_command(mpv, cmd);
-            }
+
+                // CHỈ cập nhật lastSent khi đã thực sự gửi lệnh thành công
+                param.lastSent = param.current; 
+            } 
         }
     }
 }
@@ -115,6 +127,7 @@ void AudioFilterManager::BatchUpdateParams(const std::vector<std::tuple<std::str
                 param.user_target = clamped;
                 if (param.current != clamped) {
                     param.current = clamped;
+                    param.lastSent = clamped;
                     has_changed = true;
                 }
             }
@@ -135,6 +148,7 @@ void AudioFilterManager::ResetFilter(const std::string& id) {
         for (auto& [key, p] : f->params) {
             p.current = p.def;
             p.user_target = p.def;
+            p.lastSent = p.def;
         }
         if (f->enabled) SyncAll();
     }

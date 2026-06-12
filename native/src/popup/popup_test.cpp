@@ -68,25 +68,16 @@ struct LocalLogger {
 
 static LocalLogger g_PopupLogger;
 
-void ShowTestPopup(bool& closePopup_Test) {
-    AudioFilterManager& manager = AudioFilterManager::Instance();
-
-    AudioContext ctx = manager.GetCurrentContext();
-    int64_t sample_rate = ctx.sample_rate;
-    int64_t channel_count = ctx.channel_count;
-    double bitrate_kbps = ctx.bitrate_kbps;
-    double current_volume = ctx.volume;
-    
-
-    // =========================================================================
-    // PHẦN 1: BẢNG GIÁM SÁT TRẠNG THÁI CHI TIẾT + ĐỌC THÔNG SỐ AUDIO TRACK
-    // =========================================================================
+void DrawCoreMonitor(
+    AudioFilterManager& manager,
+    const AudioContext& ctx)
+{
     if (ImGui::CollapsingHeader("1. Giám sát hệ thống Core & Phân tích Track Audio", ImGuiTreeNodeFlags_DefaultOpen)) {
         ImGui::Columns(4, "TrackAnalysisColumns", false);
-        ImGui::Text("Volume: %.1f dB", current_volume); ImGui::NextColumn();
-        ImGui::Text("Sample Rate: %lld Hz", sample_rate); ImGui::NextColumn();
-        ImGui::Text("Số Kênh: %lld Ch", channel_count); ImGui::NextColumn();
-        ImGui::Text("Bitrate: %.1f kbps", bitrate_kbps / 1000.0);
+        ImGui::Text("Volume: %.1f %", ctx.volume); ImGui::NextColumn();
+        ImGui::Text("Sample Rate: %lld Hz", ctx.sample_rate); ImGui::NextColumn();
+        ImGui::Text("Số Kênh: %lld Ch", ctx.channel_count); ImGui::NextColumn();
+        ImGui::Text("Bitrate: %.1f kbps", ctx.bitrate_kbps);
         ImGui::Columns(1);
         
         ImGui::Separator();
@@ -149,10 +140,12 @@ void ShowTestPopup(bool& closePopup_Test) {
             ImGui::EndTable();
         }
     }
+}
 
-    // =========================================================================
-    // PHẦN 2: BẢNG ĐIỀU KHIỂN CHẾ ĐỘ THÔNG MINH (ADAPTIVE ENGINE & BYPASS CONTROLS)
-    // =========================================================================
+void DrawAdaptiveControl(
+    AudioFilterManager& manager,
+    const AudioContext& ctx)
+{
     if (ImGui::CollapsingHeader("2. Trợ lý AI & Điều khiển Vượt tuyến (Adaptive Matrix)", ImGuiTreeNodeFlags_DefaultOpen)) {
         
         // --- KHỐI ĐIỀU KHIỂN BIÊN ĐỘ QUẢN LÝ (GLOBAL BYPASS) ---
@@ -229,10 +222,10 @@ void ShowTestPopup(bool& closePopup_Test) {
             
             // Ghi Log tự động ra Monitor nếu có sự biến động lớn từ track
             static double last_logged_vol = 0.0;
-            if (std::abs(current_volume - last_logged_vol) > 15.0) {
-                if (current_volume < 30.0) g_PopupLogger.Log("[ADAPTIVE AI] Phát hiện âm lượng nhỏ. Đang bù gain dải tần hình chữ V (Loudness Equalization).");
-                else if (current_volume > 80.0) g_PopupLogger.Log("[SAFETY] Phát hiện âm lượng vượt ngưỡng an toàn phần cứng. Tự động ép nén phẳng EQ để bảo vệ loa chống rách màng.");
-                last_logged_vol = current_volume;
+            if (std::abs(ctx.volume - last_logged_vol) > 15.0) {
+                if (ctx.volume < 30.0) g_PopupLogger.Log("[ADAPTIVE AI] Phát hiện âm lượng nhỏ. Đang bù gain dải tần hình chữ V (Loudness Equalization).");
+                else if (ctx.volume > 80.0) g_PopupLogger.Log("[SAFETY] Phát hiện âm lượng vượt ngưỡng an toàn phần cứng. Tự động ép nén phẳng EQ để bảo vệ loa chống rách màng.");
+                last_logged_vol = ctx.volume;
             }
             ImGui::Unindent(25.0f);
         }
@@ -354,11 +347,13 @@ void ShowTestPopup(bool& closePopup_Test) {
             g_PopupLogger.Log("[PASS] Đã đồng bộ ngược trạng thái hoạt động từ file lưu trữ hệ thống.");
         }
     }
+}
 
-    // =========================================================================
-    // PHẦN 3: ĐỒ THỊ VÀ BẢNG CHẨN ĐOÁN CHI TIẾT TỪ EBUR128 AUDIOCONTEXT (BẢN NÂNG CẤP)
-    // =========================================================================
-    if (ImGui::CollapsingHeader("3. Radar chẩn đoán Động học & Âm lượng nâng cao (EBU R128)", ImGuiTreeNodeFlags_DefaultOpen)) {
+void DrawEBUR128Monitor(
+    AudioFilterManager& manager,
+    const AudioContext& ctx)
+{
+        if (ImGui::CollapsingHeader("3. Radar chẩn đoán Động học & Âm lượng nâng cao (EBU R128)", ImGuiTreeNodeFlags_DefaultOpen)) {
         
         // --- 1. QUẢN LÝ TRẠNG THÁI ĐỂ CHỐNG LẶP LOGS (STATE-MACHINE LOG ENGINE) ---
         enum class PeakState { SAFE, WARNING, CLIPPING };
@@ -740,19 +735,152 @@ void ShowTestPopup(bool& closePopup_Test) {
             g_PopupLogger.Log(ss.str());
         }
     }
+}
 
-    // =========================================================================
-    // PHẦN 4: LOG MONITOR WINDOW
-    // =========================================================================
+void DrawAudioAnalysisTab(AudioFilterManager& manager) 
+{
+    bool isRunning = manager.IsAudioAnalysisRunning();
+
+    // 1. Phần Trạng thái & Nút Bật/Tắt
+    ImGui::Text("Trạng thái Pipeline:");
+    ImGui::SameLine();
+    if (isRunning) {
+        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.4f, 1.0f), "● ĐANG HOẠT ĐỘNG (16kHz Mono)");
+    } else {
+        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "○ ĐÃ DỪNG PHÂN TÍCH");
+    }
+
+    ImGui::SameLine(ImGui::GetWindowWidth() - 160);
+    if (!isRunning) {
+        if (ImGui::Button("BẬT PHÂN TÍCH", ImVec2(140, 24))) manager.StartAudioAnalysis();
+    } else {
+        if (ImGui::Button("DỪNG PHÂN TÍCH", ImVec2(140, 24))) manager.StopAudioAnalysis();
+    }
+
+    ImGui::Separator();
+
+    // 2. PHẦN KIỂM TRA IN SỐ LIỆU THÔ (RAW PCM DATA MONITOR)
+    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "--- Dữ liệu thu thập thời gian thực từ Loopback Device ---");
+    
+    // Đọc telemetry từ các biến atomic
+    float currentRMS = manager.GetAnalysisRMS();
+    float currentPeak = manager.GetAnalysisPeak();
+    uint64_t totalSamples = manager.GetTotalSamplesCaptured();
+    size_t pendingChunks = manager.GetAnalysisQueueSize();
+
+    // Thuật toán chuyển RMS sang dB an toàn (tránh log(0))
+    auto rmsToDB = [&](float rms) -> float {
+        if (rms < 0.00001f) return -60.0f; // Giới hạn đáy là -60dB thay vì âm vô cùng
+        float db = 20.0f * std::log10(rms);
+        if (db < -60.0f) db = -60.0f;
+        return db;
+    };
+
+    // Bên trong hàm DrawAudioAnalysisTab:
+    float currentDB = rmsToDB(currentRMS);
+
+    // Lấy lịch sử RMS và chuyển toàn bộ sang dB để vẽ
+    std::vector<float> historyData = manager.GetRMSHistory();
+    std::vector<float> dbHistory(historyData.size());
+    for (size_t i = 0; i < historyData.size(); ++i) {
+        dbHistory[i] = rmsToDB(historyData[i]);
+    }
+
+    ImGui::Columns(2, "##AnalysisGrid", false);
+    ImGui::SetColumnWidth(0, 240);
+
+    ImGui::Text("Tổng số Samples thu được: "); ImGui::NextColumn();ImGui::Text("%llu samples",totalSamples); ImGui::NextColumn();
+    ImGui::Text("Số Chunks đang xếp hàng: ");ImGui::NextColumn();ImGui::Text("%zu chunks", pendingChunks); ImGui::NextColumn();
+    ImGui::Text("Năng lượng hiệu dụng (RMS): "); ImGui::NextColumn();ImGui::Text("%.6f (%.1f dB)", currentRMS, currentDB); ImGui::NextColumn();
+    ImGui::Text("Biên độ Đỉnh (Max Peak): ");ImGui::NextColumn();ImGui::Text("%.6f", currentPeak); ImGui::NextColumn();
+    
+    ImGui::Columns(1);
+    ImGui::Dummy(ImVec2(0.0f, 4.0f));
+
+    // 3. BIỂU ĐỒ SÓNG ÂM THANH TRỰC QUAN (AUDIO AMPLITUDE VISUALIZER)
+    ImGui::Text("Biểu đồ biến thiên biên độ sóng (Real-time Amplitude Track):");
+    
+
+    // Vẽ biểu đồ dạng đường cuốn liên tục sử dụng ImGui::PlotLines
+    char overlayLabel[64];
+    sprintf(overlayLabel, "dB: %.1f", currentDB);
+    
+    ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(0.0f, 1.0f, 0.8f, 1.0f)); // Màu xanh ngọc rực rỡ
+    ImGui::PlotLines("##AudioWaveform", dbHistory.data(), (int)dbHistory.size(), 0, overlayLabel, -60.0f, 0.0f, ImVec2(-1, 80));
+    ImGui::PopStyleColor();
+
+    // Thanh đo Stress test hàng đợi
+    float queueRatio = static_cast<float>(pendingChunks) / 50.0f;
+    ImGui::ProgressBar(queueRatio, ImVec2(-1, 14), "");
+
+    // Lấy chuỗi chữ từ Manager ra
+    std::string subText = AudioFilterManager::Instance().GetCurrentSubtitle();
+
+    ImGui::Separator();
+    ImGui::TextWrapped("Phụ đề AI (Real-time):");
+    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f)); // Màu vàng cho nổi bật
+    ImGui::TextWrapped(subText.c_str());
+    ImGui::PopStyleColor();
+    ImGui::Separator();
+}
+
+void DrawLogTab(AudioFilterManager& manager)
+{
     g_PopupLogger.Draw();
 
     ImGui::Spacing();
-    if (ImGui::Button("Xóa bộ nhớ tạm Logs")) {
+
+    if (ImGui::Button("Clear Logs"))
+    {
         g_PopupLogger.Clear();
-        manager.ClearLogs(); // Xóa sạch cả log của Core Manager
+        manager.ClearLogs();
     }
-    ImGui::SameLine();
-    if (ImGui::Button("Thoát Bảng Kiểm Thử")) closePopup_Test = true;
+}
+
+
+void ShowTestPopup(bool& closePopup_Test)
+{
+    AudioFilterManager& manager = AudioFilterManager::Instance();
+    AudioContext ctx = manager.GetCurrentContext();
+
+    if (ImGui::BeginTabBar("##DebugTabs"))
+    {
+        if (ImGui::BeginTabItem("Core"))
+        {
+            DrawCoreMonitor(manager, ctx);
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Adaptive"))
+        {
+            DrawAdaptiveControl(manager, ctx);
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("EBU R128"))
+        {
+            DrawEBUR128Monitor(manager, ctx);
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("AI Analysis"))
+        {
+            DrawAudioAnalysisTab(manager);
+            ImGui::EndTabItem();
+        }
+
+        if (ImGui::BeginTabItem("Logs"))
+        {
+            DrawLogTab(manager);
+            ImGui::EndTabItem();
+        }
+
+        ImGui::EndTabBar();
+    }
+
+    ImGui::Separator();
+
+    if (ImGui::Button("Thoát"))
+        closePopup_Test = true;
 }
 
 void OpenTestPopup(ReusablePopup& popup) {

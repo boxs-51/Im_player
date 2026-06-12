@@ -110,7 +110,7 @@ void Cleanup() {
 
     StopService();
     ShutdownMainWindow();
-
+    AudioFilterManager::Instance().CleanupAudioAnalysis();
     CleanupIcons();
     CleanupMPV();
 

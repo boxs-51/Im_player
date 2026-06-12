@@ -276,28 +276,30 @@ void AudioFilterManager::SetAdaptiveMode(bool enabled, AudioPreset preset) {
     m_currentPreset = preset;
     
     if (enabled) {
-        // Khi bật AI, ép buộc Master Volume Node phải bật để hệ thống bảo vệ hoạt động
         if (auto* vol_node = FindFilter("f_volume")) {
             vol_node->enabled = true;
         }
         UpdateAdaptiveFilters();
     } else {
-        // TẮT AI: Trả các bộ lọc do AI quản lý về Flat, khôi phục các tham số về user_target gốc
+        // TẮT AI: Trả các bộ lọc về trạng thái do người dùng định nghĩa
         for (auto& filter : m_filters) {
-
             if (!filter.isBypassManagement) {
                 for (auto& [key, p] : filter.params) {
                     p.current = p.user_target; 
-                    p.lastSent = 999999.0f;
+                    p.lastSent = 999999.0f; // Đánh dấu cần đồng bộ lại
                 }
-
                 filter.enabled = false;
+            } else {
+                // ĐỐI VỚI BYPASS MANAGEMENT: Giữ nguyên trạng thái enable/disable của người dùng
+                for (auto& [key, p] : filter.params) {
+                    p.current = p.user_target;
+                    // Không đặt lastSent về rác bừa bãi để tránh lỗi nhảy giá trị độc hại
+                }
             }
         }
         
-        
         EvaluateSystemSafety();
-        SyncAll();
+        SyncAll(); // Hàm này sẽ xây dựng lại toàn bộ chuỗi af string của MPV
     }
 }
 
@@ -323,6 +325,19 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
     bool parameter_changed = false; // SỬA LỖI: Khởi tạo false để tối ưu hóa băng thông gửi lệnh
 
     const float epsilon = 0.02f; // Thu hẹp sai số để tiệm cận độ chính xác cao hơn
+
+    for (auto& filter : m_filters) {
+        if (filter.isBypassManagement) {
+            for (auto& [key, p] : filter.params) {
+                // Nếu giá trị hiện tại bị lệch khỏi target của người dùng do AI từng can thiệp
+                if (std::abs(p.current - p.user_target) > 0.001f) {
+                    p.current = p.user_target;
+                    p.lastSent = 999999.0f; // Vô hiệu hóa bộ lọc throttle 0.005f để ép gửi ngay lập tức
+                    parameter_changed = true;
+                }
+            }
+        }
+    }
 
     // =========================================================================
     // TRỢ THỦ 1: HOÃN BẬT/TẮT STRUCTURAL (SOFT BYPASS / DE-CLICKING)
@@ -383,13 +398,12 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
             float next_val = reference_val + final_alpha * (target_val - reference_val);
             
             current = next_val;
-            if (is_external) p.lastSent = next_val;
+            //if (is_external) p.lastSent = next_val;
             parameter_changed = true;
         } else {
-            current = target_val;
-            if (is_external && p.lastSent != target_val) {
-                p.lastSent = target_val;
-                parameter_changed = true;
+            if (current != target_val) {
+                current = target_val;
+                parameter_changed = true; 
             }
         }
     };
@@ -470,7 +484,7 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
 
         std::ostringstream ss;
         for (auto& filter : m_filters) {
-            if (filter.enabled && !filter.isBypassManagement) {
+            if (filter.enabled) {
                 for (auto& [key, p] : filter.params) {
 
                     // Chỉ khi nào giá trị thực tế lệch khỏi giá trị đã gửi xuống MPV trước đó một khoảng có nghĩa, 
@@ -495,7 +509,7 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
                     // Clear stream cũ, giữ nguyên buffer cấp phát trước đó
                     ss.str("");
                     ss.clear();
-
+                    ss.imbue(std::locale("C"));
                     if ((filter.name == "acompressor" && (key == "threshold" || key == "makeup")) || filter.id == "f_vol_booster") {
                         ss << std::fixed << std::setprecision(5) << value_to_send;
                     } else {

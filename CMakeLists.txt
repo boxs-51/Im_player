@@ -37,6 +37,7 @@ add_executable(imgui_player WIN32
     native/src/mpv/filter/audio/audio_filter_manager_io.cpp
     native/src/mpv/filter/audio/audio_filter_manager_safety.cpp
     native/src/mpv/filter/audio/audio_filter_manager_sync.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_analysis.cpp
     native/src/mpv/filter/video_filter_manager.cpp
 
     native/src/mpv/shaders/shader_manager.cpp
