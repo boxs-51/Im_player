@@ -1,5 +1,5 @@
 #include "popup_test.h"
-#include "filter/audio_filter_manager.h"
+#include "filter/audio/audio_filter_manager.h"
 #include <imgui.h>
 #include <vector>
 #include <string>
@@ -71,20 +71,12 @@ static LocalLogger g_PopupLogger;
 void ShowTestPopup(bool& closePopup_Test) {
     AudioFilterManager& manager = AudioFilterManager::Instance();
 
-    // Trích xuất dữ liệu thô real-time từ lõi mpv thông qua manager để đưa lên màn hình debug
-    int64_t sample_rate = 0;
-    int64_t channel_count = 0;
-    double bitrate_bps = 0.0;
-    double current_volume = 0.0;
-    mpv_handle* mpv = manager.GetMpvHandle();
     AudioContext ctx = manager.GetCurrentContext();
+    int64_t sample_rate = ctx.sample_rate;
+    int64_t channel_count = ctx.channel_count;
+    double bitrate_kbps = ctx.bitrate_kbps;
+    double current_volume = ctx.volume;
     
-    if (mpv) {
-        mpv_get_property(mpv, "volume", MPV_FORMAT_DOUBLE, &current_volume);
-        mpv_get_property(mpv, "audio-params/samplerate", MPV_FORMAT_INT64, &sample_rate);
-        mpv_get_property(mpv, "audio-params/channel-count", MPV_FORMAT_INT64, &channel_count);
-        mpv_get_property(mpv, "audio-bitrate", MPV_FORMAT_DOUBLE, &bitrate_bps);
-    }
 
     // =========================================================================
     // PHẦN 1: BẢNG GIÁM SÁT TRẠNG THÁI CHI TIẾT + ĐỌC THÔNG SỐ AUDIO TRACK
@@ -94,7 +86,7 @@ void ShowTestPopup(bool& closePopup_Test) {
         ImGui::Text("Volume: %.1f dB", current_volume); ImGui::NextColumn();
         ImGui::Text("Sample Rate: %lld Hz", sample_rate); ImGui::NextColumn();
         ImGui::Text("Số Kênh: %lld Ch", channel_count); ImGui::NextColumn();
-        ImGui::Text("Bitrate: %.1f kbps", bitrate_bps / 1000.0);
+        ImGui::Text("Bitrate: %.1f kbps", bitrate_kbps / 1000.0);
         ImGui::Columns(1);
         
         ImGui::Separator();

@@ -1,13 +1,8 @@
 #pragma once
-#include "utils.h"
-#include <mpv/mpv_data.h>
-
 #include <string>
 #include <vector>
-#include <unordered_map>
 #include <map>
-#include <tuple>
-#include <mpv/client.h>
+#include <cmath>
 
 enum class AudioPreset {
     Flat,           // Cân bằng phòng thu
@@ -22,12 +17,7 @@ enum class AudioPreset {
     Deep_Bass       // Chỉ tập trung tăng cường độ lực cho dải siêu trầm (Basshead)
 };
 
-enum class LogLevel {
-    Info,
-    Warning,
-    Error,
-    AI_Action
-};
+enum class LogLevel { Info, Warning, Error, AI_Action };
 
 struct LogEntry {
     std::string timestamp;
@@ -35,7 +25,6 @@ struct LogEntry {
     LogLevel level;
 };
 
-// Cấu trúc lưu trữ thông số Parameter nâng cấp
 struct FilterParam {
     float current;     // Giá trị thời gian thực hiện tại (AI có thể thay đổi liên tục)
     float min;         // Giá trị nhỏ nhất cho phép
@@ -119,8 +108,16 @@ struct AudioContext {
     double sample_peak_ch0 = 0.0f;
     double sample_peak_ch1 = 0.0f;
 
+    // THÀNH PHẦN METADATA MỚI ĐƯỢC TÍCH HỢP
+    
+    std::string aformat = "";          // "s16", "f32", "fltp"
+    std::string ahr_channels = "";     // Chi tiết layout: "FL FR FC LFE BL BR"
+    bool is_paused = false;            // Trạng thái tạm dừng phát
+    bool is_muted = false;             // Trạng thái câm tiếng
+    bool is_buffering = false;         // Đang nạp mạng (cache_buffering_state)
+    bool is_network_stream = false;    // Phát trực tuyến (demuxer_via_network)
+    bool hearing_impaired = false;     // Cờ hỗ trợ người khiếm thính (Dialog Boost)
 };
-
 
 struct AdaptiveTargets {
     // 1. Mảng 12 dải tần EQ Graphic
@@ -145,115 +142,4 @@ struct AdaptiveTargets {
     float out_comp_threshold = -12.0f;
     float out_comp_makeup = 0.0f;
     float out_lim_threshold = -1.0f;
-};
-
-class AudioFilterManager {
-public:
-    static AudioFilterManager& Instance();
-
-    AudioFilterManager(const AudioFilterManager&) = delete;
-    AudioFilterManager& operator=(const AudioFilterManager&) = delete;
-
-    void Init(mpv_handle* h);
-    
-    void ToggleFilter(const std::string& id, bool state);
-    void SetAllFiltersState(bool enabled);
-    bool IsFilterEnabled(const std::string& id);
-    int GetActiveFilterCount();
-
-    void SetAdaptiveMode(bool enabled, AudioPreset preset = AudioPreset::Flat);
-    bool IsAdaptiveMode() const { return m_autoMode; }
-    AudioPreset GetCurrentPreset() const { return m_currentPreset; }
-    void SetCurrentPreset(AudioPreset preset);
-
-    void UpdateAdaptiveFilters();
-    const AudioContext& GetCurrentContext() const { return m_currentContext; }
-
-    void SetFilterBypassMode(const std::string& id, bool bypassState);
-    bool IsFilterBypassMode(const std::string& id);
-    void SetGlobalBypassMode(bool bypassState);
-    bool IsGlobalBypassEnabled() const { return m_globalBypass; }
-
-    void SetOuterStabilizerEnabled(bool enabled);
-    void SetOuterBoosterEnabled(bool enabled);
-    
-    void UpdateParam(const std::string& id, const std::string& key, float value);
-    void BatchUpdateParams(const std::vector<std::tuple<std::string, std::string, float>>& updates);
-    
-    void ResetFilter(const std::string& id);
-    void ResetAllToDefaults();
-    
-    void SaveToFile();
-    void LoadFromFile();
-    
-    void SetChannelMode(const std::string& mode);
-    std::string GetChannelMode() const { return m_channelMode; }
-    
-    void AddAudioTrack(const std::string& trackId, const std::string& lang, const std::string& codec);
-    void SelectAudioTrack(const std::string& trackId);
-    std::string GetCurrentAudioTrack() const { return m_currentAudioTrack; }
-    const std::vector<AudioTrackInfo>& GetAudioTracks() const { return m_audioTracks; }
-
-    AudioFilter* FindFilter(const std::string& id);
-    const std::vector<AudioFilter>& GetFilters() const { return m_filters; }
-
-    mpv_handle* GetMpvHandle() { return mpv; }
-
-public:
-    // Các biến quản lý độc lập được chuyển sang public để UI dễ tương tác
-    bool m_autoMode;                 // Chế độ Auto của AI toàn cục
-    bool m_enableOuterStabilizer;    // Quản lý riêng bộ Ổn định ngoại vi (f_out_compressor & f_out_limiter)
-    bool m_enableOuterBooster;       // Quản lý riêng bộ Tăng cường âm lượng ngoài (f_vol_booster)
-
-    void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
-    const std::vector<LogEntry>& GetLogs();
-    void ClearLogs();
-
-private:
-    std::vector<LogEntry> m_logs;
-    std::mutex m_logMutex;
-    const size_t MAX_LOG_SIZE = 100;
-    
-private:
-    AudioFilterManager() : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
-    ~AudioFilterManager() = default;
-
-    void AddFilter(const std::string& id, const std::string& name, const std::string& group);
-    void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);
-    
-    void EvaluateSystemSafety();
-    void SyncAll();
-
-private:
-
-    AudioContext ExtractCurrentContext();
-    bool CheckEnvironmentHysteresis(const AudioContext& ctx);
-    AdaptiveTargets AnalyzeContextAndCalculateTargets(const AudioContext& ctx);
-
-    void DispatchParametersToMPV(bool need_sync_structure, bool parameter_changed);
-
-private:
-    
-    mpv_handle* mpv;
-    std::string path;
-    std::string m_channelMode;
-    std::string m_currentAudioTrack;
-    
-    std::vector<AudioFilter> m_filters;
-    std::unordered_map<std::string, size_t> m_filterIndex; 
-    std::vector<AudioTrackInfo> m_audioTracks;
-
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    VideoInfo& g_videoInfo = GetVideoInfo();
-
-    const int MIN_EQ_BANDS = 12;
-
-    bool m_globalBypass = false; 
-    AudioPreset m_currentPreset = AudioPreset::Flat;
-
-    double m_smoothedTruePeak = 0.0f;
-    double m_smoothedShortTerm = 0.0f;
-    double m_smoothedSamplePeak = 0.0f;
-
-    AudioContext m_currentContext;
 };

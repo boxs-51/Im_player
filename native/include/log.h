@@ -315,6 +315,7 @@ static std::condition_variable g_ErrorCv;
 static std::atomic<bool> g_ErrorThreadRunning(false);
 static std::unordered_set<std::string> g_CurrentBatchErrors;
 static bool g_EnableWarnLogs = false; // ✅ Cho phép bật/tắt log cảnh báo
+static bool g_EnableLog = false;
 
 typedef int (WINAPI *MessageBoxTimeoutA_t)(
     HWND hWnd,
@@ -377,7 +378,7 @@ static void MpvErrorThreadFunc() {
             }
         }
         // ✅ Bỏ qua nếu đang tắt log cảnh báo
-        if (level == "warn" && !g_EnableWarnLogs)
+        if ((level == "warn" && !g_EnableWarnLogs) || !g_EnableLog)
             continue;
 
         std::string levelUpper = level;
@@ -444,3 +445,8 @@ inline void SetWarnLoggingEnabled(bool enabled) {
     std::lock_guard<std::mutex> lock(g_ErrorMutex);
     g_EnableWarnLogs = enabled;
 }
+inline void SetLoggingEnabled(bool enabled) {
+    std::lock_guard<std::mutex> lock(g_ErrorMutex);
+    g_EnableLog = enabled;
+}
+

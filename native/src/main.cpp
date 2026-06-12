@@ -9,7 +9,7 @@
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
 
-#include <mpv/filter/audio_filter_manager.h>
+#include <mpv/filter/audio/audio_filter_manager.h>
 
 #include <popup/popup.h>
 

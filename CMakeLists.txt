@@ -32,7 +32,11 @@ add_executable(imgui_player WIN32
     native/src/mpv/mpv_ui_settings.cpp
     native/src/mpv/mpv_data.cpp
 
-    native/src/mpv/filter/audio_filter_manager.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_core.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_ai.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_io.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_safety.cpp
+    native/src/mpv/filter/audio/audio_filter_manager_sync.cpp
     native/src/mpv/filter/video_filter_manager.cpp
 
     native/src/mpv/shaders/shader_manager.cpp
@@ -58,7 +62,6 @@ add_executable(imgui_player WIN32
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
     native/src/popup/popup_url.cpp
-    native/src/popup/popup_audio_control.cpp
     native/src/popup/popup.cpp
     native/src/popup/popup_test.cpp
     native/src/popup/reusable_popup.cpp
