@@ -9,6 +9,9 @@
 #include <condition_variable>
 #include <queue>
 #include <vector>
+#ifdef _WIN32
+#include <windows.h>
+#endif
 
 class AudioFilterManager {
 public:
@@ -79,7 +82,10 @@ private:
     
 private:
     AudioFilterManager() : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
-    ~AudioFilterManager() = default;
+    ~AudioFilterManager() {
+        StopAudioAnalysis();
+        CleanupAudioAnalysis();
+    };
 
     void AddFilter(const std::string& id, const std::string& name, const std::string& group);
     void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);
@@ -137,7 +143,7 @@ public:
 
     // Hàm để tầng nhận dữ liệu (MPV Callback hoặc Microphone) bơm dữ liệu PCM vào hệ thống
     void PushAudioSamples(const float* samples, size_t sampleCount);
-
+    void FlushAnalysisPipeline();
     void CleanupAudioAnalysis();
     // Kiểm tra xem hệ thống phân tích âm thanh có đang chạy không
     bool IsAudioAnalysisRunning() const { 
@@ -162,6 +168,10 @@ public:
         return m_currentSubtitle;
     }
 private:
+private:
+#ifdef _WIN32
+    HANDLE m_hAudioPipe = INVALID_HANDLE_VALUE;
+#endif
 
     // --- BỔ SUNG CHO CỬA SỔ TRƯỢT WHISPER ---
     std::vector<float> m_rollingSpeechBuffer;      // Bộ đệm cuốn tích lũy âm thanh

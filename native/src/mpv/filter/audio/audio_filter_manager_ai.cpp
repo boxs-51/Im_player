@@ -482,7 +482,6 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
     else if (parameter_changed) {
         EvaluateSystemSafety();
 
-        std::ostringstream ss;
         for (auto& filter : m_filters) {
             if (filter.enabled) {
                 for (auto& [key, p] : filter.params) {
@@ -506,19 +505,14 @@ void AudioFilterManager::DispatchParametersToMPV(bool need_sync_structure, bool 
                         value_to_send = std::pow(10.0f, p.current / 20.0f);
                     }
 
-                    // Clear stream cũ, giữ nguyên buffer cấp phát trước đó
-                    ss.str("");
-                    ss.clear();
-                    ss.imbue(std::locale("C"));
+                    char val_str[32];
                     if ((filter.name == "acompressor" && (key == "threshold" || key == "makeup")) || filter.id == "f_vol_booster") {
-                        ss << std::fixed << std::setprecision(5) << value_to_send;
+                        snprintf(val_str, sizeof(val_str), "%.5f", value_to_send);
                     } else {
-                        ss << std::fixed << std::setprecision(2) << value_to_send;
+                        snprintf(val_str, sizeof(val_str), "%.2f", value_to_send);
                     }
 
-                    std::string val_str = ss.str();
-
-                    const char* cmd[] = {"af-command", filter.id.c_str(), key.c_str(), val_str.c_str(), NULL};
+                    const char* cmd[] = {"af-command", filter.id.c_str(), key.c_str(), val_str , NULL};
                     mpv_command(mpv, cmd);
 
                     p.lastSent = p.current;

@@ -62,9 +62,35 @@ void AudioFilterManager::SyncAll() {
 
     if (!full_af.empty()) full_af += ",";
     full_af += "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
+
     
-    
-    mpv_set_property_string(mpv, "af", full_af.c_str());
+    bool isPipeReady = false;
+#ifdef _WIN32
+    if (m_hAudioPipe != INVALID_HANDLE_VALUE) {
+        isPipeReady = true;
+    }
+#endif
+
+    // CHỈ chèn filter nhân bản và stream-record nếu Pipe đã được tạo thành công và luồng AI đang chạy
+    if (isPipeReady && !m_stopAnalysis) {
+        if (!full_af.empty()) {
+            full_af += ",";
+        }
+        // Nhân bản chuỗi để đẩy qua Pipe
+        full_af += "lavfi=[asplit=2[loa][ai]; [loa]afifo; [ai]aresample=16000,pan=mono|c0=c0]";
+        mpv_set_property_string(mpv, "af", full_af.c_str());
+
+        // Bật ghi luồng phụ vào Pipe
+        mpv_set_property_string(mpv, "stream-record", "\\\\.\\pipe\\mpv_whisper_pipe");
+    } else {
+        // Nếu không chạy AI hoặc Pipe lỗi, ghi đè chuỗi filter thông thường xuống MPV (Không có asplit)
+        mpv_set_property_string(mpv, "af", full_af.c_str());
+        
+        // Tắt tính năng stream-record để MPV không tìm file Pipe nữa
+        mpv_set_property_string(mpv, "stream-record", ""); 
+    }
+
+    //mpv_set_property_string(mpv, "ao", "auto");
 }
 
 void AudioFilterManager::UpdateParam(const std::string& id, const std::string& key, float value) {
@@ -96,18 +122,15 @@ void AudioFilterManager::UpdateParam(const std::string& id, const std::string& k
                 if (f->id == "f_volume" && key == "volume") {
                     value_to_send = std::pow(10.0f, param.current / 20.0f);
                 }
-
-                std::ostringstream ss;
-                ss.imbue(std::locale("C")); // FIX: Ép sử dụng dấu chấm '.' cho số thập phân thay vì dấu phẩy ','
+                char val_str[32];
 
                 if ((f->name == "acompressor" && (key == "threshold" || key == "makeup")) || f->id == "f_vol_booster") {
-                    ss << std::fixed << std::setprecision(5) << value_to_send;
+                    snprintf(val_str, sizeof(val_str), "%.5f", value_to_send);
                 } else {
-                    ss << std::fixed << std::setprecision(2) << value_to_send;
+                    snprintf(val_str, sizeof(val_str), "%.2f", value_to_send);
                 }
-                std::string val_str = ss.str();
 
-                const char* cmd[] = {"af-command", id.c_str(), key.c_str(), val_str.c_str(), NULL};
+                const char* cmd[] = {"af-command", id.c_str(), key.c_str(), val_str, NULL};
                 mpv_command(mpv, cmd);
 
                 // CHỈ cập nhật lastSent khi đã thực sự gửi lệnh thành công
