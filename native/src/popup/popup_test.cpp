@@ -1,5 +1,5 @@
 #include "popup_test.h"
-#include "filter/audio/audio_filter_manager.h"
+#include "mpv/audio/filter/audio_filter_manager.h"
 #include <imgui.h>
 #include <vector>
 #include <string>
@@ -737,92 +737,7 @@ void DrawEBUR128Monitor(
     }
 }
 
-void DrawAudioAnalysisTab(AudioFilterManager& manager) 
-{
-    bool isRunning = manager.IsAudioAnalysisRunning();
 
-    // 1. Phần Trạng thái & Nút Bật/Tắt
-    ImGui::Text("Trạng thái Pipeline:");
-    ImGui::SameLine();
-    if (isRunning) {
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.4f, 1.0f), "● ĐANG HOẠT ĐỘNG (16kHz Mono)");
-    } else {
-        ImGui::TextColored(ImVec4(1.0f, 0.2f, 0.2f, 1.0f), "○ ĐÃ DỪNG PHÂN TÍCH");
-    }
-
-    ImGui::SameLine(ImGui::GetWindowWidth() - 160);
-    if (!isRunning) {
-        if (ImGui::Button("BẬT PHÂN TÍCH", ImVec2(140, 24))) manager.StartAudioAnalysis();
-    } else {
-        if (ImGui::Button("DỪNG PHÂN TÍCH", ImVec2(140, 24))) manager.StopAudioAnalysis();
-    }
-
-    ImGui::Separator();
-
-    // 2. PHẦN KIỂM TRA IN SỐ LIỆU THÔ (RAW PCM DATA MONITOR)
-    ImGui::TextColored(ImVec4(1.0f, 0.8f, 0.2f, 1.0f), "--- Dữ liệu thu thập thời gian thực từ Loopback Device ---");
-    
-    // Đọc telemetry từ các biến atomic
-    float currentRMS = manager.GetAnalysisRMS();
-    float currentPeak = manager.GetAnalysisPeak();
-    uint64_t totalSamples = manager.GetTotalSamplesCaptured();
-    size_t pendingChunks = manager.GetAnalysisQueueSize();
-
-    // Thuật toán chuyển RMS sang dB an toàn (tránh log(0))
-    auto rmsToDB = [&](float rms) -> float {
-        if (rms < 0.00001f) return -60.0f; // Giới hạn đáy là -60dB thay vì âm vô cùng
-        float db = 20.0f * std::log10(rms);
-        if (db < -60.0f) db = -60.0f;
-        return db;
-    };
-
-    // Bên trong hàm DrawAudioAnalysisTab:
-    float currentDB = rmsToDB(currentRMS);
-
-    // Lấy lịch sử RMS và chuyển toàn bộ sang dB để vẽ
-    std::vector<float> historyData = manager.GetRMSHistory();
-    std::vector<float> dbHistory(historyData.size());
-    for (size_t i = 0; i < historyData.size(); ++i) {
-        dbHistory[i] = rmsToDB(historyData[i]);
-    }
-
-    ImGui::Columns(2, "##AnalysisGrid", false);
-    ImGui::SetColumnWidth(0, 240);
-
-    ImGui::Text("Tổng số Samples thu được: "); ImGui::NextColumn();ImGui::Text("%llu samples",totalSamples); ImGui::NextColumn();
-    ImGui::Text("Số Chunks đang xếp hàng: ");ImGui::NextColumn();ImGui::Text("%zu chunks", pendingChunks); ImGui::NextColumn();
-    ImGui::Text("Năng lượng hiệu dụng (RMS): "); ImGui::NextColumn();ImGui::Text("%.6f (%.1f dB)", currentRMS, currentDB); ImGui::NextColumn();
-    ImGui::Text("Biên độ Đỉnh (Max Peak): ");ImGui::NextColumn();ImGui::Text("%.6f", currentPeak); ImGui::NextColumn();
-    
-    ImGui::Columns(1);
-    ImGui::Dummy(ImVec2(0.0f, 4.0f));
-
-    // 3. BIỂU ĐỒ SÓNG ÂM THANH TRỰC QUAN (AUDIO AMPLITUDE VISUALIZER)
-    ImGui::Text("Biểu đồ biến thiên biên độ sóng (Real-time Amplitude Track):");
-    
-
-    // Vẽ biểu đồ dạng đường cuốn liên tục sử dụng ImGui::PlotLines
-    char overlayLabel[64];
-    sprintf(overlayLabel, "dB: %.1f", currentDB);
-    
-    ImGui::PushStyleColor(ImGuiCol_PlotLines, ImVec4(0.0f, 1.0f, 0.8f, 1.0f)); // Màu xanh ngọc rực rỡ
-    ImGui::PlotLines("##AudioWaveform", dbHistory.data(), (int)dbHistory.size(), 0, overlayLabel, -60.0f, 0.0f, ImVec2(-1, 80));
-    ImGui::PopStyleColor();
-
-    // Thanh đo Stress test hàng đợi
-    float queueRatio = static_cast<float>(pendingChunks) / 50.0f;
-    ImGui::ProgressBar(queueRatio, ImVec2(-1, 14), "");
-
-    // Lấy chuỗi chữ từ Manager ra
-    std::string subText = AudioFilterManager::Instance().GetCurrentSubtitle();
-
-    ImGui::Separator();
-    ImGui::TextWrapped("Phụ đề AI (Real-time):");
-    ImGui::PushStyleColor(ImGuiCol_Text, ImVec4(1.0f, 0.8f, 0.0f, 1.0f)); // Màu vàng cho nổi bật
-    ImGui::TextWrapped(subText.c_str());
-    ImGui::PopStyleColor();
-    ImGui::Separator();
-}
 
 void DrawLogTab(AudioFilterManager& manager)
 {
@@ -860,11 +775,6 @@ void ShowTestPopup(bool& closePopup_Test)
         if (ImGui::BeginTabItem("EBU R128"))
         {
             DrawEBUR128Monitor(manager, ctx);
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("AI Analysis"))
-        {
-            DrawAudioAnalysisTab(manager);
             ImGui::EndTabItem();
         }
 

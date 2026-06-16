@@ -1,4 +1,4 @@
-#include <mpv/filter/video_filter_manager.h>
+#include "video_filter_manager.h"
 
 VideoFilterManager& VideoFilterManager::Instance() {
     static VideoFilterManager inst;

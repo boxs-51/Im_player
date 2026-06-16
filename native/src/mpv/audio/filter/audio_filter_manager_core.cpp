@@ -85,6 +85,9 @@ void AudioFilterManager::Init(mpv_handle* h) {
     RegisterParam("f_out_limiter", "attack", 0.01f, 100.0f, 1.0f);   
     RegisterParam("f_out_limiter", "release", 10.0f, 1000.0f, 100.0f);
     RegisterParam("f_out_limiter", "makeup", 1.0f, 64.0f, 1.0f);     
+
+    AddFilter("f_ebur_measurer", "lavfi", "system_internal");
+
 }
 
 void AudioFilterManager::AddFilter(const std::string& id, const std::string& name, const std::string& group) {
@@ -102,6 +105,10 @@ AudioFilter* AudioFilterManager::FindFilter(const std::string& id) {
 
 void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
     auto* f = FindFilter(id);
+    if (enabled && f->isFailed) {
+        AddLog("[Architecture] Cannot enable " + id + " because it was isolated due to a critical error.", LogLevel::Warning);
+        return; 
+    }
     if (!f || f->enabled == enabled) return;
 
     if (id == "f_out_compressor" || id == "f_out_limiter") {
@@ -122,7 +129,10 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
     }
 
     if (enabled && !m_globalBypass && !f->isBypassManagement) {
-        if (!f->group.empty() && f->group != "equalizer_group" && f->group != "outer_stabilizer" && f->group != "outer_gain_node") {
+        if (!f->group.empty() && f->group != "equalizer_group" 
+                            && f->group != "outer_stabilizer" 
+                            && f->group != "outer_gain_node"
+                            && f->group != "system_internal") {
             for (auto& other : m_filters) {
                 if (other.id != id && other.group == f->group && other.enabled && !other.isBypassManagement) {
                     other.enabled = false;
@@ -136,10 +146,22 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
 }
 
 bool AudioFilterManager::IsFilterEnabled(const std::string& id) {
-    if (auto* f = FindFilter(id)) return f->enabled;
+    if (auto* f = FindFilter(id)) {
+        if (f->isFailed) return false;
+        return f->enabled;
+    }
     return false;
 }
-
+void AudioFilterManager::RecoverFailedFilter(const std::string& id) {
+    if (auto* f = FindFilter(id)) {
+        if (f->isFailed) {
+            f->isFailed = false;
+            f->enabled = true; // Thử bật lại
+            AddLog("[Architecture] Attempting to recover and reinstall filter: " + id, LogLevel::Info);
+            SyncAll();
+        }
+    }
+}
 int AudioFilterManager::GetActiveFilterCount() {
     int count = 0;
     for (const auto& f : m_filters) { if (f.enabled) count++; }

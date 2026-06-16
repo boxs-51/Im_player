@@ -3,7 +3,7 @@
 #include <mpv/mpv_data.h>
 #include <mpv/shaders/shaders_manager.h>
 #include <mpv/scripts/script_manager.h>
-#include <mpv/filter/audio/audio_filter_manager.h>
+#include <mpv/audio/filter/audio_filter_manager.h>
 
 #include <windows/windows_borderless.h>
 #include <threads/thread_manager.h>

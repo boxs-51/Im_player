@@ -9,31 +9,33 @@ void AudioFilterManager::SyncAll() {
     if (m_channelMode == "mono") full_af += "pan=mono|c0=0.5*c0+0.5*c1";
     else if (m_channelMode == "surround") full_af += "pan=5.1|FL=c0|FR=c1|FC=c0+c1|LFE=0|BL=c0|BR=c1";
 
-    for (const auto& f : m_filters) {
-        if (f.enabled) {
-            if (f.id == "f_vol_booster" || f.id == "f_out_compressor" || f.id == "f_out_limiter") continue;
+    auto append_filter = [&](AudioFilter* f, const std::string& custom_str = "") {
+        if (!f || !f->enabled || f->isFailed) return; // BỎ QUA NẾU FILTER ĐÃ BỊ ĐÁNH DẤU LỖI
+        
+        std::string init_str = custom_str.empty() ? f->GetInitString() : custom_str;
+        if (!init_str.empty()) {
+            if (!full_af.empty()) full_af += ",";
+            full_af += init_str;
+        }
+    };
 
-            std::string init_str = "";
+    for (auto& f : m_filters) {
+        if (f.id == "f_vol_booster" || f.id == "f_out_compressor" || f.id == "f_out_limiter" || 
+            f.id == "f_ebur_measurer" || f.id == "f_ai_splitter") {
+            continue;
+        }
+
+        if (f.enabled && !f.isFailed) {
             if (f.name == "equalizer") {
-                std::string freq = "1000"; // Tần số mặc định phòng hờ
-                
-                // Tự động tìm freq tương ứng với f.id trong cấu hình chung
+                std::string freq = "1000";
                 for (const auto& [band_id, band_freq] : m_eqBands) {
-                    if (band_id == f.id) {
-                        freq = band_freq;
-                        break;
-                    }
+                    if (band_id == f.id) { freq = band_freq; break; }
                 }
-
                 float gain = f.params.count("g") ? f.params.at("g").current : 0.0f;
-                init_str = "@" + f.id + ":equalizer=f=" + freq + ":width_type=o:w=1.0:g=" + std::to_string(gain);
+                std::string eq_str = "@" + f.id + ":equalizer=f=" + freq + ":width_type=o:w=1.0:g=" + std::to_string(gain);
+                append_filter(&f, eq_str);
             } else {
-                init_str = f.GetInitString(); 
-            }
-
-            if (!init_str.empty()) {
-                if (!full_af.empty()) full_af += ",";
-                full_af += init_str;
+                append_filter(&f);
             }
         }
     }
@@ -41,60 +43,51 @@ void AudioFilterManager::SyncAll() {
     auto* vol_boost = FindFilter("f_vol_booster");
     if (vol_boost && m_enableOuterBooster) {
         vol_boost->enabled = true;
-        if (!full_af.empty()) full_af += ",";
-        full_af += vol_boost->GetInitString();
+        append_filter(vol_boost);
     }
 
     auto* out_comp = FindFilter("f_out_compressor");
     auto* out_lim = FindFilter("f_out_limiter");
-    if(m_enableOuterStabilizer) {
-        if(out_comp) out_comp->enabled = true;
-        if(out_lim) out_lim->enabled = true;
+    if (m_enableOuterStabilizer) {
+        if (out_comp) out_comp->enabled = true;
+        if (out_lim) out_lim->enabled = true;
     }
-    if (out_comp && out_comp->enabled) {
-        if (!full_af.empty()) full_af += ",";
-        full_af += out_comp->GetInitString();
-    }
-    if (out_lim && out_lim->enabled) {
-        if (!full_af.empty()) full_af += ",";
-        full_af += out_lim->GetInitString();
+    append_filter(out_comp);
+    append_filter(out_lim);
+
+    auto* ebur = FindFilter("f_ebur_measurer");
+    if (ebur) {
+        ebur->enabled = true;
+        append_filter(ebur);
     }
 
-    if (!full_af.empty()) full_af += ",";
-    full_af += "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
-
+    // =================================================================
+    // CƠ CHẾ KIỂM TRA LỖI VÀ PHỤC HỒI (FALLBACK CRITICAL)
+    // =================================================================
     
-    bool isPipeReady = false;
-#ifdef _WIN32
-    if (m_hAudioPipe != INVALID_HANDLE_VALUE) {
-        isPipeReady = true;
-    }
-#endif
+    // Thử áp dụng chuỗi filter đầy đủ lên MPV
+    int error_code = mpv_set_property_string(mpv, "af", full_af.c_str());
 
-    // CHỈ chèn filter nhân bản và stream-record nếu Pipe đã được tạo thành công và luồng AI đang chạy
-    if (isPipeReady && !m_stopAnalysis) {
-        if (!full_af.empty()) {
-            full_af += ",";
+    if (error_code < 0) { 
+        // Lỗi xảy ra! Tiến hành cô lập filter lỗi.
+        AddLog("[Architecture] Failed to apply full filter chain. Error code: " + std::to_string(error_code) + ". Initiating isolation...", LogLevel::Error);
+
+        if (ebur && ebur->enabled && !ebur->isFailed) {
+            ebur->isFailed = true;
+            ebur->enabled = false;
+            AddLog("[Architecture] Isolated 'f_ebur_measurer' due to initialization failure.", LogLevel::Warning);
+            SyncAll();
+            return;
         }
-        // Nhân bản chuỗi để đẩy qua Pipe
-        full_af += "lavfi=[asplit=2[loa][ai]; [loa]afifo; [ai]aresample=16000,pan=mono|c0=c0]";
-        mpv_set_property_string(mpv, "af", full_af.c_str());
-
-        // Bật ghi luồng phụ vào Pipe
-        mpv_set_property_string(mpv, "stream-record", "\\\\.\\pipe\\mpv_whisper_pipe");
-    } else {
-        // Nếu không chạy AI hoặc Pipe lỗi, ghi đè chuỗi filter thông thường xuống MPV (Không có asplit)
-        mpv_set_property_string(mpv, "af", full_af.c_str());
         
-        // Tắt tính năng stream-record để MPV không tìm file Pipe nữa
-        mpv_set_property_string(mpv, "stream-record", ""); 
+        AddLog("[Architecture] Critical failure in standard filters. Clearing entire filter string to save core audio.", LogLevel::Error);
+        mpv_set_property_string(mpv, "af", ""); 
     }
-
-    //mpv_set_property_string(mpv, "ao", "auto");
 }
 
 void AudioFilterManager::UpdateParam(const std::string& id, const std::string& key, float value) {
     if (auto* f = FindFilter(id)) {
+        if (f->isFailed) return;
         auto it = f->params.find(key);
         if (it != f->params.end()) { 
             auto& param = it->second;

@@ -32,13 +32,13 @@ add_executable(imgui_player WIN32
     native/src/mpv/mpv_ui_settings.cpp
     native/src/mpv/mpv_data.cpp
 
-    native/src/mpv/filter/audio/audio_filter_manager_core.cpp
-    native/src/mpv/filter/audio/audio_filter_manager_ai.cpp
-    native/src/mpv/filter/audio/audio_filter_manager_io.cpp
-    native/src/mpv/filter/audio/audio_filter_manager_safety.cpp
-    native/src/mpv/filter/audio/audio_filter_manager_sync.cpp
-    native/src/mpv/filter/audio/audio_filter_manager_analysis.cpp
-    native/src/mpv/filter/video_filter_manager.cpp
+    native/src/mpv/audio/filter/audio_filter_manager_core.cpp
+    native/src/mpv/audio/filter/audio_filter_manager_ai.cpp
+    native/src/mpv/audio/filter/audio_filter_manager_io.cpp
+    native/src/mpv/audio/filter/audio_filter_manager_safety.cpp
+    native/src/mpv/audio/filter/audio_filter_manager_sync.cpp
+
+    native/src/mpv/video/filter/video_filter_manager.cpp
 
     native/src/mpv/shaders/shader_manager.cpp
     native/src/mpv/scripts/script_manager.cpp
@@ -99,7 +99,8 @@ target_include_directories(imgui_player PRIVATE
     native/src/mpv  
     native/src/mpv/shaders
     native/src/mpv/scripts
-    native/src/mpv/filter
+    native/src/mpv/audio
+    native/src/mpv/video
 
     native/src/gui
     native/include/nlohmann  

@@ -91,5 +91,9 @@ void AudioFilterManager::LoadFromFile() {
         }
     }
     if (!parse_success) ResetAllToDefaults();
-    else { m_currentPreset = target_preset; SetAdaptiveMode(target_auto_mode, m_currentPreset); }
+    else { 
+        m_currentPreset = target_preset; 
+        SyncAll();
+        SetAdaptiveMode(target_auto_mode, m_currentPreset); 
+    }
 }

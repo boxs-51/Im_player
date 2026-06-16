@@ -43,8 +43,14 @@ struct AudioFilter {
     std::string group;    
 
     bool isBypassManagement = false; 
+    bool isFailed = false;
 
     std::string GetInitString() const {
+
+        if (id == "f_ebur_measurer") {
+        return "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
+        }
+
         std::string res = "@" + id + ":" + name;
         if (!params.empty()) {
             if (name == "chorus") {
