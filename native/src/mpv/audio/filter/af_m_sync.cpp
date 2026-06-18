@@ -1,9 +1,14 @@
-#include "audio_filter_manager.h"
+#include "af_m.h"
+#include "af_m_log.h"
+
 #include <sstream>
 #include <iomanip>
 
 void AudioFilterManager::SyncAll() {
     if (!mpv) return;
+
+    RATE_LIMITED_COUT(sync_all_trace, 500, std::cout << "[DEBUG] [AudioFilter] Syncing filter chain..." << std::endl);
+
     std::string full_af = "";
 
     if (m_channelMode == "mono") full_af += "pan=mono|c0=0.5*c0+0.5*c1";
@@ -76,6 +81,7 @@ void AudioFilterManager::SyncAll() {
             ebur->isFailed = true;
             ebur->enabled = false;
             AddLog("[Architecture] Isolated 'f_ebur_measurer' due to initialization failure.", LogLevel::Warning);
+            RATE_LIMITED_COUT(af_apply_error, 1000, std::cout << "[ERROR] [AudioFilter] Failed to apply chain. MPV Error: " << error_code << std::endl);
             SyncAll();
             return;
         }
@@ -176,5 +182,9 @@ void AudioFilterManager::SetAllFiltersState(bool enabled) {
         if (f.enabled != enabled) { f.enabled = enabled; changed = true; }
     }
     SetAdaptiveMode(enabled, m_currentPreset);
-    if (changed) { EvaluateSystemSafety(); SyncAll(); }
+    if (changed) { 
+        RATE_LIMITED_COUT(filter_state_change, 500, std::cout << "[INFO] [AudioFilter] All filters enabled: " << (enabled ? "TRUE" : "FALSE") << std::endl);
+        EvaluateSystemSafety(); 
+        SyncAll(); 
+    }
 }

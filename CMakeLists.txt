@@ -14,7 +14,7 @@ find_package(OpenSSL REQUIRED)
 
 # ================== EXECUTABLE ==================
 add_executable(imgui_player WIN32
-
+    #
     native/src/main.cpp
     native/src/utils.cpp
     native/src/FontManager.cpp
@@ -23,7 +23,7 @@ add_executable(imgui_player WIN32
     native/src/hotkey_handler.cpp
     native/src/notification.cpp
     native/src/wintoastlib.cpp
-
+    #
     native/src/mpv/mpv_basic_formats.cpp
     native/src/mpv/mpv_controller.cpp
     native/src/mpv/mpv_ui.cpp
@@ -31,35 +31,34 @@ add_executable(imgui_player WIN32
     native/src/mpv/mpv_settings.cpp
     native/src/mpv/mpv_ui_settings.cpp
     native/src/mpv/mpv_data.cpp
-
-    native/src/mpv/audio/filter/audio_filter_manager_core.cpp
-    native/src/mpv/audio/filter/audio_filter_manager_ai.cpp
-    native/src/mpv/audio/filter/audio_filter_manager_io.cpp
-    native/src/mpv/audio/filter/audio_filter_manager_safety.cpp
-    native/src/mpv/audio/filter/audio_filter_manager_sync.cpp
-
+    #
+    native/src/mpv/audio/filter/af_m_core.cpp
+    native/src/mpv/audio/filter/af_m_ai.cpp
+    native/src/mpv/audio/filter/af_m_io.cpp
+    native/src/mpv/audio/filter/af_m_safety.cpp
+    native/src/mpv/audio/filter/af_m_sync.cpp
+    #
     native/src/mpv/video/filter/video_filter_manager.cpp
-
+    #
     native/src/mpv/shaders/shader_manager.cpp
+    #
     native/src/mpv/scripts/script_manager.cpp
-
+    #
     native/src/windows/windows_borderless.cpp
     native/src/windows/windows_custom_titlebar.cpp
-
+    #
     native/src/gui/gui.cpp
     native/src/gui/gui_widgets.cpp
-
+    #
     native/imgui/imgui.cpp
     native/imgui/imgui_draw.cpp
     native/imgui/imgui_tables.cpp
     native/imgui/imgui_widgets.cpp
     native/imgui/imgui_demo.cpp
-
     native/imgui/misc/freetype/imgui_freetype.cpp
-
     native/imgui/backends/imgui_impl_sdl2.cpp
     native/imgui/backends/imgui_impl_opengl3.cpp
-
+    #
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
     native/src/popup/popup_url.cpp
@@ -67,12 +66,10 @@ add_executable(imgui_player WIN32
     native/src/popup/popup_test.cpp
     native/src/popup/reusable_popup.cpp
     native/src/popup/sidebar_popup.cpp
-
-    native/src/services/services_key_manager.cpp
-    native/src/services/services_youtube.cpp
-    native/src/services/services_services.cpp
-    native/src/services/services_client_backend.cpp
-
+    #
+    native/src/backends/client_backend.cpp
+    native/src/backends/backend.cpp
+    #
     native/src/threads/thread_manager.cpp
 
 )
@@ -115,7 +112,7 @@ target_include_directories(imgui_player PRIVATE
     native/src/windows
     native/src/popup
     native/src/threads
-    native/src/services
+    native/src/backends
 
     native/imgui/misc/freetype
     native/imgui/backends

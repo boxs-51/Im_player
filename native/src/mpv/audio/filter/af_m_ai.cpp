@@ -1,4 +1,5 @@
-#include "audio_filter_manager.h"
+#include "af_m.h"
+#include "af_m_log.h"
 
 AudioContext AudioFilterManager::ExtractCurrentContext() {
     AudioContext ctx;

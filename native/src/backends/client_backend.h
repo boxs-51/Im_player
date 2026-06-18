@@ -58,3 +58,4 @@ void UpdateVideoData(VideoSource source, const std::string& param = "", int top 
 void ProcessThumbnailQueue();
 void LoadThumbnail(const VideoItem &v);
 void TrimThumbnailCache();
+

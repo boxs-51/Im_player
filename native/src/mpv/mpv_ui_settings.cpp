@@ -14,8 +14,8 @@
 
 
 #include <imgui.h>
-#undef RATE_LIMITED_COUT
-#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+//#undef RATE_LIMITED_COUT
+//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 #include <string>
 

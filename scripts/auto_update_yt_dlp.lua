@@ -217,4 +217,4 @@ end
 
 -- ================= INIT =================
 mp.add_timeout(1, update)
-mp.register_script_message("check_update", update)
+mp.register_script_message("check_update_yt-dlp", update)

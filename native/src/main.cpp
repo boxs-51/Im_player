@@ -9,7 +9,7 @@
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
 
-#include <mpv/audio/filter/audio_filter_manager.h>
+#include <mpv/audio/filter/af_m.h>
 
 #include <popup/popup.h>
 
@@ -17,7 +17,8 @@
 #include "hotkey_handler.h"
 #include "globals.h"
 
-#include <services/services_services.h>
+#include <backends/backend.h>
+
 #include <threads/thread_manager.h>
 
 #include "main.h"
@@ -28,8 +29,8 @@
 
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
-#undef RATE_LIMITED_COUT
-#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+//#undef RATE_LIMITED_COUT
+//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 #include <SDL_syswm.h>
 #include <windows.h>

@@ -3,7 +3,7 @@
 #include <mpv/mpv_data.h>
 #include <mpv/shaders/shaders_manager.h>
 #include <mpv/scripts/script_manager.h>
-#include <mpv/audio/filter/audio_filter_manager.h>
+#include <mpv/audio/filter/af_m.h>
 
 #include <windows/windows_borderless.h>
 #include <threads/thread_manager.h>
@@ -261,7 +261,7 @@ void MPVRenderLoop(MPVRenderThread* rt) {
 
         if (!rt->running) break;
 
-        framerender.startFrame();
+        //framerender.startFrame();
 
         rt->needRender = false;
         
@@ -325,10 +325,6 @@ void MPVRenderLoop(MPVRenderThread* rt) {
             glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo);
             glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0);
             
-            //glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
-            //glClear(GL_COLOR_BUFFER_BIT);
-        }else{
-            //glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo);
         }
 
         mpv_opengl_fbo fbo {};
@@ -352,8 +348,7 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         if (frame.fence) glDeleteSync(frame.fence);
 
         frame.fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        //glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
-        //glFinish();
+        glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
         frame.state.store(BufferState::READY, std::memory_order_release);
 
         rt->framerender.store(framerender.updateAndGetFPS());
@@ -362,7 +357,7 @@ void MPVRenderLoop(MPVRenderThread* rt) {
         ev.type = SDL_MPV_RENDER_UPDATE;
         SDLUtils::SDLX_PushUniqueEvent(ev);
 
-        framerender.endFrame();
+        //framerender.endFrame();
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glBindTexture(GL_TEXTURE_2D, 0);

@@ -1,10 +1,10 @@
-#include "services/services_youtube.h"
+#include "backend.h"
 
 #include <winhttp.h>
 #include <vector>
 #include <string>
 
-bool IsYouTubeServiceRunning() {
+static bool IsYouTubeServiceRunning() {
     HINTERNET hSession = WinHttpOpen(L"YouTubeService/1.0",
         WINHTTP_ACCESS_TYPE_DEFAULT_PROXY,
         WINHTTP_NO_PROXY_NAME, WINHTTP_NO_PROXY_BYPASS, 0);
@@ -41,7 +41,7 @@ bool IsYouTubeServiceRunning() {
     WinHttpCloseHandle(hSession);
     return result;
 }
-void LaunchYouTubeService(Services& services ) {
+inline static void LaunchYouTubeService(Services& services ) {
     STARTUPINFOW si = { sizeof(si) };
     ZeroMemory(&services.g_YouTubeServiceProcess, sizeof(services.g_YouTubeServiceProcess));
 
@@ -61,7 +61,7 @@ void LaunchYouTubeService(Services& services ) {
         return;
     }
 }
-void EnsureYouTubeServiceRunning(Services& services) {
+inline static void EnsureYouTubeServiceRunning(Services& services) {
     bool expected = false;
     if (services.g_YouTubeServiceRunning.compare_exchange_strong(expected, true)) {
         if (!IsYouTubeServiceRunning()) {
@@ -89,7 +89,7 @@ void EnsureYouTubeServiceRunning(Services& services) {
     }
 }
 
-void StopYouTubeService(Services& services) {
+inline static void StopYouTubeService(Services& services) {
     std::lock_guard<std::mutex> lock(services.g_youtubeServiceMutex);
 
     if (services.g_YouTubeServiceProcess.hProcess) {

@@ -11,7 +11,7 @@
 #include <mpv/mpv_basic_formats.h>
 #include <gui/gui.h>
 #include <mpv/mpv_render_video.h>
-#include <services/services_services.h>
+#include <backends/backend.h>
 
 #include <filesystem>
 #include <vector>
@@ -27,8 +27,8 @@
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
-#undef RATE_LIMITED_COUT
-#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+//#undef RATE_LIMITED_COUT
+//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 using json = nlohmann::json;
 
