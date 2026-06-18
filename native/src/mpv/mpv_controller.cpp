@@ -73,13 +73,9 @@ void mpv_command_seek_abs(mpv_handle* mpv, float targetTime, float duration) {
     // 1. Clamp giá trị
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
     
-    // 2. Cập nhật hướng seek (cho hiệu ứng UI nếu cần)
-    dataseek.forward = (targetTime > (float)g_playbackStatus.playbackTime);
-    dataseek.pulse = 1.0f;
-
     Uint64 now = SDL_GetTicks64();
 
-    // 3. Kiểm tra delay
+    // 2. Kiểm tra delay
     if (now - g_lastSeekRequestTime < SEEK_DELAY_MS) {
         g_seekTargetTime = targetTime;
         g_isSeekPending = true;
@@ -143,13 +139,23 @@ bool mpv_is_paused(mpv_handle *mpv) {
 }
 void mpv_disable_video(mpv_handle* mpv) {
     if (!mpv) return;
-    //mpv_set_property_string(mpv, "video-aspect-override", "0");
-    mpv_set_property_string(mpv, "video", "no");
+
+    mpv_set_property_string(mpv, "vd-lavc-skipframe", "nonref");
+    mpv_set_property_string(mpv, "vd-lavc-skiploopfilter", "all");
+    mpv_set_property_string(mpv, "vd-lavc-fast", "yes");
+    mpv_set_property_string(mpv, "vd-lavc-lowres", "12");
+    mpv_set_property_string(mpv, "video-sync", "audio");
+    mpv_set_property_string(mpv, "framedrop", "all");
+    mpv_set_property_string(mpv, "demuxer-max-bytes", "16M");
 }
 void mpv_enable_video(mpv_handle* mpv) {
     if (!mpv) return;
-    //mpv_set_property_string(mpv, "video-aspect-override", "-2");
-    mpv_set_property_string(mpv, "video", "auto");
+    mpv_set_property_string(mpv, "framedrop", "vo");
+    mpv_set_property_string(mpv, "vd-lavc-skipframe", "none");
+    mpv_set_property_string(mpv, "vd-lavc-skiploopfilter", "default");
+    mpv_set_property_string(mpv, "vd-lavc-fast", "no");
+    mpv_set_property_string(mpv, "vd-lavc-lowres", "0");
+    ApplyDynamicMPVConfig(mpv);
 }
 void mpv_command_set_shader(mpv_handle* mpv, const std::string& path) {
     if (!mpv || path.empty()) return;
@@ -159,4 +165,3 @@ void mpv_command_set_shader(mpv_handle* mpv, const std::string& path) {
     mpv_command_string(mpv, "change-list glsl-shaders clr ''");
     mpv_command_string(mpv, cmd.c_str());
 }
-

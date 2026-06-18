@@ -783,14 +783,12 @@ void ProcessMPVEvents(mpv_handle* mpv ) {
         }
         case MPV_EVENT_SEEK:{
             g_playbackStatus.isSeeking = true; 
-            dataseek.g_isSeeking = g_playbackStatus.isSeeking;
             RATE_LIMITED_COUT(mpv_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
         case MPV_EVENT_PLAYBACK_RESTART: 
         {   
             g_playbackStatus.isSeeking = false; 
-            dataseek.g_isSeeking = g_playbackStatus.isSeeking;
             if(pendingSeekTime >= 0.0){
                 if(!(GetVideoType() == VideoType::Live))mpv_command_seek_abs(mpv, pendingSeekTime , g_playbackStatus.duration);
                 RATE_LIMITED_COUT(playback_restart_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << pendingSeekTime << " seconds.");

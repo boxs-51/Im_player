@@ -168,16 +168,18 @@ struct WindowLayout {
     SDL_Rect titleBar;   // Vùng titlebar
     SDL_Rect videoArea;  // Vùng video/content
 
-    Vec2 DisplaySize;
+    ImVec2 DisplaySize;
 
-    Vec2 VideoPos;
-    Vec2 VideoSize;
+    ImVec2 VideoPos;
+    ImVec2 VideoSize;
 
-    Vec2 WinDowPos;
-    Vec2 WinDowSize;
+    ImVec2 WinDowPos;
+    ImVec2 WinDowSize;
 
-    Vec2 TitlePos;
-    Vec2 TitleSize;
+    ImVec2 TitlePos;
+    ImVec2 TitleSize;
+
+    bool layoutChanged;
 
 };
 
@@ -254,7 +256,7 @@ void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , WindowLayout& w);
+bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , WindowLayout& w);
 void TerminateHandler();
 void SignalHandler(int signal);
 void NotifyActivity(bool& show_ui_video);

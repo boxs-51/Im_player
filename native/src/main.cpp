@@ -202,7 +202,7 @@ bool InitMainWindow() {
         return false;
     }
     #ifdef CUSTOM_TITLEBAR
-    SDLUtils::SetWindowSDL(ctx.mainWindow, Vec2(720,360));
+    SDLUtils::SetWindowSDL(ctx.mainWindow, ImVec2(720,360));
     #else 
     SDL_SetWindowMinimumSize(ctx.mainWindow,640, 360);
     #endif
@@ -318,14 +318,14 @@ void UpdateUIState( bool& show_ui_video) {
     }
 }
 void RenderUI(const PlaybackState& state ){
-    glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
+    
     glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
     glClear(GL_COLOR_BUFFER_BIT);
 
     ImGui::SetNextWindowPos(ImVec2(Windowlayout.WinX , Windowlayout.WinY ));
     ImGui::SetNextWindowSize(ImVec2(Windowlayout.WinW, Windowlayout.WinH));
     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
-    ImGui::Begin("VideoRegion", nullptr,
+    ImGui::Begin("WindowMain", nullptr,
         ImGuiWindowFlags_NoTitleBar |
         ImGuiWindowFlags_NoDecoration |
         ImGuiWindowFlags_NoScrollbar  |
@@ -339,11 +339,12 @@ void RenderUI(const PlaybackState& state ){
 
     UpdateUIState(show_ui_video);
     
-    RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",g_DragResizeState ,Windowlayout.WinDowPos, Windowlayout.WinDowSize);
+    RenderBorderlessWindow(ctx.mainWindow,"Media Video Control",g_DragResizeState ,Windowlayout.TitlePos, Windowlayout.TitleSize);
 
     
     ShowAllWindows();
-
+    ImGui::SetNextWindowPos((Windowlayout.VideoPos));
+    ImGui::BeginChild("##VideoRegion", (Windowlayout.VideoSize));
     if(state == PlaybackState::Idle){
         RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
@@ -353,8 +354,8 @@ void RenderUI(const PlaybackState& state ){
         state == PlaybackState::Seeking  ||
         state == PlaybackState::Playing ||
         state == PlaybackState::EndOfFile) {
-        RenderMPVVideo(Windowlayout.VideoSize);
-        DrawGhostStatusOverlay(ToImVec2(Windowlayout.VideoPos), ToImVec2(Windowlayout.VideoSize), state == PlaybackState::Paused);
+        RenderMPVVideo((Windowlayout.VideoPos), (Windowlayout.VideoSize));
+        RenderGhostStatusOverlay((Windowlayout.VideoPos), (Windowlayout.VideoSize), (state == PlaybackState::Paused));
         render_video = false;
     }
 
@@ -370,15 +371,14 @@ void RenderUI(const PlaybackState& state ){
 
 
         RenderSeekingOverlay(Windowlayout.VideoPos, 
-                            Windowlayout.VideoSize,
-                            dataseek);
+                            Windowlayout.VideoSize);
     }
     if (state == PlaybackState::Loading ) { 
         RenderLoading(Windowlayout.VideoPos, 
                         Windowlayout.VideoSize);
 
     }
-    
+    ImGui::EndChild();
     ImGui::End();
 
 }
@@ -394,6 +394,10 @@ void RenderFrame(const PlaybackState& state, const bool& g_WindowVisible){
     static Uint64 lastVisibleTime = 0;
     static bool isRenderingPaused = false;
 
+#ifdef RENDER_MPV_THREAD
+    renderThread.g_WindowVisible = g_WindowVisible;
+    renderThread.Audio_visualizers = Audio_visualizers;
+#endif
     if (!g_WindowVisible) {
         if (lastVisibleTime == 0) {
             lastVisibleTime = SDL_GetTicks64();
@@ -445,13 +449,8 @@ void RenderFrame(const PlaybackState& state, const bool& g_WindowVisible){
     ImGui_ImplSDL2_NewFrame();
     ImGui::NewFrame();
 
-    //if (cur) {
-    //    ImGui::PushFont(cur);
-    //    RenderPushFont(state,g_WindowVisible);
-    //    ImGui::PopFont();
-    //}else{
     RenderPushFont(state,g_WindowVisible);
-    //}
+
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
@@ -559,7 +558,7 @@ int main(int argc, char** argv) {
             UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
             g_DragResizeState.ToggleFullscreen =false;
         }
-        bool g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
+        g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );
         g_DragResizeState.IsMax = (flags & SDL_WINDOW_MAXIMIZED) != 0;
         while (SDL_PollEvent(&e)) {
            HandleMainWindowEvent(&e ,g_WindowVisible);
@@ -598,6 +597,10 @@ int main(int argc, char** argv) {
             // Nếu đang Idle mà mở Popup, ta nâng lên ít nhất 30fps (interval = 2) 
             // để tương tác chuột không bị lag.
             if (targetInterval > 2) targetInterval = 2; 
+        }
+        if(is_dirty) {
+            if (targetInterval > 2) targetInterval = 2;
+            is_dirty = false;
         }
 
         // 3. Thực hiện Render dựa trên tính toán

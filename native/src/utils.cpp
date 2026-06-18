@@ -35,9 +35,21 @@ using json = nlohmann::json;
 WindowContext ctx;
 WindowLayout Windowlayout;
 
-void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , WindowLayout& w)
+bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , WindowLayout& w)
 {
-    if (!sdlWindow) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,0,0};return;}
+    if (!sdlWindow) {
+        w.titleBar = {0,0,0,0};
+        w.videoArea = {0,0,0,0};
+        w.layoutChanged = true;
+        return w.layoutChanged;
+    }
+
+    SDL_Rect oldTitleBar = w.titleBar;
+    SDL_Rect oldVideoArea = w.videoArea;
+    int oldWinX = w.WinX;
+    int oldWinY = w.WinY;
+    int oldWinW = w.WinW;
+    int oldWinH = w.WinH;
 
     SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
     SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
@@ -49,24 +61,37 @@ void UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , W
         w.videoArea = {w.WinX, w.WinY + (int)state.TitleHeight,w.WinW,w.WinH - (int)state.TitleHeight};
                                      
     }
-    w.VideoPos = ToVec2_Pos(w.videoArea);
-    w.VideoSize = ToVec2_Size(w.videoArea);
+    w.VideoPos = ToImVec2_Pos(w.videoArea);
+    w.VideoSize = ToImVec2_Size(w.videoArea);
     #ifdef RENDER_MPV_THREAD
     int newW  = (int)w.VideoSize.x;
     int newH = (int)w.VideoSize.y;
 
-    if (newW != renderThread.width || newH != renderThread.height) {
-        renderThread.newW = newW;
-        renderThread.newH = newH;
-        renderThread.needResize = true;
+    if (newW != renderThread.surface.drawW || newH != renderThread.surface.drawH) {
+        renderThread.surface.newW = newW;
+        renderThread.surface.newH = newH;
+        renderThread.surface.needResize = true;
 
         renderThread.cv.notify_one();
     }
     #endif
-    w.WinDowPos = Vec2((float)w.WinX,(float)w.WinY);
-    w.WinDowSize = Vec2((float)w.WinW,(float)w.WinH);
-    w.TitlePos = ToVec2_Pos(w.titleBar);
-    w.TitleSize = ToVec2_Size(w.titleBar);
+    w.WinDowPos = ImVec2((float)w.WinX,(float)w.WinY);
+    w.WinDowSize = ImVec2((float)w.WinW,(float)w.WinH);
+    w.TitlePos = ToImVec2_Pos(w.titleBar);
+    w.TitleSize = ToImVec2_Size(w.titleBar);
+
+    w.layoutChanged =
+        (oldWinX != w.WinX) ||
+        (oldWinY != w.WinY) ||
+        (oldWinW != w.WinW) ||
+        (oldWinH != w.WinH) ||
+        memcmp(&oldTitleBar, &w.titleBar, sizeof(SDL_Rect)) != 0 ||
+        memcmp(&oldVideoArea, &w.videoArea, sizeof(SDL_Rect)) != 0;
+
+    glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
+    
+    return w.layoutChanged;
+
 }
 
 
@@ -93,7 +118,7 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
         {"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
         
         // Cấu hình âm thanh an toàn
-        {"audio-buffer", "0.2"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
+        {"audio-buffer", "0.5"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
         {"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
 
         {"cookies", "yes"},

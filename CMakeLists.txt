@@ -69,7 +69,6 @@ add_executable(imgui_player WIN32
     native/src/popup/sidebar_popup.cpp
 
     native/src/services/services_key_manager.cpp
-    #native/src/service/resolution_service.cpp
     native/src/services/services_youtube.cpp
     native/src/services/services_services.cpp
     native/src/services/services_client_backend.cpp

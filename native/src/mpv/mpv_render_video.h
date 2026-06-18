@@ -12,25 +12,57 @@
 #include <condition_variable>
 #include <SDL.h>
 #include <mpv/render_gl.h>
+
+// Định nghĩa trạng thái của Buffer
+enum class BufferState {
+    FREE = 0,    // Trống, sẵn sàng để vẽ
+    RENDERING,   // Render Thread đang vẽ
+    READY,       // Đã vẽ xong, chờ luồng UI lấy
+    DISPLAYING   // Luồng UI đang sử dụng để hiển thị
+};
+
+struct FrameNode {
+    GLuint fbo = 0;
+    GLuint texture = 0;
+    GLsync fence = nullptr;
+    std::atomic<BufferState> state{BufferState::FREE};
+    
+    int allocatedW = 0; // Kích thước VRAM thực tế đã cấp phát (Capacity)
+    int allocatedH = 0;
+    int contentW = 0;   // Kích thước khung hình mpv thực sự vẽ vào (Size)
+    int contentH = 0;
+};
+
+// Quản lý trạng thái vùng vẽ chung
+struct SurfaceState {
+    int drawW = 1280;
+    int drawH = 720;
+    std::atomic<int> newW{0};
+    std::atomic<int> newH{0};
+    std::atomic<bool> needResize{false};
+};
+
+// Struct trả về cho ImGui để tính UV
+struct FrameTextureInfo {
+    GLuint texID = 0;
+    float u = 1.0f;
+    float v = 1.0f;
+};
+
 struct MPVRenderThread {
     mpv_render_context* ctx = nullptr;
 
     SDL_Window* window = nullptr;
     SDL_GLContext glContext = nullptr;
 
-    GLuint fbos[3] = {};
-    GLuint textures[3] = {};
-    GLsync renderSyncs[3] = {nullptr, nullptr, nullptr};
-    bool dirtyTextures[3] = {false, false, false};
+    // Gộp mảng rời rạc thành mảng đối tượng
+    FrameNode frames[3];
+    SurfaceState surface;
 
-    int writeIndex = 0;
-    int readIndex = -1;
+    const int MAX_SAFE_TEXTURE_SIZE = 8192; 
 
-    std::mutex swapMtx;
-    std::atomic<bool> newFrameReady = false;
-    
-    int width = 1280;
-    int height = 720;
+    const int MAX_W = 3840; // Mặc định khởi tạo 4K
+    const int MAX_H = 2160;
 
     std::mutex mtx;
     std::condition_variable cv;
@@ -39,23 +71,15 @@ struct MPVRenderThread {
     bool running = true;
     bool hasExited = false;
 
-    std::atomic<bool> needResize = false;
-    std::atomic<int> newW, newH;
+    std::atomic<bool> Audio_visualizers = false;
+    std::atomic<bool> g_WindowVisible = false;
 
     std::atomic<float> framerender{0.0f};
-
 };
 extern MPVRenderThread renderThread;
 void StartMPVRenderThread();
 #endif
-#ifdef RENDER_MPV_FBO
-struct MpvRender{
-    GLuint render_texture = 0;
-    GLuint m_fbo = 0;
-    int tex_width = 0, tex_height = 0;
-};
-extern MpvRender render;
-#endif
+
 /// Khởi tạo mpv và thiết lập các tuỳ chọn cơ bản
 bool InitMPV(mpv_handle*& mpv);
 
@@ -63,7 +87,7 @@ bool InitMPV(mpv_handle*& mpv);
 bool InitMPVRenderContext(mpv_handle* mpv);
 
 /// Render video mpv ra FBO đang được ImGui/OpenGL sử dụng
-void RenderMPVVideo(const Vec2& size);
+void RenderMPVVideo(const ImVec2& pos, const ImVec2& size);
 
 /// Dọn dẹp mpv + render context khi thoát
 void CleanupMPV();

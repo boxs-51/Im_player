@@ -14,7 +14,6 @@
 #include <mpv/mpv_settings.h>
 #include <mpv/render_gl.h>
 
-SeekingData dataseek;
 UiWindowsState uiState;
 MPV mpv;
 
@@ -24,6 +23,8 @@ std::mutex g_mutex;
 std::string g_nextPageToken;
 std::string g_searchQuery;
 
+bool is_dirty = false;
+bool g_WindowVisible = false;
 bool Disabehotkey = false;
 bool playImmediately = true;
 bool Audio_visualizers = false;

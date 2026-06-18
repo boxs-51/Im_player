@@ -30,7 +30,7 @@ void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
     }
 }
 
-void SDLUtils::SDLX_SetMinMax(SDL_Window* window, Vec2& min, Vec2& max)
+void SDLUtils::SDLX_SetMinMax(SDL_Window* window, ImVec2& min, ImVec2& max)
 {
     if (!window) return;
 
@@ -171,17 +171,19 @@ RECT SDLUtils::GetMonitorRectForWindow(HWND hwnd) {
     if (hMon) GetMonitorInfo(hMon, &mi);
     return mi.rcWork; // rcWork = vùng khả dụng (không tính taskbar)
 }
-void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,Vec2 _winPos ,Vec2 _winSize) {
+void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 _winPos ,ImVec2 _winSize) {
     
     #ifdef CUSTOM_TITLEBAR
 
     if (!sdlWindow || state.IsFullscreen_video) return;
 
+    ImVec2 titlePos = (_winPos);
+    ImVec2 titleSize = (_winSize);
+    float dt = ImGui::GetIO().DeltaTime;
+    ImGui::SetNextWindowPos(titlePos);
+    ImGui::BeginChild("##TitleBar",titleSize);
+
     ImDrawList* dl = ImGui::GetWindowDrawList();
-    ImVec2 winPos = ToImVec2(_winPos);
-    ImVec2 winSize = ToImVec2(_winSize);
-    ImVec2 titlePos = winPos;
-    ImVec2 titleSize(winSize.x, (float)state.TitleHeight);
 
     ImGui::SetCursorScreenPos(titlePos);
     ImGui::InvisibleButton("TitleBarRegion", titleSize);
@@ -200,22 +202,23 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     const float pad = 8.0f;
 
     // Close ❌
-    ImVec2 closePos(titlePos.x + winSize.x - btnSize.x , titlePos.y );
+    ImVec2 closePos(titlePos.x + titleSize.x - btnSize.x , titlePos.y );
     ImGui::SetCursorScreenPos(closePos);
 
     // Kiểm tra trạng thái hover / click
     bool clickedClose = ImGui::InvisibleButton("CloseBtn", btnSize);
     bool hoveredClose = ImGui::IsItemHovered();
     bool activeClose = (ImGui::IsItemHovered() && (state.mouseDownClose));
-
-    // Điều chỉnh màu dựa vào trạng thái
-    ImU32 closeColor = IM_COL32(35,35,35,255);       // mặc định đỏ vừa phải
-    if (activeClose)  closeColor = IM_COL32(220,50,50,150);   // click đỏ rực rỡ
-    else if (hoveredClose) closeColor = IM_COL32(220,50,50,255);  // hover đỏ tươi hơn
-
     CSImGui::ToolTip("Close", 2.0f, ToolTipFlags_Animation);
+    if(clickedClose || hoveredClose || activeClose) is_dirty = true;
+    // Điều chỉnh màu dựa vào trạng thái
+    static ImVec4 closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    ImVec4 target_close = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    if (hoveredClose) target_close = ImVec4(0.90f, 0.23f, 0.23f, 1.0f);
+    if (activeClose) target_close = ImVec4(0.75f, 0.10f, 0.10f, 1.0f);
+    closeColor = ImLerp(closeColor, target_close, SMOOTH_LERP(12.0f, dt));
 
-    dl->AddRectFilled(closePos, closePos + btnSize, closeColor, 4.0f);
+    dl->AddRectFilled(closePos, closePos + btnSize, ToCol32(closeColor), 4.0f);
     {
         // ----- Xác định center -----
         float iconPad   = 7.0f;   
@@ -268,14 +271,18 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     bool hoveredMax = ImGui::IsItemHovered();
     bool activeMax  = (ImGui::IsItemHovered() && (state.mouseDownMax || state.mouseDownRestore));
 
-
-    ImU32 maxColor = IM_COL32(35,35,35,255);
-    if (hoveredMax) maxColor = IM_COL32(60,60,60,255);
-    if (activeMax)  maxColor = IM_COL32(90,90,90,255);
-
     CSImGui::ToolTip(state.IsMax ? "Restore" : "Maximize", 2.0f, ToolTipFlags_Animation);
 
-    dl->AddRectFilled(maxPos, maxPos + btnSize, maxColor, 4.0f);
+    if(clickedMax || hoveredMax || activeMax) is_dirty = true;
+
+    static ImVec4 maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    ImVec4 targetMax = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    if (hoveredMax) targetMax = ImVec4(0.235f, 0.235f,0.235f, 1.0f);
+    if (activeMax) targetMax = ImVec4(0.353f , 0.353f, 0.353f, 1.0f);
+        
+    maxColor = ImLerp(maxColor, targetMax, SMOOTH_LERP(12.0f, dt));
+        
+    dl->AddRectFilled(maxPos, maxPos + btnSize, ToCol32(maxColor), 4.0f);
     {
         float iconPad     = 7.0f;    // khoảng cách từ viền nút đến icon
         float iconBorder  = 0.0f;    // độ dày viền (stroke)
@@ -307,34 +314,32 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImGui::SetCursorScreenPos(minPos);
     
     bool clickedMin = ImGui::InvisibleButton("MinBtn", btnSize);
-    if (clickedMin) {
-        //ShowWindow(hwnd, SW_MINIMIZE);
-        //SDLX_PushEvent(sdlWindow, SDL_WINDOWEVENT_MINIMIZED);
-        //SDL_MinimizeWindow(sdlWindow);
-    }
     bool hoveredMin = ImGui::IsItemHovered();
     bool activeMin  = (ImGui::IsItemHovered() && state.mouseDownMin);
-
-    ImU32 minColor = IM_COL32(35,35,35,255);
-    if (hoveredMin) minColor = IM_COL32(60,60,60,255);
-    if (activeMin)  minColor = IM_COL32(90,90,90,255);
+    if(clickedMin || hoveredMin || activeMin) is_dirty = true;
 
     CSImGui::ToolTip("Minimize", 2.0f, ToolTipFlags_Animation);
 
-    dl->AddRectFilled(minPos, minPos + btnSize, minColor, 4.0f);
+    static ImVec4 minColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    ImVec4 target_min = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    if (hoveredMin) target_min = ImVec4(0.235f, 0.235f, 0.235f, 1.0f);
+    if (activeMin)  target_min = ImVec4(0.353f, 0.353f, 0.353f, 1.0f);
+    
+    minColor = ImLerp(minColor, target_min, SMOOTH_LERP(12.0f, dt));
+    dl->AddRectFilled(minPos, minPos + btnSize, ToCol32(minColor), 4.0f);
     {
         float linesize = 30.f;
         ImVec2 lineStart = ImVec2(minPos.x + pad, minPos.y + btnSize.y / 2);
         ImVec2 lineEnd   = ImVec2(minPos.x + linesize - pad, minPos.y + btnSize.y / 2);
         dl->AddLine(lineStart, lineEnd, IM_COL32(255,255,255,255), 2.0f);
     }
-
+    ImGui::EndChild();
     #endif
 }
 // Đăng ký hàm này ngay sau khi tạo window
 void SDLUtils::SetWindowSDL(SDL_Window* window,
-                            Vec2& winmin,
-                            Vec2& winmax)
+                            ImVec2& winmin,
+                            ImVec2& winmax)
 {
     if (!window) return;
 

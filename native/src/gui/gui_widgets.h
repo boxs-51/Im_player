@@ -79,7 +79,20 @@ struct PlayPauseOverlay {
     bool initialized = false;
 };
 
+struct SeekingData {
+    float timer = 0.0f;
+    float alpha = 0.0f;   
+    float pulse = 0.0f;   
+    float lastTime = 0.0f;
+    float currentTime = 0.0f;
 
+    ImVec2 pos = ImVec2(0, 0);  
+    ImVec2 size = ImVec2(0, 0);
+
+    bool forward = true;
+    bool lastSeekingState = false;
+    bool g_isSeeking =false;
+};
 
 void DrawPlayPauseIcon( ImDrawList* dl,ImVec2 pMin,ImVec2 pMax,ImU32 color,void* user_data);
 void DrawPlayIcon(ImDrawList* drawList, ImVec2 pMin, ImVec2 pMax, ImU32 color);
@@ -93,8 +106,6 @@ void DrawFullscreenIcon(ImDrawList* drawList, ImVec2 pMin, ImVec2 pMax, ImU32 co
 void DrawUnFullscreenIcon(ImDrawList* drawList, ImVec2 pMin, ImVec2 pMax, ImU32 color);
 void DrawOptionIconAnimated(ImDrawList* drawList,ImVec2 pMin,ImVec2 pMax,ImU32 color,void* user_data);
 void DrawLoadingIconAnimated(ImDrawList* drawList,ImVec2 pMin, ImVec2 pMax,ImU32 color,void* user_data);
-void DrawSeekingIconAnimated(ImDrawList* drawList,ImVec2 pMin,ImVec2 pMax,ImU32 color,void* user_data);
-void DrawGhostStatusOverlay(ImVec2 vPos, ImVec2 vSize, bool isPaused);
 
 std::string safeFormatArg(const char* fmtSpec, va_list args, char type);
 

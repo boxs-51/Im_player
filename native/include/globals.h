@@ -35,17 +35,6 @@ struct UiWindowsState {
     bool show_log = false;
     bool show_settings = false;
 };
-struct SeekingData {
-    float timer = 0.0f;
-    float alpha = 0.0f;   
-    float pulse = 0.0f;   
-    bool  forward = true;
-
-    ImVec2 pos = ImVec2(0, 0);  
-    ImVec2 size = ImVec2(0, 0);
-    
-    bool g_isSeeking =false;
-};
 
 struct MPV
 {
@@ -54,7 +43,6 @@ struct MPV
 };
 
 extern MPV mpv;
-extern SeekingData dataseek;
 extern UiWindowsState uiState;
 
 extern std::vector<std::string> g_keywords;
@@ -68,6 +56,8 @@ extern Uint64 lastInteractionTime;
 extern bool Disabehotkey;
 extern bool playImmediately;
 
+extern bool is_dirty;
+extern bool g_WindowVisible;
 extern bool Audio_visualizers;
 extern bool was_ui_video ;
 extern std::vector<std::wstring> playlist;

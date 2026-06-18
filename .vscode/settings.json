@@ -83,4 +83,7 @@
         "queue": "cpp"
     },
     "C_Cpp.errorSquiggles": "disabled",
+    "cmake.configureSettings": {
+        "CMAKE_TOOLCHAIN_FILE": "${workspaceFolder}/vcpkg/scripts/buildsystems/vcpkg.cmake"
+    }
 }

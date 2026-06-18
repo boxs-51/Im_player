@@ -14,15 +14,8 @@
 #include <array>
 
 
-// Thay vì #define, dùng constexpr để có type-safety
-constexpr auto PARAM_FRAMEBUFFER_SIZE = static_cast<mpv_render_param_type>(3);
-constexpr auto PARAM_FLIP_Y = static_cast<mpv_render_param_type>(4);
-
 #ifdef RENDER_MPV_THREAD
 MPVRenderThread renderThread;
-#endif
-#ifdef RENDER_MPV_FBO
-MpvRender render;
 #endif
 
 // Callback function với signature chuẩn
@@ -62,7 +55,6 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
     mpv_opengl_init_params gl_init_params {};
     gl_init_params.get_proc_address = GetProcAddressWrapper;
     gl_init_params.get_proc_address_ctx = nullptr;
-
     // Định nghĩa các tham số render
     std::array<mpv_render_param, 3> render_params {{
         { MPV_RENDER_PARAM_API_TYPE, const_cast<char*>("opengl") },
@@ -105,123 +97,105 @@ bool InitMPVRenderContext(mpv_handle* mpv_ptr) {
 
     return true;
 }
-#ifdef RENDER_MPV_FBO
-void UpdateMPVTexture(int width, int height , MpvRender* rt) {
-    if (width == rt->tex_width && height == rt->tex_height && rt->render_texture != 0) return;
 
-    // Xóa cái cũ nếu đã tồn tại
-    if (rt->m_fbo) glDeleteFramebuffers(1, &rt->m_fbo);
-    if (rt->render_texture) glDeleteTextures(1, &rt->render_texture);
-
-    rt->tex_width = width;
-    rt->tex_height = height;
-
-    // 1. Tạo Texture
-    glGenTextures(1, &rt->render_texture);
-    glBindTexture(GL_TEXTURE_2D, rt->render_texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glBindTexture(GL_TEXTURE_2D, 0);
-
-    // 2. Tạo FBO và gắn Texture vào
-    glGenFramebuffers(1, &rt->m_fbo);
-    glBindFramebuffer(GL_FRAMEBUFFER, rt->m_fbo);
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->render_texture, 0);
-
-    // Kiểm tra xem FBO có hợp lệ không
-    if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
-        printf("Lỗi: Framebuffer không hợp lệ!\n");
-    }
-
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-}
-
-#endif
 #ifdef RENDER_MPV_THREAD
-GLuint GetStableFrameTexture(MPVRenderThread& rt) {
-    static GLuint lastTex = 0;
-    std::lock_guard<std::mutex> g(rt.swapMtx);
+FrameTextureInfo GetStableFrameTexture(MPVRenderThread& rt) {
+    static int currentDisplayIndex = -1;
+    int newReadyIndex = -1;
 
-    if (rt.newFrameReady && rt.readIndex >= 0) {
-        GLsync currentSync = rt.renderSyncs[rt.readIndex]; // Dùng mảng sync
-        if (currentSync) {
-            // Đợi tối đa 100ms
-            GLenum waitReturn = glClientWaitSync(currentSync, GL_SYNC_FLUSH_COMMANDS_BIT, 100000000);
-            
-            if (waitReturn == GL_ALREADY_SIGNALED || waitReturn == GL_CONDITION_SATISFIED) {
-                lastTex = rt.textures[rt.readIndex];
-                rt.newFrameReady = false;
-            } else if (waitReturn == GL_WAIT_FAILED) {
-                // Có lỗi xảy ra với Context Sharing hoặc Driver
-                // Trả về lastTex cũ để tránh nháy đen
-            }
-        } else {
-            // Nếu chưa có sync (frame đầu tiên), cứ lấy texture luôn
-            lastTex = rt.textures[rt.readIndex];
-            rt.newFrameReady = false;
+    for (int i = 0; i < 3; ++i) {
+        BufferState expected = BufferState::READY;
+        if (rt.frames[i].state.compare_exchange_strong(expected, BufferState::DISPLAYING, std::memory_order_acq_rel)) {
+            newReadyIndex = i;
+            break; 
         }
     }
-    return lastTex;
+
+    if (newReadyIndex != -1) {
+        if (rt.frames[newReadyIndex].fence) {
+            GLenum wait = glClientWaitSync(rt.frames[newReadyIndex].fence, GL_SYNC_FLUSH_COMMANDS_BIT, 16000000);
+            if (wait == GL_WAIT_FAILED || wait == GL_TIMEOUT_EXPIRED) {
+                rt.frames[newReadyIndex].state.store(BufferState::READY);
+                newReadyIndex = -1; // Fallback về frame cũ
+            }
+        }
+        
+        if (newReadyIndex != -1) {
+            if (currentDisplayIndex != -1 && currentDisplayIndex != newReadyIndex) {
+                rt.frames[currentDisplayIndex].state.store(BufferState::FREE, std::memory_order_release);
+            }
+            currentDisplayIndex = newReadyIndex;
+        }
+    }
+
+    FrameTextureInfo info;
+    if (currentDisplayIndex != -1) {
+        FrameNode& frame = rt.frames[currentDisplayIndex];
+        info.texID = frame.texture;
+        
+        // Tính toán UV tự động dựa trên vùng nhớ dư thừa
+        if (frame.allocatedW > 0 && frame.allocatedH > 0) {
+            info.u = (float)frame.contentW / frame.allocatedW;
+            info.v = (float)frame.contentH / frame.allocatedH;
+        }
+    }
+    return info;
 }
 #endif
-void RenderMPVVideo(const Vec2& size) {
-    if (!mpv.render_ctx) return;
-    #ifdef RENDER_MPV_FBO
-    if (render.render_texture != 0) {
-        // Hiển thị Texture lên giao diện ImGui
-        ImGui::Image((ImTextureID)(intptr_t)render.render_texture, ToImVec2(size), ImVec2(0, 1), ImVec2(1, 0));
-    }
-    return;
-    #endif
+void RenderMPVVideo(const ImVec2& pos, const ImVec2& size) {
+    if (!mpv.render_ctx || Audio_visualizers || !g_WindowVisible) return;
+
+    //ImGui::SetNextWindowPos(pos);
+    //ImGui::BeginChild("##Video", size);
+
     #ifdef RENDER_MPV_THREAD
-    GLuint tex = GetStableFrameTexture(renderThread);
+    FrameTextureInfo frameInfo = GetStableFrameTexture(renderThread);
 
-    if (tex != 0) {
-
-        ImGui::Image((ImTextureID)(intptr_t)tex, ToImVec2(size), ImVec2(0, 1), ImVec2(1, 0));
+    if (frameInfo.texID != 0) {
+        ImGui::Image(
+            (ImTextureID)(intptr_t)frameInfo.texID, 
+            size, 
+            ImVec2(0, 0), 
+            ImVec2(frameInfo.u, frameInfo.v)
+        );
     }
+    //ImGui::EndChild();
     return;
-    #endif
-    #ifdef RENDER_MPV_FBO
-    UpdateMPVTexture(static_cast<int>(size.x), static_cast<int>(size.y), &render);
     #endif
     // Cấu hình Framebuffer Object
     mpv_opengl_fbo fbo {};
-    #ifdef RENDER_MPV_FBO
-    fbo.fbo = render.m_fbo;
-    #else 
     fbo.fbo = 0;
-    #endif
     fbo.w = static_cast<int>(size.x);
     fbo.h = static_cast<int>(size.y);
-    fbo.internal_format = GL_RGBA;
+    fbo.internal_format = GL_RGBA8;
 
     int flip = 1; 
-    std::array<int, 2> fb_size = { static_cast<int>(size.x), static_cast<int>(size.y) };
+    int skip_render = (!g_WindowVisible || Audio_visualizers) ? 1 : 0;
 
     // Tổ chức params bằng std::array để quản lý bộ nhớ an toàn hơn
     std::array<mpv_render_param, 4> params {{
         { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
-        { PARAM_FRAMEBUFFER_SIZE, fb_size.data() },
-        { PARAM_FLIP_Y, &flip },
+        { MPV_RENDER_PARAM_FLIP_Y, &flip },
+        { MPV_RENDER_PARAM_SKIP_RENDERING, &skip_render },
         { MPV_RENDER_PARAM_INVALID, nullptr }
     }};
 
     mpv_render_context_render(mpv.render_ctx, params.data());
 
-
+    //ImGui::EndChild();
 }
 #ifdef RENDER_MPV_THREAD
 void InitRenderFBO(MPVRenderThread* rt) {
-    glGenFramebuffers(3, rt->fbos);
-    glGenTextures(3, rt->textures);
 
     for (int i = 0; i < 3; i++) {
-        glBindTexture(GL_TEXTURE_2D, rt->textures[i]);
 
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8,
-                     rt->width, rt->height,
+        glGenFramebuffers(1, &rt->frames[i].fbo);
+        glGenTextures(1, &rt->frames[i].texture);
+
+        glBindTexture(GL_TEXTURE_2D, rt->frames[i].texture);
+
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, 
+                     rt->MAX_W, rt->MAX_H, 
                      0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
 
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -230,26 +204,54 @@ void InitRenderFBO(MPVRenderThread* rt) {
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
 
-        glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[i]);
+        glBindFramebuffer(GL_FRAMEBUFFER, rt->frames[i].fbo);
         glFramebufferTexture2D(GL_FRAMEBUFFER,
             GL_COLOR_ATTACHMENT0,
             GL_TEXTURE_2D,
-            rt->textures[i], 0);
+            rt->frames[i].texture, 0);
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE) {
             printf("FBO[%d] not complete\n", i);
         }
-    }
+        rt->frames[i].allocatedW = rt->MAX_W;
+        rt->frames[i].allocatedH = rt->MAX_H;
 
+    }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
+static int AcquireFreeBuffer(MPVRenderThread* rt) {
+    // Ưu tiên 1: Lấy buffer đang trống (FREE)
+    for (int i = 0; i < 3; ++i) {
+        BufferState expected = BufferState::FREE;
+        if (rt->frames[i].state.compare_exchange_strong(expected, BufferState::RENDERING, std::memory_order_acq_rel)) {
+            return i;
+        }
+    }
 
+    // Ưu tiên 2: Nếu không có FREE (UI chậm hơn Render), lấy buffer READY để ghi đè
+    for (int i = 0; i < 3; ++i) {
+        BufferState expected = BufferState::READY;
+        if (rt->frames[i].state.compare_exchange_strong(expected, BufferState::RENDERING, std::memory_order_acq_rel)) {
+            return i;
+        }
+    }
+
+    // Tình huống xấu nhất: Mọi thứ đang kẹt (Rất hiếm khi xảy ra ở Triple Buffer). 
+    // Trả về đại 0 để không crash hệ thống.
+    return 0;
+}
 void MPVRenderLoop(MPVRenderThread* rt) {
 
     SDL_GL_MakeCurrent(rt->window, rt->glContext);
 
+    SDL_GL_SetSwapInterval(1);
     InitRenderFBO(rt);
     FrameTimer framerender(30);
+
+    for(int i = 0; i < 3; ++i) {
+        rt->frames[i].state.store(BufferState::FREE);
+    }
+
     while (rt->running) {
         std::unique_lock lock(rt->mtx);
 
@@ -259,91 +261,116 @@ void MPVRenderLoop(MPVRenderThread* rt) {
 
         if (!rt->running) break;
 
+        framerender.startFrame();
+
         rt->needRender = false;
         
-        if (rt->needResize) {
-            rt->width = rt->newW;
-            rt->height = rt->newH;
-
-            // Đánh dấu cả 3 textures là "đã lỗi thời, cần resize"
-            rt->dirtyTextures[0] = true;
-            rt->dirtyTextures[1] = true;
-            rt->dirtyTextures[2] = true;
-
-            rt->needResize = false;
+        if (rt->surface.needResize) {
+            rt->surface.drawW = rt->surface.newW;
+            rt->surface.drawH = rt->surface.newH;
+            rt->surface.needResize = false;
         }
 
         lock.unlock();
-        int index = rt->writeIndex;
 
-        if (rt->dirtyTextures[index]) {
-            glBindTexture(GL_TEXTURE_2D, rt->textures[index]);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, rt->width, rt->height, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+        bool isZeroSize = (rt->surface.drawW <= 0 || rt->surface.drawH <= 0);
+        int skip_render = (rt->Audio_visualizers || !(rt->g_WindowVisible) || isZeroSize) ? 1 : 0;
 
-            // Gắn lại vào FBO
-            glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, rt->textures[index], 0);
-
-            if (rt->renderSyncs[index]) {
-                glDeleteSync(rt->renderSyncs[index]);
-                rt->renderSyncs[index] = nullptr;
-            }
+        if (skip_render) {
+            // Chỉ gọi mpv với 1 param duy nhất để nó tiếp tục xử lý audio/logic
+            std::array<mpv_render_param, 2> skip_params {{
+                { MPV_RENDER_PARAM_SKIP_RENDERING, &skip_render },
+                { MPV_RENDER_PARAM_INVALID, nullptr }
+            }};
+            mpv_render_context_render(rt->ctx, skip_params.data());
             
-            // Đã tạo mới xong, tắt cờ đi
-            rt->dirtyTextures[index] = false; 
+            // BỎ QUA HOÀN TOÀN việc lấy Buffer, Bind FBO, Sync Fence và Push Event
+            // Tiết kiệm ~95% CPU/GPU overhead cho luồng này khi app bị ẩn
+            continue; 
         }
 
-        glBindFramebuffer(GL_FRAMEBUFFER, rt->fbos[index]);
+        int index = AcquireFreeBuffer(rt);
+        FrameNode& frame = rt->frames[index];
 
-        glViewport(0, 0, rt->width, rt->height);
-        glClearColor(0.0f, 0.0f, 0.0f, 1.0f); // Xóa màu đen
-        glClear(GL_COLOR_BUFFER_BIT); // Hoặc chỉ glClear(GL_COLOR_BUFFER_BIT)
+        int targetW = rt->surface.drawW;
+        int targetH = rt->surface.drawH;
+        bool needsRealloc = false;
+
+        // Logic cấp phát lại động: Chỉ khi kích thước yêu cầu lớn hơn sức chứa hiện tại
+        if (targetW > frame.allocatedW || targetH > frame.allocatedH) {
+            // Nhân 1.5 để dự phòng: Nếu người dùng kéo cửa sổ từ 1080p lên 1440p, 
+            // ta cấp phát thẳng dư ra một chút để lần sau kéo tiếp không bị khựng.
+
+            int newW = std::min(rt->MAX_SAFE_TEXTURE_SIZE, (int)(frame.allocatedW * 1.5f));
+            int newH = std::min(rt->MAX_SAFE_TEXTURE_SIZE, (int)(frame.allocatedH * 1.5f));
+
+            frame.allocatedW = std::max(targetW, newW);
+            frame.allocatedH = std::max(targetH, newH);
+
+            frame.allocatedW = std::min(frame.allocatedW, rt->MAX_SAFE_TEXTURE_SIZE);
+            frame.allocatedH = std::min(frame.allocatedH, rt->MAX_SAFE_TEXTURE_SIZE);
+
+            needsRealloc = true;
+        }
+
+        frame.contentW = std::min(targetW, frame.allocatedW);
+        frame.contentH = std::min(targetH, frame.allocatedH);
+
+        // Thực hiện cấp phát bộ nhớ mới trên VRAM
+        if (needsRealloc && frame.allocatedW > 0 && frame.allocatedH > 0) {
+            glBindTexture(GL_TEXTURE_2D, frame.texture);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, frame.allocatedW, frame.allocatedH, 0, GL_RGBA, GL_UNSIGNED_BYTE, nullptr);
+            
+            // Gắn lại texture vào FBO vì backing store đã thay đổi
+            glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo);
+            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0, GL_TEXTURE_2D, frame.texture, 0);
+            
+            //glClearColor(0.0f, 0.0f, 0.0f, 0.0f);
+            //glClear(GL_COLOR_BUFFER_BIT);
+        }else{
+            //glBindFramebuffer(GL_FRAMEBUFFER, frame.fbo);
+        }
 
         mpv_opengl_fbo fbo {};
-        fbo.fbo = rt->fbos[index];
-        fbo.w = rt->width;
-        fbo.h = rt->height;
+        fbo.fbo = frame.fbo;
+        fbo.w = frame.contentW;
+        fbo.h = frame.contentH;
         fbo.internal_format = GL_RGBA8;
 
-        int flip = 1;
-        std::array<int, 2> fb_size = { static_cast<int>(rt->width), static_cast<int>(rt->height) };
+        int flip = 0;
 
         // Tổ chức params bằng std::array để quản lý bộ nhớ an toàn hơn
         std::array<mpv_render_param, 4> params {{
             { MPV_RENDER_PARAM_OPENGL_FBO, &fbo },
-            { PARAM_FRAMEBUFFER_SIZE, fb_size.data() },
-            { PARAM_FLIP_Y, &flip },
+            { MPV_RENDER_PARAM_FLIP_Y, &flip },
+            { MPV_RENDER_PARAM_SKIP_RENDERING, &skip_render },
             { MPV_RENDER_PARAM_INVALID, nullptr }
         }};
 
         mpv_render_context_render(rt->ctx, params.data());
-        if (rt->renderSyncs[index]) {
-            glDeleteSync(rt->renderSyncs[index]);
-        }
-        //glBindFramebuffer(GL_FRAMEBUFFER, 0);
-        rt->renderSyncs[index] = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-        glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
-        {
-            std::lock_guard<std::mutex> g(rt->swapMtx);
 
-            rt->readIndex = index;
-            rt->writeIndex = (rt->writeIndex + 1) % 3;
-            rt->newFrameReady = true;
-            
-        }
+        if (frame.fence) glDeleteSync(frame.fence);
+
+        frame.fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
+        //glFlush();  // Hoặc glFinish() nếu vẫn bị nháy hình
+        //glFinish();
+        frame.state.store(BufferState::READY, std::memory_order_release);
+
         rt->framerender.store(framerender.updateAndGetFPS());
+
         SDL_Event ev;
-        //SDL_ZeroObject(ev);
         ev.type = SDL_MPV_RENDER_UPDATE;
         SDLUtils::SDLX_PushUniqueEvent(ev);
+
+        framerender.endFrame();
     }
-    glDeleteFramebuffers(3, rt->fbos);
-    glDeleteTextures(3, rt->textures);
-    
-    for(int i=0; i<3; i++) {
-        if(rt->renderSyncs[i]) glDeleteSync(rt->renderSyncs[i]);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    for(int i = 0; i < 3; ++i) {
+        glDeleteFramebuffers(1, &rt->frames[i].fbo);
+        glDeleteTextures(1, &rt->frames[i].texture);
     }
-    
+
     SDL_GL_DeleteContext(rt->glContext);
     rt->hasExited = true;
 }
@@ -353,8 +380,8 @@ void StartMPVRenderThread() {
     renderThread.ctx = mpv.render_ctx;
     renderThread.window = ctx.mainWindow;
 
-    renderThread.width = (int)Windowlayout.VideoSize.x;
-    renderThread.height = (int)Windowlayout.VideoSize.y;
+    renderThread.surface.drawW = (int)Windowlayout.VideoSize.x;
+    renderThread.surface.drawH = (int)Windowlayout.VideoSize.y;
     //SDL_GL_MakeCurrent(renderThread.window, NULL);
     renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
 
@@ -387,15 +414,5 @@ void CleanupMPV() {
         mpv_terminate_destroy(mpv.mpv);
         mpv.mpv = nullptr;
     }
-
-    // 5. Giải phóng tài nguyên OpenGL (Phải chạy trong context đã tạo ra chúng)
-    // Lưu ý: glDeleteSync, glDeleteTextures, glDeleteFramebuffers 
-    // nên được gọi TRƯỚC khi SDL_GL_DeleteContext bị gọi.
-    #ifdef RENDER_MPV_THREAD
-
-    for(int i=0; i<3; i++) {
-        if(renderThread.renderSyncs[i]) glDeleteSync(renderThread.renderSyncs[i]);
-    }
     
-    #endif
 }

@@ -74,7 +74,7 @@ void DrawTimeDisplay(double current, double duration, ImVec2& videoSize, ImVec2&
     ImGui::GetFont()->Scale = oldFontScale;
 }
 //================================================================================================
-void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
+void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                           bool& isFullscreen_video,bool& show_ui_video)
  {
 
@@ -93,8 +93,8 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
         return; 
     }
 
-    ImVec2 videoPos = ToImVec2(_pos);
-    ImVec2 videoSize = ToImVec2(_size);
+    ImVec2 videoPos = (_pos);
+    ImVec2 videoSize = (_size);
 
     bool endfile = g_playbackStatus.isCoreIdle;
     bool paused = g_playbackStatus.isPaused;
@@ -906,7 +906,7 @@ void RenderPlayerControls(mpv_handle* mpv, Vec2& _pos, Vec2& _size,
 
 }
 
-void RenderIdleBackground(std::string& imagePath, Vec2& _pos, Vec2& _size) {
+void RenderIdleBackground(std::string& imagePath, ImVec2& _pos, ImVec2& _size) {
     // 1. Dùng static để cache kết quả cuối cùng
     static ImTextureID cachedImTexID = (ImTextureID)0; 
     static std::string cachedPath = "";
@@ -926,8 +926,8 @@ void RenderIdleBackground(std::string& imagePath, Vec2& _pos, Vec2& _size) {
     if (cachedImTexID != (ImTextureID)0) {
         ImDrawList* draw_list = ImGui::GetBackgroundDrawList();
         
-        const ImVec2 p_min = ToImVec2(_pos);
-        const ImVec2 p_max = ToImVec2(_pos + _size);
+        const ImVec2 p_min = _pos;
+        const ImVec2 p_max = _pos + _size;
 
         draw_list->AddImage(cachedImTexID, p_min, p_max);
     }
@@ -935,7 +935,8 @@ void RenderIdleBackground(std::string& imagePath, Vec2& _pos, Vec2& _size) {
 void CleanupIcons(){
     
 }
-void RenderLoading(Vec2& _pos, Vec2& _size) {
+void RenderLoading(ImVec2& _pos, ImVec2& _size) {
+
     static LoadingIconData centralLoading;
     // --- LOGIC SCALE & CLAMP ---
     // 1. Tính toán kích thước lý tưởng (ví dụ: 10% chiều rộng video)
@@ -947,8 +948,8 @@ void RenderLoading(Vec2& _pos, Vec2& _size) {
     float finalSize = ImClamp(idealSize, minSize, maxSize);
 
     // 3. Cập nhật vị trí trung tâm dựa trên size mới
-    ImVec2 Pos = ToImVec2(_pos);
-    ImVec2 Size = ToImVec2(_size);
+    ImVec2 Pos = _pos;
+    ImVec2 Size = _size;
 
     centralLoading.pos = ImVec2(
         Pos.x + (Size.x * 0.5f) - (finalSize * 0.5f), 
@@ -966,35 +967,212 @@ void RenderLoading(Vec2& _pos, Vec2& _size) {
 
 }
 
-void RenderSeekingOverlay(Vec2& _pos, Vec2& _size ,SeekingData& data)  {
+void RenderSeekingOverlay(ImVec2& _pos, ImVec2& _size) {
+    // Thêm 'static' để giữ trạng thái của timer, alpha, pulse... qua từng frame
+    static SeekingData data; 
+    
+    data.g_isSeeking = g_playbackStatus.isSeeking;
+    data.currentTime = g_playbackStatus.timePos;
+
     float dt = ImGui::GetIO().DeltaTime;
 
-    // 1. Alpha: Hiện nhanh (10.0f), ẩn chậm hơn (3.0f) để tạo cảm giác mượt
+    // 1. Trigger Pulse khi bắt đầu Seek
+    if (data.g_isSeeking && !data.lastSeekingState) {
+        data.pulse = 1.0f; // Bắt đầu hiệu ứng pulse
+    }
+    data.lastSeekingState = data.g_isSeeking;
+
+    // 2. Logic cập nhật Forward
+    if (data.g_isSeeking && data.currentTime != data.lastTime) {
+        data.forward = (data.currentTime > data.lastTime);
+    }
+    data.lastTime = data.currentTime;
+
+    // 3. Alpha: Hiện nhanh (10.0f), ẩn chậm hơn (3.0f) để tạo cảm giác mượt
     float targetAlpha = data.g_isSeeking ? 1.0f : 0.0f;
     float lerpSpeed = data.g_isSeeking ? 10.0f : 3.0f;
     data.alpha = ImLerp(data.alpha, targetAlpha, ImMin(dt * lerpSpeed, 1.0f));
 
-    // 2. Pulse: Giảm dần về 0. (Ví dụ: khi người dùng bấm phím mũi tên, bạn set pulse = 1.0f bên ngoài)
+    // 4. Pulse: Giảm dần về 0.
     data.pulse = ImLerp(data.pulse, 0.0f, ImMin(dt * 6.0f, 1.0f));
 
-    // 3. Timer: Update liên tục nếu icon còn hiển thị
+    // 5. Timer và Render: Cập nhật và vẽ trực tiếp nếu alpha đủ lớn
     if (data.alpha > 0.001f) {
-        data.timer += dt * 2.5f; // Tốc độ sóng chạy
-        if (data.timer > 1.0f) data.timer -= 1.0f; // Tránh mất frame
+        data.timer += dt * 2.5f; 
+        if (data.timer > 1.0f) data.timer -= 1.0f; 
         
-        data.pos  = ToImVec2(_pos);
-        data.size = ToImVec2(_size);
+        data.pos  = _pos;
+        data.size = _size;
 
-        // Gọi đúng tên hàm đã định nghĩa
-        DrawSeekingIconAnimated(
-            ImGui::GetWindowDrawList(), 
-            ImVec2(0,0), ImVec2(0,0), 
-            IM_COL32(255, 255, 255, 255), 
-            &data
-        );
+        ImDrawList* drawList = ImGui::GetWindowDrawList();
+        ImU32 color = IM_COL32(255, 255, 255, 255);
         
+        ImVec2 center;
+        float fullW = data.size.x;
+        float fullH = data.size.y;
+
+        // Ưu tiên tọa độ video (không cần fallback vì data.size đã được set)
+        if (data.forward) {
+            center = ImVec2(data.pos.x + fullW * 0.75f, data.pos.y + fullH * 0.5f);
+        } else {
+            center = ImVec2(data.pos.x + fullW * 0.25f, data.pos.y + fullH * 0.5f);
+        }
+
+        float dir = data.forward ? 1.0f : -1.0f;
+        
+        // Áp dụng hiệu ứng Pulse vào kích thước (phóng to khi pulse > 0)
+        float scale = 1.0f + (data.pulse * 0.2f); // Phóng to tối đa thêm 20%
+        float triW = fullW * 0.05f * scale; 
+        float triH = fullH * 0.20f * scale;
+        float spacing = triW * 1.0f;
+
+        float speed = 1.5f;
+        float t = fmodf(data.timer * speed, 1.0f);
+
+        // Chuẩn bị màu sắc
+        ImVec4 colVec = ImGui::ColorConvertU32ToFloat4(color);
+        ImVec4 brightCol = ImVec4(
+            ImMin(colVec.x + 0.3f, 1.0f), 
+            ImMin(colVec.y + 0.3f, 1.0f), 
+            ImMin(colVec.z + 0.3f, 1.0f), 
+            colVec.w * data.alpha
+        );
+        float baseAlpha = brightCol.w;
+
+        ImU32 bgGlowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(brightCol.x, brightCol.y, brightCol.z, baseAlpha * 0.15f));
+        ImU32 transparent = ImGui::ColorConvertFloat4ToU32(ImVec4(brightCol.x, brightCol.y, brightCol.z, 0.0f));
+
+        // Vẽ Background Gradient
+        if (data.forward) {
+            drawList->AddRectFilledMultiColor(
+                ImVec2(data.pos.x + fullW * 0.5f, data.pos.y), 
+                ImVec2(data.pos.x + fullW, data.pos.y + fullH),
+                transparent, bgGlowCol, bgGlowCol, transparent
+            );
+        } else {
+            drawList->AddRectFilledMultiColor(
+                ImVec2(data.pos.x, data.pos.y), 
+                ImVec2(data.pos.x + fullW * 0.5f, data.pos.y + fullH),
+                bgGlowCol, transparent, transparent, bgGlowCol
+            );
+        }
+
+        int glowLayers = 6; 
+        float maxGlowRadius = triH * 0.7f;
+
+        // Vẽ hiệu ứng Glow (sáng tỏa tròn)
+        for (int i = 0; i < 3; i++) {
+            float offset = ((float)i + t) * spacing;
+            float x = center.x + (offset - (spacing * 1.5f)) * dir;
+            ImVec2 glowPos = ImVec2(x + (dir > 0 ? triW * 0.4f : -triW * 0.4f), center.y);
+
+            for (int layer = 1; layer <= glowLayers; layer++) {
+                float fraction = (float)layer / (float)glowLayers;
+                float r = maxGlowRadius * fraction;
+                float lAlpha = (1.0f - fraction) * 0.3f * baseAlpha; 
+                
+                if (lAlpha <= 0.0f) continue;
+                
+                ImU32 gCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, lAlpha));
+                drawList->AddCircleFilled(glowPos, r, gCol, 16);
+            }
+        }
+
+        // Vẽ 3 khối tam giác mũi tên
+        for (int i = 0; i < 3; i++) {
+            float offset = ((float)i + t) * spacing;
+            float x = center.x + (offset - (spacing * 1.5f)) * dir;
+
+            float progress = (float)(i + 1) / 3.0f;
+            float triangleAlpha = baseAlpha * progress * (1.0f - t * 0.2f);
+            
+            ImU32 finalCol = ImGui::ColorConvertFloat4ToU32(ImVec4(colVec.x, colVec.y, colVec.z, triangleAlpha));
+
+            ImVec2 p1, p2, p3;
+            float tipX = (dir > 0) ? x + triW : x - triW;
+            
+            p1 = ImVec2(x, center.y - triH * 0.5f);
+            p2 = ImVec2(x, center.y + triH * 0.5f);
+            p3 = ImVec2(tipX, center.y);
+
+            drawList->AddTriangleFilled(p1, p2, p3, finalCol);
+        }
+        // --- KẾT THÚC LOGIC VẼ ---
     }
 }
 
+void RenderGhostStatusOverlay(ImVec2& vPos, ImVec2& vSize, bool isPaused) {
+    static PlayPauseOverlay s;
+    float dt = ImGui::GetIO().DeltaTime;
+
+    if (!s.initialized) {
+        s.last_paused = isPaused;
+        s.initialized = true;
+        return;
+    }
+
+    // 1. Phát hiện thay đổi trạng thái
+    if (isPaused != s.last_paused) {
+        s.last_paused = isPaused;
+        s.alpha = 1.0f;
+        s.scale = 0.6f; 
+    }
+
+    // 2. Nội suy Alpha & Scale
+    if (s.alpha > 0.0f) {
+        s.alpha -= dt * 1.8f; // Tốc độ biến mất vừa phải
+        s.scale = ImLerp(s.scale, 1.4f, dt * 5.0f); 
+    }
+
+    if (s.alpha > 0.001f) {
+        // Sử dụng WindowDrawList để icon nằm đúng trong không gian video
+        ImDrawList* dl = ImGui::GetWindowDrawList(); 
+        
+        ImVec2 center = ImVec2(vPos.x + vSize.x * 0.5f, vPos.y + vSize.y * 0.5f);
+        float baseSize = (vSize.y * 0.08f) * s.scale; // Kích thước cơ bản
+
+        // --- THIẾT LẬP MÀU SẮC ---
+        ImVec4 iconColVec = ImVec4(1.0f, 1.0f, 1.0f, s.alpha * 0.9f);
+        ImU32 iconCol = ImGui::ColorConvertFloat4ToU32(iconColVec);
+        
+        // Màu Glow (vòng tròn mờ phía sau)
+        ImU32 glowCol = ImGui::ColorConvertFloat4ToU32(ImVec4(0.0f, 0.0f, 0.0f, s.alpha * 0.4f));
+
+        // 3. VẼ VÒNG TRÒN GLOW (Nền bên dưới)
+        // Tạo một vòng tròn đen mờ giúp icon trắng nổi bật hơn
+        dl->AddCircleFilled(center, baseSize * 1.8f, glowCol, 36);
+
+        // 4. VẼ ICON CHI TIẾT
+        if (isPaused) {
+            // Tinh chỉnh Pause: Rộng hơn, thấp hơn (Dày và chắc chắn)
+            float barWidth = baseSize * 0.45f;  // Tăng độ rộng vạch
+            float barHeight = baseSize * 1.1f;  // Giảm chiều cao tương đối
+            float gap = baseSize * 0.25f;      // Khoảng cách giữa 2 vạch
+
+            // Vạch trái
+            dl->AddRectFilled(
+                ImVec2(center.x - barWidth - gap, center.y - barHeight),
+                ImVec2(center.x - gap, center.y + barHeight),
+                iconCol, 5.0f); // Bo góc một chút cho hiện đại
+            
+            // Vạch phải
+            dl->AddRectFilled(
+                ImVec2(center.x + gap, center.y - barHeight),
+                ImVec2(center.x + barWidth + gap, center.y + barHeight),
+                iconCol, 5.0f);
+        } 
+        else {
+            // Tinh chỉnh Play: Tam giác đều và mập hơn
+            float pSize = baseSize * 1.2f;
+            ImVec2 p1 = center + ImVec2(-pSize * 0.6f, -pSize * 0.9f);
+            ImVec2 p2 = center + ImVec2(-pSize * 0.6f,  pSize * 0.9f);
+            ImVec2 p3 = center + ImVec2( pSize * 1.0f,  0.0f);
+            
+            // Vẽ đổ bóng nhẹ cho tam giác
+            dl->AddTriangleFilled(p1 + ImVec2(2,2), p2 + ImVec2(2,2), p3 + ImVec2(2,2), glowCol);
+            dl->AddTriangleFilled(p1, p2, p3, iconCol);
+        }
+    }
+}
 
 
