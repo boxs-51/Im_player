@@ -25,7 +25,7 @@
                 "${workspaceFolder}/native/src/windows",
                 "${workspaceFolder}/native/src/popup",
                 "${workspaceFolder}/native/src/threads",
-                "${workspaceFolder}/native/src/services",
+                "${workspaceFolder}/native/src/backends",
                 "${workspaceFolder}/native/src/gui", 
                 
                 "${workspaceFolder}/native/imgui/misc/freetype",

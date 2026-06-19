@@ -137,5 +137,5 @@ private:
     int globalLoadCounter = 0;
 
     std::string configPath = AutoPath<std::string>("%ROOT%", "data", "shader_config.json");
-    std::vector<std::string> searchPaths = {AutoPath<std::string>("%ROOT%","shaders")};
+    std::vector<std::string> searchPaths = {AutoPath<std::string>("%ROOT%", "shaders")};
 };

@@ -248,7 +248,7 @@ bool InitMainWindow() {
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
 
-    FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%","fonts"));
+    FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%", "config", "fonts"));
 
     ImGui::StyleColorsDark();
 
@@ -347,7 +347,7 @@ void RenderUI(const PlaybackState& state ){
     ImGui::SetNextWindowPos((Windowlayout.VideoPos));
     ImGui::BeginChild("##VideoRegion", (Windowlayout.VideoSize));
     if(state == PlaybackState::Idle){
-        RenderIdleBackground(AutoPath<std::string>("%ROOT%" , "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
+        RenderIdleBackground(AutoPath<std::string>("%ROOT%", "config", "icons","idle.jpg") ,Windowlayout.VideoPos, Windowlayout.VideoSize);
     }
 
     if (render_video ||
