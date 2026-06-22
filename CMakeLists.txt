@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.20)
-project(imgui_player)
+project(Im_player)
 
 # ================== C++ CONFIG ==================
 set(CMAKE_CXX_STANDARD 17)
@@ -13,7 +13,7 @@ find_package(cpr CONFIG REQUIRED)
 find_package(OpenSSL REQUIRED)
 
 # ================== EXECUTABLE ==================
-add_executable(imgui_player WIN32
+add_executable(Im_player WIN32
     #
     native/src/main.cpp
     native/src/utils.cpp
@@ -23,12 +23,14 @@ add_executable(imgui_player WIN32
     native/src/hotkey_handler.cpp
     native/src/notification.cpp
     native/src/wintoastlib.cpp
+    native/src/settings_manager.cpp
+    native/src/stb_impl.cpp
     #
     native/src/mpv/mpv_basic_formats.cpp
     native/src/mpv/mpv_controller.cpp
     native/src/mpv/mpv_ui.cpp
     native/src/mpv/mpv_render_video.cpp
-    native/src/mpv/mpv_settings.cpp
+   # native/src/mpv/mpv_settings.cpp
     native/src/mpv/mpv_ui_settings.cpp
     native/src/mpv/mpv_data.cpp
     #
@@ -75,7 +77,7 @@ add_executable(imgui_player WIN32
 )
 
 # ================== WINDOWS DEFINES ==================
-target_compile_definitions(imgui_player PRIVATE
+target_compile_definitions(Im_player PRIVATE
 
     SDL_MAIN_HANDLED
     UNICODE
@@ -87,7 +89,7 @@ target_compile_definitions(imgui_player PRIVATE
     RENDER_MPV_THREAD
 )
 # Include path
-target_include_directories(imgui_player PRIVATE
+target_include_directories(Im_player PRIVATE
     native/include   
     native/src 
 
@@ -119,7 +121,7 @@ target_include_directories(imgui_player PRIVATE
     native/imgui
 )
 
-target_link_libraries(imgui_player PRIVATE
+target_link_libraries(Im_player PRIVATE
     SDL2::SDL2
     SDL2::SDL2main
     ${CMAKE_SOURCE_DIR}/libs/libmpv.dll.a
@@ -132,22 +134,22 @@ target_link_libraries(imgui_player PRIVATE
     OpenSSL::SSL
 )
 
-set_target_properties(imgui_player PROPERTIES
+set_target_properties(Im_player PROPERTIES
     RUNTIME_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_SOURCE_DIR}/bin/Debug
     RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin/Release
 )
 
 if(WIN32)
-    add_custom_command(TARGET imgui_player POST_BUILD
+    add_custom_command(TARGET Im_player POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy_if_different
         "${CMAKE_SOURCE_DIR}/libs/libmpv-2.dll" # Copy thủ công mpv
-        "$<TARGET_FILE_DIR:imgui_player>"
+        "$<TARGET_FILE_DIR:Im_player>"
     )
     
     # Lệnh này yêu cầu vcpkg tự copy các file phụ thuộc khác
-    set_target_properties(imgui_player PROPERTIES VS_USER_PROPS_CXX_DEFAULT "true")
+    set_target_properties(Im_player PROPERTIES VS_USER_PROPS_CXX_DEFAULT "true")
 
-    set_target_properties(imgui_player PROPERTIES 
+    set_target_properties(Im_player PROPERTIES 
         LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
     )
 endif()

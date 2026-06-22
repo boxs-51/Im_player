@@ -1,11 +1,8 @@
-
-#include "mpv_settings.h"
-#include "globals.h"
 #include "utils.h"
 #include "json.hpp"
 #include "cpr.h"
-#include "backends/client_backend.h"
-
+#include "client_backend.h"
+#include "stb_image.h"
 
 #include <string>
 #include <algorithm>

@@ -3,7 +3,6 @@
 
 #pragma once
 
-#include <mpv/mpv_settings.h>
 
 #include <imgui_internal.h>
 #include <windows/windows_borderless_state.h>
@@ -28,7 +27,7 @@
 #include <stdint.h>
 #include <sstream>
 namespace fs = std::filesystem;
-
+/*
 // --- Kiểu số nguyên không dấu (Unsigned Integers) ---
 typedef uint8_t  Uint8;  //  8-bit: 0 đến 255 (2^8 - 1)
 typedef uint16_t Uint16; // 16-bit: 0 đến 65,535 (2^16 - 1)
@@ -41,10 +40,11 @@ typedef int32_t  Int32;  // 32-bit: -2,147,483,648 đến 2,147,483,647
 typedef int64_t  Int64;  // 64-bit: -9,223,372,036,854,775,808 đến 9,223,372,036,854,775,807
 
 // --- Kiểu dữ liệu tùy chỉnh cho Project ---
+*/
 typedef unsigned int Uint;     // Thường là 32-bit (phụ thuộc vào compiler/Hệ điều hành)
 typedef uint32_t     UCol_32;  // 32-bit: Chuyên dùng cho mã màu RGBA (0xRRGGBBAA)
 typedef int          Int;      // Thường là 32-bit
-
+/*
 typedef bool Bool;  
 typedef float Float;
 typedef double Double;
@@ -78,12 +78,12 @@ inline ImU32 ToIUCol32(const ImVec4& c, float s = 255.0f) {return IM_COL32((Uint
 inline ImU32 ToIUCol32(const Col32& c, float s = 255.0f) {return IM_COL32((Uint)(c.r*s), (Uint)(c.b*s), (Uint)(c.g*s), (Uint)(c.a*s));}
 inline ImU32 ToIUCol32(const Vec4& c, float s = 255.0f) {return IM_COL32((Uint)(c.x*s), (Uint)(c.y*s), (Uint)(c.w*s), (Uint)(c.h*s));}
 inline ImU32 ToIUCol32(const UCol_32& c) {return (Uint)c;}
-
-inline UCol_32 ToCol32 (const Col32& v, float s = 255.0f) {return COL_32((Uint)(v.r*s), (Uint)(v.b*s), (Uint)(v.g*s), (Uint)(v.a*s));}
-inline UCol_32 ToCol32 (const Vec4& v, float s = 255.0f) {return COL_32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.w*s) ,(Uint)(v.h*s));}
-inline UCol_32 ToCol32 (const ImVec4& v, float s = 255.0f) {return COL_32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.z*s) ,(Uint)(v.w*s));}
-inline UCol_32 ToCol32 (const ImU32& v) {return (Uint)v;}
-
+*/
+//inline UCol_32 ToCol32 (const Col32& v, float s = 255.0f) {return COL_32((Uint)(v.r*s), (Uint)(v.b*s), (Uint)(v.g*s), (Uint)(v.a*s));}
+//inline UCol_32 ToCol32 (const Vec4& v, float s = 255.0f) {return COL_32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.w*s) ,(Uint)(v.h*s));}
+inline UCol_32 ToCol32 (const ImVec4& v, float s = 255.0f) {return IM_COL32((Uint)(v.x*s) ,(Uint)(v.y*s) ,(Uint)(v.z*s) ,(Uint)(v.w*s));}
+//inline UCol_32 ToCol32 (const ImU32& v) {return (Uint)v;}
+/*
 inline ImVec2 ToImVec2 (const Vec2& v) {return ImVec2{v.x, v.y};}
 inline ImVec4 ToImVec4 (const Vec4& v) {return ImVec4{v.x, v.y, v.w, v.h};}
 inline ImVec4 ToImVec4(ImU32 c)
@@ -96,7 +96,7 @@ inline ImVec4 ToImVec4(ImU32 c)
 }
 inline Vec2 ToVec2 (const ImVec2& v) {return Vec2{v.x, v.y};}
 inline Vec4 ToVec4 (const ImVec4& v) {return Vec4{v.x, v.y, v.z, v.w};}
-
+*/
 
 inline std::string Format(const char* fmt, ...)
 {
@@ -209,7 +209,7 @@ inline ImVec2& operator*=(ImVec2& lhs, const ImVec2& rhs) { lhs.x *= rhs.x; lhs.
 inline ImVec2& operator/=(ImVec2& lhs, const ImVec2& rhs) { lhs.x /= rhs.x; lhs.y /= rhs.y; return lhs; }
 
 // --- Đối với Vec2 ---
-
+/*
 inline Vec2 operator+(const Vec2& lhs, const Vec2& rhs) { return Vec2(lhs.x + rhs.x, lhs.y + rhs.y); }
 inline Vec2 operator-(const Vec2& lhs, const Vec2& rhs) { return Vec2(lhs.x - rhs.x, lhs.y - rhs.y); }
 inline Vec2 operator*(const Vec2& lhs, const Vec2& rhs) { return Vec2(lhs.x * rhs.x, lhs.y * rhs.y); }
@@ -225,7 +225,7 @@ inline Vec2& operator+=(Vec2& lhs, float scalar) { lhs.x += scalar; lhs.y += sca
 inline Vec2& operator-=(Vec2& lhs, float scalar) { lhs.x -= scalar; lhs.y -= scalar; return lhs; }
 inline Vec2& operator*=(Vec2& lhs, float scalar) { lhs.x *= scalar; lhs.y *= scalar; return lhs; }
 inline Vec2& operator/=(Vec2& lhs, float scalar) { lhs.x /= scalar; lhs.y /= scalar; return lhs; }
-
+*/
 // Toán tử số học cơ bản
 inline ImVec4 operator+(const ImVec4& lhs, const ImVec4& rhs) { return ImVec4(lhs.x + rhs.x, lhs.y + rhs.y, lhs.z + rhs.z, lhs.w + rhs.w); }
 inline ImVec4 operator-(const ImVec4& lhs, const ImVec4& rhs) { return ImVec4(lhs.x - rhs.x, lhs.y - rhs.y, lhs.z - rhs.z, lhs.w - rhs.w); }
@@ -237,6 +237,7 @@ inline ImVec4& operator*=(ImVec4& lhs, float scalar) { lhs.x *= scalar; lhs.y *=
 inline ImVec4& operator/=(ImVec4& lhs, float scalar) { lhs.x /= scalar; lhs.y /= scalar; lhs.z /= scalar; lhs.w /= scalar; return lhs; }
 
 // Toán tử số học cơ bản
+/*
 inline Vec4 operator+(const Vec4& lhs, const Vec4& rhs) { return Vec4(lhs.x + rhs.x, lhs.y + rhs.y, lhs.w + rhs.w, lhs.h + rhs.h); }
 inline Vec4 operator-(const Vec4& lhs, const Vec4& rhs) { return Vec4(lhs.x - rhs.x, lhs.y - rhs.y, lhs.w - rhs.w, lhs.h - rhs.h); }
 inline Vec4 operator*(const Vec4& lhs, const Vec4& rhs) { return Vec4(lhs.x * rhs.x, lhs.y * rhs.y, lhs.w * rhs.w, lhs.h * rhs.h); }
@@ -247,7 +248,7 @@ inline Vec4& operator+=(Vec4& lhs, float scalar) { lhs.x += scalar; lhs.y += sca
 inline Vec4& operator-=(Vec4& lhs, float scalar) { lhs.x -= scalar; lhs.y -= scalar; lhs.w -= scalar; lhs.h -= scalar; return lhs; }
 inline Vec4& operator*=(Vec4& lhs, float scalar) { lhs.x *= scalar; lhs.y *= scalar; lhs.w *= scalar; lhs.h *= scalar; return lhs; }
 inline Vec4& operator/=(Vec4& lhs, float scalar) { lhs.x /= scalar; lhs.y /= scalar; lhs.w /= scalar; lhs.h /= scalar; return lhs; }
-
+*/
 extern WindowLayout Windowlayout;
 extern WindowContext ctx;
 
@@ -256,34 +257,34 @@ void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, DragResizeState& state , WindowLayout& w);
+bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, WindowLayout& w);
 void TerminateHandler();
 void SignalHandler(int signal);
 void NotifyActivity(bool& show_ui_video);
 bool SetDelayHover(bool hovering, double delaySeconds = 3.0f, ImGuiID id = 0) ;
 
 
-WString UTF8ToWide(const String& str);
-String WideToUTF8(const WString& wstr);
+std::wstring UTF8ToWide(const std::string& str);
+std::string WideToUTF8(const std::wstring& wstr);
 
 template<typename T>
-bool mpv_get_prop(mpv_handle* mpv, const String& name, T& out);
+bool mpv_get_prop(mpv_handle* mpv, const std::string& name, T& out);
 
 // Specialization for double
 template<>
-inline bool mpv_get_prop<double>(mpv_handle* mpv, const String& name, double& out) {
+inline bool mpv_get_prop<double>(mpv_handle* mpv, const std::string& name, double& out) {
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_DOUBLE, &out) >= 0;
 }
 
 // Specialization for int
 template<>
-inline bool mpv_get_prop<int>(mpv_handle* mpv, const String& name, int& out) {
+inline bool mpv_get_prop<int>(mpv_handle* mpv, const std::string& name, int& out) {
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_INT64, &out) >= 0;
 }
 
 // Specialization for bool
 template<>
-inline bool mpv_get_prop<bool>(mpv_handle* mpv, const String& name, bool& out) {
+inline bool mpv_get_prop<bool>(mpv_handle* mpv, const std::string& name, bool& out) {
     int i=0;
     bool res = mpv_get_property(mpv, name.c_str(),MPV_FORMAT_FLAG, &i) >= 0;
     out = (i != 0);
@@ -292,14 +293,14 @@ inline bool mpv_get_prop<bool>(mpv_handle* mpv, const String& name, bool& out) {
 
 // Specialization for const char*
 template<>
-inline bool mpv_get_prop<const char*>(mpv_handle* mpv, const String& name, const char*& out) {
+inline bool mpv_get_prop<const char*>(mpv_handle* mpv, const std::string& name, const char*& out) {
 
     return mpv_get_property(mpv, name.c_str(),MPV_FORMAT_STRING, &out) >= 0;
 }
 
 // Specialization for std::string
 template<>
-inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const String& name, std::string& out) {
+inline bool mpv_get_prop<std::string>(mpv_handle* mpv, const std::string& name, std::string& out) {
     const char* tmp = nullptr;
     int ret = mpv_get_property(mpv, name.c_str(), MPV_FORMAT_STRING, &tmp);
     if (ret != 0) return false; // 0 = success
@@ -313,12 +314,12 @@ inline ImVec4 ToImVec2(SDL_Rect &r) {return ImVec4((float) r.x, (float)r.y, (flo
 inline ImVec4 ToImVec4_RAW(SDL_Rect &r) {return ImVec4((float)r.x, (float)r.y, (float)r.w, (float)r.h);}
 inline ImVec2 ToImVec2_Pos(SDL_Rect &r) {return ImVec2((float)r.x, (float)r.y);}
 inline ImVec2 ToImVec2_Size(SDL_Rect &r) {return ImVec2((float)r.w, (float)r.h);}
-
+/*
 inline Vec4 ToVec4(SDL_Rect &r) {return Vec4((float) r.x, (float)r.y, (float)(r.x + r.w), (float)(r.y + r.h));}
 inline Vec4 ToVec4_RAW(SDL_Rect &r) {return Vec4((float)r.x, (float)r.y, (float)r.w, (float)r.h);}
 inline Vec2 ToVec2_Pos(SDL_Rect &r) {return Vec2((float)r.x, (float)r.y);}
 inline Vec2 ToVec2_Size(SDL_Rect &r) {return Vec2((float)r.w, (float)r.h);}
-
+*/
 
 // === Chuyển đổi sang string UTF-8/UTF-16 ===
 inline std::string ToUtf8(const std::filesystem::path& p) { return p.u8string(); }

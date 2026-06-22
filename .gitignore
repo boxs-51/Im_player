@@ -41,3 +41,5 @@ log/
 .bat/ffmpeg
 
 temp_shader/
+
+imgui.ini

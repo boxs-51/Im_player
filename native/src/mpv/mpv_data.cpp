@@ -1,5 +1,7 @@
-#include <mpv/mpv_data.h>
-#include <mpv/mpv_basic_formats.h>
+#include "mpv_data.h"
+#include "mpv_basic_formats.h"
+#include "mpv_controller.h"
+
 #include <globals.h>
 #include <log.h>
 #include <mutex>

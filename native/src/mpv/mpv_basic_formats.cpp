@@ -1,5 +1,5 @@
 #include <mpv/mpv_basic_formats.h>
-#include <mpv/mpv_settings.h>
+#include <settings_manager.h>
 #include <json.hpp>
 #include <globals.h>
 
@@ -149,7 +149,10 @@ std::string BuildCombinedFormat(const VideoAudioFormats &allFormats)
     std::string videoFmt = allFormats.active_video.value_or("bestvideo");
     std::string audioFmt = allFormats.active_audio.value_or("bestaudio");
     std::string format = videoFmt + "+" + audioFmt;
-    v_Settings.selectedResolution = format;
+    auto& Cfg = ConfigManager::Instance();
+    Cfg.UpdateVideoSettings([format](AppSettings& s) {
+            s.selectedResolution = format;
+    });
     // Ghép video + audio
     return format;
 }
@@ -160,10 +163,11 @@ std::string GetCurrentMPVFormat() {
 
 void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioFormats &allFormats)
 {
+    auto& Cfg = ConfigManager::Instance();
     BuildVideoOptions(info.video_formats, allFormats.video);
     
     // --- Xác định video active ---
-    std::string userVideo = v_Settings.selectedFormat;
+    std::string userVideo = Cfg.GetVideoSettings().selectedFormat;
     allFormats.video_index = 0; // mặc định combo chọn "Auto"
     allFormats.active_video = std::nullopt;
     if (!userVideo.empty()) {
@@ -174,7 +178,10 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
 
         } else if (!allFormats.video.formats.empty()) {
             allFormats.active_video = allFormats.video.formats[0];
-            v_Settings.selectedFormat = allFormats.video.formats[0];
+            std::string targer_format = allFormats.video.formats[0];
+            Cfg.UpdateVideoSettings([targer_format](AppSettings& s) {
+                s.selectedFormat = targer_format;
+            });
             allFormats.video_index = 0;
         } else {
             allFormats.active_video = std::nullopt;
@@ -183,7 +190,10 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
     } else {
         if (!allFormats.video.formats.empty()) {
             allFormats.active_video = allFormats.video.formats[0];
-            v_Settings.selectedFormat = allFormats.video.formats[0];
+            std::string targer_format = allFormats.video.formats[0];
+            Cfg.UpdateVideoSettings([targer_format](AppSettings& s) {
+                s.selectedFormat = targer_format;
+            });
             allFormats.video_index = 0;
 
         } else {
@@ -194,7 +204,7 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
 
 
     BuildAudioOptions(info.audio_formats, allFormats.audio);
-    std::string userAudio = v_Settings.selectedAudio;
+    std::string userAudio = Cfg.GetVideoSettings().selectedAudio;
     allFormats.audio_index = 0;
     if (!userAudio.empty()) {
         auto it = std::find(allFormats.audio.formats.begin(), allFormats.audio.formats.end(), userAudio);
@@ -203,7 +213,10 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
             allFormats.audio_index = std::distance(allFormats.audio.formats.begin(), it);
         } else if (!allFormats.audio.formats.empty()) {
             allFormats.active_audio = allFormats.audio.formats[0];
-            v_Settings.selectedAudio = allFormats.audio.formats[0];
+            std::string targer_format = allFormats.audio.formats[0];
+            Cfg.UpdateVideoSettings([targer_format](AppSettings& s) {
+                s.selectedAudio = targer_format;
+            });
             allFormats.audio_index = 0;
 
         } else {
@@ -213,7 +226,10 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
     } else {
         if (!allFormats.audio.formats.empty()) {
             allFormats.active_audio = allFormats.audio.formats[0];
-            v_Settings.selectedAudio = allFormats.audio.formats[0];
+            std::string targer_format = allFormats.audio.formats[0];
+            Cfg.UpdateVideoSettings([targer_format](AppSettings& s) {
+                s.selectedAudio = targer_format;
+            });
             allFormats.audio_index = 0;
         } else {
             allFormats.active_audio = std::nullopt;
@@ -227,7 +243,7 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
     const char* cmd[] = { "set", "ytdl-format", combinedFormat.c_str(), nullptr };
     int res = mpv_command(mpv, cmd);
     //mpv_command(mpv, (const char*[]){"set_property", "pause", "no", nullptr});
-    SaveSettings_Video();
+    Cfg.SaveVideo();
 }
 // ---------------------------- Utils ----------------------------
 inline std::string scale_filesize(uint64_t size) {

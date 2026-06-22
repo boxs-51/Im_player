@@ -1,18 +1,6 @@
 
 // globals.cpp
 #include "globals.h"
-#include "popup.h"
-#include <string>
-#include <vector>
-#include <atomic>
-#include <thread>
-#include <condition_variable>
-#include <queue>
-#include <map>
-
-#include <gui/gui.h>
-#include <mpv/mpv_settings.h>
-#include <mpv/render_gl.h>
 
 UiWindowsState uiState;
 MPV mpv;

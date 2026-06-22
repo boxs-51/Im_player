@@ -166,8 +166,8 @@ struct TooltipItemData
 
     // Không gian / Tọa độ của Item
     ImVec2 center = ImVec2(0, 0);
-    ImVec2 pos = ImVec2(0, 0);       // Thay cho pos_item cũ
-    ImVec2 size = ImVec2(0, 0);      // Thay cho size_item cũ
+    ImVec2 pos = ImVec2(0, 0);      
+    ImVec2 size = ImVec2(0, 0);     
     ImVec2 mouse = ImVec2(0, 0);
     ImVec2 cursor_size = ImVec2(0, 0);
 };
@@ -185,6 +185,9 @@ struct TooltipBeginData
     std::string text;
     std::string title;
     std::string extra;
+    ImVec2 title_size;
+    ImVec2 extra_size;
+    ImVec2 text_size;
     bool show_title = false;
     bool show_extra = false;
     bool show_text = true;
@@ -214,7 +217,7 @@ struct TooltipBeginData
 
     float padding_content = 6.0f;
     float spacing_content = 4.0f;
-    float padding = 12.0f;
+    float padding = 0.0f;
     float spacing_mouse = 12.0f;
     float rounding = 4.0f;
     float border_thickness = 1.0f;
@@ -338,6 +341,7 @@ struct SliderRenderData
     
     struct SliderAnimState
     {
+        
         float hover = 0.0f;
         float active = 0.0f;
         float bar_hover = 0.0f;
@@ -517,7 +521,7 @@ struct SliderSeekResult
     float value = 0.0f;     // giá trị cuối cùng (có thể bị clamp/snap)
 };
 using OldIconFn = void(*)(ImDrawList*, ImVec2, ImVec2, ImU32);
-using SliderRenderCallback = std::function<void(Phase phase , Slot slot, SliderRenderData* data, ImDrawList* draw_list)>;
+using SliderRenderCallback = std::function<void(Phase phase , Slot slot, SliderState* state, SliderRenderData* data, ImDrawList* draw_list)>;
 using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, TooltipData* data, ImDrawList* draw_list)>; 
 using TooltipCallback = std::function<void(Phase phase, Slot slot, TooltipData* data, ImDrawList* draw_list)>; 
 using SliderSeekCallback = std::function<SliderSeekResult(const SliderSeekRequest*)>;

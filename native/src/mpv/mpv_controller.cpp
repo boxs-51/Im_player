@@ -1,6 +1,5 @@
 #include <mpv/mpv_controller.h>
 #include <mpv/mpv_data.h>
-#include <globals.h>
 
 #include <Windows.h>
 #include <SDL.h>

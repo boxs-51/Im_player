@@ -1,7 +1,6 @@
 #pragma once
 #include <utils.h>
 
-#include <mpv/mpv_settings.h>
 #include <gui/gui.h>
 #include <imgui_internal.h>
 #include <imgui.h>

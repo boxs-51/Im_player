@@ -5,7 +5,7 @@
 #include <windows/windows_borderless.h>
 #include "thread.h"
 #include "notification.h"
-
+#include "stb_image.h"
 #include <popup/popup.h>
 
 #include <mpv/mpv_basic_formats.h>
@@ -34,8 +34,8 @@ using json = nlohmann::json;
 
 WindowContext ctx;
 WindowLayout Windowlayout;
-
-bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , WindowLayout& w)
+static DragResizeState& g_DragResizeState = GetDragResizeState();
+bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, WindowLayout& w)
 {
     if (!sdlWindow) {
         w.titleBar = {0,0,0,0};
@@ -54,11 +54,11 @@ bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow,  DragResizeState& state , W
     SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
     SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
     // Fullscreen: video chiếm toàn bộ, title bar ẩn
-    if (state.IsFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
+    if (g_DragResizeState.IsFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
     } else {
         // Windowed: title bar trên, video dưới
-        w.titleBar = {w.WinX , w.WinY,w.WinW,(int)state.TitleHeight};
-        w.videoArea = {w.WinX, w.WinY + (int)state.TitleHeight,w.WinW,w.WinH - (int)state.TitleHeight};
+        w.titleBar = {w.WinX , w.WinY,w.WinW,(int)g_DragResizeState.TitleHeight};
+        w.videoArea = {w.WinX, w.WinY + (int)g_DragResizeState.TitleHeight,w.WinW,w.WinH - (int)g_DragResizeState.TitleHeight};
                                      
     }
     w.VideoPos = ToImVec2_Pos(w.videoArea);

@@ -4,12 +4,13 @@
 #include <mpv/mpv_controller.h>
 #include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
-#include <mpv/mpv_settings.h>
 #include <gui/gui.h>
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
 
 #include <mpv/audio/filter/af_m.h>
+
+#include "settings_manager.h"
 
 #include <popup/popup.h>
 
@@ -27,6 +28,7 @@
 #include <windows/windows_borderless.h>
 #include <windows/windows_borderless_state.h>
 
+#include "imgui_impl_sdl2.h"
 #include "imgui_impl_opengl3.h"
 #include "FontManager.h"
 //#undef RATE_LIMITED_COUT
@@ -144,13 +146,13 @@ void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
             case SDL_WINDOWEVENT_MAXIMIZED:
             case SDL_WINDOWEVENT_RESTORED:
             case SDL_WINDOWEVENT_SIZE_CHANGED:
-                UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+                UpdateGlobalWindowLayout(ctx.mainWindow, Windowlayout);
                 break;
         }
     }
 
     // 3. Xử lý Hotkeys (trả về true nếu event đã được tiêu thụ)
-    hot_key = HandleHotkeys(e, mpv.mpv , &v_Settings);
+    hot_key = HandleHotkeys(e, mpv.mpv);
     if (hot_key) return;
 
     // 4. Xử lý tương tác chuột trên vùng Video
@@ -241,14 +243,14 @@ bool InitMainWindow() {
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
     ImGuiStyle& style = ImGui::GetStyle();
 
-    LoadSettings();
+    ConfigManager::Instance().LoadAll();
 
-    CSImGui::InitThemeLibrary(c_Settings.themetype);
+    CSImGui::InitThemeLibrary(ConfigManager::Instance().GetCommonSettings().themetype);
 
     ImGui_ImplSDL2_InitForOpenGL(ctx.mainWindow, ctx.mainGLContext);
     ImGui_ImplOpenGL3_Init("#version 430 core");
 
-    FontManager::Instance().LoadFontsSpecific(c_Settings.fontsize, AutoPath<std::string>("%ROOT%", "config", "fonts"));
+    FontManager::Instance().LoadFontsSpecific(ConfigManager::Instance().GetCommonSettings().fontsize, AutoPath<std::string>("%ROOT%", "config", "fonts"));
 
     ImGui::StyleColorsDark();
 
@@ -537,7 +539,7 @@ int main(int argc, char** argv) {
         Cleanup();
         return 1;
     }
-    UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState , Windowlayout);
+    UpdateGlobalWindowLayout(ctx.mainWindow, Windowlayout);
     #ifdef RENDER_MPV_THREAD
     StartMPVRenderThread();
     #endif
@@ -556,7 +558,7 @@ int main(int argc, char** argv) {
         PlaybackState state = GetPlaybackState();
         if(g_DragResizeState.ToggleFullscreen){
             SDLUtils::SDLX_ToggleFullscreen(ctx.mainWindow, !g_DragResizeState.IsFullscreen_video);
-            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+            UpdateGlobalWindowLayout(ctx.mainWindow, Windowlayout);
             g_DragResizeState.ToggleFullscreen =false;
         }
         g_WindowVisible = (flags & SDL_WINDOW_SHOWN) && !(flags & SDL_WINDOW_MINIMIZED );

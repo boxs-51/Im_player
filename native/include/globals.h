@@ -1,32 +1,12 @@
 // globals.h
 #pragma once
-#include "reusable_popup.h"
-#include "utils.h"
-#include "imgui.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
-#include "mpv_settings.h"
-#include "mpv_controller.h" 
-#include "stb_image.h"
 
-#include <fstream>
-#include <sstream>
-#include <vector>
-#include <queue>
-#include <GL/gl3w.h> 
 #include <SDL.h>
-#include <SDL_opengl.h>
-#include <SDL_syswm.h>
 #include <string>
-#include <mpv/client.h>
-#include <thread>
+#include <vector>
 #include <mutex>
-#include <algorithm>
-#include <windows.h>
-#include <winhttp.h>
-#include <iostream>
-#include <condition_variable>
-#include <mpv/render_gl.h>
+#include <mpv/client.h>
+#include <mpv/render.h>
 
 struct UiWindowsState {
     bool show_demo = false;

@@ -1,6 +1,5 @@
 // sidebar_window.h
 #pragma once
-#include <mpv/mpv_settings.h>
 #include <mpv/mpv_data.h>
 #include <mpv/client.h>
 

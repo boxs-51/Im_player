@@ -1,5 +1,4 @@
 #include "mpv/mpv_ui.h"
-#include "mpv/mpv_settings.h"
 #include "mpv/shaders/shaders_manager.h"
 
 #include <gui/gui.h>
@@ -7,6 +6,7 @@
 #include "utils.h"
 #include "popup_setting.h"
 #include "FontManager.h"
+#include "settings_manager.h"
 
 #include <imgui.h>
 #include <vector>
@@ -17,6 +17,7 @@ static std::string tempFamily;
 static std::string tempStyle;
 static int selectedItem = 0; 
 static bool isDirty = false;
+
 // Mở popup settings
 void OpenSettingPopup(ReusablePopup& popup) {
     popup.Open("Settings", [](bool& closePopup_setting) {
@@ -26,7 +27,8 @@ void OpenSettingPopup(ReusablePopup& popup) {
 
 void GeneralSettingsPage() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
-
+    auto& Cfg = ConfigManager::Instance();
+    auto commonCfg = Cfg.GetCommonSettings();
     // Bắt đầu vùng chứa chính
     if(CSImGui::BeginModernChild("GeneralSettingsPanel", avail, true))
     {
@@ -42,18 +44,17 @@ void GeneralSettingsPage() {
         ImGui::BeginGroup();
         {
             // 1. COMBO CHỌN THEME
-            static std::string selectedTheme = ThemeToString(c_Settings.themetype);
+            std::string selectedTheme_str = ThemeToString(commonCfg.themetype);
             std::vector<std::string> themes = { "Dark Mode", "Light Mode", "Mid Night Mode", "Retro Mode" };
 
             ImGui::BeginGroup(); // Nhóm Label + Combo
-            if (CSImGui::NormalCombo("CHỦ ĐỀ (THEME)", selectedTheme, themes, 220, 4)) {
-                if (selectedTheme == "Dark Mode") c_Settings.themetype = ThemeType::DarkMode;
-                else if (selectedTheme == "Light Mode") c_Settings.themetype = ThemeType::LightMode;
-                else if (selectedTheme == "Mid Night Mode") c_Settings.themetype = ThemeType::MidnightMode;
-                else if (selectedTheme == "Retro Mode") c_Settings.themetype = ThemeType::RetroMode;
-
-                CSImGui::ApplyTheme(c_Settings.themetype);
-                SaveSettings_Common();
+            if (CSImGui::NormalCombo("CHỦ ĐỀ (THEME)", selectedTheme_str, themes, 220, 4)) {
+                ThemeType selectedTheme = StringToTheme(selectedTheme_str);
+                Cfg.UpdateCommonSettings([selectedTheme](CommonSettings& settings) {
+                    settings.themetype = selectedTheme;
+                });
+                CSImGui::ApplyTheme(selectedTheme);
+                Cfg.SaveCommon();
             }
             ImGui::TextDisabled("Thay đổi màu sắc tổng thể (Sáng/Tối).");
             ImGui::EndGroup();
@@ -61,7 +62,7 @@ void GeneralSettingsPage() {
             ImGui::SameLine(0, 30); // Khoảng cách giữa 2 combo là 30px
 
             // 2. COMBO SEARCH CHỌN FONT SIZE (CÓ PREVIEW)
-            static std::string fontSizeStr = std::to_string((int)c_Settings.fontsize) + "px";
+            static std::string fontSizeStr = std::to_string((int)commonCfg.fontsize) + "px";
             static std::vector<std::string> fontSizes = {
                 "12px", "14px", "16px", "18px", "20px", "24px", "28px", "32px"
             };
@@ -98,8 +99,10 @@ void GeneralSettingsPage() {
                     
                     float newSize = std::stof(numericPart);
                     if (newSize >= 8.0f && newSize <= 40.0f) { 
-                        c_Settings.fontsize = newSize;
-                        SaveSettings_Common();
+                        Cfg.UpdateCommonSettings([newSize](CommonSettings& settings) {
+                            settings.fontsize = newSize;
+                        });
+                        Cfg.SaveCommon();
                     }
 
                 } catch (...) {

@@ -1,8 +1,6 @@
 #include "globals.h"
 #include "utils.h"
 
-
-#include <mpv/mpv_settings.h>
 #include <mpv/mpv_ui_settings.h>
 #include <gui/gui.h>
 #include <mpv/mpv_data.h>

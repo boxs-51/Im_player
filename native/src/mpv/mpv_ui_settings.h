@@ -1,12 +1,9 @@
 //ui_ioch_settings.h
 #pragma once
-
-#include "globals.h"
 #include <string>
-#include <vector>
-#include <SDL.h>  
-#include <mutex>   
-#include <regex>
+#include <imgui.h>
+#include <mpv/client.h>
+
 
 //
 // ===========================

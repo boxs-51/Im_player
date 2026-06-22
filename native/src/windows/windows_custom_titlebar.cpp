@@ -304,7 +304,7 @@ LRESULT CALLBACK CustomWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM lParam
         case WM_TIMER:
         if (wParam == IDT_RENDER_TIMER) {
             // Cập nhật layout và vẽ ngay lập tức
-            UpdateGlobalWindowLayout(ctx.mainWindow, g_DragResizeState, Windowlayout);
+            UpdateGlobalWindowLayout(ctx.mainWindow, Windowlayout);
             RenderFrame(GetPlaybackState() ,true); 
         }
         break;

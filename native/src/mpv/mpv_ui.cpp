@@ -1,15 +1,13 @@
-#define STB_IMAGE_IMPLEMENTATION
-#include <gui/gui.h>
-#include "mpv/mpv_ui_settings.h"
-#include "mpv/mpv_controller.h"
-#include "mpv/mpv_settings.h"
-#include "mpv/mpv_ui.h"
-#include <mpv/mpv_data.h>
+#include "mpv_ui_settings.h"
+#include "mpv_controller.h"
+#include "mpv_ui.h"
+#include <mpv_data.h>
+#include <mpv_basic_formats.h>
 
-#include <gui/gui.h>
-#include "windows/windows_borderless.h"
-
+#include "gui/gui.h"
 #include "popup/popup.h"
+#include "settings_manager.h"
+#include "windows/windows_borderless.h"
 
 #include "utils.h"
 #include "SDL.h"
@@ -31,6 +29,8 @@ static bool seek_bar_action = false;
 static bool seek_bar_hover = false;
 static bool items_action=  false;
 static bool items_hover = false;
+
+
 
 void DrawTimeDisplay(double current, double duration, ImVec2& videoSize, ImVec2& pos, float parentHeight) {
     ImGuiStyle& style = ImGui::GetStyle();
@@ -93,6 +93,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         return; 
     }
 
+    auto& Cfg = ConfigManager::Instance();
+    
     ImVec2 videoPos = (_pos);
     ImVec2 videoSize = (_size);
 
@@ -216,233 +218,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
 
     ImGui::PushStyleVar(ImGuiStyleVar_FramePadding, ImVec2(0.0f, 1.0f*scale)); // mỏng
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 10.0f);
-    /*
-    if (duration > 0.0f) {
 
-
-        // === Slider vô hình để giữ layout và nhận tương tác ===
-        ImGui::PushStyleColor(ImGuiCol_SliderGrab, ImVec4(0, 0, 0, 0)); // ẩn grab
-        ImGui::PushStyleColor(ImGuiCol_SliderGrabActive, ImVec4(0, 0, 0, 0));
-        static bool wasDraggingSeekbar = false;
-        static bool isDraggingSeekbar = false;
-        static bool isHoveringSeek =false;
-        static float time_show = 0.0f; // Dùng cho preview khi kéo seek
-        if (duration > 0.0f) {
-            // Cập nhật giá trị time_show khi không kéo
-            if (!isDraggingSeekbar)
-                time_show = playbackTime;
-
-            ImVec2 seekSize(sliderWidth, 10.0f * scale);
-            ImGui::InvisibleButton("##SeekBar", seekSize);
-            wasDraggingSeekbar = isDraggingSeekbar;
-            isDraggingSeekbar = ImGui::IsItemActive();
-            isHoveringSeek = ImGui::IsItemHovered();
-            
-            seek_bar_action = isDraggingSeekbar;
-            seek_bar_hover = isHoveringSeek;
-
-
-            if(isDraggingSeekbar){
-                ImVec2 mouse = ImGui::GetMousePos();
-                float mouseX = std::clamp(mouse.x, ImGui::GetItemRectMin().x, ImGui::GetItemRectMax().x);
-                float percent = (mouseX - ImGui::GetItemRectMin().x) / (ImGui::GetItemRectMax().x - ImGui::GetItemRectMin().x);
-                time_show = duration * percent;
-            }
-        }
-        ImGui::PopStyleColor(2);
-
-        // === Lấy toạ độ ===
-        ImVec2 rectMin = ImGui::GetItemRectMin();
-        ImVec2 rectMax = ImGui::GetItemRectMax();
-        ImRect sliderRect(rectMin, rectMax);
-        ImDrawList* draw_list = ImGui::GetWindowDrawList();
-
-        float sliderHeight = sliderRect.GetHeight();
-        float sliderY = (sliderRect.Min.y + sliderRect.Max.y) * 0.5f;
-        float progress = time_show / duration;
-        float sliderStartX = sliderRect.Min.x;
-        float sliderEndX = sliderRect.Max.x;
-        float sliderWidthActual = sliderEndX - sliderStartX;
-        float filledX = sliderStartX + sliderWidthActual * progress;
-
-        // === Vẽ nền seekbar ===
-        // === Hiệu ứng phóng to khi hover ===
-        static float hoverAnim = 0.0f; // giá trị từ 0 -> 1
-        UpdateHoverAnim(hoverAnim,isHoveringSeek,12.0f);
-
-        // phóng to thêm 50% khi hover
-        float baseBarHeight = 6.0f * scale;
-        float barHeight = baseBarHeight * (1.0f + 0.5f * hoverAnim);
-        float barY = sliderY - barHeight * 0.5f;
-
-        draw_list->AddRectFilled(ImVec2(sliderStartX, barY), ImVec2(sliderEndX, barY + barHeight),
-                                IM_COL32(60, 60, 60, 180), barHeight * 0.5f); // nền xám
-
-        // === Vẽ phần đã cache(xám trắng)  ===
-        float bufferProgress = g_playbackStatus.demuxer_cache_time / duration;
-        bufferProgress = std::clamp(bufferProgress, 0.0f, 1.0f);
-        float bufferedX = sliderStartX + sliderWidthActual * bufferProgress;
-
-        draw_list->AddRectFilled(ImVec2(sliderStartX, barY), ImVec2(bufferedX, barY + barHeight),
-                                IM_COL32(200, 200, 200, 150), barHeight * 0.5f);
-
-        
-        // === Vẽ phần đã xem (đỏ) ===
-        draw_list->AddRectFilled(ImVec2(sliderStartX, barY), ImVec2(filledX, barY + barHeight),
-                                IM_COL32(255, 60, 60, 220), barHeight * 0.5f);  
-        // === Vẽ nút hình tròn ===
-        float knobRadius = 8.0f * scale * (1.0f + 0.3f * hoverAnim);
-        ImVec2 knobCenter = ImVec2(filledX, sliderY);
-        draw_list->AddCircleFilled(knobCenter, knobRadius, IM_COL32(255, 255, 255, 255));
-        draw_list->AddCircle(knobCenter, knobRadius, IM_COL32(0, 0, 0, 200)); // viền
-        // === Vẽ markers cho chapters ===
-        for (auto &c : g_videoInfo.g_chapters) {
-            float chapterProgress = (float)(c.time / duration);
-            float chapterX = sliderStartX + sliderWidthActual * chapterProgress;
-
-            ImVec2 center(chapterX, barY - 6.0f * scale);
-            float r = 5.0f * scale;
-            draw_list->AddQuadFilled(
-                ImVec2(center.x, center.y - r),
-                ImVec2(center.x + r, center.y),
-                ImVec2(center.x, center.y + r),
-                ImVec2(center.x - r, center.y),
-                IM_COL32(255, 255, 255, 200)
-            );
-            
-            // Vẽ vạch nhỏ
-            draw_list->AddLine(
-                ImVec2(chapterX, barY),
-                ImVec2(chapterX, barY + barHeight),
-                IM_COL32(255, 200, 0, 200), // màu vàng cam
-                2.0f
-            );
-
-            // (tuỳ chọn) Vẽ chấm nhỏ phía trên
-            draw_list->AddCircleFilled(ImVec2(chapterX, barY - 4.0f * scale),
-                                    3.0f * scale,
-                                    IM_COL32(255, 200, 0, 220));
-
-            draw_list->AddRectFilled(
-                ImVec2(chapterX - 2.0f * scale, barY),
-                ImVec2(chapterX + 2.0f * scale, barY + barHeight),
-                IM_COL32(70, 70, 255, 200),
-                1.0f
-            );
-        }
-        if (currentChapterIndex >= 0) {
-            double start = g_videoInfo.g_chapters[currentChapterIndex].time;
-            double end   = (currentChapterIndex + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[currentChapterIndex+1].time : g_playbackStatus.duration;
-
-            float startX = sliderStartX + sliderWidthActual * (start / g_playbackStatus.duration);
-            float endX   = sliderStartX + sliderWidthActual * (end   / g_playbackStatus.duration);
-
-            draw_list->AddRectFilled(
-                ImVec2(startX, barY),
-                ImVec2(endX, barY + barHeight),
-                IM_COL32(100, 100, 255, 60),   // xanh mờ
-                barHeight * 0.5f
-            );
-        }
-
-        // === Hover hiện thời gian + (title nếu ở đúng chapter) ===
-        ImVec2 mousePos = ImGui::GetMousePos();
-        if (sliderRect.Contains(mousePos)) {
-            float mouseX = std::clamp(mousePos.x, sliderStartX, sliderEndX);
-            float percent = (mouseX - sliderStartX) / sliderWidthActual;
-            float hoverTime = duration * percent;
-
-            // Format thời gian
-            char timeText[32];
-            int totalSec = (int)hoverTime;
-            int hours = totalSec / 3600;
-            int min = (totalSec % 3600) / 60;
-            int sec = totalSec % 60;
-
-            if (hours > 0)
-                snprintf(timeText, sizeof(timeText), "%d:%02d:%02d", hours, min, sec);
-            else
-                snprintf(timeText, sizeof(timeText), "%02d:%02d", min, sec);
-
-            // Kiểm tra có hover vào chapter marker không
-            std::string chapterTitle;
-            bool onChapter = false;
-            for (auto &c : g_videoInfo.g_chapters) {
-                float chapterProgress = (float)(c.time / duration);
-                float chapterX = sliderStartX + sliderWidthActual * chapterProgress;
-                if (fabs(mouseX - chapterX) <= 5.0f * scale) { // trong 5px
-                    chapterTitle = c.title;
-                    hoverTime = c.time; // snap đúng mốc chapter
-                    onChapter = true;
-                    break;
-                }
-            }
-
-            // Tooltip
-            ImVec2 timeSize  = ImGui::CalcTextSize(timeText);
-            ImVec2 titleSize = chapterTitle.empty() ? ImVec2(0,0) : ImGui::CalcTextSize(chapterTitle.c_str());
-            float tooltipW = std::max(timeSize.x, titleSize.x) + 12.0f; // padding X
-            float tooltipH = timeSize.y + (chapterTitle.empty() ? 0.0f : titleSize.y) + 8.0f * scale; // padding Y
-            ImVec2 tooltipPos(mouseX - tooltipW * 0.5f, barY - tooltipH - 15.0f * scale);
-
-            // Clamp X
-            if (tooltipPos.x <  videoPos.x + 4.0f) 
-                tooltipPos.x =  videoPos.x + 4.0f;
-            if (tooltipPos.x + tooltipW >  videoPos.x + videoSize.x - 4.0f)
-                tooltipPos.x =  videoPos.x + videoSize.x - tooltipW - 4.0f;
-            // Clamp Y
-            if (tooltipPos.y <  videoPos.y + 4.0f) 
-                tooltipPos.y =  videoPos.y + 4.0f;
-            if (tooltipPos.y + tooltipH > videoPos.y + videoSize.y  - 4.0f)
-                tooltipPos.y = videoPos.y  + videoSize.y  - tooltipH - 4.0f;
-
-            draw_list->AddRectFilled(
-                ImVec2(tooltipPos.x - 6, tooltipPos.y - 4),
-                ImVec2(tooltipPos.x + tooltipW + 6, tooltipPos.y + tooltipH + 4),
-                IM_COL32(0, 0, 0, 100), 4.0f
-            );
-
-            float yCursor = tooltipPos.y + 2;
-            if (!chapterTitle.empty()) {
-                draw_list->AddText(
-                    ImVec2(tooltipPos.x + (tooltipW - titleSize.x) * 0.5f, yCursor),
-                    IM_COL32(255, 230, 120, 255), chapterTitle.c_str()
-                );
-                yCursor += titleSize.y;
-            }
-            draw_list->AddText(
-                ImVec2(tooltipPos.x + (tooltipW - timeSize.x) * 0.5f, yCursor),
-                IM_COL32(255, 255, 255, 255), timeText
-            );
-
-            // Line marker
-            
-            draw_list->AddLine(ImVec2(mouseX, barY - 4), ImVec2(mouseX, barY + barHeight + 4),
-                            IM_COL32(255, 255, 255, 100));
-
-
-            // Khi vừa thả chuột ra khỏi seekbar → thực hiện tua
-            if (wasDraggingSeekbar  && !isDraggingSeekbar) {
-
-                mpv_command_seek_abs(mpv, hoverTime ,duration); 
-
-            }
-        }
-    }
-    */
-    int currentChapterIndex = -1;
-    double start_time= 0.0f;
-    double end_time = 0.0f;
-    if (!g_videoInfo.g_chapters.empty()) {
-        for (int i = 0; i < (int)g_videoInfo.g_chapters.size(); i++) {
-            start_time = g_videoInfo.g_chapters[i].time;
-            end_time   = (i + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[i+1].time : g_playbackStatus.duration;
-            if (g_playbackStatus.playbackTime >= start_time && g_playbackStatus.playbackTime < end_time) {
-                currentChapterIndex = i;
-                break;
-            }
-        }
-    }
     float value = playbackTime;
     float v_min = 0.0f;
     float v_max = duration;
@@ -465,7 +241,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         // =========================
         // RENDER CALLBACK
         // =========================
-        [&](Phase phase, Slot slot, SliderRenderData* rd, ImDrawList* dl)
+        [&](Phase phase, Slot slot, SliderState* state, SliderRenderData* rd, ImDrawList* dl)
         {
             if(phase == Phase::Init){
                 // =========================
@@ -476,6 +252,19 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                 // =========================
                 // MARKERS (chapters)
                 // =========================
+                int currentChapterIndex = -1;
+                double start_time= 0.0f;
+                double end_time = 0.0f;
+                if (!g_videoInfo.g_chapters.empty()) {
+                    for (int i = 0; i < (int)g_videoInfo.g_chapters.size(); i++) {
+                        start_time = g_videoInfo.g_chapters[i].time;
+                        end_time   = (i + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[i+1].time : g_playbackStatus.duration;
+                        if (g_playbackStatus.playbackTime >= start_time && g_playbackStatus.playbackTime < end_time) {
+                            currentChapterIndex = i;
+                            break;
+                        }
+                    }
+                }
                 if (currentChapterIndex >= 0 && duration > 0.0)
                 {
 
@@ -515,7 +304,19 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                     rd->col_track          = ImVec4(0.30f, 0.30f, 0.30f, 0.80f); // Nền sáng lên một chút
                 }
                 rd->height_on_hover = rd->height * 0.5;
+                float target_alpha = (rd->hovered || rd->active) ? 1.0f : 0.0f;
+                float speed = 12.0f; // Ví dụ tốc độ là 0.3 giây
+                static float smooth_grab_alpha = 0.0f;
+                smooth_grab_alpha = ImLerp(smooth_grab_alpha, target_alpha, SMOOTH_LERP(speed, state->dt));
+                
+                rd->col_grab.w        *= smooth_grab_alpha;
+                rd->col_grab_border.w *= smooth_grab_alpha;
+                rd->col_grab_shadow.w *= smooth_grab_alpha;
+                if (!rd->hovered && !rd->active) {
+                    rd->grab_radius = 0.0f; // Scale dần về 0 cùng lúc với fade alpha
+                }
             }
+            
 
             // =========================
             // OPTIONAL
@@ -573,7 +374,6 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                 td->config.max_width = 240.0f;
                 td->config.max_height = 180.0f;
                 td->config.align = ImGuiTooltip::Align_Center;
-                td->config.padding = 0.0f;
             }
         },
 
@@ -737,8 +537,11 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                     mpv_command_set_mute(mpv, false);
                 if (volume > 0)
                     g_lastVolumeBeforeMute = volume;
-                v_Settings.defaultVolume = volume;
-                SaveSettings_Video();
+
+                Cfg.UpdateVideoSettings([volume](AppSettings& s){
+                    s.defaultVolume = volume;
+                });
+                Cfg.SaveVideo();
             }
 
             ImGui::PopStyleColor(2);
@@ -807,8 +610,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
                     mpv_command_set_mute(mpv, false);
                 if (volume > 0)
                     g_lastVolumeBeforeMute = volume;
-                v_Settings.defaultVolume = volume;
-                SaveSettings_Video();
+                Cfg.UpdateVideoSettings([volume](AppSettings& s){
+                    s.defaultVolume = volume;
+                });
+                Cfg.SaveVideo();
             }
 
             draw_list->AddCircleFilled(knobCenter, radius, knobColor);
@@ -843,7 +648,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 16, controlPos.y));
         // Thay thế ImageButton bằng CustomIconButton + DrawSettingsIcon
         if (CSImGui::CustomIconButton("##setting", DrawSettingsIconAnimated, iconSize , &settingsData)) {
-            LoadSettings_Video();
+            Cfg.LoadAll();
             showSettings = !showSettings;
         }
 

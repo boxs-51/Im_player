@@ -4,7 +4,8 @@
 #include <mpv/client.h>
 #include <string>
 #include <util.h>
-#include <globals.h> 
+#include <imgui.h>
+#include <GL/gl3w.h> 
 
 // Tải và cache icon theo tên
 GLuint GetIcon(const std::string& name);
