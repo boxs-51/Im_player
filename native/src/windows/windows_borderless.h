@@ -14,6 +14,7 @@
 #include <wrl.h>
 
 // Core
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 namespace SDLUtils{
 void SDLX_InitBorderless(SDL_Window* window);
 void SDLX_PushUniqueEvent(const SDL_Event& eventData);

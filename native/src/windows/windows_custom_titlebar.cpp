@@ -31,6 +31,7 @@ static DragResizeState g_DragResizeState;
 DragResizeState& GetDragResizeState(){
     return g_DragResizeState;
 }
+//TODO: Chuyen toan bo sang utils.h rieng
 // -------------------- Helpers --------------------
 static ResizeEdge DetectResizeEdge(int localX, int localY, int winW, int winH, int margin) {
 

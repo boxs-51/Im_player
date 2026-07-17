@@ -12,6 +12,7 @@
 using namespace Microsoft::WRL;
 
 
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 // ================== Enums ==================
 enum class ResizeEdge {
     NONE,
@@ -20,7 +21,7 @@ enum class ResizeEdge {
 };
 
 // ================== State ==================
-
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 struct DragResizeState {
 
     int resizeMargin  = 8;
@@ -73,7 +74,7 @@ struct DragResizeState {
     RECT fullscreenRestoreRect = {};
 
 };
-
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 DragResizeState& GetDragResizeState();
 
 

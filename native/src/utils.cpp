@@ -32,6 +32,7 @@
 #include <log.h>
 using json = nlohmann::json;
 
+// TODO: Chuyen logic sang class Window de quan ly rieng
 WindowContext ctx;
 WindowLayout Windowlayout;
 static DragResizeState& g_DragResizeState = GetDragResizeState();
@@ -94,7 +95,7 @@ bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, WindowLayout& w)
 
 }
 
-
+//TODO : chuyen logic sang he thong quan ly mpv rieng
 void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::string>& options, bool isProperty = false) {
     for (const auto& [key, value] : options) {
         if (isProperty)

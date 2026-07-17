@@ -187,6 +187,7 @@ void HandleMainWindowEvent(const SDL_Event* e ,const bool& g_WindowVisible) {
         }
     }
 }
+//TODO: chuyejn logic sang mot he thong quan ly window rieng trong windows/.
 bool InitMainWindow() {
 
     Uint32 windowFlags = SDL_WINDOW_OPENGL|

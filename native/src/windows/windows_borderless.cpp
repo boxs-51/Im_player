@@ -17,7 +17,7 @@
 #include <chrono>
 
 static DragResizeState& g_DragResizeState = GetDragResizeState();
-
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
     SDL_Event existingEvent;
         
@@ -29,7 +29,7 @@ void SDLUtils::SDLX_PushUniqueEvent(const SDL_Event& eventData) {
         SDL_PushEvent(&eventToPush);
     }
 }
-
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 void SDLUtils::SDLX_SetMinMax(SDL_Window* window, ImVec2& min, ImVec2& max)
 {
     if (!window) return;
@@ -50,6 +50,7 @@ void SDLUtils::SDLX_SetMinMax(SDL_Window* window, ImVec2& min, ImVec2& max)
     if (g_DragResizeState.sdlMaxW > 0 && g_DragResizeState.sdlMaxH > 0)
         SDL_SetWindowMaximumSize(window, g_DragResizeState.sdlMaxW, g_DragResizeState.sdlMaxH);
 }
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 bool SDLUtils::SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
 {
     if (!window) return false;
@@ -120,6 +121,7 @@ bool SDLUtils::SDLX_ToggleFullscreen(SDL_Window* window, bool enable)
         return g_DragResizeState.IsFullscreen_video;
     #endif
 }
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 // -------------------- SDL event sync helpers --------------------
 void SDLUtils::SyncSDLWithWinAPI(SDL_Window* sdlWin) {
     if (!sdlWin || !g_DragResizeState.hwnd_windown_main) return;
@@ -143,7 +145,7 @@ void SDLUtils::SyncSDLWithWinAPI(SDL_Window* sdlWin) {
     if (curX != x || curY != y) SDL_SetWindowPosition(sdlWin, x, y);
     if (curW != w || curH != h) SDL_SetWindowSize(sdlWin, w, h);
 }
-
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 void SDLUtils::SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1, int d2) {
     SDL_Event ev{};
     ev.type = SDL_WINDOWEVENT;
@@ -153,6 +155,7 @@ void SDLUtils::SDLX_PushEvent(SDL_Window* win, Uint8 evt, int d1, int d2) {
     ev.window.data2 = d2;
     SDL_PushEvent(&ev);
 }
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 void SDLUtils::SDLX_PushClose(SDL_Window* /*win*/) {
     // Cho đa số app: SDL_WINDOWEVENT_CLOSE là chuẩn
     SDL_Event ev{};
@@ -164,6 +167,7 @@ void SDLUtils::SDLX_PushClose(SDL_Window* /*win*/) {
     // Fallback chung:
     SDL_Event q{}; q.type = SDL_QUIT; SDL_PushEvent(&q);
 }
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 RECT SDLUtils::GetMonitorRectForWindow(HWND hwnd) {
     HMONITOR hMon = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
     MONITORINFO mi{};
@@ -171,6 +175,7 @@ RECT SDLUtils::GetMonitorRectForWindow(HWND hwnd) {
     if (hMon) GetMonitorInfo(hMon, &mi);
     return mi.rcWork; // rcWork = vùng khả dụng (không tính taskbar)
 }
+//TODO: Chuyen logic sang vao he thong quan ly window rieng
 void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResizeState& state ,ImVec2 _winPos ,ImVec2 _winSize) {
     
     #ifdef CUSTOM_TITLEBAR
@@ -336,6 +341,7 @@ void RenderBorderlessWindow(SDL_Window* sdlWindow, const char* title, DragResize
     ImGui::EndChild();
     #endif
 }
+//TODO: Chuyen logic sang mot file utils.h rieng cho window/SDL
 // Đăng ký hàm này ngay sau khi tạo window
 void SDLUtils::SetWindowSDL(SDL_Window* window,
                             ImVec2& winmin,
