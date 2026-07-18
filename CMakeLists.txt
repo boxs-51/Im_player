@@ -15,7 +15,7 @@ find_package(OpenSSL REQUIRED)
 # ================== EXECUTABLE ==================
 add_executable(Im_player WIN32
     #
-    native/src/main.cpp
+    native/src/main1.cpp
     native/src/utils.cpp
     native/src/FontManager.cpp
     native/src/gl3w.c
@@ -48,6 +48,10 @@ add_executable(Im_player WIN32
     #
     native/src/windows/windows_borderless.cpp
     native/src/windows/windows_custom_titlebar.cpp
+    native/src/windows/WindowController.cpp
+    native/src/windows/WindowProcHook.cpp
+    native/src/windows/main/MainWindowRenderer.cpp
+    native/src/windows/main/MainWindowState.cpp
     #
     native/src/gui/gui.cpp
     native/src/gui/gui_widgets.cpp
@@ -112,6 +116,7 @@ target_include_directories(Im_player PRIVATE
     native/include/openssl
 
     native/src/windows
+    native/src/windows/main
     native/src/popup
     native/src/threads
     native/src/backends

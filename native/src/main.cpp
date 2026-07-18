@@ -519,11 +519,6 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
     
-    #ifdef RENDER_MPV_THREAD
-        SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
-    #endif
-    
-
     if (!InitMainWindow()){
         Cleanup();
         return 1;

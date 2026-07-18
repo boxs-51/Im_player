@@ -143,7 +143,7 @@ FrameTextureInfo GetStableFrameTexture(MPVRenderThread& rt) {
 }
 #endif
 void RenderMPVVideo(const ImVec2& pos, const ImVec2& size) {
-    if (!mpv.render_ctx || Audio_visualizers || !g_WindowVisible) return;
+    if (!mpv.render_ctx || Audio_visualizers ) return;
 
     //ImGui::SetNextWindowPos(pos);
     //ImGui::BeginChild("##Video", size);
@@ -170,7 +170,7 @@ void RenderMPVVideo(const ImVec2& pos, const ImVec2& size) {
     fbo.internal_format = GL_RGBA8;
 
     int flip = 1; 
-    int skip_render = (!g_WindowVisible || Audio_visualizers) ? 1 : 0;
+    int skip_render = ( Audio_visualizers) ? 1 : 0;
 
     // Tổ chức params bằng std::array để quản lý bộ nhớ an toàn hơn
     std::array<mpv_render_param, 4> params {{
@@ -273,8 +273,11 @@ void MPVRenderLoop(MPVRenderThread* rt) {
 
         lock.unlock();
 
+        bool isVisible = rt->g_WindowVisible.load(std::memory_order_relaxed);
+        bool isVisualizer = rt->Audio_visualizers.load(std::memory_order_relaxed);
+
         bool isZeroSize = (rt->surface.drawW <= 0 || rt->surface.drawH <= 0);
-        int skip_render = (rt->Audio_visualizers || !(rt->g_WindowVisible) || isZeroSize) ? 1 : 0;
+        int skip_render = (!isVisible || isVisualizer || isZeroSize) ? 1 : 0;
 
         if (skip_render) {
             // Chỉ gọi mpv với 1 param duy nhất để nó tiếp tục xử lý audio/logic
@@ -370,6 +373,37 @@ void MPVRenderLoop(MPVRenderThread* rt) {
     rt->hasExited = true;
 }
 
+void StartMPVRenderThread(WindowRuntime* runtime) {
+    if (!runtime || !mpv.render_ctx) return;
+
+    renderThread.ownerWindowId = runtime->id;
+    renderThread.window = runtime->sdlWindow; // Trích xuất từ instance cửa sổ
+    renderThread.running = true;
+
+    renderThread.ctx = mpv.render_ctx;
+
+    // Lấy kích thước Layout hiện tại từ PropertyBag của Window
+    if (runtime->properties.Contains("Layout")) {
+        auto layout = runtime->properties.Get<WindowLayout>("Layout");
+        renderThread.surface.drawW = (int)layout.VideoSize.x;
+        renderThread.surface.drawH = (int)layout.VideoSize.y;
+    }
+
+    // Tạo OpenGL Context chia sẻ tài nguyên (Share Context) với Context chính của Cửa sổ này
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
+    renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
+
+    // Kích hoạt luồng thông qua ThreadManager của bạn
+    GetThreadManager().Run(ThreadID::MPVRenderThread, []() {
+        MPVRenderLoop(&renderThread);
+    });
+
+    // Trả lại Context chính cho Main Thread xử lý ImGui
+    if (runtime->mainGLContext) {
+        SDL_GL_MakeCurrent(runtime->sdlWindow, runtime->mainGLContext);
+    }
+}
+
 void StartMPVRenderThread() {
    
     renderThread.ctx = mpv.render_ctx;
@@ -377,7 +411,7 @@ void StartMPVRenderThread() {
 
     renderThread.surface.drawW = (int)Windowlayout.VideoSize.x;
     renderThread.surface.drawH = (int)Windowlayout.VideoSize.y;
-    //SDL_GL_MakeCurrent(renderThread.window, NULL);
+    SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
     renderThread.glContext = SDL_GL_CreateContext(renderThread.window);
 
     GetThreadManager().Run(ThreadID::MPVRenderThread, [&]() {

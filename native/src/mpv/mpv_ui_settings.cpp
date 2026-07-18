@@ -632,7 +632,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 break;
             }
         }
-        if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
+        //if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
         ImGui::PopStyleVar();
         ImGui::End();
     }

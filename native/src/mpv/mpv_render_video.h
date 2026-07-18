@@ -2,6 +2,8 @@
 #include <utils.h>
 #include <mpv/client.h>
 #include <GL/gl3w.h>
+#include <SDL.h>
+#include <WindowRuntime.h>
 
 #define SDL_MPV_EVENT (SDL_USEREVENT + 1)
 #define SDL_MPV_RENDER_UPDATE (SDL_USEREVENT + 2)
@@ -75,9 +77,13 @@ struct MPVRenderThread {
     std::atomic<bool> g_WindowVisible = false;
 
     std::atomic<float> framerender{0.0f};
+
+    std::string ownerWindowId; 
+
 };
 extern MPVRenderThread renderThread;
 void StartMPVRenderThread();
+void StartMPVRenderThread(WindowRuntime* runtime);
 #endif
 
 /// Khởi tạo mpv và thiết lập các tuỳ chọn cơ bản
