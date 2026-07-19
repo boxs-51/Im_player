@@ -10,7 +10,7 @@
 
 #include "windows/windows_borderless_state.h"
 #include "windows/windows_borderless.h"
-
+#include "WindowRuntime.h"
 #include <log.h>
 #include <SDL.h>
 
@@ -19,7 +19,7 @@ static MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
 static VideoInfo& g_videoinfo = GetVideoInfo();
 
 // --- Playback Hotkeys --- //
-bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv) {
+bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runtime) {
     if (e->type != SDL_KEYDOWN)
         return false;
 
@@ -134,7 +134,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv) {
 
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
     if (key == SDLK_F11) {
-        g_DragResizeState.ToggleFullscreen = true;
+        runtime->properties.Set<bool>("TriggerToggleFullscreen", true);
+        //g_DragResizeState.ToggleFullscreen = true;
         return true;
     }
 
@@ -231,9 +232,15 @@ bool HandleExtersionHotkeys(const SDL_Event* e){
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-bool HandleHotkeys(const SDL_Event* e, mpv_handle* mpv) {
+//bool HandleHotkeys(const SDL_Event* e, mpv_handle* mpv) {
+//    if (Disabehotkey) return false;
+//    return HandleBasicHotkeys(e, mpv) ||
+//           HandlePopupHotkeys(e) ||
+//           HandleExtersionHotkeys(e);
+//}
+bool HandleHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runtime) {
     if (Disabehotkey) return false;
-    return HandleBasicHotkeys(e, mpv) ||
+    return HandleBasicHotkeys(e, mpv, runtime) ||
            HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);
 }

@@ -2,55 +2,43 @@
 #pragma once
 #include <unordered_map>
 #include <memory>
+#include <SDL.h>
 #include "WindowRuntime.h"
 #include "WindowFactory.h"
 
 class WindowManager {
 private:
-    std::unordered_map<WindowId, std::unique_ptr<WindowRuntime>> windows;
     WindowFactory* factory;
+    std::unordered_map<WindowId, std::unique_ptr<WindowRuntime>> windows;
 
 public:
     WindowManager(WindowFactory* fact) : factory(fact) {}
 
-    WindowRuntime* CreateNewWindow(const std::string& templateName) {
-        WindowRuntime* runtime = factory->Create(templateName);
+    WindowRuntime* CreateNewWindow(const std::string& templateName, std::unique_ptr<IGraphicsBackend> backend) {
+        auto* runtime = factory->Create(templateName, std::move(backend));
         if (runtime) {
             windows[runtime->id] = std::unique_ptr<WindowRuntime>(runtime);
-            // Hiện thị cửa sổ sau khi đã chuẩn bị xong xuôi
-            SDL_ShowWindow(runtime->sdlWindow);
+            return runtime;
         }
-        return runtime;
-    }
-
-    WindowRuntime* GetWindow(WindowId id) {
-        auto it = windows.find(id);
-        return (it != windows.end()) ? it->second.get() : nullptr;
+        return nullptr;
     }
 
     void DestroyWindow(WindowId id) {
-        auto it = windows.find(id);
-        if (it != windows.end()) {
-            RemovePropW(it->second->hwnd, L"WINDOW_RUNTIME_PTR"); // Clean up WinAPI prop
-            if (it->second->renderer) {
-                it->second->renderer->Shutdown();
-            }
-            windows.erase(it);
-        }
+        windows.erase(id);
     }
+
+    // Hàm tiện ích mới: Tra cứu WindowRuntime từ SDL_Window vật lý
     WindowRuntime* GetWindowBySDLHandle(SDL_Window* sdlWin) {
         if (!sdlWin) return nullptr;
-        
-        // Duyệt qua map hoặc vector lưu trữ các unique_ptr<WindowRuntime> nội bộ của bạn
-        for (auto& [id, windowInstance] : windows) {
-            if (windowInstance->sdlWindow == sdlWin) {
-                return windowInstance.get();
+        for (auto& [id, runtime] : windows) {
+            if (runtime->sdlWindow == sdlWin) {
+                return runtime.get();
             }
         }
         return nullptr;
     }
 
-    // Hỗ trợ vòng lặp Enumerate duyệt qua mọi cửa sổ nhanh gọn
+    // Hỗ trợ vòng lặp range-based cho việc Duyệt Render ở main loop
     auto begin() { return windows.begin(); }
     auto end() { return windows.end(); }
 };

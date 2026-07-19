@@ -1,4 +1,4 @@
-// WindowRuntime.h
+// WindowRuntime.h (Cập nhật)
 #pragma once
 #include <SDL.h>
 #include <windows.h>
@@ -7,16 +7,18 @@
 #include "WindowPropertyBag.h"
 #include "WindowRenderer.h"
 #include "WindowController.h"
+#include "IGraphicsBackend.h" // Thêm include
 
 using WindowId = uint32_t;
-
 
 class WindowRuntime {
 public:
     WindowId id = 0;
     SDL_Window* sdlWindow = nullptr;
-    SDL_GLContext mainGLContext = nullptr;
     HWND hwnd = nullptr;
+
+    ImGuiContext* imguiCtx = nullptr;
+    std::unique_ptr<IGraphicsBackend> graphicsBackend = nullptr; // Thay thế cho SDL_GLContext[cite: 14]
 
     WindowState state;
     WindowStyle style;

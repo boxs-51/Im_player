@@ -1,6 +1,7 @@
 #include <SDL.h>
 #include "imgui.h"
 #include "WindowRuntime.h"
+
 struct MainWindowLayout {
     int WinX = 0;
     int WinY = 0;
@@ -15,4 +16,5 @@ struct MainWindowLayout {
 
     SDL_Rect videoArea{0, 0, 800, 600};
 };
-void UpdateWindowState(WindowRuntime* runtime);
+void UpdateWindowStateCommon(WindowRuntime* runtime);
+void UpdateMainWindowState(WindowRuntime* runtime);

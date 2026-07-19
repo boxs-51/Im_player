@@ -14,8 +14,10 @@ private:
 
 public:
     void Initialize(WindowRuntime* runtime) override;
-    void BeginFrame() override;
     void RenderUI(WindowRuntime* runtime) override;
-    void EndFrame() override;
     void Shutdown() override;
+
+    // Giải phóng interface cũ không còn cần thiết vì Backend đã quản lý Frame Lifecycle
+    void BeginFrame() override {}
+    void EndFrame() override {}
 };

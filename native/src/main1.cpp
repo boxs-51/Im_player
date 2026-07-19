@@ -1,62 +1,74 @@
 // main.cpp
 #include <SDL.h>
-#include "WindowTemplate.h"
-#include "WindowFactory.h"
-#include "WindowManager.h"
-#include "MainWindowRenderer.h"
-#include "MainWindowState.h"
-#include "main.h"
+#include <windows.h>
+#include <imgui_impl_sdl2.h>
+#include <imgui_impl_opengl3.h>
+#include <csignal>
+
 #include "globals.h"
 #include "utils.h"
-#include <windows.h>
-#include <csignal>
+
 #include <gui/gui.h>
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
+
 #include <mpv/mpv_ui.h>
 #include <mpv/mpv_controller.h>
 #include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
-
 #include <mpv/audio/filter/af_m.h>
-
 #include "settings_manager.h"
 #include <popup/popup.h>
-
-#include "utils.h"
 #include "hotkey_handler.h"
-#include "globals.h"
-
 #include <backends/backend.h>
-
 #include <threads/thread_manager.h>
 #include <log.h>
-#include "main.h"
 #include "notification.h"
+
+#include "WindowTemplate.h"
+#include "WindowFactory.h"
+#include "WindowManager.h"
+#include "MainWindowRenderer.h"
+#include "MainWindowState.h"
+
+// Gọi lớp trừu tượng đồ họa của bạn từ bài thiết kế trước
+#include "OpenGLBackend.h" 
+
+extern "C" {
+    __declspec(dllexport) unsigned long NvOptimusEnablement = 0x00000001;
+}
+
+// AMD GPU
+extern "C" {
+    __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
+}
+
 
 static VideoInfo& g_videoInfo = GetVideoInfo();
 static DragResizeState& g_DragResizeState = GetDragResizeState();
 static bool running = true;
-void Cleanup() {
+void Cleanup() {}
 
+// Hàm định tuyến cập nhật trạng thái tự động thông minh
+void RouteWindowStateUpdate(WindowRuntime* runtime) {
+    if (!runtime) return;
+    if (runtime->style.isMainWindow) {
+        UpdateMainWindowState(runtime); // Gọi hàm riêng cho Master + Cập nhật MPV
+    } else {
+        UpdateWindowStateCommon(runtime); // Gọi hàm chung cho các Sub-window[cite: 18]
+    }
 }
-
 
 void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& running, bool& hot_key) {
     if (!runtime) return;
 
-    // 1. Tự động chuyển đổi Context ImGui chính xác cho cửa sổ này
-    ImGuiContext* imguiCtx = runtime->properties.Get<ImGuiContext*>("ImGuiCtx");
+    ImGuiContext* imguiCtx = runtime->imguiCtx;
     if (imguiCtx) {
         ImGui::SetCurrentContext(imguiCtx);
     }
 
-    // 2. Để ImGui tiêu thụ sự kiện trước
     ImGui_ImplSDL2_ProcessEvent(e);
     
-    // 3. Xử lý các sự kiện Core liên kết với MPV (chỉ khi runtime này có chứa MPV)
     if (e->type == SDL_MPV_RENDER_UPDATE) {
         runtime->properties.Set<bool>("RenderVideoFlag", true);
     }
@@ -64,33 +76,32 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
         ProcessMPVEvents(mpv.mpv);
     }
 
-    // 4. Xử lý thay đổi hình học / trạng thái vật lý của riêng cửa sổ này
     if (e->type == SDL_WINDOWEVENT) {
         switch (e->window.event) {
             case SDL_WINDOWEVENT_RESIZED:
             case SDL_WINDOWEVENT_MOVED:
             case SDL_WINDOWEVENT_MAXIMIZED:
             case SDL_WINDOWEVENT_RESTORED:
+            case SDL_WINDOWEVENT_MINIMIZED:
+            case SDL_WINDOWEVENT_HIDDEN:
+            case SDL_WINDOWEVENT_SHOWN:
             case SDL_WINDOWEVENT_SIZE_CHANGED: {
-                // Gọi hàm cập nhật state nội tại mà chúng ta vừa thiết kế
-                UpdateWindowState(runtime); 
+                // Sử dụng hàm định tuyến tự động thay vì gọi cứng hàm cũ
+                RouteWindowStateUpdate(runtime); 
                 break;
             }
             case SDL_WINDOWEVENT_CLOSE: {
-                // Cho phép đóng cửa sổ phụ mà không sập app, nếu là mainWin thì tắt app
                 if (runtime->style.isMainWindow) running = false;
-                else runtime->state.isClosedPending = true; // Flag để winManager xóa sau
+                else runtime->state.isClosedPending = true; 
                 break;
             }
         }
     }
 
-    // 5. Xử lý Hotkeys toàn cục (nếu có)
-    hot_key = HandleHotkeys(e, mpv.mpv);
+    hot_key = HandleHotkeys(e, mpv.mpv, runtime);
     if (hot_key) return;
 
-    // 6. Xử lý tương tác Chuột cục bộ dựa trên layout riêng của chính cửa sổ này
-    if (runtime->state.isVisible) { // Đọc trực tiếp từ state đã sync
+    if (runtime->state.isVisible) { 
         int mx = -1, my = -1;
         bool isInteraction = false;
 
@@ -100,12 +111,9 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
             isInteraction = true;
         }
 
-        if (isInteraction) {
-            // Đọc layout động từ PropertyBag của chính instance này
+        if (isInteraction && runtime->style.isMainWindow) { // Chỉ tính toán click chuột vùng video nếu là main window
             if (runtime->properties.Has("Layout")) {
-                auto layout = runtime->properties.Get<WindowLayout>("Layout");
-                
-                // Chuyển đổi sang tọa độ Screen-space tương ứng với cửa sổ này
+                auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
                 SDL_Point mousePos = { mx + layout.WinX, my + layout.WinY };
                 
                 if (SDL_PointInRect(&mousePos, &layout.videoArea)) {
@@ -121,7 +129,6 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
 }
 
 int main(int argc, char** argv) {
-    // 1. Kiểm tra Single Instance Mutex cũ độc lập[cite: 5]
     HANDLE hMutex = CreateMutexA(NULL, TRUE, "Global\\MyUniqueApp_MutexID");
     if (GetLastError() == ERROR_ALREADY_EXISTS) {
         SendArgsToFirstInstance(argc, argv);
@@ -135,7 +142,6 @@ int main(int argc, char** argv) {
     StartRuntimeServices(); 
     std::set_terminate(TerminateHandler);
 
-    // Đăng ký System signals
     std::signal(SIGSEGV, SignalHandler);
     std::signal(SIGABRT, SignalHandler);
     std::signal(SIGFPE, SignalHandler);
@@ -156,9 +162,6 @@ int main(int argc, char** argv) {
     SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
     SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
 
-    // ========================================================
-    // KHỞI TẠO KIẾN TRÚC WINDOW MỚI (TẬP TRUNG)
-    // ========================================================
     WindowTemplateRegistry registry;
     WindowFactory factory(&registry);
     WindowManager winManager(&factory);
@@ -166,30 +169,29 @@ int main(int argc, char** argv) {
     // Cấu hình mẫu cửa sổ phát video chính
     WindowTemplate mainVideoWinTpl;
     mainVideoWinTpl.name = "Media Video Control";
-    mainVideoWinTpl.style.borderless = true; // Dùng Custom Titlebar[cite: 5]
+    mainVideoWinTpl.style.isMainWindow = true; // Thiết lập flag để nhận diện Master Window
+    mainVideoWinTpl.style.borderless = true; 
     mainVideoWinTpl.style.titlebar = true;
     mainVideoWinTpl.style.resizable = true;
     mainVideoWinTpl.style.snapEnabled = true;
+    mainVideoWinTpl.style.allowhighdpi = true;
     mainVideoWinTpl.style.titleHeight = 28;
     mainVideoWinTpl.style.btnSize = 30;
     mainVideoWinTpl.style.resizeMargin = 8;
     
-    // Gán Factory cấp phát Renderer động cho Template
     mainVideoWinTpl.rendererFactory = []() {
         return std::make_unique<MainWindowRenderer>();
     };
     
-    // Đăng ký mẫu vào Registry
     registry.RegisterTemplate("VideoPlayerMain", mainVideoWinTpl);
 
-    // Khởi tạo thực thể cửa sổ thông qua Quản lý tập trung
-    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain");
+    // Khởi tạo và nạp thẳng đối tượng thiết lập đồ họa trừu tượng (OpenGL) vào cửa sổ[cite: 20]
+    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain", std::make_unique<OpenGLBackend>());
     if (!mainWin) {
         Cleanup();
         return 1;
     }
 
-    // Khởi tạo Context MPV liên kết[cite: 5]
     if (!InitMPV(mpv.mpv)) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo mpv", nullptr);
         Cleanup();
@@ -205,7 +207,8 @@ int main(int argc, char** argv) {
     ConfigManager::Instance().LoadAll();
     CSImGui::InitThemeLibrary(ConfigManager::Instance().GetCommonSettings().themetype);
 
-    UpdateWindowState(mainWin);
+    // Gọi cập nhật trạng thái ban đầu (Sử dụng hàm định tuyến)[cite: 20]
+    RouteWindowStateUpdate(mainWin);
 
     #ifdef RENDER_MPV_THREAD
     StartMPVRenderThread(mainWin);
@@ -220,86 +223,53 @@ int main(int argc, char** argv) {
     SDL_Event e;
     bool hot_key = false;
 
-    
-    // ========================================================
-    // MAIN LOOP (ỨNG DỤNG ĐA CỬA SỔ)
-    // ========================================================
     while (running) {
         fpsLimiter.startFrame();
         CSImGui::UpdateTheme(fpsLimiter.getDeltaTime());
         PlaybackState state = GetPlaybackState();
 
-        // 1. Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
+        // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
         if (mainWin->properties.Get<bool>("TriggerToggleFullscreen", false)) {
             mainWin->controller->ToggleFullscreen();
-            UpdateWindowState(mainWin);
+            RouteWindowStateUpdate(mainWin); // Sử dụng hàm định tuyến mới[cite: 20]
             mainWin->properties.Set<bool>("TriggerToggleFullscreen", false);
         }
-        #ifdef RENDER_MPV_THREAD
-            // 1. Đồng bộ trạng thái Ẩn/Hiện vật lý sang cho Luồng Render MPV phụ
-            renderThread.g_WindowVisible.store(mainWin->state.isVisible, std::memory_order_relaxed);
 
-            // 2. Đồng bộ kích thước hình học mới nếu người dùng đang kéo co giãn cửa sổ
-            if (mainWin->properties.Contains("Layout")) {
-                auto layout = mainWin->properties.Get<MainWindowLayout>("Layout");
-                
-                std::lock_guard<std::mutex> lock(renderThread.mtx);
-                if (renderThread.surface.drawW != (int)layout.VideoSize.x || 
-                    renderThread.surface.drawH != (int)layout.VideoSize.y) {
-                    
-                    renderThread.surface.newW = (int)layout.VideoSize.x;
-                    renderThread.surface.newH = (int)layout.VideoSize.y;
-                    renderThread.surface.needResize = true;
-                }
-            }
-        #endif
+        // Loại bỏ đoạn code `#ifdef RENDER_MPV_THREAD` ở vòng lặp chính này 
+        // Vì toàn bộ logic đồng bộ luồng MPV đã được tích hợp gọn gàng bên trong hàm `UpdateMainWindowState`![cite: 20]
 
-        // 2. Phân phối và xử lý sự kiện
         while (SDL_PollEvent(&e)) {
-            // 1. Xử lý các sự kiện toàn cục hệ thống trước
             if (e.type == SDL_QUIT) {
                 running = false;
                 break;
             }
 
-            // 2. Tìm WindowRuntime tương ứng với sự kiện
             WindowRuntime* targetWin = nullptr;
-            
-            // Nếu là sự kiện liên quan đến Cửa sổ (Resize, di chuyển, chuột, phím)
             if (e.type == SDL_WINDOWEVENT || e.type == SDL_MOUSEBUTTONDOWN || 
                 e.type == SDL_MOUSEBUTTONUP || e.type == SDL_MOUSEMOTION || 
                 e.type == SDL_KEYDOWN || e.type == SDL_KEYUP) {
                 
                 Uint32 winID = 0;
-                if (e.type == SDL_WINDOWEVENT) {
-                    winID = e.window.windowID;
-                } else if (e.type >= SDL_KEYDOWN && e.type <= SDL_KEYUP) {
-                    winID = e.key.windowID;
-                } else if (e.type >= SDL_MOUSEMOTION && e.type <= SDL_MOUSEBUTTONUP) {
-                    winID = e.motion.windowID; // windowID nằm cùng vị trí cấu trúc cho motion/button
-                }
+                if (e.type == SDL_WINDOWEVENT) winID = e.window.windowID;
+                else if (e.type >= SDL_KEYDOWN && e.type <= SDL_KEYUP) winID = e.key.windowID;
+                else if (e.type >= SDL_MOUSEMOTION && e.type <= SDL_MOUSEBUTTONUP) winID = e.motion.windowID;
 
-                // Tìm con trỏ WindowRuntime* từ windowID của SDL
                 if (winID != 0) {
                     SDL_Window* sdlWin = SDL_GetWindowFromID(winID);
-                    targetWin = winManager.GetWindowBySDLHandle(sdlWin); // Bạn cần thêm hàm tiện ích này vào WindowManager
+                    targetWin = winManager.GetWindowBySDLHandle(sdlWin); 
                 }
             }
 
-            // Nếu không tìm thấy cửa sổ cụ thể (hoặc là sự kiện custom như MPV), mặc định phân phối cho mainWin
-            if (!targetWin) {
-                targetWin = mainWin;
-            }
+            if (!targetWin) targetWin = mainWin;
 
-            // 3. Đẩy sự kiện vào hàm xử lý đã chuẩn hóa của cửa sổ đó
             if (targetWin) {
                 HandleWindowRuntimeEvent(targetWin, &e, running, hot_key);
             }
         }
+
         mpv_update_seek_pending(mpv.mpv);
         AudioFilterManager::Instance().UpdateAdaptiveFilters();
 
-        // 4. Tính toán tốc độ làm mới thông minh (Adaptive Refresh Rate) cho Window
         double targetInterval = 1; 
         switch (state) {
             case PlaybackState::Idle:
@@ -322,22 +292,22 @@ int main(int argc, char** argv) {
 
         fpsLimiter.set_ev_frame(targetInterval);
 
-        // 5. Duyệt vẽ toàn bộ các cửa sổ đang có trong Registry quản lý
+        // Render toàn bộ các cửa sổ đang quản lý thông qua lớp đồ họa Backend trừu tượng
         if (fpsLimiter.isEvery()) {
             for (auto& [id, windowInstance] : winManager) {
-                if (!windowInstance->state.isVisible) continue; // Bỏ qua nếu cửa sổ bị ẩn
+                if (!windowInstance->state.isVisible) continue; 
 
-                // Chuyển đổi ngữ cảnh ImGui chính xác cho cửa sổ đang vẽ
-                ImGuiContext* ctxOfWindow = windowInstance->properties.Get<ImGuiContext*>("ImGuiCtx");
+                // Tự động chuyển đổi ngữ cảnh cửa sổ
+                //ImGuiContext* ctxOfWindow = windowInstance->properties.Get<ImGuiContext*>("ImGuiCtx");
+                ImGuiContext* ctxOfWindow = windowInstance->imguiCtx;
                 if (ctxOfWindow) ImGui::SetCurrentContext(ctxOfWindow);
 
-                if (windowInstance->renderer) {
-                    windowInstance->renderer->BeginFrame();
+                if (windowInstance->graphicsBackend && windowInstance->renderer) {
+                    // Sử dụng interface Backend thay vì gọi trực tiếp lệnh GL thô sơ[cite: 20]
+                    windowInstance->graphicsBackend->BeginFrame(windowInstance->sdlWindow);
                     windowInstance->renderer->RenderUI(windowInstance.get());
-                    windowInstance->renderer->EndFrame();
+                    windowInstance->graphicsBackend->EndFrame(windowInstance->sdlWindow);
                 }
-                
-                SDL_GL_SwapWindow(windowInstance->sdlWindow);
             }
         }
 
@@ -350,7 +320,6 @@ int main(int argc, char** argv) {
         CloseHandle(hMutex);
     }
     
-    // Thu dọn toàn bộ các Window đang hoạt động trước khi tắt app
     winManager.DestroyWindow(mainWin->id);
     Cleanup();
     return 0;

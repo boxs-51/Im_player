@@ -51,7 +51,7 @@ add_executable(Im_player WIN32
     native/src/windows/WindowController.cpp
     native/src/windows/WindowProcHook.cpp
     native/src/windows/main/MainWindowRenderer.cpp
-    native/src/windows/main/MainWindowState.cpp
+    native/src/windows/UpdateWindowState.cpp
     #
     native/src/gui/gui.cpp
     native/src/gui/gui_widgets.cpp

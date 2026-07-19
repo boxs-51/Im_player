@@ -139,50 +139,66 @@ LRESULT CALLBACK MultiWindowWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
             break;
 
         case WM_TIMER:
-        if (wParam == IDT_RENDER_TIMER) {
-            // Cập nhật layout và vẽ ngay lập tức
-            UpdateWindowState(runtime);
-            if (!runtime->state.isVisible) break; // Bỏ qua nếu cửa sổ bị ẩn
-            if (runtime->style.isMainWindow){
-                #ifdef RENDER_MPV_THREAD
-                    // 1. Đồng bộ trạng thái Ẩn/Hiện vật lý sang cho Luồng Render MPV phụ
-                    renderThread.g_WindowVisible.store(runtime->state.isVisible, std::memory_order_relaxed);
+            if (wParam == IDT_RENDER_TIMER) {
+                
+                if (runtime->style.isMainWindow) 
+                    UpdateMainWindowState(runtime); // Gọi hàm riêng cho Master + Cập nhật MPV
+    
+                if (!runtime->state.isVisible) break;
 
-                    // 2. Đồng bộ kích thước hình học mới nếu người dùng đang kéo co giãn cửa sổ
-                    if (runtime->properties.Contains("Layout")) {
-                        auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
-                        
-                        std::lock_guard<std::mutex> lock(renderThread.mtx);
-                        if (renderThread.surface.drawW != (int)layout.VideoSize.x || 
-                            renderThread.surface.drawH != (int)layout.VideoSize.y) {
-                            
-                            renderThread.surface.newW = (int)layout.VideoSize.x;
-                            renderThread.surface.newH = (int)layout.VideoSize.y;
-                            renderThread.surface.needResize = true;
-                        }
-                    }
-                #endif
+                // Chuyển đổi ngữ cảnh ImGui chính xác cho cửa sổ đang vẽ
+                ImGui::SetCurrentContext(runtime->imguiCtx); // Lấy trực tiếp từ runtime mới nâng cấp
+
+                // Sử dụng Backend để bao bọc Render Loop thay vì gọi cứng OpenGL
+                runtime->graphicsBackend->BeginFrame(runtime->sdlWindow);
+
+                if (runtime->renderer) {
+                    runtime->renderer->RenderUI(runtime);
+                }
+                
+                runtime->graphicsBackend->EndFrame(runtime->sdlWindow);
             }
-            // Chuyển đổi ngữ cảnh ImGui chính xác cho cửa sổ đang vẽ
-            ImGuiContext* ctxOfWindow = runtime->properties.Get<ImGuiContext*>("ImGuiCtx");
-            if (ctxOfWindow) ImGui::SetCurrentContext(ctxOfWindow);
+            break;
 
-            if (runtime->renderer) {
-                runtime->renderer->BeginFrame();
-                runtime->renderer->RenderUI(runtime);
-                runtime->renderer->EndFrame();
+        case WM_SIZE:
+        {
+            switch (wParam)
+            {
+            case SIZE_MINIMIZED:
+                runtime->state.isMinimized = true;
+                runtime->state.isMaximized = false;
+                break;
+
+            case SIZE_MAXIMIZED:
+                runtime->state.isMaximized = true;
+                runtime->state.isMinimized = false;
+                break;
+
+            case SIZE_RESTORED:
+                runtime->state.isMinimized = false;
+                runtime->state.isMaximized = false;
+                break;
             }
-            
-            SDL_GL_SwapWindow(runtime->sdlWindow);
 
-        }
-        break;
-
-        case WM_SIZE: {
-            runtime->state.isMaximized = (wParam == SIZE_MAXIMIZED);
-            runtime->state.isMinimized = (wParam == SIZE_MINIMIZED);
             break;
         }
+        case WM_SHOWWINDOW:
+        {
+            runtime->state.isShown = (BOOL)wParam;
+            break;
+        }
+        case WM_ACTIVATE:
+        {
+            runtime->state.isActive = (LOWORD(wParam) != WA_INACTIVE);
+            break;
+        }
+        case WM_SETFOCUS:
+            runtime->state.hasFocus = true;
+            break;
+
+        case WM_KILLFOCUS:
+            runtime->state.hasFocus = false;
+            break;
     }
 
     WNDPROC oldWndProc = runtime->properties.Get<WNDPROC>("OldWndProc", DefWindowProcW);

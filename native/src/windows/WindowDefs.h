@@ -27,6 +27,7 @@ struct WindowState {
     bool isMaximized = false;
     bool isMinimized = false;
     bool hasFocus = false;
+    bool isActive = true;
     bool isVisible = true;
     bool isShown = true;
     
@@ -54,6 +55,10 @@ struct WindowStyle {
     bool transparent = false;
     bool snapEnabled = true;
     bool trayIconEnabled = false;
+    bool hiden = false;
+    bool fullscreen = false;
+    bool allowhighdpi = false;
+    bool minimized = false;
 
     int titleHeight = 28;
     int btnSize = 30;
@@ -61,6 +66,6 @@ struct WindowStyle {
 
     bool isMainWindow = false;
 
-
+    LONG Style = WS_OVERLAPPEDWINDOW;
     DWORD customStyleFlags = 0; 
 };

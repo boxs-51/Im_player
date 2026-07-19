@@ -21,27 +21,41 @@ void WindowController::ToggleFullscreen() {
     if (!runtime->hwnd || !runtime->sdlWindow) return;
     
     if (!runtime->state.isFullscreen) {
+        // 1. LƯU TRẠNG THÁI TRƯỚC KHI FULLSCREEN
         GetWindowRect(runtime->hwnd, &runtime->state.fullscreenRestoreRect);
+        
+        // Lưu lại trạng thái placement (để biết trước đó có đang Maximize hay không)
+        runtime->state.placement.length = sizeof(WINDOWPLACEMENT);
+        GetWindowPlacement(runtime->hwnd, &runtime->state.placement);
+        
         SDL_GetWindowSize(runtime->sdlWindow, &runtime->state.restoreW, &runtime->state.restoreH);
 
-        HMONITOR hMon = MonitorFromWindow(runtime->hwnd, MONITOR_DEFAULTTONEAREST);
-        MONITORINFO mi = { sizeof(mi) };
-        GetMonitorInfo(hMon, &mi);
-        
-        SetWindowPos(runtime->hwnd, HWND_TOP, 
-                     mi.rcMonitor.left, mi.rcMonitor.top,
-                     mi.rcMonitor.right - mi.rcMonitor.left,
-                     mi.rcMonitor.bottom - mi.rcMonitor.top,
-                     SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
-
-        runtime->state.isFullscreen = true;
-    } else {
-        RECT rc = runtime->state.fullscreenRestoreRect;
-        SetWindowPos(runtime->hwnd, HWND_TOP, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top,
+        RECT rcScreen;
+        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcScreen, 0);
+        SetWindowPos(runtime->hwnd, HWND_TOP, rcScreen.left, rcScreen.top,
+                    rcScreen.right - rcScreen.left,
+                    rcScreen.bottom - rcScreen.top,
                     SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
 
+
+        runtime->state.isFullscreen = true;
+    } 
+    else {
+        // Restore vị trí và kích thước windowed
+        RECT rc = runtime->state.fullscreenRestoreRect;
+        SetWindowPos(runtime->hwnd, HWND_TOP,
+                    rc.left, rc.top,
+                    rc.right - rc.left,
+                    rc.bottom - rc.top,
+                    SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+        // Restore trạng thái maximize/minimize
+        SetWindowPlacement(runtime->hwnd, &runtime->state.placement);
+
+        // Đồng bộ lại kích thước SDL
         SDL_SetWindowPosition(runtime->sdlWindow, rc.left, rc.top);
         SDL_SetWindowSize(runtime->sdlWindow, runtime->state.restoreW, runtime->state.restoreH);
+
         runtime->state.isFullscreen = false;
     }
 }
@@ -61,6 +75,13 @@ WindowRuntime::WindowRuntime() {
     controller = std::make_unique<WindowController>(this);
 }
 WindowRuntime::~WindowRuntime() {
+
+    if (graphicsBackend) {
+        graphicsBackend->Shutdown(); // Giải phóng API Đồ họa trước[cite: 14]
+    }
+    if (imguiCtx) {
+        ImGui::DestroyContext(imguiCtx);
+    }
     if (sdlWindow) {
         SDL_DestroyWindow(sdlWindow);
     }

@@ -31,7 +31,7 @@ private:
 public:
     WindowFactory(WindowTemplateRegistry* reg) : registry(reg) {}
 
-    WindowRuntime* Create(const std::string& templateName) {
+    WindowRuntime* Create(const std::string& templateName, std::unique_ptr<IGraphicsBackend> backend) {
         const auto* tpl = registry->GetTemplate(templateName);
         if (!tpl) return nullptr;
 
@@ -39,15 +39,20 @@ public:
         runtime->id = nextId++;
         runtime->style = tpl->style;
         runtime->properties = tpl->defaultProperties; // Bản sao sâu (deep copy) thuộc tính
+        runtime->graphicsBackend = std::move(backend);
         if (tpl->rendererFactory) {
             runtime->renderer = tpl->rendererFactory();
         }
 
         // Tạo cửa sổ vật lý thông qua SDL2
-        Uint32 flags = SDL_WINDOW_OPENGL | SDL_WINDOW_HIDDEN;
+        Uint32 flags = runtime->graphicsBackend->GetWindowFlags();
+        if (runtime->style.hiden)      flags |= SDL_WINDOW_HIDDEN;
+        else flags |= SDL_WINDOW_SHOWN;
+        if (runtime->style.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;  
         if (runtime->style.borderless) flags |= SDL_WINDOW_BORDERLESS;
         if (runtime->style.resizable)  flags |= SDL_WINDOW_RESIZABLE;
-
+        if (runtime->style.minimized)  flags |= SDL_WINDOW_MINIMIZED;
+        if (runtime->style.allowhighdpi) flags |= SDL_WINDOW_ALLOW_HIGHDPI;
         runtime->sdlWindow = SDL_CreateWindow(
             tpl->name.c_str(),
             SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
@@ -56,33 +61,24 @@ public:
 
         if (!runtime->sdlWindow) {
             SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
+            delete runtime;
             return false;
         }
-        runtime->mainGLContext = SDL_GL_CreateContext(runtime->sdlWindow);
-
-        if (!runtime->mainGLContext) {
-            SDL_Log("SDL_GL_CreateContext failed: %s", SDL_GetError());
+        if (!runtime->graphicsBackend->InitContext(runtime->sdlWindow)) {
             SDL_DestroyWindow(runtime->sdlWindow);
-            return false;
+            delete runtime;
+            return nullptr;
         }
 
-        // Make current before gl loader init
-        if (SDL_GL_MakeCurrent(runtime->sdlWindow, runtime->mainGLContext) != 0) {
-            SDL_Log("SDL_GL_MakeCurrent failed: %s", SDL_GetError());
-            SDL_GL_DeleteContext(runtime->mainGLContext);
+        runtime->imguiCtx = ImGui::CreateContext();
+        ImGui::SetCurrentContext(runtime->imguiCtx);
+
+        if(!runtime->graphicsBackend->InitImGuiBackend(runtime->sdlWindow)){
             SDL_DestroyWindow(runtime->sdlWindow);
-            return false;
-        }
-
-        if (gl3wInit() != 0) {
-            SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "OpenGL Error", "Can't init gl3w!", nullptr);
-            SDL_GL_DeleteContext(runtime->mainGLContext);
-            SDL_DestroyWindow(runtime->sdlWindow);
-            return false;
-        }
-
-        SDL_GL_SetSwapInterval(1);
-
+            delete runtime;
+            return nullptr;
+        };
+        
         // Trích xuất HWND WinAPI và thực hiện Hook WndProc đa luồng / đa cửa sổ[cite: 4]
         SDL_SysWMinfo wmInfo;
         SDL_VERSION(&wmInfo.version);
@@ -104,6 +100,7 @@ public:
                         WS_CAPTION 
                     );
         if (runtime->style.snapEnabled) winStyle |= WS_MAXIMIZEBOX;
+        runtime->style.Style = winStyle;
         SetWindowLong(runtime->hwnd, GWL_STYLE, winStyle);
         SetWindowPos(runtime->hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
 

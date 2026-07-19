@@ -1,10 +1,7 @@
 // MainWindowRenderer.cpp
 #include "MainWindowRenderer.h"
 #include "MainWindowState.h"
-#include "imgui_impl_sdl2.h"
-#include "imgui_impl_opengl3.h"
 #include "FontManager.h"
-
 #include "settings_manager.h"
 #include <popup/popup.h>
 
@@ -16,21 +13,18 @@
 #include <mpv/mpv_data.h>
 
 void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
-    // Di chuyển logic khởi tạo ImGui Context từ InitMainWindow sang đây
     IMGUI_CHECKVERSION();
-    // Mỗi runtime có thể sở hữu một ImGui Context riêng nếu bật Viewports chuyên sâu,
-    // Ở đây ta gán cho PropertyBag để tiện quản lý nếu cần[cite: 5]
-    ImGuiContext* imguiCtx = ImGui::CreateContext();
-    ImGui::SetCurrentContext(imguiCtx);
-    runtime->properties.Set<ImGuiContext*>("ImGuiCtx", imguiCtx);
+    
+    // Khởi tạo ImGui Context riêng cho cửa sổ này và lưu vào PropertyBag
+    //ImGuiContext* imguiCtx = ImGui::CreateContext();
+    ImGui::SetCurrentContext(runtime->imguiCtx);
+    //runtime->properties.Set<ImGuiContext*>("ImGuiCtx", imguiCtx);
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
     io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
 
     CSImGui::InitThemeLibrary(ConfigManager::Instance().GetCommonSettings().themetype);
-    ImGui_ImplSDL2_InitForOpenGL(runtime->sdlWindow, runtime->mainGLContext);
-    ImGui_ImplOpenGL3_Init("#version 430 core");
 
     FontManager::Instance().LoadFontsSpecific(
         ConfigManager::Instance().GetCommonSettings().fontsize, 
@@ -44,7 +38,6 @@ void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
     ImGuiIO& io = ImGui::GetIO();
     Uint64 currentTime = SDL_GetTicks64();
     
-    // Lấy thông tin Layout thông qua PropertyBag thay vì global layout[cite: 5]
     auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
 
     bool isMouseInsideVideo = (io.MousePos.x >= layout.videoArea.x && 
@@ -78,12 +71,10 @@ void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
         }
     }
     
-    // Lưu lại trạng thái hiển thị UI vào runtime để lớp Render bên ngoài hoặc Controller có thể truy vấn
     runtime->properties.Set<bool>("ShowUiVideo", show_ui_video);
 }
 
 void MainWindowRenderer::ShowSubWindows() {
-    // Giữ nguyên logic hiển thị Panel con cũ của bạn[cite: 5]
     if (uiState.show_demo)    ImGui::ShowDemoWindow(&uiState.show_demo);
     if (uiState.show_style)   ImGui::ShowStyleEditor();
     if (uiState.show_metrics) ImGui::ShowMetricsWindow();
@@ -101,13 +92,6 @@ void MainWindowRenderer::ShowSubWindows() {
         ImGui::End();
     }
 }
-
-void MainWindowRenderer::BeginFrame() {
-    ImGui_ImplOpenGL3_NewFrame();
-    ImGui_ImplSDL2_NewFrame();
-    ImGui::NewFrame();
-}
-
 void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec2 _winPos, ImVec2 _winSize){
     
     #ifdef CUSTOM_TITLEBAR
@@ -273,18 +257,13 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     ImGui::EndChild();
     #endif
 }
-
 void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
-    // Thay thế toàn bộ việc gọi biến tĩnh g_DragResizeState và MainWindowLayout[cite: 5]
     auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
     PlaybackState state = GetPlaybackState();
 
-    glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-    glClear(GL_COLOR_BUFFER_BIT);
-
     ImGui::SetNextWindowPos(ImVec2(layout.WinX, layout.WinY));
     ImGui::SetNextWindowSize(ImVec2(layout.WinW, layout.WinH));
-    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
+    ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
     
     ImGui::Begin("WindowMain", nullptr,
         ImGuiWindowFlags_NoTitleBar | ImGuiWindowFlags_NoDecoration |
@@ -295,7 +274,7 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
 
     UpdateUIState(runtime);
     
-    // Gọi hàm render thanh tiêu đề không viền, truyền dữ liệu từ style/state nội tại của chính instance này[cite: 5]
+    // Gọi hàm render thanh tiêu đề không viền tùy biến
     extern void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec2 _winPos, ImVec2 _winSize);
     RenderTitleBarWindowObject(runtime, "Media Video Control", layout.TitlePos, layout.TitleSize);
 
@@ -308,7 +287,6 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
         RenderIdleBackground(AutoPath<std::string>("%ROOT%", "config", "icons", "idle.jpg"), layout.VideoPos, layout.VideoSize);
     }
 
-    // Các biến render_video cục bộ giờ được đồng bộ qua hệ thống Properties động
     bool flagRenderVideo = runtime->properties.Get<bool>("RenderVideoFlag", false);
     if (flagRenderVideo || state == PlaybackState::Paused || state == PlaybackState::Seeking ||
         state == PlaybackState::Playing || state == PlaybackState::EndOfFile) {
@@ -335,27 +313,13 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
 
     if (IsAnyPopupOpen()) {
         if (runtime->state.isFullscreen || runtime->state.isMaximized) {
-            ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID); 
+            ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
         }
         RenderAllPopups();
     }
 }
 
-void MainWindowRenderer::EndFrame() {
-    ImGui::Render();
-    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-    
-    ImGuiIO& io = ImGui::GetIO();
-    if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable) {
-        SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
-        SDL_GLContext backup_current_context = SDL_GL_GetCurrentContext();
-        ImGui::UpdatePlatformWindows();
-        ImGui::RenderPlatformWindowsDefault();
-        SDL_GL_MakeCurrent(backup_current_window, backup_current_context);
-    }
-}
-
 void MainWindowRenderer::Shutdown() {
-    ImGui_ImplOpenGL3_Shutdown();
-    ImGui_ImplSDL2_Shutdown();
+    // Không giải phóng thủ công ImGui_Impl ở đây nữa, 
+    // vì `runtime->graphicsBackend->Shutdown()` sẽ lo toàn bộ quy trình này một cách an toàn.
 }

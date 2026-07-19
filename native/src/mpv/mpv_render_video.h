@@ -3,6 +3,7 @@
 #include <mpv/client.h>
 #include <GL/gl3w.h>
 #include <SDL.h>
+#include <any>
 #include <WindowRuntime.h>
 
 #define SDL_MPV_EVENT (SDL_USEREVENT + 1)
@@ -56,7 +57,7 @@ struct MPVRenderThread {
 
     SDL_Window* window = nullptr;
     SDL_GLContext glContext = nullptr;
-
+    std::any graphicsContext = nullptr;
     // Gộp mảng rời rạc thành mảng đối tượng
     FrameNode frames[3];
     SurfaceState surface;

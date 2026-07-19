@@ -1,6 +1,6 @@
 #pragma once
 #include <functional>
-
+#include <type_traits>
 enum class ThreadID {
     URLFetch,
     PipeServer,
