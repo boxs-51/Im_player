@@ -5,7 +5,6 @@
 
 
 #include <imgui_internal.h>
-#include <windows/windows_borderless_state.h>
 #include <util.h>
 #include <string>
 #include <vector>
@@ -151,37 +150,8 @@ inline ImU32 ImLerp(ImU32 a, ImU32 b, float t) {
         (ImU32)(a_a + (b_a - a_a) * t)
     );
 }
-struct WindowContext {
-    SDL_Window* mainWindow = nullptr;
-    SDL_GLContext mainGLContext = nullptr;
-    ImGuiContext* mainImGuiCtx = nullptr;
 
-};
 
-struct WindowLayout {
-
-    int WinW;
-    int WinH;
-    int WinX;
-    int WinY;
-
-    SDL_Rect titleBar;   // Vùng titlebar
-    SDL_Rect videoArea;  // Vùng video/content
-
-    ImVec2 DisplaySize;
-
-    ImVec2 VideoPos;
-    ImVec2 VideoSize;
-
-    ImVec2 WinDowPos;
-    ImVec2 WinDowSize;
-
-    ImVec2 TitlePos;
-    ImVec2 TitleSize;
-
-    bool layoutChanged;
-
-};
 
 // --- Đối với ImVec2 ---
 
@@ -249,15 +219,12 @@ inline Vec4& operator-=(Vec4& lhs, float scalar) { lhs.x -= scalar; lhs.y -= sca
 inline Vec4& operator*=(Vec4& lhs, float scalar) { lhs.x *= scalar; lhs.y *= scalar; lhs.w *= scalar; lhs.h *= scalar; return lhs; }
 inline Vec4& operator/=(Vec4& lhs, float scalar) { lhs.x /= scalar; lhs.y /= scalar; lhs.w /= scalar; lhs.h /= scalar; return lhs; }
 */
-extern WindowLayout Windowlayout;
-extern WindowContext ctx;
 
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
 void ApplyDynamicMPVConfig(mpv_handle* mpv);
 void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
-bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, WindowLayout& w);
 void TerminateHandler();
 void SignalHandler(int signal);
 void NotifyActivity(bool& show_ui_video);

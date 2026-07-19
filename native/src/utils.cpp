@@ -1,8 +1,7 @@
 #pragma once
-#include "globals.h"
 #include "utils.h"
 #include "json.hpp"
-#include <windows/windows_borderless.h>
+
 #include "thread.h"
 #include "notification.h"
 #include "stb_image.h"
@@ -10,7 +9,8 @@
 
 #include <mpv/mpv_basic_formats.h>
 #include <gui/gui.h>
-#include <mpv/mpv_render_video.h>
+#include <mpv/render/MPVRenderThread.h>
+#include <mpv/session/MPVManager.h>
 #include <backends/backend.h>
 
 #include <filesystem>
@@ -32,68 +32,6 @@
 #include <log.h>
 using json = nlohmann::json;
 
-// TODO: Chuyen logic sang class Window de quan ly rieng
-WindowContext ctx;
-WindowLayout Windowlayout;
-static DragResizeState& g_DragResizeState = GetDragResizeState();
-bool UpdateGlobalWindowLayout(SDL_Window* sdlWindow, WindowLayout& w)
-{
-    if (!sdlWindow) {
-        w.titleBar = {0,0,0,0};
-        w.videoArea = {0,0,0,0};
-        w.layoutChanged = true;
-        return w.layoutChanged;
-    }
-
-    SDL_Rect oldTitleBar = w.titleBar;
-    SDL_Rect oldVideoArea = w.videoArea;
-    int oldWinX = w.WinX;
-    int oldWinY = w.WinY;
-    int oldWinW = w.WinW;
-    int oldWinH = w.WinH;
-
-    SDL_GetWindowSize(sdlWindow, &w.WinW, &w.WinH);
-    SDL_GetWindowPosition(sdlWindow, &w.WinX, &w.WinY);
-    // Fullscreen: video chiếm toàn bộ, title bar ẩn
-    if (g_DragResizeState.IsFullscreen_video ) {w.titleBar = {0,0,0,0};w.videoArea = {0,0,w.WinW,w.WinH};
-    } else {
-        // Windowed: title bar trên, video dưới
-        w.titleBar = {w.WinX , w.WinY,w.WinW,(int)g_DragResizeState.TitleHeight};
-        w.videoArea = {w.WinX, w.WinY + (int)g_DragResizeState.TitleHeight,w.WinW,w.WinH - (int)g_DragResizeState.TitleHeight};
-                                     
-    }
-    w.VideoPos = ToImVec2_Pos(w.videoArea);
-    w.VideoSize = ToImVec2_Size(w.videoArea);
-    #ifdef RENDER_MPV_THREAD
-    int newW  = (int)w.VideoSize.x;
-    int newH = (int)w.VideoSize.y;
-
-    if (newW != renderThread.surface.drawW || newH != renderThread.surface.drawH) {
-        renderThread.surface.newW = newW;
-        renderThread.surface.newH = newH;
-        renderThread.surface.needResize = true;
-
-        renderThread.cv.notify_one();
-    }
-    #endif
-    w.WinDowPos = ImVec2((float)w.WinX,(float)w.WinY);
-    w.WinDowSize = ImVec2((float)w.WinW,(float)w.WinH);
-    w.TitlePos = ToImVec2_Pos(w.titleBar);
-    w.TitleSize = ToImVec2_Size(w.titleBar);
-
-    w.layoutChanged =
-        (oldWinX != w.WinX) ||
-        (oldWinY != w.WinY) ||
-        (oldWinW != w.WinW) ||
-        (oldWinH != w.WinH) ||
-        memcmp(&oldTitleBar, &w.titleBar, sizeof(SDL_Rect)) != 0 ||
-        memcmp(&oldVideoArea, &w.videoArea, sizeof(SDL_Rect)) != 0;
-
-    glViewport(0, 0, (int)Windowlayout.WinW, (int)Windowlayout.WinH);
-    
-    return w.layoutChanged;
-
-}
 
 //TODO : chuyen logic sang he thong quan ly mpv rieng
 void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::string>& options, bool isProperty = false) {

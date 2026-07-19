@@ -11,6 +11,7 @@
 #include <sstream>
 #include <unordered_map>
 #include <unordered_set>
+#include "globals.h"
 
 std::vector<ThumbnailRequest> g_thumbnailQueue;
 std::unordered_map<std::string, ThumbnailCache> g_thumbnailCache;

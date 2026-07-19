@@ -1,6 +1,7 @@
 // WindowDefs.h
 #pragma once
 #include <windows.h>
+#include <string>
 
 enum class ResizeEdge1 {
     NONE, LEFT, RIGHT, TOP, BOTTOM,
@@ -44,6 +45,7 @@ struct WindowState {
     bool mouseDownRestore = false;
 
     bool isClosedPending = false;
+    std::string hittestname;
 };
 
 struct WindowStyle {

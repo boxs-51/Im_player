@@ -1,5 +1,4 @@
 #include "mpv_ui_settings.h"
-#include "mpv_controller.h"
 #include "mpv_ui.h"
 #include <mpv_data.h>
 #include <mpv_basic_formats.h>
@@ -7,17 +6,18 @@
 #include "gui/gui.h"
 #include "popup/popup.h"
 #include "settings_manager.h"
-#include "windows/windows_borderless.h"
-
+#include "mpv/session/MPVSession.h"
 #include "utils.h"
+#include "windows/WindowManager.h"
+#include "WindowRuntime.h"
 #include "SDL.h"
 #include "imgui.h"
 #include <map>
 #include <algorithm>
 
-static DragResizeState& g_DragResizeState = GetDragResizeState();
 static VideoInfo& g_videoInfo = GetVideoInfo();
 static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+
 static int g_lastVolumeBeforeMute = 50;
 static Uint64 volumeSliderVisibleUntil = 0;
 static bool showSettings = false;
@@ -29,6 +29,8 @@ static bool seek_bar_action = false;
 static bool seek_bar_hover = false;
 static bool items_action=  false;
 static bool items_hover = false;
+static bool was_ui_video = false;
+static Uint64 lastInteractionTime = 0;
 
 
 
@@ -74,8 +76,7 @@ void DrawTimeDisplay(double current, double duration, ImVec2& videoSize, ImVec2&
     ImGui::GetFont()->Scale = oldFontScale;
 }
 //================================================================================================
-void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
-                          bool& isFullscreen_video,bool& show_ui_video)
+void RenderPlayerControls(WindowRuntime* runtime, ImVec2& _pos, ImVec2& _size, bool& isFullscreen_video, bool& show_ui_video)
  {
 
 
@@ -135,7 +136,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
     ImGui::BeginChild("##Controls",Possize);
     
     // 1. Cấu hình thông số
-    int PADDING_HEADER = 10;
+    const int PADDING_HEADER = 10;
     float button_width = 50.0f;
     float gap_between = 10.0f;
     float internal_margin = 0.0f;
@@ -394,9 +395,9 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
             else
             {
                 if(req->is_hovered){
-                    // ===== COMMIT =====
-                    mpv_command_seek_abs(mpv, req->new_value, duration);
-
+                    // ===== COMMIT ===== //                    
+                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                        runtime->mpvSession->GetCommander()->Seek(req->new_value, duration);
                     res.value = req->new_value;
                     res.accept = true;
                 }
@@ -416,7 +417,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         if(!(g_playbackStatus.g_PlayingIndex == 0 && g_playbackStatus.g_playlist_count > 0)){
             ImGui::SetCursorPos(ImVec2(controlPos.x, controlPos.y)); i =  i + 1.0f ;
             if (CSImGui::CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
-                mpv_command_prev_video(mpv);
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                    runtime->mpvSession->GetCommander()->PlaylistPrev();
             }
             //CSImGui::ShowTooltipDelayed("Previous Video", ImGui::IsItemHovered(), 3.0 ,"Prev_Button");
             CSImGui::ToolTip("Previous Video" ,3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
@@ -426,9 +428,10 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         playData.paused = !paused;
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 1.0f;
         if (CSImGui::CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize ,&playData)) {
-            if (paused) mpv_command_play(mpv);
-            else        mpv_command_pause(mpv);
-            
+            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) {
+                if (paused) runtime->mpvSession->GetCommander()->Play();
+                else        runtime->mpvSession->GetCommander()->Pause();
+            }
 
         }
 
@@ -438,7 +441,8 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
             ImGui::SetCursorPos(ImVec2(controlPos.x +  spacing * i , controlPos.y)); i = i + 2.0f;
             if (CSImGui::CustomIconButton("##next", DrawNextIcon, iconSize)) {
-                mpv_command_next_video(mpv);
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                    runtime->mpvSession->GetCommander()->PlaylistNext();
             }
             CSImGui::ToolTip("Next Video", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
             //CSImGui::ShowTooltipDelayed("Next Video", ImGui::IsItemHovered(), 3.0, "Next_Button");
@@ -468,15 +472,18 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         bool active = ImGui::IsItemActive();
 
         if (clicked) {
-            if (isMuted || volume == 0) {
-                // Unmute → khôi phục lại âm lượng
-                mpv_command_set_mute(mpv, false);
-                mpv_command_set_volume(mpv, g_lastVolumeBeforeMute);
-            } else {
-                // Mute → ghi nhớ âm lượng rồi set 0
-                g_lastVolumeBeforeMute = volume;
-                mpv_command_set_volume(mpv, 0);
-                mpv_command_set_mute(mpv, true);
+            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) {
+                auto* commander = runtime->mpvSession->GetCommander();
+                if (isMuted || volume == 0) {
+                    // Unmute → khôi phục lại âm lượng
+                    commander->SetMute(false);
+                    commander->SetVolume(g_lastVolumeBeforeMute);
+                } else {
+                    // Mute → ghi nhớ âm lượng rồi set 0
+                    g_lastVolumeBeforeMute = volume;
+                    commander->SetVolume(0);
+                    commander->SetMute(true);
+                }
             }
         }
         // === Hiệu ứng xuất hiện / biến mất (fade + trượt ngang) ===
@@ -532,11 +539,14 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
             if (isActive_Slider) {
                 float newVolume = (localMouse.x - sliderPos.x) / sliderSize.x;
                 volume = std::clamp(int(newVolume * 130.0f), 0, 130);
-                mpv_command_set_volume(mpv, volume);
-                if (volume > 0 && isMuted)
-                    mpv_command_set_mute(mpv, false);
-                if (volume > 0)
-                    g_lastVolumeBeforeMute = volume;
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) {
+                    auto* commander = runtime->mpvSession->GetCommander();
+                    commander->SetVolume(volume);
+                    if (volume > 0 && isMuted)
+                        commander->SetMute(false);
+                    if (volume > 0)
+                        g_lastVolumeBeforeMute = volume;
+                }
 
                 Cfg.UpdateVideoSettings([volume](AppSettings& s){
                     s.defaultVolume = volume;
@@ -605,11 +615,14 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
             if (knobActive || (ImGui::IsMouseDragging(0) && hoverSlider)) {
                 float newVolume = (localMouse.x - sliderPos.x) / sliderSize.x;
                 volume = std::clamp(int(newVolume * 130.0f), 0, 130);
-                mpv_command_set_volume(mpv, volume);
-                if (volume > 0 && isMuted)
-                    mpv_command_set_mute(mpv, false);
-                if (volume > 0)
-                    g_lastVolumeBeforeMute = volume;
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) {
+                    auto* commander = runtime->mpvSession->GetCommander();
+                    commander->SetVolume(volume);
+                    if (volume > 0 && isMuted)
+                        commander->SetMute(false);
+                    if (volume > 0)
+                        g_lastVolumeBeforeMute = volume;
+                }
                 Cfg.UpdateVideoSettings([volume](AppSettings& s){
                     s.defaultVolume = volume;
                 });
@@ -658,7 +671,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
        // CSImGui::ShowTooltipDelayed("Settings", ImGui::IsItemHovered(), 3.0 ,"Settings_Button");
         CSImGui::ToolTip("Settings" , 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
 
-        RenderIOCHSidebar(mpv ,videoPos, videoSize, showSettings, show_ui_video ,iconPos);
+        RenderIOCHSidebar(runtime, videoPos, videoSize, showSettings, show_ui_video, iconPos);
 
         settingsData.hovered = ImGui::IsItemHovered();
 
@@ -670,7 +683,7 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         fsData.fullscreen = isFullscreen_video ;
         if (CSImGui::CustomIconButton("##FullscreenToggle", DrawFullscreenIconAnimated, iconSize, &fsData)) {
 
-            g_DragResizeState.ToggleFullscreen = true;
+            //g_DragResizeState.ToggleFullscreen = true;
         }
 
         //CSImGui::ShowTooltipDelayed(isFullscreen_video ? "Exit Fullscreen" : "Fullscreen", ImGui::IsItemHovered(), 3.0 ,"Fullscreen_Button");
@@ -694,11 +707,13 @@ void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos, ImVec2& _size,
         // --- BUTTON OPTION ---
         if(ImGui::IsWindowHovered() && ImGui::IsMouseClicked(0) && !ImGui::IsAnyItemHovered()){
             if(showSettings) showSettings = !showSettings;
-            else {
-                if(paused)
-                    mpv_command_play(mpv);
-                else 
-                    mpv_command_pause(mpv);
+            else { // Click vào vùng trống của video
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) {
+                    if(paused)
+                        runtime->mpvSession->GetCommander()->Play();
+                    else 
+                        runtime->mpvSession->GetCommander()->Pause();
+                }
             }
         }
     }
@@ -979,5 +994,3 @@ void RenderGhostStatusOverlay(ImVec2& vPos, ImVec2& vSize, bool isPaused) {
         }
     }
 }
-
-

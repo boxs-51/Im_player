@@ -1,20 +1,12 @@
 // main.cpp
 #include <SDL.h>
 #include <windows.h>
-#include <imgui_impl_sdl2.h>
-#include <imgui_impl_opengl3.h>
 #include <csignal>
-
-#include "globals.h"
 #include "utils.h"
 
 #include <gui/gui.h>
-
-#include <mpv/mpv_ui.h>
-#include <mpv/mpv_controller.h>
-#include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
-#include <mpv/render_gl.h>
+#include <MPVManager.h>
 #include <mpv/mpv_data.h>
 #include <mpv/audio/filter/af_m.h>
 #include "settings_manager.h"
@@ -25,13 +17,16 @@
 #include <log.h>
 #include "notification.h"
 
-#include "WindowTemplate.h"
-#include "WindowFactory.h"
 #include "WindowManager.h"
 #include "MainWindowRenderer.h"
 #include "MainWindowState.h"
 
 // Gọi lớp trừu tượng đồ họa của bạn từ bài thiết kế trước
+#include "OpenGLBackend.h" 
+#include "D3D11Backend.h" // Thêm backend mới
+
+// Biến cục bộ thay thế cho globals
+
 #include "OpenGLBackend.h" 
 
 extern "C" {
@@ -45,7 +40,6 @@ extern "C" {
 
 
 static VideoInfo& g_videoInfo = GetVideoInfo();
-static DragResizeState& g_DragResizeState = GetDragResizeState();
 static bool running = true;
 void Cleanup() {}
 
@@ -68,12 +62,13 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
     }
 
     ImGui_ImplSDL2_ProcessEvent(e);
-    
+
     if (e->type == SDL_MPV_RENDER_UPDATE) {
-        runtime->properties.Set<bool>("RenderVideoFlag", true);
+        if (runtime->mpvSession) runtime->properties.Set<bool>("RenderVideoFlag", true);
     }
     if (e->type == SDL_MPV_EVENT) {
-        ProcessMPVEvents(mpv.mpv);
+        if (runtime->mpvSession && runtime->mpvSession->GetObserver()) 
+            runtime->mpvSession->GetObserver()->ProcessEvents();
     }
 
     if (e->type == SDL_WINDOWEVENT) {
@@ -98,7 +93,7 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
         }
     }
 
-    hot_key = HandleHotkeys(e, mpv.mpv, runtime);
+    hot_key = HandleHotkeys(e, runtime);
     if (hot_key) return;
 
     if (runtime->state.isVisible) { 
@@ -153,18 +148,11 @@ int main(int argc, char** argv) {
         return 1;
     }
 
-    // Thiết lập cấu hình OpenGL[cite: 5]
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_FLAGS, 0);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-    SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_CORE);
-    SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
-    SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, 24);
-    SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, 8);
-
+    ConfigManager::Instance().LoadAll();
     WindowTemplateRegistry registry;
     WindowFactory factory(&registry);
-    WindowManager winManager(&factory);
+    auto& winManager = WindowManager::GetInstance();
+    winManager.Initialize(&factory);
 
     // Cấu hình mẫu cửa sổ phát video chính
     WindowTemplate mainVideoWinTpl;
@@ -186,37 +174,42 @@ int main(int argc, char** argv) {
     registry.RegisterTemplate("VideoPlayerMain", mainVideoWinTpl);
 
     // Khởi tạo và nạp thẳng đối tượng thiết lập đồ họa trừu tượng (OpenGL) vào cửa sổ[cite: 20]
-    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain", std::make_unique<OpenGLBackend>());
+    // BẠN CÓ THỂ CHỌN BACKEND Ở ĐÂY
+    bool use_d3d11 = false; // Đặt thành true để thử D3D11
+    std::unique_ptr<IGraphicsBackend> backend;
+    if (use_d3d11) {
+        backend = std::make_unique<D3D11Backend>();
+    } else {
+        backend = std::make_unique<OpenGLBackend>();
+    }
+
+    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain", std::move(backend));
     if (!mainWin) {
         Cleanup();
         return 1;
     }
 
-    if (!InitMPV(mpv.mpv)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo mpv", nullptr);
+    // Tạo session và chuyển quyền sở hữu cho MPVManager
+    auto mpvSession = std::make_unique<MPVSession>("main");
+    if (!mpvSession->Init(mainWin)) {
+        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo MPV Session.", nullptr);
         Cleanup();
         return 1;
     }
-
-    if (!InitMPVRenderContext(mpv.mpv)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo render context từ mpv", nullptr);
-        Cleanup();
-        return 1;
-    }
-
-    ConfigManager::Instance().LoadAll();
-    CSImGui::InitThemeLibrary(ConfigManager::Instance().GetCommonSettings().themetype);
-
+    // Đăng ký session với Manager và gán con trỏ thô cho Window
+    mainWin->mpvSession = MPVManager::GetInstance().RegisterSession(std::move(mpvSession));
+    
+  
+    // MPVManager giờ đã quản lý session, không cần tìm kiếm nữa
     // Gọi cập nhật trạng thái ban đầu (Sử dụng hàm định tuyến)[cite: 20]
     RouteWindowStateUpdate(mainWin);
 
     #ifdef RENDER_MPV_THREAD
-    StartMPVRenderThread(mainWin);
     #endif
 
     if (argc >= 2) {
         std::string Url = argv[1];
-        CallThread_URLFetch(Url, true);
+        CallThread_URLFetch(mainWin, Url, true);
     }
 
     FrameTimer fpsLimiter(60);
@@ -267,7 +260,9 @@ int main(int argc, char** argv) {
             }
         }
 
-        mpv_update_seek_pending(mpv.mpv);
+        // Cập nhật các lệnh đang chờ của MPV (ví dụ: delayed seek)
+        if (mainWin->mpvSession && mainWin->mpvSession->GetCommander()) 
+            mainWin->mpvSession->GetCommander()->Update();
         AudioFilterManager::Instance().UpdateAdaptiveFilters();
 
         double targetInterval = 1; 
@@ -321,6 +316,6 @@ int main(int argc, char** argv) {
     }
     
     winManager.DestroyWindow(mainWin->id);
-    Cleanup();
+    // Cleanup(); // CleanupMPV is now handled by ~MPVSession
     return 0;
 }

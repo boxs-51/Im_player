@@ -3,7 +3,6 @@
 #include "globals.h"
 
 UiWindowsState uiState;
-MPV mpv;
 
 std::vector<std::string> g_keywords;
 

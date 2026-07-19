@@ -1,25 +1,20 @@
 #include "hotkey_handler.h"
-#include "mpv_controller.h"
 #include "popup.h"
-#include "globals.h"
 #include "thread.h"
 #include "sidebar_popup.h"
+#include <mpv/session/MPVSession.h>
 #include <mpv/mpv_data.h>
 #include "settings_manager.h"
 
-
-#include "windows/windows_borderless_state.h"
-#include "windows/windows_borderless.h"
 #include "WindowRuntime.h"
 #include <log.h>
 #include <SDL.h>
 
-static DragResizeState& g_DragResizeState = GetDragResizeState();
 static MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
 static VideoInfo& g_videoinfo = GetVideoInfo();
 
 // --- Playback Hotkeys --- //
-bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runtime) {
+bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     if (e->type != SDL_KEYDOWN)
         return false;
 
@@ -29,6 +24,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
     PlaybackState state = GetPlaybackState();
 
     auto& config = ConfigManager::Instance();
+    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return false;
+    auto* commander = runtime->mpvSession->GetCommander();
     bool isPlayable = (state == PlaybackState::Playing || state == PlaybackState::Paused) && state != PlaybackState::Loading;
 
     // --- ƯU TIÊN HOTKEY CÓ CTRL --- //
@@ -38,7 +35,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
         if (state[SDL_SCANCODE_UP] && state[SDL_SCANCODE_DOWN]) {
             // 👉 Thực hiện hành động đặc biệt, ví dụ reset audio delay:
             double resetDelay = 0.0;
-            mpv_command_set_audio_delay(mpv,resetDelay);
+            commander->SetAudioDelay(resetDelay);
             config.UpdateVideoSettings([resetDelay](AppSettings& settings) {
                 settings.audiodelay = resetDelay;
             });
@@ -48,7 +45,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
         if (state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT]) {
             // 👉 Thực hiện hành động đặc biệt, ví dụ reset speed:
             double resetspeed = 1.0;
-            mpv_command_set_speed(mpv, resetspeed);
+            commander->SetSpeed(resetspeed);
             config.UpdateVideoSettings([resetspeed](AppSettings& settings) {
                 settings.playbackSpeed = resetspeed;
             });
@@ -63,7 +60,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
                 double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
                 if (key == SDLK_DOWN) step = -step;
                 double audio_delay = std::clamp(g_videoinfo.audio_delay + step , -10.0, 10.0);
-                mpv_command_set_audio_delay(mpv, audio_delay);
+                commander->SetAudioDelay(audio_delay);
                 config.UpdateVideoSettings([audio_delay](AppSettings& settings) {
                     settings.audiodelay = audio_delay;
                 });
@@ -76,7 +73,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
                 double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
                 if (key == SDLK_LEFT) step = -step;
                 double speed = std::clamp(g_playback.speed + step, 0.2, 3.0);
-                mpv_command_set_speed(mpv, speed);
+                commander->SetSpeed(speed);
                 config.UpdateVideoSettings([speed](AppSettings& settings) {
                     settings.playbackSpeed = speed;
                 });
@@ -93,9 +90,9 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
         switch (key) {
             case SDLK_SPACE:
                 if (g_playback.isPaused) {
-                    mpv_command_play(mpv);
+                    commander->Play();
                 } else {
-                    mpv_command_pause(mpv);
+                    commander->Pause();
                     lastInteractionTime = SDL_GetTicks64();
                 }
                 return true;
@@ -106,7 +103,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
                 double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
                 if (key == SDLK_LEFT) step = -step;
                 float targetthime = (float)g_playback.playbackTime + step;
-                mpv_command_seek_abs(mpv, targetthime, (float)g_playback.duration);
+                commander->Seek(targetthime, (float)g_playback.duration);
                 return true;
             }
             case SDLK_DOWN: 
@@ -114,8 +111,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
             {
                 float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
                 if (key == SDLK_DOWN) step = -step;
-                float newVol = std::clamp(g_playback.volume + step,0.0f,130.0f);
-                mpv_command_set_volume(mpv, newVol);
+                int newVol = (int)std::clamp(g_playback.volume + step, 0.0f, 130.0f);
+                commander->SetVolume(newVol);
                 config.UpdateVideoSettings([newVol](AppSettings& settings) {
                     settings.defaultVolume = newVol;
                 });
@@ -124,7 +121,7 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
             }
 
             case SDLK_m:
-                mpv_command_set_mute(mpv, !g_playback.isMuted);
+                commander->SetMute(!g_playback.isMuted);
                 return true;
 
             default:
@@ -135,7 +132,6 @@ bool HandleBasicHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runt
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
     if (key == SDLK_F11) {
         runtime->properties.Set<bool>("TriggerToggleFullscreen", true);
-        //g_DragResizeState.ToggleFullscreen = true;
         return true;
     }
 
@@ -232,15 +228,9 @@ bool HandleExtersionHotkeys(const SDL_Event* e){
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-//bool HandleHotkeys(const SDL_Event* e, mpv_handle* mpv) {
-//    if (Disabehotkey) return false;
-//    return HandleBasicHotkeys(e, mpv) ||
-//           HandlePopupHotkeys(e) ||
-//           HandleExtersionHotkeys(e);
-//}
-bool HandleHotkeys(const SDL_Event* e, mpv_handle* mpv, WindowRuntime* runtime) {
+bool HandleHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     if (Disabehotkey) return false;
-    return HandleBasicHotkeys(e, mpv, runtime) ||
+    return HandleBasicHotkeys(e, runtime) ||
            HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);
 }

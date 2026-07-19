@@ -245,8 +245,5 @@ struct VideoInfo {
 MPVPlaybackStatus& GetMPVPlaybackStatus();
 VideoInfo& GetVideoInfo();
 
-void InitMPVObservers(mpv_handle* mpv);
-void ProcessMPVEvents(mpv_handle* mpv);
-
 const char* PlaybackStateToString(PlaybackState state);
 PlaybackState GetPlaybackState();

@@ -34,6 +34,24 @@ void ThreadManager::Run(ThreadID id, std::function<void()> task, bool allowDupli
     t.detach();
 }
 
+void ThreadManager::Register(ThreadID id, std::thread* thread) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (registeredThreads_.count(id)) {
+        std::cout << "[⚠️] Thread [" << ThreadIDToString(id) << "] is already registered. Overwriting.\n";
+    }
+    registeredThreads_[id] = thread;
+    std::cout << "Registered thread [" << ThreadIDToString(id) << "]\n";
+}
+
+void ThreadManager::Unregister(ThreadID id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    if (registeredThreads_.erase(id)) {
+        std::cout << "Unregistered thread [" << ThreadIDToString(id) << "]\n";
+    } else {
+        std::cout << "[⚠️] Attempted to unregister a thread [" << ThreadIDToString(id) << "] that was not registered.\n";
+    }
+}
+
 bool ThreadManager::IsRunning(ThreadID id) {
     std::lock_guard<std::mutex> lock(mutex_);
     return activeIDs_.count(id) > 0;
@@ -54,5 +72,3 @@ ThreadManager& GetThreadManager() {
     static ThreadManager instance;
     return instance;
 }
-
-

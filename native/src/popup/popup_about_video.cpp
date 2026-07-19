@@ -2,22 +2,21 @@
 #include "globals.h"
 #include "utils.h"
 
-#include <mpv/mpv_render_video.h>
 #include "mpv/mpv_basic_formats.h"
 #include <gui/gui.h>
 #include "mpv/mpv_ui.h"
 #include <mpv/mpv_data.h>
 
 #include "mpv/scripts/script_manager.h"
+#include "mpv/session/MPVManager.h"
 #include"popup_about_video.h"
 
-#include"windows/windows_borderless_state.h"
-
+#include "WindowManager.h"
+#include "MainWindowState.h"
 #include <imgui.h>
 #include <functional>
 static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 static VideoInfo& g_videoInfo = GetVideoInfo();
-static DragResizeState& g_DragResizeState = GetDragResizeState();
 // ------------ Các hàm hiển thị nội dung riêng -------------
 void ShowMediaInfo() {
 
@@ -96,7 +95,11 @@ void ShowVideoInfo() {
 
     CSImGui::InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
     #ifdef RENDER_MPV_THREAD
-    CSImGui::InfoRow("Frame Render FPS :", "%.2f", renderThread.framerender.load());
+    auto* session = MPVManager::GetInstance().GetDefaultSession();
+    if (session && session->GetRenderThread())
+    {
+        CSImGui::InfoRow("Frame Render FPS :", "%.2f", session->GetRenderThread()->state.framerender.load());
+    }
     #endif
     CSImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
     CSImGui::EndInfoTable();
@@ -440,10 +443,12 @@ void ShowDuBugInFo(){
     ImGui::TextWrapped("=== Debug Info ===");
     // WinAPI
     RECT rcWin, rcClient;
-    GetWindowRect(g_DragResizeState.hwnd_windown_main, &rcWin);
-    GetClientRect(g_DragResizeState.hwnd_windown_main, &rcClient);
+    auto& win_main = *WindowManager::GetInstance().GetMainWindow();
+    //auto& 
+    GetWindowRect(win_main.hwnd, &rcWin);
+    GetClientRect(win_main.hwnd, &rcClient);
     POINT pt = { rcClient.left, rcClient.top };
-    ClientToScreen(g_DragResizeState.hwnd_windown_main, &pt);
+    ClientToScreen(win_main.hwnd, &pt);
     OffsetRect(&rcClient, pt.x, pt.y);
 
     ImGui::Separator();
@@ -462,20 +467,22 @@ void ShowDuBugInFo(){
 
     // SDL window info
     Uint32 sdlFlags = 0;
-    sdlFlags = SDL_GetWindowFlags(ctx.mainWindow);
-    ImGui::TextWrapped("SDL Client: %dx%d", Windowlayout.WinW, Windowlayout.WinH);
-    ImGui::TextWrapped("SDL Position: X:%d Y:%d", Windowlayout.WinX, Windowlayout.WinY);
+    sdlFlags = SDL_GetWindowFlags(win_main.sdlWindow);
+    auto layout = win_main.properties.Get<MainWindowLayout>("Layout");
+
+    ImGui::TextWrapped("SDL Client: %dx%d", layout.WinW, layout.WinH);
+    ImGui::TextWrapped("SDL Position: X:%d Y:%d", layout.WinX, layout.WinY);
     
     ImGui::TextWrapped("SDL Flags: 0x%08X", sdlFlags);
     
-    ImGui::TextWrapped("Video Pos: %dx%d", (int)Windowlayout.VideoPos.x,(int)Windowlayout.VideoPos.y);
-    ImGui::TextWrapped("Video Size: %dx%d", (int)Windowlayout.VideoSize.x, (int)Windowlayout.VideoSize.y);
+    ImGui::TextWrapped("Video Pos: %dx%d", (int)layout.VideoPos.x,(int)layout.VideoPos.y);
+    ImGui::TextWrapped("Video Size: %dx%d", (int)layout.VideoSize.x, (int)layout.VideoSize.y);
 
     ImGui::Separator();
-    ImGui::TextWrapped("IsMaximized: %s", g_DragResizeState.IsMax ? "Yes" : "No");
-    ImGui::TextWrapped("IsFullscreen: %s", g_DragResizeState.IsFullscreen_video ? "Yes" : "No");
+    ImGui::TextWrapped("IsMaximized: %s", win_main.state.isMaximized ? "Yes" : "No");
+    ImGui::TextWrapped("IsFullscreen: %s", win_main.state.isFullscreen ? "Yes" : "No");
     ImGui::Separator();
-    ImGui::TextWrapped("HitTest Zone: %s", g_DragResizeState.debugInfo.c_str());
+    ImGui::TextWrapped("HitTest Zone: %s", win_main.state.hittestname.c_str());
     ImGui::Separator();
 
     // Lấy danh sách script dưới dạng struct (Giả sử bạn dùng GetAllScripts trả về vector hoặc map)
@@ -552,7 +559,8 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
             }
 
             // Tab Debug đặc biệt
-            if (g_DragResizeState.showDebug && CSImGui::ModernTabItem("Debug")) {
+            bool showDebug = true;
+            if (showDebug && CSImGui::ModernTabItem("Debug")) {
                 if(CSImGui::BeginCard()){
                     ShowDuBugInFo();
                     CSImGui::EndCard();

@@ -1,5 +1,6 @@
 #include <mpv/mpv_basic_formats.h>
 #include <settings_manager.h>
+#include <mpv/session/MPVManager.h>
 #include <json.hpp>
 #include <globals.h>
 
@@ -157,8 +158,12 @@ std::string BuildCombinedFormat(const VideoAudioFormats &allFormats)
     return format;
 }
 std::string GetCurrentMPVFormat() {
-    if (!mpv.mpv) return "";
-    return mpv_get_property_string(mpv.mpv, "ytdl-format");
+    auto* session = MPVManager::GetInstance().GetDefaultSession();
+    if (!session || !session->GetProperty()) return "";
+    if (auto format = session->GetProperty()->GetString("ytdl-format")) {
+        return format.value();
+    }
+    return "";
 }
 
 void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioFormats &allFormats)
@@ -240,8 +245,10 @@ void BuildAllFormats(mpv_handle* mpv,const VideoInfoResult &info, VideoAudioForm
     ApplyDynamicMPVConfig(mpv);
     std::string combinedFormat = BuildCombinedFormat(allFormats);
     // Áp dụng cho mpv
-    const char* cmd[] = { "set", "ytdl-format", combinedFormat.c_str(), nullptr };
-    int res = mpv_command(mpv, cmd);
+    auto* session = MPVManager::GetInstance().GetDefaultSession();
+    if (session && session->GetCommander()) {
+        session->GetCommander()->SetPropertyString("ytdl-format", combinedFormat);
+    }
     //mpv_command(mpv, (const char*[]){"set_property", "pause", "no", nullptr});
     Cfg.SaveVideo();
 }
@@ -520,4 +527,3 @@ const char* VideoTypeToString(const VideoType& videotype){
         default:                         return "Unknown";
     }
 }
-

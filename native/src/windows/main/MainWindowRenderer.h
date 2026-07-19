@@ -2,6 +2,7 @@
 #pragma once
 #include "WindowRenderer.h"
 #include "WindowRuntime.h"
+
 #include <SDL.h>
 
 class MainWindowRenderer : public WindowRenderer {

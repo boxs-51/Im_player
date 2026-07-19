@@ -17,7 +17,8 @@
 #include <iostream>
 #include <mutex>
 #include <shellapi.h>
-
+#include "windows/WindowManager.h"
+#include "globals.h"
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
 static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
@@ -41,7 +42,7 @@ void ShowSidarBarPopup(bool& closePopup_siderbar) {
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("ListMPV")) {
-            RenderListVideoMPV(mpv.mpv );
+            RenderListVideoMPV();
             ImGui::EndTabItem();
         }
         ImGui::PopStyleColor();
@@ -270,8 +271,10 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
         );
     }
         
+
+    auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (v.hoverAnim > 0.01f && isClicked) {
-        CallThread_URLFetch(v.link.c_str(), true);
+        CallThread_URLFetch(runtime, v.link.c_str(), true);
         UpdateVideoData(VideoSource::Watched, v.link.c_str());
     }
     ImGui::SetCursorScreenPos(cardMin);
@@ -291,7 +294,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             ShellExecuteA(nullptr, "open", v.link.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 
         if (ImGui::MenuItem("App List MPV")) {
-            CallThread_URLFetch(v.link.c_str(), false, v.title.c_str());
+            CallThread_URLFetch(runtime, v.link.c_str(), false, v.title.c_str());
             UpdateVideoData(VideoSource::Watched, v.link.c_str());
         }
         ImGui::EndPopup();
@@ -804,8 +807,13 @@ void RenderVideoList()
 }
 
 
-void RenderListVideoMPV(mpv_handle* mpv)
+void RenderListVideoMPV()
 {
+    mpv_handle* mpv;
+    auto* runtime = WindowManager::GetInstance().GetMainWindow();
+    if (runtime->mpvSession && runtime->mpvSession->GetPlayer()) 
+        mpv = runtime->mpvSession->GetPlayer()->GetHandle();
+
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());
     ImGui::SameLine( avail.x - 20.0f , 0.0f);

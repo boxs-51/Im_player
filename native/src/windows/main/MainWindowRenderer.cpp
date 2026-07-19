@@ -3,11 +3,11 @@
 #include "MainWindowState.h"
 #include "FontManager.h"
 #include "settings_manager.h"
+#include "globals.h"
 #include <popup/popup.h>
+#include <mpv/session/MPVSession.h>
 
 #include <mpv/mpv_ui.h>
-#include <mpv/mpv_controller.h>
-#include <mpv/mpv_render_video.h>
 #include <mpv/mpv_ui_settings.h>
 #include <mpv/render_gl.h>
 #include <mpv/mpv_data.h>
@@ -33,6 +33,8 @@ void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
     ImGui::StyleColorsDark();
     lastInteractionTime = SDL_GetTicks64();
 }
+
+static bool show_ui_video = true;
 
 void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
     ImGuiIO& io = ImGui::GetIO();
@@ -290,7 +292,8 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     bool flagRenderVideo = runtime->properties.Get<bool>("RenderVideoFlag", false);
     if (flagRenderVideo || state == PlaybackState::Paused || state == PlaybackState::Seeking ||
         state == PlaybackState::Playing || state == PlaybackState::EndOfFile) {
-        RenderMPVVideo(layout.VideoPos, layout.VideoSize);
+        if (runtime->mpvSession && runtime->mpvSession->GetRenderer())
+            runtime->mpvSession->GetRenderer()->Render(layout.VideoSize, runtime->graphicsBackend.get());
         RenderGhostStatusOverlay(layout.VideoPos, layout.VideoSize, (state == PlaybackState::Paused));
         runtime->properties.Set<bool>("RenderVideoFlag", false);
     }
@@ -298,8 +301,9 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     if (state == PlaybackState::Playing || state == PlaybackState::Paused || 
         state == PlaybackState::Seeking || state == PlaybackState::EndOfFile) {
         
-        RenderPlayerControls(mpv.mpv, layout.VideoPos, layout.VideoSize,
-                             runtime->state.isFullscreen, show_ui_video);
+        //RenderPlayerControls(mpv.mpv, layout.VideoPos, layout.VideoSize,
+        if (runtime->mpvSession)
+            RenderPlayerControls(runtime, layout.VideoPos, layout.VideoSize, runtime->state.isFullscreen, show_ui_video);
 
         RenderSeekingOverlay(layout.VideoPos, layout.VideoSize);
     }

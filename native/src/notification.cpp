@@ -20,7 +20,7 @@
 using namespace WinToastLib;
 
 static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-static DragResizeState& g_DragResizeState = GetDragResizeState();
+
 
 bool CreateShortcut(const std::wstring& shortcutName,
                     const std::wstring& targetPath,
@@ -130,7 +130,7 @@ void NotifyMPV() {
 void OnArgumentsReceived(const std::string& args) {
     std::cout << "Received: " << args << std::endl;
     
-    HWND hwnd = g_DragResizeState.hwnd_windown_main;
+    HWND hwnd = nullptr;//g_DragResizeState.hwnd_windown_main;
     if (hwnd) {
         // Kiểm tra nếu đang bị thu nhỏ (minimized)
         if (IsIconic(hwnd)) {
@@ -139,7 +139,7 @@ void OnArgumentsReceived(const std::string& args) {
             ShowWindow(hwnd, SW_SHOW);
         }
         SetForegroundWindow(hwnd);
-        CallThread_URLFetch(args,true);
+        CallThread_URLFetch(nullptr,args,true);
     }
 }
 

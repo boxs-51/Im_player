@@ -1,18 +1,17 @@
 
 #include "mpv/mpv_ui_settings.h"
-#include "mpv/mpv_controller.h"
 #include "mpv/mpv_basic_formats.h"
 #include "mpv/mpv_ui.h"
 #include <gui/gui.h>
 #include <mpv/mpv_data.h>
+#include "WindowRuntime.h"
 #include "settings_manager.h"
-
+#include "mpv/session/MPVSession.h"
 #include "threads/thread_manager.h"
 
-#include "globals.h"
 #include "utils.h"
 #include "json.hpp"
-
+#include "windows/WindowManager.h"
 
 #include <imgui.h>
 //#undef RATE_LIMITED_COUT
@@ -255,7 +254,7 @@ void UI_SelectableItem(const char* label, bool is_active, float scale, std::func
     ImGui::PopID();
 }
 
-void ResolutionQualityPage(mpv_handle *mpv, VideoAudioFormats &formats, VideoType videotype, float scale) {
+void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, VideoType videotype, float scale) {
     // Tùy chỉnh thanh cuộn (Scrollbar) cho đẹp hơn
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 4.0f * scale);
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, IM_COL32(0,0,0,0));
@@ -278,19 +277,19 @@ void ResolutionQualityPage(mpv_handle *mpv, VideoAudioFormats &formats, VideoTyp
                     });
                     if (g_playbackStatus.hasFile) {
                         if(videotype == VideoType::Live) {
-                            const char* cmd1[] = { "set", "ytdl-format", all_formats.video.ids[i].c_str(), nullptr };
-                            mpv_command(mpv, cmd1);
+                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.video.ids[i]);
                         } else {
                             pendingSeekTime = g_playbackStatus.timePos;
                             std::string selectedResolutio = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolutio](AppSettings& s) {
                                 s.selectedResolution = selectedResolutio;
                             });
-                            const char* cmd1[] = { "set", "ytdl-format", selectedResolutio.c_str(), nullptr };
-                            mpv_command(mpv, cmd1);
+                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolutio);
                         }
                         std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        mpv_command_string(mpv, cmd.c_str());
+                        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) runtime->mpvSession->GetCommander()->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -306,7 +305,7 @@ void ResolutionQualityPage(mpv_handle *mpv, VideoAudioFormats &formats, VideoTyp
     ImGui::PopStyleColor();
     ImGui::PopStyleVar();
 }
-void AudioQualityPage( mpv_handle *mpv, VideoAudioFormats &formats , VideoType videotype ,float scale){
+void AudioQualityPage( WindowRuntime* runtime, VideoAudioFormats &formats , VideoType videotype ,float scale){
     auto& Cfg = ConfigManager::Instance();
     if (ImGui::BeginChild("##audio_scroll_area", ImVec2(0, 0), false)) {
     
@@ -324,20 +323,20 @@ void AudioQualityPage( mpv_handle *mpv, VideoAudioFormats &formats , VideoType v
                     });
                     if (g_playbackStatus.hasFile) {
                         if(videotype == VideoType::Live){
-                            const char* cmd1[] = { "set", "ytdl-format", all_formats.audio.ids[i].c_str(), nullptr };
-                            mpv_command(mpv, cmd1);
+                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.audio.ids[i]);
                         }else{
                             pendingSeekTime = g_playbackStatus.timePos;
                             std::string selectedResolution = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolution](AppSettings& s) {
                                 s.selectedAudio = selectedResolution;
                             });
-                            const char* cmd1[] = { "set", "ytdl-format", selectedResolution.c_str(), nullptr };
-                            mpv_command(mpv, cmd1);
+                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolution);
                         }
                         
                         std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        mpv_command_string(mpv, cmd.c_str());
+                        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) runtime->mpvSession->GetCommander()->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -351,7 +350,7 @@ void AudioQualityPage( mpv_handle *mpv, VideoAudioFormats &formats , VideoType v
     }
     ImGui::EndChild();
 }
-void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
+void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
     // 1. Phần Slider tùy chỉnh (Tự do từ 0.25x đến 4.0x)
     // Tiêu đề nhỏ bên trên thanh trượt
     auto& Cfg = ConfigManager::Instance();
@@ -367,7 +366,8 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
             s.playbackSpeed = new_speed;
         });
         // Gửi lệnh trực tiếp đến mpv
-        mpv_command_set_speed( mpv, (double)new_speed);
+        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+            runtime->mpvSession->GetCommander()->SetSpeed((double)new_speed);
         Cfg.SaveVideo();
     });
 
@@ -395,7 +395,8 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
                 Cfg.UpdateVideoSettings([s](AppSettings& ss) {
                     ss.playbackSpeed = s;
                 });
-                mpv_command_set_speed(mpv, (double)s);
+                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                    runtime->mpvSession->GetCommander()->SetSpeed((double)s);
                 Cfg.SaveVideo();
             });
 
@@ -409,7 +410,7 @@ void PlaybackSpeedPage(mpv_handle *mpv, float scale) {
 void OptionsPage(){
 
 }
-void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool open, bool& show_ui_video ,ImVec2 iconPos) {
+void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize, bool open, bool& show_ui_video ,ImVec2 iconPos) {
     static float anim = 0.0f;
     UpdateHoverAnim(anim, open, 15.0f);
     
@@ -536,8 +537,8 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                     Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                         s.enableSubtitles = enableSubtitles;
                     });
-                    mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
-                    mpv_set_property_string(mpv, "sid", "1");
+                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                        runtime->mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
                 bool repeatVideo = videoCfg.repeatVideo;
@@ -545,7 +546,8 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                     Cfg.UpdateVideoSettings([repeatVideo](AppSettings& s) {
                         s.repeatVideo = repeatVideo;
                     });
-                    mpv_set_property_string(mpv, "loop-file", s ? "inf" : "no");
+                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                        runtime->mpvSession->GetCommander()->SetPropertyString("loop-file", s ? "inf" : "no");
                     Cfg.SaveVideo();
                 });
                 bool autoPlayNext = videoCfg.autoPlayNext;
@@ -553,10 +555,12 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                     Cfg.UpdateVideoSettings([autoPlayNext](AppSettings& s) {
                         s.autoPlayNext = autoPlayNext;
                     });
-                    mpv_set_property_string(mpv, "playlist-auto-advance", s ? "yes" : "no");
+                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                        runtime->mpvSession->GetCommander()->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
 
+                bool Audio_visualizers = runtime->mpvSession->GetRenderThread()->state.Audio_visualizers;
                 UI_Toggle("Trình chiếu âm thanh ", &Audio_visualizers, scaleFactor, true, [&](bool s) {
                 });
                 break;
@@ -569,7 +573,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                ResolutionQualityPage(mpv, all_formats, videotype , scaleFactor);
+                ResolutionQualityPage(runtime, all_formats, videotype , scaleFactor);
                 break;
             }
 
@@ -579,7 +583,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                AudioQualityPage(mpv, all_formats, videotype , scaleFactor);
+                AudioQualityPage(runtime, all_formats, videotype , scaleFactor);
                 break;
             }
         
@@ -590,7 +594,7 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                PlaybackSpeedPage(mpv , scaleFactor);
+                PlaybackSpeedPage(runtime , scaleFactor);
                 break;
             }
             case SettingsPage::Options:
@@ -617,8 +621,8 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
                             Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                                 s.enableSubtitles = enableSubtitles;
                             });
-                            mpv_set_property_string(mpv, "sub-visibility", s ? "yes" : "no");
-                            mpv_set_property_string(mpv, "sid", "1");
+                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
+                                runtime->mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
                             Cfg.SaveVideo();
                         });
 
@@ -641,84 +645,74 @@ void RenderIOCHSidebar(mpv_handle * mpv, ImVec2 videoPos, ImVec2 videoSize, bool
 }
 
 
-void ApplyPlaybackSettings(mpv_handle * mpv) {
-    if (!mpv) return;
+void ApplyPlaybackSettings(WindowRuntime* runtime) {
+    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return;
+    auto* commander = runtime->mpvSession->GetCommander();
 
     auto& Cfg = ConfigManager::Instance();
     auto videoCfg = Cfg.GetVideoSettings();
     // 1. Thiết lập các thông số dạng số (Double)
-    int volume = videoCfg.defaultVolume;
-    mpv_command_set_volume(mpv, volume);
+    commander->SetVolume(videoCfg.defaultVolume);
 
     double speed = (double)videoCfg.playbackSpeed;
-    mpv_command_set_speed(mpv, speed);
+    commander->SetSpeed(speed);
 
     double audiodelay = (double)videoCfg.audiodelay;
-    mpv_command_set_audio_delay(mpv, audiodelay);
+    commander->SetAudioDelay(audiodelay);
 
     // 2. Thiết lập Subtitles (Dùng mpv_set_property_string cho gọn và an toàn)
     const char* sub_vis = videoCfg.enableSubtitles ? "yes" : "no"; // mpv dùng "no" để tắt sub
-    mpv_set_property_string(mpv, "sub-visibility", sub_vis);
-    if(videoCfg.enableSubtitles){
-        mpv_set_property_string(mpv, "sid", "1");
-    }
+    commander->SetPropertyString("sub-visibility", sub_vis);
     
 
     // 3. Thiết lập Repeat File (loop-file)
     const char* repeat_mode = videoCfg.repeatVideo ? "inf" : "no";
-    mpv_set_property_string(mpv, "loop-file", repeat_mode);
+    commander->SetPropertyString("loop-file", repeat_mode);
 
     // 4. Thiết lập Auto Play Next
     const char* auto_next_mode = videoCfg.autoPlayNext ? "yes" : "no";
-    mpv_set_property_string(mpv, "playlist-auto-advance", auto_next_mode);
+    commander->SetPropertyString("playlist-auto-advance", auto_next_mode);
 
     // 5. Thiết lập Loop Playlist
     const char* loop_list = videoCfg.repeatlist ? "force" : "no";
     // Sửa lỗi: Truyền đúng biến loop_list_cmd hoặc dùng set_property_string
-    mpv_set_property_string(mpv, "loop-playlist", loop_list);
+    commander->SetPropertyString("loop-playlist", loop_list);
 }
 
 
-int PlayVideo(mpv_handle * mpv,
+int PlayVideo(WindowRuntime* runtime,
               const std::string& Url, 
               const std::string& resolutionFormat, 
               const std::string& title )
 {
-    if (!mpv)
-        return -1;
+    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return -1;
+    auto* commander = runtime->mpvSession->GetCommander();
+
     std::string chosenFormat = resolutionFormat;
     if (!(GetVideoType() == VideoType::Local))
     {
         // Cấu hình cookie
-        const char* cmdCookie[] = { "set", "ytdl-cookie", "temp/cookies.txt", nullptr };
-        mpv_command(mpv, cmdCookie);
+        commander->SetPropertyString("ytdl-cookie", "temp/cookies.txt");
 
         // Set format nếu có
         if (!chosenFormat.empty()) {
-            const char* cmd1[] = { "set", "ytdl-format", chosenFormat.c_str(), nullptr };
-            int res1 = mpv_command(mpv, cmd1);
-            if (res1 < 0)
-                return res1;
+            commander->SetPropertyString("ytdl-format", chosenFormat);
         }
     }
     
-    const char* cmd2[] = { "loadfile", Url.c_str(), "append-play", nullptr };
-    int res2 = mpv_command(mpv, cmd2);
-    if (res2 < 0)
-        return res2;
+    commander->LoadFile(Url, "append-play");
 
-    ApplyPlaybackSettings(mpv);
+    ApplyPlaybackSettings(runtime);
     return 0;
 }
 
-void CallThread_URLFetch(const std::string& Url , bool playNow ,  const std::string& title ,const std::string& format_id) {
+void CallThread_URLFetch(WindowRuntime* runtime, const std::string& Url , bool playNow ,  const std::string& title ,const std::string& format_id) {
 
     GetThreadManager().Run(ThreadID::URLFetch, [=]() {
         
-        auto& Cfg = ConfigManager::Instance();
-        playImmediately = playNow;  
+        auto& Cfg = ConfigManager::Instance(); 
         //v_Settings.selectedResolution = v_Settings.selectedFormat + "+" + v_Settings.selectedAudio;
         std::string selectedResolution = Cfg.GetVideoSettings().selectedResolution;
-        int result = PlayVideo(mpv.mpv, Url, (!format_id.empty() ? format_id : selectedResolution ), title);
+        int result = PlayVideo(runtime, Url, (!format_id.empty() ? format_id : selectedResolution ), title);
     });
 }

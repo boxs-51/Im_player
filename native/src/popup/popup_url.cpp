@@ -613,9 +613,10 @@ void RenderPopupOverlay_Url(ReusablePopup& popup) {
     if(popup.IsOpen()) {
         popup.Render();
     }
-
+    #include "windows/WindowManager.h"
+    auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (urlConfirmed && !outResultURL.empty()) {
-        CallThread_URLFetch(WideToUTF8(outResultURL), true);
+        CallThread_URLFetch(runtime, WideToUTF8(outResultURL), true);
         urlConfirmed = false;
         outResultURL.clear();
     }

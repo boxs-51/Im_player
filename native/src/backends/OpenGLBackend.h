@@ -4,13 +4,45 @@
 #include <gl3w.h>
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
+#include "mpv/render/OpenGLFrameBufferPool.h" // Thêm include
+#include <mpv/render_gl.h>
 
 class OpenGLBackend : public IGraphicsBackend {
 private:
     SDL_GLContext glContext = nullptr;
+    // Các biến thành viên để lưu trữ dữ liệu cho mpv_render_param
+    mpv_opengl_fbo m_mpv_fbo;
+    int m_mpv_flip;
+    // Các thuộc tính OpenGL có thể tùy chỉnh
+    GLint internalFormat;
+    GLenum format;
+    GLenum type;
 
 public:
+    OpenGLBackend(GLint internalFormat = GL_RGBA8, GLenum format = GL_RGBA, GLenum type = GL_UNSIGNED_BYTE)
+        : internalFormat(internalFormat), format(format), type(type) {}
+
     Uint32 GetWindowFlags() override { return SDL_WINDOW_OPENGL; }
+
+    std::vector<mpv_render_param> OpenGLBackend::GetMpvRenderParams(const ImVec2& size) override {
+        // Cập nhật các biến thành viên
+        m_mpv_fbo = { 0, (int)size.x, (int)size.y, internalFormat };
+        m_mpv_flip = 1;
+
+        // Trả về vector các tham số
+        return {
+            { MPV_RENDER_PARAM_OPENGL_FBO, &m_mpv_fbo },
+            { MPV_RENDER_PARAM_FLIP_Y, &m_mpv_flip },
+            { MPV_RENDER_PARAM_INVALID, nullptr }
+        };
+    }
+
+    const char* OpenGLBackend::GetMpvApiType() const override{
+        return "opengl";
+    }
+    unsigned int GetGLInternalFormat() const override {
+        return internalFormat;
+    }
 
     bool InitContext(SDL_Window* window) override {
         // Cấu hình chia sẻ context toàn cục trước khi tạo bất kỳ context nào
@@ -106,5 +138,17 @@ public:
         } catch (const std::bad_any_cast&) {
             return false;
         }
+    }
+
+    unsigned int GetGLFormat() const override {
+        return format;
+    }
+
+    unsigned int GetGLType() const override {
+        return type;
+    }
+
+    std::unique_ptr<IFrameBufferPool> CreateFrameBufferPool() override {
+        return std::make_unique<OpenGLFrameBufferPool>();
     }
 };

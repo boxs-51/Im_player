@@ -1,7 +1,7 @@
 // UpdateWindowState.cpp
 #include "WindowRuntime.h"
 #include "MainWindowState.h"
-#include "mpv_render_video.h"
+#include "mpv/session/MPVManager.h"
 #include <SDL.h>
 
 #ifdef RENDER_MPV_THREAD
@@ -58,16 +58,33 @@ void UpdateMainWindowState(WindowRuntime* runtime) {
     runtime->properties.Set<MainWindowLayout>("Layout", layout);
 
     // Bước 3: ĐỒNG BỘ TRỰC TIẾP SANG CHO LUỒNG MPV (Chỉ WindowMaster chịu trách nhiệm)
-#ifdef RENDER_MPV_THREAD
-    renderThread.g_WindowVisible.store(runtime->state.isVisible, std::memory_order_relaxed);
 
-    std::lock_guard<std::mutex> lock(renderThread.mtx);
-    if (renderThread.surface.drawW != (int)layout.VideoSize.x || 
-        renderThread.surface.drawH != (int)layout.VideoSize.y) {
+    #ifdef RENDER_MPV_THREAD
+    
+    if (runtime->mpvSession) {
+        // Lấy weak_ptr để truy cập an toàn
+        std::weak_ptr<MPVRenderThread> weakRenderThread = runtime->mpvSession->GetRenderThread();
         
-        renderThread.surface.newW = (int)layout.VideoSize.x;
-        renderThread.surface.newH = (int)layout.VideoSize.y;
-        renderThread.surface.needResize = true;
+        // Khóa weak_ptr để tạm thời có được shared_ptr.
+        // Nếu đối tượng đã bị hủy, shared_ptr sẽ là nullptr.
+        if (auto sharedRenderThread = weakRenderThread.lock()) {
+            auto& renderState = sharedRenderThread->state;
+            renderState.g_WindowVisible.store(runtime->state.isVisible, std::memory_order_relaxed);
+
+            bool needsNotify = false;
+            {
+                std::lock_guard<std::mutex> lock(renderState.mtx);
+                if (renderState.surface.drawW != (int)layout.VideoSize.x ||
+                    renderState.surface.drawH != (int)layout.VideoSize.y) {
+                    renderState.surface.newW = (int)layout.VideoSize.x;
+                    renderState.surface.newH = (int)layout.VideoSize.y;
+                    renderState.surface.needResize = true;
+                    renderState.needRender = true; // Đặt cờ render ngay trong lock
+                    needsNotify = true;
+                }
+            }
+            if (needsNotify) sharedRenderThread->Notify(); // Thông báo sau khi đã nhả lock
+        }
     }
 #endif
 }

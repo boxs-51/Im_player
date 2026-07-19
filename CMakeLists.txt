@@ -27,10 +27,8 @@ add_executable(Im_player WIN32
     native/src/stb_impl.cpp
     #
     native/src/mpv/mpv_basic_formats.cpp
-    native/src/mpv/mpv_controller.cpp
+  
     native/src/mpv/mpv_ui.cpp
-    native/src/mpv/mpv_render_video.cpp
-   # native/src/mpv/mpv_settings.cpp
     native/src/mpv/mpv_ui_settings.cpp
     native/src/mpv/mpv_data.cpp
     #
@@ -46,8 +44,20 @@ add_executable(Im_player WIN32
     #
     native/src/mpv/scripts/script_manager.cpp
     #
-    native/src/windows/windows_borderless.cpp
-    native/src/windows/windows_custom_titlebar.cpp
+    native/src/mpv/command/MPVCommand.cpp
+    #
+    native/src/mpv/event/MPVObserver.cpp
+    #
+    native/src/mpv/player/MPVPlayer.cpp
+    #
+    native/src/mpv/property/MPVProperty.cpp
+    #
+    native/src/mpv/render/MPVRender.cpp
+    native/src/mpv/render/OpenGLFrameBufferPool.cpp
+    native/src/mpv/render/MPVRenderThread.cpp
+    #
+    native/src/mpv/session/MPVSession.cpp
+    native/src/mpv/session/MPVManager.cpp
     native/src/windows/WindowController.cpp
     native/src/windows/WindowProcHook.cpp
     native/src/windows/main/MainWindowRenderer.cpp
@@ -64,6 +74,7 @@ add_executable(Im_player WIN32
     native/imgui/misc/freetype/imgui_freetype.cpp
     native/imgui/backends/imgui_impl_sdl2.cpp
     native/imgui/backends/imgui_impl_opengl3.cpp
+    native/imgui/backends/imgui_impl_dx11.cpp
     #
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
@@ -103,6 +114,12 @@ target_include_directories(Im_player PRIVATE
     native/src/mpv/scripts
     native/src/mpv/audio
     native/src/mpv/video
+    native/src/mpv/command
+    native/src/mpv/event
+    native/src/mpv/player
+    native/src/mpv/property
+    native/src/mpv/render
+    native/src/mpv/session
 
     native/src/gui
     native/include/nlohmann  
@@ -137,6 +154,8 @@ target_link_libraries(Im_player PRIVATE
     cpr::cpr
     OpenSSL::Crypto
     OpenSSL::SSL
+    d3d11
+    dxgi 
 )
 
 set_target_properties(Im_player PROPERTIES

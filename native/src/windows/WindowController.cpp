@@ -2,6 +2,7 @@
 #include "WindowController.h"
 #include "WindowRuntime.h"
 #include <SDL_syswm.h>
+#include "mpv/session/MPVSession.h"
 
 void WindowController::Move(int x, int y) {
     if (!runtime->hwnd) return;

@@ -16,13 +16,7 @@ struct UiWindowsState {
     bool show_settings = false;
 };
 
-struct MPV
-{
-    mpv_handle* mpv; 
-    mpv_render_context* render_ctx ;
-};
 
-extern MPV mpv;
 extern UiWindowsState uiState;
 
 extern std::vector<std::string> g_keywords;

@@ -7,7 +7,12 @@
 #include "WindowPropertyBag.h"
 #include "WindowRenderer.h"
 #include "WindowController.h"
+
+#include "MPVSession.h"
 #include "IGraphicsBackend.h" // Thêm include
+
+// Forward declaration
+//class MPVSession;
 
 using WindowId = uint32_t;
 
@@ -26,6 +31,8 @@ public:
     
     std::unique_ptr<WindowRenderer> renderer;
     std::unique_ptr<WindowController> controller;
+    
+    MPVSession* mpvSession = nullptr; // Chỉ giữ con trỏ, không sở hữu
 
     WindowRuntime();
     ~WindowRuntime();

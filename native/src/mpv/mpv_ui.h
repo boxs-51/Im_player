@@ -6,12 +6,12 @@
 #include <util.h>
 #include <imgui.h>
 #include <GL/gl3w.h> 
-
+#include "WindowRuntime.h"
 // Tải và cache icon theo tên
 GLuint GetIcon(const std::string& name);
 
 // Vẽ giao diện điều khiển và xử lý tương tác
-void RenderPlayerControls(mpv_handle* mpv, ImVec2& _pos , ImVec2& _size,
+void RenderPlayerControls(WindowRuntime* runtime, ImVec2& _pos , ImVec2& _size,
                           bool& isFullscreen_video,bool& show_ui_video);
 
 

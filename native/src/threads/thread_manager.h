@@ -16,15 +16,15 @@
 class ThreadManager {
 public:
     void Run(ThreadID id, std::function<void()> task, bool allowDuplicate = false);
+    void Register(ThreadID id, std::thread* thread);
+    void Unregister(ThreadID id);
     bool IsRunning(ThreadID id);
 
     std::string ThreadIDToString(ThreadID id);
 
 private:
     std::unordered_set<ThreadID> activeIDs_;
+    std::map<ThreadID, std::thread*> registeredThreads_;
     std::mutex mutex_;
 };
 ThreadManager& GetThreadManager();
-
-
-
