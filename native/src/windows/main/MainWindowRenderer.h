@@ -2,6 +2,7 @@
 #pragma once
 #include "WindowRenderer.h"
 #include "WindowRuntime.h"
+#include "utils.h"
 
 #include <SDL.h>
 
@@ -9,7 +10,7 @@ class MainWindowRenderer : public WindowRenderer {
 private:
     Uint64 lastInteractionTime = 0;
     bool show_ui_video = true;
-
+    
     void UpdateUIState(WindowRuntime* runtime);
     void ShowSubWindows();
 

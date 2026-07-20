@@ -93,7 +93,6 @@ bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
                     commander->Play();
                 } else {
                     commander->Pause();
-                    lastInteractionTime = SDL_GetTicks64();
                 }
                 return true;
 

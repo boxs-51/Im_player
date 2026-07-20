@@ -5,10 +5,11 @@
 #include <string>
 
 class MPVPlayer; // Forward declaration
+class MPVStateSystem;
 
 class MPVObserver {
 public:
-    MPVObserver(MPVPlayer& player);
+    MPVObserver(MPVPlayer& player, MPVStateSystem& state);
 
     void Init();
     void ProcessEvents();
@@ -29,5 +30,6 @@ private:
     void UpdateLoudnessMetadata(const mpv_node* node);
 
     MPVPlayer& m_player;
+    MPVStateSystem& m_state;
     mpv_handle* m_mpv;
 };

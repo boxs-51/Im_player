@@ -1,11 +1,12 @@
 #pragma once
 
-#include "mpv/mpv_instance.h"
-#include "WindowTemplate.h"
 #include <thread>
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
+
+#include "MPVRenderThreadState.h"
+#include "WindowTemplate.h"
 
 class MPVRenderThread {
 public:
@@ -19,7 +20,7 @@ public:
     void SetVideoSize(int w, int h);
 
     // Public access to state for UI
-    MPVInstance state;
+    MPVRenderThreadState state;
 
 private:
     void Run();

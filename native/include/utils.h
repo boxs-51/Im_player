@@ -227,7 +227,6 @@ void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
 void TerminateHandler();
 void SignalHandler(int signal);
-void NotifyActivity(bool& show_ui_video);
 bool SetDelayHover(bool hovering, double delaySeconds = 3.0f, ImGuiID id = 0) ;
 
 

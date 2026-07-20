@@ -7,7 +7,7 @@
 #include <SDL.h>
 #include <algorithm>
 
-#include "windows/utils.h"
+#include "windows/WindowUtils.h"
 
 MPVPlayer::MPVPlayer() : m_mpv(nullptr) {}
 

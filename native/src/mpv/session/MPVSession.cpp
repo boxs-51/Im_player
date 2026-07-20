@@ -20,10 +20,10 @@ bool MPVSession::Init(WindowRuntime* runtime) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo MPVRender", nullptr);
         return false;
     }
-
+    m_state = std::make_unique<MPVStateSystem>();
     m_commander = std::make_unique<MPVCommandDispatcher>(*m_player);
     m_property = std::make_unique<MPVProperty>(*m_player);
-    m_observer = std::make_unique<MPVObserver>(*m_player);
+    m_observer = std::make_unique<MPVObserver>(*m_player, *m_state);
     m_observer->Init();
 
 #ifdef RENDER_MPV_THREAD

@@ -11,11 +11,19 @@
 #include "MPVSession.h"
 #include "IGraphicsBackend.h" // Thêm include
 
+#include "utils.h" 
 // Forward declaration
-//class MPVSession;
+class MPVSession;
+class IGraphicsBackend;
+class WindowRenderer;
+class WindowController;
+class FrameTimer;
 
 using WindowId = uint32_t;
-
+/**
+ * @brief 
+ * 
+ */
 class WindowRuntime {
 public:
     WindowId id = 0;
@@ -23,7 +31,7 @@ public:
     HWND hwnd = nullptr;
 
     ImGuiContext* imguiCtx = nullptr;
-    std::unique_ptr<IGraphicsBackend> graphicsBackend = nullptr; // Thay thế cho SDL_GLContext[cite: 14]
+    std::unique_ptr<IGraphicsBackend> graphicsBackend ; // Thay thế cho SDL_GLContext[cite: 14]
 
     WindowState state;
     WindowStyle style;
@@ -33,7 +41,9 @@ public:
     std::unique_ptr<WindowController> controller;
     
     MPVSession* mpvSession = nullptr; // Chỉ giữ con trỏ, không sở hữu
+    // Mỗi cửa sổ có một FrameTimer riêng để quản lý tần suất cập nhật của nó.
+    std::unique_ptr<FrameTimer> windowloop;
 
-    WindowRuntime();
+    WindowRuntime(WindowId id = 0, SDL_Window* sdlWindow = nullptr, HWND hwnd = nullptr);
     ~WindowRuntime();
 };

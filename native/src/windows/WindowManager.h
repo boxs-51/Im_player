@@ -6,6 +6,10 @@
 #include "WindowRuntime.h"
 #include "WindowFactory.h"
 
+/**
+ * @brief 
+ * 
+ */
 class WindowManager {
 private:
     WindowFactory* factory;
@@ -25,8 +29,14 @@ public:
         factory = fact;
     }
 
-    WindowRuntime* CreateNewWindow(const std::string& templateName, std::unique_ptr<IGraphicsBackend> backend) {
-        auto* runtime = factory->Create(templateName, std::move(backend));
+    /**
+     * @brief Create a New Window object
+     * 
+     * @param templateName 
+     * @return WindowRuntime* 
+     */
+    WindowRuntime* CreateNewWindow(const std::string& templateName) {
+        auto* runtime = factory->Create(templateName);
         if (runtime) {
             windows[runtime->id] = std::unique_ptr<WindowRuntime>(runtime);
             return runtime;
@@ -34,11 +44,22 @@ public:
         return nullptr;
     }
 
+    /**
+     * @brief 
+     * 
+     * @param id 
+     */
     void DestroyWindow(WindowId id) {
         windows.erase(id);
     }
 
     // Hàm tiện ích mới: Tra cứu WindowRuntime từ SDL_Window vật lý
+    /**
+     * @brief Get the Window By S D L Handle object
+     * 
+     * @param sdlWin 
+     * @return WindowRuntime* 
+     */
     WindowRuntime* GetWindowBySDLHandle(SDL_Window* sdlWin) {
         if (!sdlWin) return nullptr;
         for (auto& [id, runtime] : windows) {
@@ -48,6 +69,11 @@ public:
         }
         return nullptr;
     }
+    /**
+     * @brief Get the All Windows object
+     * 
+     * @return std::vector<WindowRuntime*> 
+     */
     std::vector<WindowRuntime*> GetAllWindows() {
         std::vector<WindowRuntime*> result;
         result.reserve(windows.size());
@@ -56,6 +82,12 @@ public:
         }
         return result;
     }
+    /**
+     * @brief Get the Window By Id object
+     * 
+     * @param id 
+     * @return WindowRuntime* 
+     */
     WindowRuntime* GetWindowById(WindowId id) {
         auto it = windows.find(id);
         if (it != windows.end()) {
@@ -63,6 +95,11 @@ public:
         }
         return nullptr;
     }
+    /**
+     * @brief Get the Main Window object
+     * 
+     * @return WindowRuntime* 
+     */
     WindowRuntime* GetMainWindow() {
         for (auto& [id, runtime] : windows) {
             if (runtime && runtime->style.isMainWindow) {
@@ -73,6 +110,16 @@ public:
     }
     
     // Hỗ trợ vòng lặp range-based cho việc Duyệt Render ở main loop
+    /**
+     * @brief 
+     * 
+     * @return auto 
+     */
     auto begin() { return windows.begin(); }
+    /**
+     * @brief 
+     * 
+     * @return auto 
+     */
     auto end() { return windows.end(); }
 };

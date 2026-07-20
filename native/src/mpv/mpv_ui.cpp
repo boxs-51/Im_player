@@ -30,7 +30,6 @@ static bool seek_bar_hover = false;
 static bool items_action=  false;
 static bool items_hover = false;
 static bool was_ui_video = false;
-static Uint64 lastInteractionTime = 0;
 
 
 
@@ -78,8 +77,6 @@ void DrawTimeDisplay(double current, double duration, ImVec2& videoSize, ImVec2&
 //================================================================================================
 void RenderPlayerControls(WindowRuntime* runtime, ImVec2& _pos, ImVec2& _size, bool& isFullscreen_video, bool& show_ui_video)
  {
-
-
     if(!show_ui_video)
         showSettings = false;
 

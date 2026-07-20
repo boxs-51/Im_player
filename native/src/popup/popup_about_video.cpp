@@ -363,6 +363,7 @@ void ShowPlaybackInfo() {
 
 
     // ====== TIMELINE ======
+
     CSImGui::ModernHeader("Timeline");
 
     float progress = 0.0f;
@@ -374,6 +375,13 @@ void ShowPlaybackInfo() {
 
     if(CSImGui::BeginInfoTable("playback_time")){
 
+        auto& win_main = *WindowManager::GetInstance().GetMainWindow();
+        if(win_main.mpvSession && win_main.mpvSession->GetState()){
+            auto& state = *win_main.mpvSession->GetState();
+            state.ReadPlayback([&](const auto& g_playback){
+                CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timePos);
+            });
+        }
         CSImGui::InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
         CSImGui::InfoRow("Stream Pos :", "%d Bytes", g_playbackStatus.stream_pos);
         CSImGui::InfoRow("Remaining :", "%.2f s", g_playbackStatus.time_remaining);

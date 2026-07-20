@@ -1,19 +1,21 @@
 // mpv_instance.h
 #pragma once
-#include <mpv/client.h>
-#include <mpv/render.h>
+
 #include <atomic>
 #include <mutex>
 #include <condition_variable>
 #include <any>
 #include <memory>
+
+#include "mpv/client.h"
+#include "mpv/render.h"
 #include "render/IFrameBufferPool.h"
 
 // Forward declaration để tránh include vòng lặp và giảm phụ thuộc header
 class IGraphicsBackend;
 
 // Đóng gói toàn bộ tài nguyên của 1 thực thể Player độc lập
-class MPVInstance {
+class MPVRenderThreadState {
 public:
     mpv_handle* mpv = nullptr;
     mpv_render_context* render_ctx = nullptr; // Sẽ được gán từ MPVRender

@@ -43,7 +43,11 @@ static VideoInfo& g_videoInfo = GetVideoInfo();
 static bool running = true;
 void Cleanup() {}
 
-// Hàm định tuyến cập nhật trạng thái tự động thông minh
+/**
+ * @brief Hàm định tuyến cập nhật trạng thái tự động thông minh
+ * 
+ * @param runtime 
+ */
 void RouteWindowStateUpdate(WindowRuntime* runtime) {
     if (!runtime) return;
     if (runtime->style.isMainWindow) {
@@ -52,8 +56,14 @@ void RouteWindowStateUpdate(WindowRuntime* runtime) {
         UpdateWindowStateCommon(runtime); // Gọi hàm chung cho các Sub-window[cite: 18]
     }
 }
-
-void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& running, bool& hot_key) {
+/**
+ * @brief 
+ * 
+ * @param runtime 
+ * @param e 
+ * @param running 
+ */
+void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& running) {
     if (!runtime) return;
 
     ImGuiContext* imguiCtx = runtime->imguiCtx;
@@ -93,8 +103,7 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
         }
     }
 
-    hot_key = HandleHotkeys(e, runtime);
-    if (hot_key) return;
+    if (HandleHotkeys(e, runtime)) return;
 
     if (runtime->state.isVisible) { 
         int mx = -1, my = -1;
@@ -118,6 +127,44 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
                         SDL_ShowCursor(SDL_ENABLE);
                     }
                 }
+            }
+        }
+    }
+}
+/** 
+    @brief Tự động điều chỉnh tốc độ làm mới (FPS) cho từng cửa sổ dựa trên trạng thái của chúng.
+    @param winManager Trình quản lý cửa sổ.
+**/
+void AdjustWindowFrameRates(WindowManager& winManager) {
+    PlaybackState state = GetPlaybackState();
+
+    for (auto& [id, windowInstance] : winManager) {
+        if (!windowInstance) continue;
+
+        // Nếu cửa sổ bị ẩn hoặc thu nhỏ, giảm FPS xuống mức tối thiểu.
+        if (!windowInstance->state.isShown || windowInstance->state.isMinimized) {
+            if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(1);
+            continue;
+        }
+
+        // Logic cho cửa sổ chính
+        if (windowInstance->style.isMainWindow) {
+            if (windowInstance->state.is_dirty) {
+                // Nếu có tương tác (ví dụ: hover nút), tăng FPS để animation mượt mà.
+                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(60);
+                windowInstance->state.is_dirty = false; // Reset cờ sau khi xử lý.
+            } else {
+                // Logic mặc định: FPS cao khi phát video, thấp khi tạm dừng.
+                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(state == PlaybackState::Playing ? 60 : 15);
+            }
+        } 
+        // Logic cho các cửa sổ phụ
+        else {
+            if (windowInstance->state.is_dirty) {
+                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(30); // Tăng FPS khi có tương tác.
+                windowInstance->state.is_dirty = false;
+            } else {
+                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(15); // FPS thấp mặc định cho cửa sổ phụ.
             }
         }
     }
@@ -170,20 +217,19 @@ int main(int argc, char** argv) {
     mainVideoWinTpl.rendererFactory = []() {
         return std::make_unique<MainWindowRenderer>();
     };
-    
+    mainVideoWinTpl.graphicsBackendFactory = []() {
+        return std::make_unique<OpenGLBackend>();
+    };
+    mainVideoWinTpl.windowloopFactory = []() {
+        return std::make_unique<FrameTimer>(60);
+    };
+
     registry.RegisterTemplate("VideoPlayerMain", mainVideoWinTpl);
 
     // Khởi tạo và nạp thẳng đối tượng thiết lập đồ họa trừu tượng (OpenGL) vào cửa sổ[cite: 20]
     // BẠN CÓ THỂ CHỌN BACKEND Ở ĐÂY
-    bool use_d3d11 = false; // Đặt thành true để thử D3D11
-    std::unique_ptr<IGraphicsBackend> backend;
-    if (use_d3d11) {
-        backend = std::make_unique<D3D11Backend>();
-    } else {
-        backend = std::make_unique<OpenGLBackend>();
-    }
 
-    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain", std::move(backend));
+    WindowRuntime* mainWin = winManager.CreateNewWindow("VideoPlayerMain");
     if (!mainWin) {
         Cleanup();
         return 1;
@@ -212,13 +258,12 @@ int main(int argc, char** argv) {
         CallThread_URLFetch(mainWin, Url, true);
     }
 
-    FrameTimer fpsLimiter(60);
+    FrameTimer mainloop(60);
     SDL_Event e;
-    bool hot_key = false;
 
     while (running) {
-        fpsLimiter.startFrame();
-        CSImGui::UpdateTheme(fpsLimiter.getDeltaTime());
+        mainloop.startFrame();
+        CSImGui::UpdateTheme(mainloop.getDeltaTime());
         PlaybackState state = GetPlaybackState();
 
         // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
@@ -256,7 +301,7 @@ int main(int argc, char** argv) {
             if (!targetWin) targetWin = mainWin;
 
             if (targetWin) {
-                HandleWindowRuntimeEvent(targetWin, &e, running, hot_key);
+                HandleWindowRuntimeEvent(targetWin, &e, running);
             }
         }
 
@@ -265,49 +310,29 @@ int main(int argc, char** argv) {
             mainWin->mpvSession->GetCommander()->Update();
         AudioFilterManager::Instance().UpdateAdaptiveFilters();
 
-        double targetInterval = 1; 
-        switch (state) {
-            case PlaybackState::Idle:
-            case PlaybackState::Paused:
-            case PlaybackState::EndOfFile:
-                targetInterval = mainWin->properties.Get<bool>("ShowUiVideo", true) ? 2 : 30;
-                break;
-            case PlaybackState::Loading:
-            case PlaybackState::Seeking:
-                targetInterval = 2.5;
-                break;
-            case PlaybackState::Playing:
-                targetInterval = 1; 
-                break;
-        }
+        // Gọi hàm điều chỉnh FPS tự động cho tất cả các cửa sổ
+        AdjustWindowFrameRates(winManager);
+        
+        // Render toàn bộ các cửa sổ đang quản lý
+        for (auto& [id, windowInstance] : winManager) {
+            if (!windowInstance->state.isVisible) continue;
+            if (!windowInstance->windowloop) continue;
 
-        if (IsAnyPopupOpen() || hot_key) {
-            if (targetInterval > 2) targetInterval = 2; 
-        }
+            windowInstance->windowloop->startFrame();
 
-        fpsLimiter.set_ev_frame(targetInterval);
+            // Chỉ thực hiện render cửa sổ này nếu FrameTimer của nó cho phép
+            if (windowInstance->windowloop->isEvery()) {
+                 ImGuiContext* ctxOfWindow = windowInstance->imguiCtx;
+                 if (ctxOfWindow) ImGui::SetCurrentContext(ctxOfWindow);
 
-        // Render toàn bộ các cửa sổ đang quản lý thông qua lớp đồ họa Backend trừu tượng
-        if (fpsLimiter.isEvery()) {
-            for (auto& [id, windowInstance] : winManager) {
-                if (!windowInstance->state.isVisible) continue; 
-
-                // Tự động chuyển đổi ngữ cảnh cửa sổ
-                //ImGuiContext* ctxOfWindow = windowInstance->properties.Get<ImGuiContext*>("ImGuiCtx");
-                ImGuiContext* ctxOfWindow = windowInstance->imguiCtx;
-                if (ctxOfWindow) ImGui::SetCurrentContext(ctxOfWindow);
-
-                if (windowInstance->graphicsBackend && windowInstance->renderer) {
-                    // Sử dụng interface Backend thay vì gọi trực tiếp lệnh GL thô sơ[cite: 20]
-                    windowInstance->graphicsBackend->BeginFrame(windowInstance->sdlWindow);
-                    windowInstance->renderer->RenderUI(windowInstance.get());
-                    windowInstance->graphicsBackend->EndFrame(windowInstance->sdlWindow);
-                }
+                 windowInstance->graphicsBackend->BeginFrame(windowInstance->sdlWindow);
+                 windowInstance->renderer->RenderUI(windowInstance.get());
+                 windowInstance->graphicsBackend->EndFrame(windowInstance->sdlWindow);
             }
+            windowInstance->windowloop->endFrame(); // Báo cho timer của cửa sổ biết frame đã kết thúc để tính toán delay
         }
 
-        g_videoInfo.currentFPS = fpsLimiter.getFPS();
-        fpsLimiter.endFrame();
+        mainloop.endFrame();
     }
 
     if (hMutex) {

@@ -636,7 +636,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 break;
             }
         }
-        //if (ImGui::IsAnyItemActive()) NotifyActivity(show_ui_video);
+
         ImGui::PopStyleVar();
         ImGui::End();
     }

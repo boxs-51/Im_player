@@ -16,7 +16,7 @@ static std::mutex g_retry_mutex;
 static std::unordered_map<int, int> g_retryCount;
 static constexpr int MAX_RETRY = 1;
 
-MPVObserver::MPVObserver(MPVPlayer& player) : m_player(player), m_mpv(player.GetHandle()) {}
+MPVObserver::MPVObserver(MPVPlayer& player, MPVStateSystem& state) : m_player(player), m_mpv(player.GetHandle()), m_state(state) {}
 
 void MPVObserver::ObserveProps(const std::vector<std::pair<const char*, mpv_format>>& props, const char* groupName) {
     for (const auto& [name, fmt] : props) {
@@ -686,6 +686,11 @@ void MPVObserver::ProcessEvents() {
                 }
                 case MPV_FORMAT_DOUBLE:
                 {
+                    m_state.WritePlayback([&](MPVPlaybackStatus& g_playback){
+                        double value = *(double*)prop->data;
+                        if (strcmp(name, "time-pos") == 0) g_playback.timePos = value;
+
+                    });
                     double value = *(double*)prop->data;
                     if      (strcmp(name, "duration") == 0)                 {g_playbackStatus.duration = value;                                       RATE_LIMITED_COUT(duration, 1000,std::cout << "[DEBUG] [INFO] [Playback] Duration updated: " << g_playbackStatus.duration << " seconds");}
                     else if (strcmp(name, "percent-pos") == 0)              {g_playbackStatus.percent_pos = value;}

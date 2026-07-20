@@ -7,12 +7,21 @@
 #include "WindowRuntime.h"
 #include <SDL_syswm.h>
 #include <gl3w.h>
-
+/**
+ * @brief 
+ * 
+ */
 class WindowTemplateRegistry {
 private:
     std::unordered_map<std::string, WindowTemplate> templates;
 
 public:
+    /**
+     * @brief 
+     * 
+     * @param name 
+     * @param tpl 
+     */
     void RegisterTemplate(const std::string& name, const WindowTemplate& tpl) {
         templates[name] = tpl;
     }
@@ -29,19 +38,35 @@ private:
     uint32_t nextId = 1;
 
 public:
+    /**
+     * @brief Construct a new Window Factory object
+     * 
+     * @param reg 
+     */
     WindowFactory(WindowTemplateRegistry* reg) : registry(reg) {}
 
-    WindowRuntime* Create(const std::string& templateName, std::unique_ptr<IGraphicsBackend> backend) {
+    /**
+     * @brief 
+     * 
+     * @param templateName 
+     * @return WindowRuntime* 
+     */
+    WindowRuntime* Create(const std::string& templateName) {
         const auto* tpl = registry->GetTemplate(templateName);
         if (!tpl) return nullptr;
 
         auto* runtime = new WindowRuntime();
         runtime->id = nextId++;
         runtime->style = tpl->style;
-        runtime->properties = tpl->defaultProperties; // Bản sao sâu (deep copy) thuộc tính
-        runtime->graphicsBackend = std::move(backend);
+        runtime->properties = tpl->defaultProperties; 
+        if (tpl->graphicsBackendFactory){
+            runtime->graphicsBackend = tpl->graphicsBackendFactory();
+        }
         if (tpl->rendererFactory) {
             runtime->renderer = tpl->rendererFactory();
+        }
+        if (tpl->windowloopFactory) {
+            runtime->windowloop = tpl->windowloopFactory();
         }
 
         // Tạo cửa sổ vật lý thông qua SDL2

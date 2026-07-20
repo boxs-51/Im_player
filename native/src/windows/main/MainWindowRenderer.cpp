@@ -34,14 +34,13 @@ void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
     lastInteractionTime = SDL_GetTicks64();
 }
 
-static bool show_ui_video = true;
 
 void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
     ImGuiIO& io = ImGui::GetIO();
     Uint64 currentTime = SDL_GetTicks64();
     
     auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
-
+    
     bool isMouseInsideVideo = (io.MousePos.x >= layout.videoArea.x && 
                                io.MousePos.x <= (layout.videoArea.x + layout.videoArea.w) &&
                                io.MousePos.y >= layout.videoArea.y && 
@@ -53,7 +52,7 @@ void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
     Uint32 currentTimeout = 300; 
     if (isInteractingWithUI)    currentTimeout = 5000; 
     else if (isMouseInsideVideo) currentTimeout = 1500; 
-        
+    show_ui_video = runtime->properties.Get<bool>("ShowUiVideo", true);
     if (isMouseMoving && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         if (!show_ui_video) {
@@ -133,7 +132,7 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     bool hoveredClose = ImGui::IsItemHovered();
     bool activeClose = (ImGui::IsItemHovered() && (runtime->state.mouseDownClose));
     CSImGui::ToolTip("Close", 2.0f, ToolTipFlags_Animation);
-    if(clickedClose || hoveredClose || activeClose) is_dirty = true;
+    if(clickedClose || hoveredClose || activeClose) runtime->state.is_dirty = true;
     // Điều chỉnh màu dựa vào trạng thái
     static ImVec4 closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 target_close = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
@@ -196,7 +195,7 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
 
     CSImGui::ToolTip(runtime->state.isMaximized ? "Restore" : "Maximize", 2.0f, ToolTipFlags_Animation);
 
-    if(clickedMax || hoveredMax || activeMax) is_dirty = true;
+    if(clickedMax || hoveredMax || activeMax) runtime->state.is_dirty = true;
 
     static ImVec4 maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 targetMax = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
@@ -239,7 +238,7 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     bool clickedMin = ImGui::InvisibleButton("MinBtn", btnSize);
     bool hoveredMin = ImGui::IsItemHovered();
     bool activeMin  = (ImGui::IsItemHovered() && runtime->state.mouseDownMin);
-    if(clickedMin || hoveredMin || activeMin) is_dirty = true;
+    if(clickedMin || hoveredMin || activeMin) runtime->state.is_dirty = true;
 
     CSImGui::ToolTip("Minimize", 2.0f, ToolTipFlags_Animation);
 

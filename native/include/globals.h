@@ -25,14 +25,11 @@ extern std::mutex g_mutex;
 extern std::string g_nextPageToken;
 extern std::string g_searchQuery;
 
-extern Uint64 lastInteractionTime;
 
 extern bool Disabehotkey;
 extern bool playImmediately;
 
-extern bool is_dirty;
 extern bool g_WindowVisible;
-extern bool Audio_visualizers;
 extern bool was_ui_video ;
 extern std::vector<std::wstring> playlist;
 

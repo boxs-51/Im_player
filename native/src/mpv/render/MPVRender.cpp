@@ -1,14 +1,12 @@
+#include <array>
+
 #include "MPVRender.h"
 #include "mpv/player/MPVPlayer.h"
 #include "mpv/render/MPVRenderThread.h"
 #include "mpv/session/MPVManager.h"
-#include "utils.h"
-#include "backends/IGraphicsBackend.h" // Thêm include
-#include <mpv/render_gl.h> // Vẫn cần cho mpv_opengl_init_params
-#include <array>
-#include "utils.h"
-#include "globals.h"
-#include "windows/utils.h"
+#include "backends/IGraphicsBackend.h" 
+#include "mpv/render_gl.h"
+#include "windows/WindowUtils.h"
 
 void* GetProcAddressWrapper([[maybe_unused]] void* ctx, const char* name) {
     return SDL_GL_GetProcAddress(name);
@@ -62,7 +60,7 @@ void MPVRender::Shutdown() {
         m_render_ctx = nullptr;
     }
 }
-
+bool Audio_visualizers = false;
 void MPVRender::Render(const ImVec2& size, IGraphicsBackend* backend) {
     if (!m_render_ctx || !backend || Audio_visualizers) return;
 

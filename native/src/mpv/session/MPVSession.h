@@ -1,14 +1,16 @@
 #pragma once
 
+#include <memory>
+#include <string>
+
 #include "mpv/player/MPVPlayer.h"
 #include "mpv/render/MPVRender.h"
 #include "mpv/event/MPVObserver.h"
 #include "mpv/command/MPVCommand.h"
 #include "mpv/property/MPVProperty.h"
 #include "mpv/render/MPVRenderThread.h"
+#include "MPVStateSystem.h"
 #include "WindowTemplate.h"
-#include <memory>
-#include <string>
 
 class MPVSession {
 public:
@@ -25,6 +27,7 @@ public:
     MPVObserver* GetObserver() const { return m_observer.get(); }
     MPVCommandDispatcher* GetCommander() const { return m_commander.get(); }
     MPVProperty* GetProperty() const { return m_property.get(); }
+    MPVStateSystem* GetState() const { return m_state.get(); }
     std::shared_ptr<MPVRenderThread> GetRenderThread() const { return m_renderThread; }
 
 private:
@@ -34,5 +37,6 @@ private:
     std::unique_ptr<MPVObserver> m_observer;
     std::unique_ptr<MPVCommandDispatcher> m_commander;
     std::unique_ptr<MPVProperty> m_property;
+    std::unique_ptr<MPVStateSystem> m_state;
     std::shared_ptr<MPVRenderThread> m_renderThread;
 };

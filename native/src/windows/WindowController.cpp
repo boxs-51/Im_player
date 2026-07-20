@@ -72,7 +72,11 @@ void WindowController::Close() {
 }
 
 // Định nghĩa Constructor/Destructor cho WindowRuntime tại đây để tránh vòng lặp include
-WindowRuntime::WindowRuntime() {
+WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
+    id = _id;
+    sdlWindow = _sdlWindow;
+    hwnd = _hwnd;
+
     controller = std::make_unique<WindowController>(this);
 }
 WindowRuntime::~WindowRuntime() {

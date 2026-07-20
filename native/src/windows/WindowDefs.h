@@ -44,6 +44,7 @@ struct WindowState {
     bool mouseDownClose = false;
     bool mouseDownRestore = false;
 
+    bool is_dirty = false;
     bool isClosedPending = false;
     std::string hittestname;
 };
