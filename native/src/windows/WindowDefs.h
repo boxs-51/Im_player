@@ -14,8 +14,8 @@ struct WindowState {
     int width = 1280;
     int height = 720;
     
-    int minWidth = 0;
-    int minHeight = 0;
+    int minWidth = 720;
+    int minHeight = 360;
     int maxWidth = 0;
     int maxHeight = 0;
     

@@ -73,6 +73,33 @@ void PrintMPVNode(const mpv_node* node, int indent = 0) {
     }
 }
 
+static void HandlePropertyChange(mpv_event* event) {
+    if (!event || event->event_id != MPV_EVENT_PROPERTY_CHANGE) return;
+    mpv_event_property* prop = (mpv_event_property*)event->data;
+    if (!prop || !prop->name) return;
+
+    std::cout << "{\n";
+    std::cout << "  \"property\": \"" << prop->name << "\",\n";
+    std::cout << "  \"value\": ";
+
+    if (prop->format == MPV_FORMAT_NODE && prop->data) {
+        PrintMPVNode((mpv_node*)prop->data, 2);
+    } else if (prop->format == MPV_FORMAT_STRING) {
+        std::cout << "\"" << *(const char**)prop->data << "\"";
+    } else if (prop->format == MPV_FORMAT_INT64) {
+        std::cout << *(int64_t*)prop->data;
+    } else if (prop->format == MPV_FORMAT_DOUBLE) {
+        std::cout << *(double*)prop->data;
+    } else if (prop->format == MPV_FORMAT_FLAG) {
+        std::cout << (*(bool*)prop->data ? "true" : "false");
+    } else {
+        std::cout << "null";
+    }
+
+    std::cout << "\n}\n";
+}
+
+/*
 const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
     if (!node || node->format != MPV_FORMAT_NODE_MAP)
         return nullptr;
@@ -85,7 +112,7 @@ const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
     }
     return nullptr;
 }
-
+*/
 const char* PlaybackStateToString(PlaybackState state) {
     switch (state) {
         case PlaybackState::Idle:        return "Idle";
