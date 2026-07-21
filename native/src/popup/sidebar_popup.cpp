@@ -21,7 +21,6 @@
 #include "globals.h"
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
 void OpenSidarBarPopup(ReusablePopup& popup) {
     popup.Open("Sidebar", [](bool& closePopup_siderbar) {
@@ -813,7 +812,7 @@ void RenderListVideoMPV()
     auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (runtime->mpvSession && runtime->mpvSession->GetPlayer()) 
         mpv = runtime->mpvSession->GetPlayer()->GetHandle();
-
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());
     ImGui::SameLine( avail.x - 20.0f , 0.0f);

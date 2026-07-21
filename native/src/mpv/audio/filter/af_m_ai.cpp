@@ -3,6 +3,8 @@
 
 AudioContext AudioFilterManager::ExtractCurrentContext() {
     AudioContext ctx;
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+    VideoInfo& g_videoInfo = GetVideoInfo();
     ctx.volume = (double)g_playbackStatus.volume;
     ctx.speed = g_playbackStatus.speed;
     ctx.sample_rate = (int64_t)g_videoInfo.g_audioarams.asamplerate;

@@ -110,9 +110,6 @@ private:
     std::unordered_map<std::string, size_t> m_filterIndex; 
     std::vector<AudioTrackInfo> m_audioTracks;
 
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    VideoInfo& g_videoInfo = GetVideoInfo();
-    
     std::vector<std::pair<std::string, std::string>> m_eqBands;
     
     bool m_globalBypass = false; 

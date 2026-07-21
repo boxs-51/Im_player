@@ -15,14 +15,14 @@
 #include "MainWindowState.h"
 #include <imgui.h>
 #include <functional>
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-static VideoInfo& g_videoInfo = GetVideoInfo();
+
 // ------------ Các hàm hiển thị nội dung riêng -------------
 void ShowMediaInfo() {
 
     static bool showFullUrl = false;
 
     CSImGui::ModernHeader("Media Info");
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
     if (CSImGui::BeginInfoTable("media_info")) {
 
@@ -71,7 +71,7 @@ void ShowMediaInfo() {
 }
 
 void ShowVideoInfo() {
-
+    VideoInfo& g_videoInfo = GetVideoInfo();
     // ====== Overview ======
     CSImGui::ModernHeader("Overview");
 
@@ -163,7 +163,8 @@ void ShowVideoInfo() {
 }
 
 void ShowAudioInfo() {
-
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+    VideoInfo& g_videoInfo = GetVideoInfo();
     // ====== Audio Devices ======
     if (!g_playbackStatus.g_audioDevices.empty()) {
 
@@ -245,6 +246,7 @@ void ShowAudioInfo() {
     }
 }
 void ShowTrackInfo() {
+    VideoInfo& g_videoInfo = GetVideoInfo();
     CSImGui::ModernHeader("Track List");
 
     for (const auto& track : g_videoInfo.g_tracks) {
@@ -342,7 +344,7 @@ void ShowTrackInfo() {
     }
 }
 void ShowPlaybackInfo() {
-
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     // ====== STATE ======
     CSImGui::ModernHeader("Playback State");
 
@@ -379,7 +381,7 @@ void ShowPlaybackInfo() {
         if(win_main.mpvSession && win_main.mpvSession->GetState()){
             auto& state = *win_main.mpvSession->GetState();
             state.ReadPlayback([&](const auto& g_playback){
-                CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timePos);
+                CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timing.timePos);
             });
         }
         CSImGui::InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
@@ -406,6 +408,7 @@ void ShowPlaybackInfo() {
 
 void ShowMetadata() {
 
+    VideoInfo& g_videoInfo = GetVideoInfo();
     if (g_videoInfo.metadata.empty()) {
         ImGui::TextDisabled("No metadata available.");
     } else {
@@ -416,7 +419,7 @@ void ShowMetadata() {
 
 }
 void ShowNetworkInfo() {
-
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     CSImGui::ModernHeader("Network / Buffer");
 
     if(CSImGui::BeginInfoTable("network_info")){

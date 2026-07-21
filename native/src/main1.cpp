@@ -38,8 +38,6 @@ extern "C" {
     __declspec(dllexport) int AmdPowerXpressRequestHighPerformance = 1;
 }
 
-
-static VideoInfo& g_videoInfo = GetVideoInfo();
 static bool running = true;
 void Cleanup() {}
 

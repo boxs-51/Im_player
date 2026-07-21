@@ -10,9 +10,6 @@
 #include <log.h>
 #include <SDL.h>
 
-static MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
-static VideoInfo& g_videoinfo = GetVideoInfo();
-
 // --- Playback Hotkeys --- //
 bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     if (e->type != SDL_KEYDOWN)
@@ -22,7 +19,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     SDL_Keymod mod = SDL_GetModState();
     // Lấy trạng thái phát lại
     PlaybackState state = GetPlaybackState();
-
+    MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
+    VideoInfo& g_videoinfo = GetVideoInfo();
     auto& config = ConfigManager::Instance();
     if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return false;
     auto* commander = runtime->mpvSession->GetCommander();

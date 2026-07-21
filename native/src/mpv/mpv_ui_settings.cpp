@@ -20,8 +20,6 @@
 #include <string>
 
 static VideoAudioFormats& all_formats = GetVideoAudioFormats();
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-static VideoInfo& g_videoInfo = GetVideoInfo();
 enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed ,Options };
 enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;
@@ -259,6 +257,7 @@ void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, V
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 4.0f * scale);
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, IM_COL32(0,0,0,0));
     auto& Cfg = ConfigManager::Instance();
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     if (ImGui::BeginChild("##res_scroll_area", ImVec2(0, 0), false, ImGuiWindowFlags_NoMove)) {
         
         for (int i = 0; i < (int)all_formats.video.full_labels.size(); ++i) {
@@ -307,6 +306,7 @@ void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, V
 }
 void AudioQualityPage( WindowRuntime* runtime, VideoAudioFormats &formats , VideoType videotype ,float scale){
     auto& Cfg = ConfigManager::Instance();
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     if (ImGui::BeginChild("##audio_scroll_area", ImVec2(0, 0), false)) {
     
         for (int i = 0; i < (int)all_formats.audio.full_labels.size(); ++i) {
@@ -354,6 +354,7 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
     // 1. Phần Slider tùy chỉnh (Tự do từ 0.25x đến 4.0x)
     // Tiêu đề nhỏ bên trên thanh trượt
     auto& Cfg = ConfigManager::Instance();
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     float current_speed = (float)g_playbackStatus.speed;
     ImGui::Indent(10 * scale);
     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Tốc độ tùy chỉnh: %.2fx", current_speed);
@@ -418,8 +419,10 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
         current_page = SettingsPage::Main; 
         return;
     }
+    VideoInfo& g_videoInfo = GetVideoInfo();
     auto& Cfg = ConfigManager::Instance();
     auto videoCfg = Cfg.GetVideoSettings();
+
     float scaleFactor = videoSize.y / 720.0f;
 
     scaleFactor = std::max(scaleFactor, 1.0f);

@@ -19,7 +19,6 @@
 #define PIPE_NAME "\\\\.\\pipe\\MyUniqueAppPipe"
 using namespace WinToastLib;
 
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
 
 bool CreateShortcut(const std::wstring& shortcutName,
@@ -117,6 +116,7 @@ void ShowNotification(const std::wstring& title, const std::wstring& content) {
     WinToast::instance()->showToast(templ, nullptr);
 }
 void NotifyMPV() {
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     std::string title = g_playbackStatus.mediaTitle.empty() ? "Unknown Title" : g_playbackStatus.mediaTitle.c_str();
     bool paused = g_playbackStatus.isPaused;
 

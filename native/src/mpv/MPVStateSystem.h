@@ -1,7 +1,7 @@
 #pragma once
 #include <shared_mutex>
 #include <mutex>
-#include "mpv/MPVDataModels.h" // Thay thế mpv_data.h bằng models mới
+#include "mpv/MPVDataModels.h" 
 
 struct FullMPVState {
     PlaybackModel playback;
@@ -24,7 +24,7 @@ public:
     template<typename Func>
     void ReadPlayback(Func&& func) const {
         std::shared_lock lock(m_playbackMutex);
-        func(m_playbackStatus);
+        func(m_playback);
     }
 
     template<typename Func>
@@ -75,7 +75,7 @@ public:
     template<typename Func>
     void WritePlayback(Func&& func) {
         std::unique_lock lock(m_playbackMutex);
-        func(m_playbackStatus);
+        func(m_playback);
     }
 
     template<typename Func>
@@ -123,23 +123,53 @@ public:
 
     // --- CÁC HÀM TRUY CẬP RÚT GỌN ---
 
-    // Lấy một bản sao của trạng thái playback
-    MPVPlaybackStatus GetPlaybackStatus() const {
+    // Lấy một bản sao của trạng thái playback. An toàn về luồng nhưng dữ liệu là một snapshot.
+    PlaybackModel GetPlaybackModel() const {
         std::shared_lock lock(m_playbackMutex);
-        return m_playbackStatus;
+        return m_playback;
     }
 
-    // Lấy một bản sao của thông tin video
-    VideoModel GetVideoInfo() const {
+    // Lấy một bản sao của thông tin media.
+    MediaModel GetMediaModel() const {
+        std::shared_lock lock(m_mediaMutex);
+        return m_media;
+    }
+
+    // Lấy một bản sao của thông tin video.
+    VideoModel GetVideoModel() const {
         std::shared_lock lock(m_videoMutex);
         return m_video;
+    }
+
+    // Lấy một bản sao của thông tin audio.
+    AudioModel GetAudioModel() const {
+        std::shared_lock lock(m_audioMutex);
+        return m_audio;
+    }
+
+    // Lấy một bản sao của thông tin phụ đề.
+    SubtitleModel GetSubtitleModel() const {
+        std::shared_lock lock(m_subtitleMutex);
+        return m_subtitle;
+    }
+
+    // Lấy một bản sao của thông tin track.
+    TrackModel GetTrackModel() const {
+        std::shared_lock lock(m_trackMutex);
+        return m_track;
+    }
+
+    // Lấy một bản sao của thông tin playlist.
+    PlaylistModel GetPlaylistModel() const {
+        std::shared_lock lock(m_playlistMutex);
+        return m_playlist;
     }
 
     // Lấy một bản sao của TOÀN BỘ trạng thái
     FullMPVState GetFullState() const {
         std::scoped_lock lock(m_playbackMutex, m_mediaMutex, m_videoMutex, m_audioMutex, 
                               m_subtitleMutex, m_trackMutex, m_playlistMutex, m_networkMutex);
-        return {m_playbackStatus, m_media, m_video, m_audio, m_subtitle, m_track, m_playlist, m_network};
+        return {m_playback, m_media, m_video, m_audio, m_subtitle, m_track, m_playlist, m_network};
     }
 
 private:
@@ -148,7 +178,7 @@ private:
 
     // Dữ liệu được chia nhỏ và bảo vệ bởi các mutex riêng
     mutable std::shared_mutex m_playbackMutex;
-    PlaybackModel m_playbackStatus;
+    PlaybackModel m_playback;
 
     mutable std::shared_mutex m_mediaMutex;
     MediaModel m_media;

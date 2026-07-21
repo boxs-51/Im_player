@@ -1,89 +1,12 @@
 #pragma once
 #include <mpv/client.h>
 
+#include "MPVDataModels.h" // Nguồn định nghĩa struct duy nhất
 #include <utils.h>
 #include <string>
 #include <unordered_map>
 #include <vector>
 
-enum class EndFileErrorType : uint8_t{
-    None,
-    FormatNotSupported,
-    URLExpired,
-    NetworkError,
-    Other
-};
-enum class PlaybackState : uint8_t {
-    Idle,
-    Loading,
-    Seeking,
-    Playing,
-    Paused,
-    EndOfFile
-};
-
-struct AudioDeviceInfo {
-    std::string name;
-    std::string description;
-};
-
-struct TrackCommon {
-    int id = -1;
-    int ff_index = -1;
-    std::string type = "";           // "audio", "video", "sub", ...
-    std::string codec = "";
-    std::string codec_desc = "";
-    std::string codec_profile = "";
-    std::string decoder = "";
-    std::string decoder_desc = "";
-    std::string language = "";       // "eng", "vie", ...
-    std::string title = "";
-    
-    // Flags
-    bool is_default = false;
-    bool forced = false;
-    bool selected = false;
-    bool external = false;
-};
-struct VideoDetails {
-    int demux_w = 0;
-    int demux_h = 0;
-    double demux_fps = 0.0;
-    std::string format_name = "";    // "yuv420p", ...
-    bool image = false;
-    bool albumart = false;
-};
-
-struct AudioDetails {
-    int demux_samplerate = 0;
-    int demux_channel_count = 0;
-    std::string demux_channels = ""; // "stereo", "5.1", ...
-    std::string format_name = "";    // "fltp", ...
-};
-
-struct AccessibilityFlags {
-    bool visual_impaired = false;
-    bool hearing_impaired = false;
-    bool dependent = false;
-};
-
-struct TrackInfo {
-    TrackCommon common;
-    VideoDetails video;
-    AudioDetails audio;
-    AccessibilityFlags access;
-    
-    int main_selection = 0; 
-};
-struct PlaylistEntry {
-    std::string filename = "";
-    std::string title = "";
-
-    int id = -1;
-    
-    bool current = false;
-    bool playing = false;
-};
 struct SubInFo {
 
     double sub_scale =0.0;
@@ -143,11 +66,6 @@ struct MPVPlaybackStatus {
     std::vector<PlaylistEntry> g_playlist = {};
     std::vector<AudioDeviceInfo> g_audioDevices = {};
 };
-struct ChapterInfo {
-    double time = 0.0f;     // giây
-    std::string title = "";
-};
-
 struct VideoParams{
     // ==== Video ====
     std::string vpixfmt = "";         

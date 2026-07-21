@@ -15,9 +15,6 @@
 #include <map>
 #include <algorithm>
 
-static VideoInfo& g_videoInfo = GetVideoInfo();
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-
 static int g_lastVolumeBeforeMute = 50;
 static Uint64 volumeSliderVisibleUntil = 0;
 static bool showSettings = false;
@@ -95,7 +92,8 @@ void RenderPlayerControls(WindowRuntime* runtime, ImVec2& _pos, ImVec2& _size, b
     
     ImVec2 videoPos = (_pos);
     ImVec2 videoSize = (_size);
-
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+    VideoInfo& g_videoInfo = GetVideoInfo();
     bool endfile = g_playbackStatus.isCoreIdle;
     bool paused = g_playbackStatus.isPaused;
     float playbackTime = (float)g_playbackStatus.playbackTime;
@@ -787,7 +785,7 @@ void RenderLoading(ImVec2& _pos, ImVec2& _size) {
 void RenderSeekingOverlay(ImVec2& _pos, ImVec2& _size) {
     // Thêm 'static' để giữ trạng thái của timer, alpha, pulse... qua từng frame
     static SeekingData data; 
-    
+    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     data.g_isSeeking = g_playbackStatus.isSeeking;
     data.currentTime = g_playbackStatus.timePos;
 

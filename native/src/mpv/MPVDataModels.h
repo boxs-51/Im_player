@@ -11,7 +11,7 @@ enum class PlaybackState : uint8_t {
     Loading,
     Playing,
     Paused,
-    Seeking,
+    Seeking, // Trạng thái logic của ứng dụng, khác với cờ isSeeking từ MPV
     EndOfFile,
     NoFile
 };
@@ -83,23 +83,41 @@ struct TrackInfo {
 
 // --- Refactored Subsystem Data Models ---
 
-struct PlaybackModel {
-    PlaybackState state = PlaybackState::NoFile;
-    VideoType videoType = VideoType::None;
+// Các cờ trạng thái trực tiếp từ MPV
+struct MpvFlagsModel {
     bool isPaused = true;
     bool isSeeking = false;
-    bool isLoadingMedia = false;
     bool eofReached = false;
-    bool isCoreIdle = false;
+    bool isCoreIdle = true;
+    bool isIdleActive = true; 
     bool hasFile = false;
     bool seekable = false;
+};
+
+// Dữ liệu về thời gian
+struct TimingModel {
     double timePos = 0.0;
     double duration = 0.0;
     double playbackTime = 0.0;
     double percent_pos = 0.0;
     double time_remaining = 0.0;
+};
+
+// Cấu hình phát lại
+struct PlaybackConfigModel {
     double speed = 1.0;
     std::string loopMode;
+};
+
+struct PlaybackModel {
+    // Trạng thái logic của ứng dụng, được suy ra từ các cờ bên dưới
+    PlaybackState state = PlaybackState::NoFile; 
+    VideoType videoType = VideoType::None;
+    bool isLoadingMedia = false; // Trạng thái loading của ứng dụng
+
+    MpvFlagsModel flags;
+    TimingModel timing;
+    PlaybackConfigModel config;
 };
 
 struct MediaModel {
@@ -113,17 +131,12 @@ struct MediaModel {
     std::unordered_map<std::string, std::string> metadata;
 };
 
-struct VideoModel {
+struct VideoDimensionsModel {
     int width = 0, height = 0, rotate = 0;
-    int vbitrate = 0;
     double aspect = 0.0;
-    double estimated_vf_fps_mpv = 0.0;
-    double currentFPS = 0.0;
-    std::string video_format;
-    std::string vcodec;
-    std::string v_out;
-    std::string hwdec;
-    // Video Parameters
+};
+
+struct VideoParamsModel {
     std::string vpixfmt, vprimaries, vgamma, vcolormatrix, vcolorlevels;
     std::string vstereo_in, vchroma_location, vaspect_name, vlight, vsar_name;
     int average_bpp = 0, vdisp_w = 0, vdisp_h = 0;
@@ -131,25 +144,63 @@ struct VideoModel {
     double vpar = 0.0, vsar = 0.0, vsig_peak = 0.0;
 };
 
-struct AudioModel {
+struct VideoCodecModel {
+    std::string video_format; // container format
+    std::string vcodec;
+    std::string v_out;
+    std::string hwdec;
+};
+
+struct VideoStatsModel {
+    int vbitrate = 0;
+    double estimated_vf_fps_mpv = 0.0;
+    double currentFPS = 0.0;
+};
+
+struct VideoModel {
+    VideoDimensionsModel dimensions;
+    VideoParamsModel params;
+    VideoCodecModel codec;
+    VideoStatsModel stats;
+};
+
+struct AudioVolumeModel {
     int volume = 100;
     bool isMuted = false;
-    double audio_delay = 0.0;
+};
+
+struct AudioDeviceModel {
+    std::string audio_device;
+    std::string audio_client_name;
+    std::vector<AudioDeviceInfo> audioDevices;
+};
+
+struct AudioCodecModel {
     int abitrate = 0;
     std::string acodec;
     std::string a_out;
     std::string a_filter;
-    std::string audio_device;
-    std::string audio_client_name;
-    std::vector<AudioDeviceInfo> audioDevices;
-    // Audio Parameters
+    double audio_delay = 0.0;
+};
+
+struct AudioParamsModel {
     std::string aformat, ahr_channels, achannels_str;
     int channel_count = 0, asamplerate = 0;
-    // Loudness
+};
+
+struct LoudnessModel {
     double loudness_momentary = 0.0, loudness_shortterm = 0.0, loudness_integrated = 0.0;
     double loudness_range = 0.0, loudness_lra_low = 0.0, loudness_lra_high = 0.0;
     double true_peak = 0.0, true_peak_ch0 = 0.0, true_peak_ch1 = 0.0;
     double sample_peak = 0.0, sample_peak_ch0 = 0.0, sample_peak_ch1 = 0.0;
+};
+
+struct AudioModel {
+    AudioVolumeModel volume;
+    AudioDeviceModel device;
+    AudioCodecModel codec;
+    AudioParamsModel params;
+    LoudnessModel loudness;
 };
 
 struct SubtitleModel {
@@ -183,7 +234,3 @@ struct NetworkModel {
     double demuxer_cache_time = 0.0;
     double audio_buffer = 0.0;
 };
-
-// Helper functions to get state, will be defined elsewhere
-const char* PlaybackStateToString(PlaybackState state);
-PlaybackState GetPlaybackState();
