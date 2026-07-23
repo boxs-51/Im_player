@@ -59,7 +59,7 @@ public:
         if (SDL_GL_MakeCurrent(window, glContext) != 0) return false;
         if (gl3wInit() != 0) return false;
         
-        SDL_GL_SetSwapInterval(1);
+        SDL_GL_SetSwapInterval(0);
         return true;
     }
 
@@ -69,7 +69,6 @@ public:
     }
 
     void BeginFrame(SDL_Window* window) override {
-        SDL_GL_MakeCurrent(window, glContext);
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
@@ -77,16 +76,19 @@ public:
         // Bạn có thể giữ hoặc bỏ clear tùy vào việc Renderer chính có clear nền riêng không
         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
         glClear(GL_COLOR_BUFFER_BIT);
+
     }
 
     void EndFrame(SDL_Window* window) override {
         ImGui::Render();
         int w, h; 
-        SDL_GetWindowSize(window, &w, &h);
+        SDL_GL_GetDrawableSize(window, &w, &h);
         glViewport(0, 0, w, h);
         
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
-        
+    }
+
+    void SwapWindow(SDL_Window* window) override {
         if (ImGui::GetIO().ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
         {
             SDL_Window* backup_current_window = SDL_GL_GetCurrentWindow();
@@ -100,31 +102,37 @@ public:
         SDL_GL_SwapWindow(window);
     }
 
-    void Shutdown() override {
-        ImGui_ImplOpenGL3_Shutdown();
-        ImGui_ImplSDL2_Shutdown();
+    bool ProcessEvent(const SDL_Event* e) override {
+        return ImGui_ImplSDL2_ProcessEvent(e);
+    }
+
+
+    void Shutdown(bool isFinalShutdown) override {
+        if (isFinalShutdown) {
+            ImGui_ImplOpenGL3_Shutdown();
+            ImGui_ImplSDL2_Shutdown();
+        }
         if (glContext) SDL_GL_DeleteContext(glContext);
     }
 
-    std::any CreateSubContext() override {
-        SDL_Window* currentWin = SDL_GL_GetCurrentWindow();
-        if (!currentWin) return std::any();
-
+    std::any CreateSubContext(SDL_Window* ownerWindow) override {
+        if (!ownerWindow) return std::any();
+        
         // Đảm bảo thuộc tính chia sẻ context luôn được bật trước khi ra lệnh tạo
         SDL_GL_SetAttribute(SDL_GL_SHARE_WITH_CURRENT_CONTEXT, 1);
 
         // 1. Tạo Sub Context (SDL2 sẽ tự động gán context mới này làm CURRENT của luồng hiện tại!)
-        SDL_GLContext subContext = SDL_GL_CreateContext(currentWin);
+        SDL_GLContext subContext = SDL_GL_CreateContext(ownerWindow);
         if (!subContext) {
             SDL_Log("Backend Error: Không thể tạo Shared GL Context!");
             return std::any();
         }
         
         // 2. BƯỚC QUAN TRỌNG: Unbind hoàn toàn luồng này về NULL để nhả tự do subContext ra hoàn toàn
-        SDL_GL_MakeCurrent(currentWin, NULL); 
+        SDL_GL_MakeCurrent(ownerWindow, NULL); 
         
         // 3. Khôi phục lại context chính (glContext) để luồng UI chính tiếp tục làm việc bình thường
-        SDL_GL_MakeCurrent(currentWin, glContext); 
+        SDL_GL_MakeCurrent(ownerWindow, glContext); 
         
         // Giờ đây subContext đang ở trạng thái tự do 100%, sẵn sàng cho luồng MPV chiếm quyền bằng MakeCurrent
         return std::make_any<SDL_GLContext>(subContext);

@@ -1,73 +1,118 @@
-#include <threads/thread_manager.h>
-#include "globals.h"
-
+#include "thread_manager.h"
 #include <iostream>
-#include <thread>
-
-#include <unordered_map>
-#include <unordered_set>
 
 void ThreadManager::Run(ThreadID id, std::function<void()> task, bool allowDuplicate) {
-    std::lock_guard<std::mutex> lock(mutex_);
+    if (!task) return;
 
-    if (!allowDuplicate && activeIDs_.count(id)) {
-
-        std::cout << "[⚠️] Thread [" << ThreadIDToString(id) << "] is already running\n";
-        return;
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        if (!allowDuplicate && (activeIDs_.count(id) > 0 || registeredThreads_.count(id) > 0)) {
+            std::cout << "[⚠️] Thread [" << id.ToString() << "] is already active/registered.\n";
+            return;
+        }
+        activeIDs_.insert(id);
     }
 
-    activeIDs_.insert(id);
-
-    std::thread t([this, id, task]() {
-        std::cout << "🧵 Start thread [" << ThreadIDToString(id) << "]\n";
+    std::thread t([this, id, task = std::move(task)]() {
+        std::cout << "🧵 Start dynamic thread [" << id.ToString() << "]\n";
         try {
             task();
         } catch (const std::exception& e) {
-            std::cerr << "[❌] Exception in thread [" << ThreadIDToString(id) << "]: " << e.what() << "\n";
+            std::cerr << "[❌] Exception in [" << id.ToString() << "]: " << e.what() << "\n";
+        } catch (...) {
+            std::cerr << "[❌] Unknown exception in [" << id.ToString() << "]\n";
         }
 
         std::lock_guard<std::mutex> lock(mutex_);
-        std::cout << "✅ Finish thread [" << ThreadIDToString(id) << "]\n";
         activeIDs_.erase(id);
+        std::cout << "✅ Finished dynamic thread [" << id.ToString() << "]\n";
     });
 
     t.detach();
 }
 
 void ThreadManager::Register(ThreadID id, std::thread* thread) {
+    if (!thread) return;
+
     std::lock_guard<std::mutex> lock(mutex_);
-    if (registeredThreads_.count(id)) {
-        std::cout << "[⚠️] Thread [" << ThreadIDToString(id) << "] is already registered. Overwriting.\n";
-    }
-    registeredThreads_[id] = thread;
-    std::cout << "Registered thread [" << ThreadIDToString(id) << "]\n";
+    
+    RegisteredThreadInfo info;
+    info.threadPtr = thread;
+    info.nativeId = thread->get_id();
+
+    registeredThreads_[id] = info;
+    std::cout << "📌 Registered manual thread [" << id.ToString() << "] (Native ID: " << info.nativeId << ")\n";
 }
 
 void ThreadManager::Unregister(ThreadID id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    if (registeredThreads_.erase(id)) {
-        std::cout << "Unregistered thread [" << ThreadIDToString(id) << "]\n";
+    if (registeredThreads_.erase(id) > 0) {
+        std::cout << "🗑️ Unregistered thread [" << id.ToString() << "]\n";
     } else {
-        std::cout << "[⚠️] Attempted to unregister a thread [" << ThreadIDToString(id) << "] that was not registered.\n";
+        std::cout << "[⚠️] Attempted to unregister unregistered thread [" << id.ToString() << "]\n";
     }
+}
+
+bool ThreadManager::IsRegisteredAlive(ThreadID id) {
+    std::lock_guard<std::mutex> lock(mutex_);
+    auto it = registeredThreads_.find(id);
+    if (it != registeredThreads_.end() && it->second.threadPtr != nullptr) {
+        // Luồng còn sống nếu con trỏ hợp lệ và std::thread vẫn joinable
+        return it->second.threadPtr->joinable();
+    }
+    return false;
 }
 
 bool ThreadManager::IsRunning(ThreadID id) {
     std::lock_guard<std::mutex> lock(mutex_);
-    return activeIDs_.count(id) > 0;
+    
+    // 1. Kiểm tra trong danh sách luồng chạy tự động (Run)
+    if (activeIDs_.count(id) > 0) {
+        return true;
+    }
+
+    // 2. Kiểm tra trong danh sách luồng đăng ký thủ công (Register)
+    auto it = registeredThreads_.find(id);
+    if (it != registeredThreads_.end() && it->second.threadPtr != nullptr) {
+        return it->second.threadPtr->joinable();
+    }
+
+    return false;
 }
 
-// Đổi ThreadID sang string để log
-std::string ThreadManager::ThreadIDToString(ThreadID id) {
-    switch (id) {
-    case ThreadID::URLFetch: return "URLFetch";
-    case ThreadID::MPVEventLoop: return "MPVEventLoop";
-    case ThreadID::PipeServer: return "PipeServer";
-    case ThreadID::MPVRenderThread: return "MPVRenderThread";
-    default: return "Unknown";
+bool ThreadManager::JoinRegistered(ThreadID id) {
+    std::thread* threadToJoin = nullptr;
+
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        auto it = registeredThreads_.find(id);
+        if (it != registeredThreads_.end()) {
+            threadToJoin = it->second.threadPtr;
+        }
     }
+
+    if (threadToJoin && threadToJoin->joinable()) {
+        threadToJoin->join();
+        Unregister(id);
+        return true;
+    }
+
+    return false;
 }
-// Singleton implementation
+
+void ThreadManager::JoinAllRegistered() {
+    std::lock_guard<std::mutex> lock(mutex_);
+    std::cout << "🧹 Cleaning up all registered threads...\n";
+
+    for (auto& [id, info] : registeredThreads_) {
+        if (info.threadPtr && info.threadPtr->joinable()) {
+            std::cout << "⏳ Waiting for thread [" << id.ToString() << "] to finish...\n";
+            info.threadPtr->join();
+        }
+    }
+    registeredThreads_.clear();
+}
+
 ThreadManager& GetThreadManager() {
     static ThreadManager instance;
     return instance;

@@ -34,12 +34,6 @@ struct FontEntry {
     std::shared_ptr<std::vector<unsigned char>> rawData;
 };
 
-struct AtlasEntry {
-    ImFontAtlas* atlas = nullptr;
-    GLuint texID = 0;
-    bool built = false;
-};
-
 class FontManager {
 public:
     static FontManager& Instance();
@@ -73,7 +67,9 @@ public:
     );
 
     // Upload atlas textures to GPU
-    void UploadAtlasTextures_OpenGL3();
+    bool BuildAtlas(); // New function to build the shared atlas
+    bool UploadAtlasTextures_OpenGL3(); // Kept for now, but might be obsolete
+    bool UploadAtlasTextures_OpenGL3(ImFontAtlas* atlas);
 
     // Accessors
     void SetCurrentFont(int index);
@@ -116,7 +112,6 @@ private:
     std::string FixPath(const std::string& path) const;
 
 private:
-    std::vector<AtlasEntry> m_atlases;
     std::vector<FontEntry> m_fonts;
     std::vector<LoadedFont> loadedFonts;
     ImFont* m_activeFont = nullptr;

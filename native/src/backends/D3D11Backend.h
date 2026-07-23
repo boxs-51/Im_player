@@ -9,7 +9,6 @@
 class D3D11Backend : public IGraphicsBackend {
 public:
     D3D11Backend() = default;
-    ~D3D11Backend() override { Shutdown(); }
 
     // Triển khai các phương thức của IGraphicsBackend
     const char* GetMpvApiType() const override { return "d3d11"; }
@@ -59,10 +58,13 @@ public:
     void EndFrame(SDL_Window* window) override {
         ImGui::Render();
         ImGui_ImplDX11_RenderDrawData(ImGui::GetDrawData());
+    }
+
+    void SwapWindow(SDL_Window* window) override {
         m_pSwapChain->Present(1, 0); // Present with vsync
     }
 
-    void Shutdown() override {
+    void Shutdown(bool isFinalShutdown) override {
         ImGui_ImplDX11_Shutdown();
         ImGui_ImplSDL2_Shutdown();
         CleanupRenderTarget();
@@ -72,7 +74,7 @@ public:
     }
 
     // Các phương thức này không áp dụng cho D3D11, trả về giá trị mặc định/trống
-    std::any CreateSubContext() override { return std::any(); }
+    std::any CreateSubContext(SDL_Window* ownerWindow) override { return std::any(); }
     bool MakeCurrent(SDL_Window* window, const std::any& context) override { return true; }
     std::vector<mpv_render_param> GetMpvRenderParams(const ImVec2& size) override { return {}; }
     unsigned int GetGLInternalFormat() const override { return 0; }

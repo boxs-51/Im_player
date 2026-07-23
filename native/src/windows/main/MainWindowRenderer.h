@@ -6,11 +6,12 @@
 
 #include <SDL.h>
 
+#define SDL_CURSOR_EVENT (SDL_USEREVENT + 3)
+
 class MainWindowRenderer : public WindowRenderer {
 private:
     Uint64 lastInteractionTime = 0;
-    bool show_ui_video = true;
-    
+
     void UpdateUIState(WindowRuntime* runtime);
     void ShowSubWindows();
 

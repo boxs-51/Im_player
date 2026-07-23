@@ -13,6 +13,8 @@
 
 #include "WindowManager.h"
 #include "MainWindowState.h"
+#include "MPVSession.h"
+
 #include <imgui.h>
 #include <functional>
 
@@ -93,7 +95,14 @@ void ShowVideoInfo() {
 
     if (CSImGui::BeginInfoTable("video_perf")) {
 
-    CSImGui::InfoRow("Current FPS :", "%.2f", g_videoInfo.currentFPS);
+    CSImGui::InfoRow("Main Loop Rate :", "%d", main_loop_rate);
+
+    auto* window = WindowManager::GetInstance().GetMainWindow();
+    if (window && window->windowloop){
+        CSImGui::InfoRow("WinDow ID :", "%d", (int)window->info.id);
+        CSImGui::InfoRow("WinDow Loop Rate :", "%d", (int)window->windowloop->getFPS());
+    }
+    
     #ifdef RENDER_MPV_THREAD
     auto* session = MPVManager::GetInstance().GetDefaultSession();
     if (session && session->GetRenderThread())
@@ -374,12 +383,13 @@ void ShowPlaybackInfo() {
 
     // Progress bar
     ImGui::ProgressBar(progress, ImVec2(-1, 8));
-
+    
     if(CSImGui::BeginInfoTable("playback_time")){
 
-        auto& win_main = *WindowManager::GetInstance().GetMainWindow();
-        if(win_main.mpvSession && win_main.mpvSession->GetState()){
-            auto& state = *win_main.mpvSession->GetState();
+        auto& window = *WindowManager::GetInstance().GetMainWindow();
+
+        if(window.resource.mpvSession && window.resource.mpvSession->GetState()){
+            auto& state = *window.resource.mpvSession->GetState();
             state.ReadPlayback([&](const auto& g_playback){
                 CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timing.timePos);
             });
@@ -454,12 +464,12 @@ void ShowDuBugInFo(){
     ImGui::TextWrapped("=== Debug Info ===");
     // WinAPI
     RECT rcWin, rcClient;
-    auto& win_main = *WindowManager::GetInstance().GetMainWindow();
+    auto& window = *WindowManager::GetInstance().GetMainWindow();
     //auto& 
-    GetWindowRect(win_main.hwnd, &rcWin);
-    GetClientRect(win_main.hwnd, &rcClient);
+    GetWindowRect(window.resource.hwnd, &rcWin);
+    GetClientRect(window.resource.hwnd, &rcClient);
     POINT pt = { rcClient.left, rcClient.top };
-    ClientToScreen(win_main.hwnd, &pt);
+    ClientToScreen(window.resource.hwnd, &pt);
     OffsetRect(&rcClient, pt.x, pt.y);
 
     ImGui::Separator();
@@ -478,22 +488,22 @@ void ShowDuBugInFo(){
 
     // SDL window info
     Uint32 sdlFlags = 0;
-    sdlFlags = SDL_GetWindowFlags(win_main.sdlWindow);
-    auto layout = win_main.properties.Get<MainWindowLayout>("Layout");
+    sdlFlags = SDL_GetWindowFlags(window.resource.sdlWindow);
+    auto layout = window.properties.GetValue<WindowLayout>("Layout");
 
     ImGui::TextWrapped("SDL Client: %dx%d", layout.WinW, layout.WinH);
     ImGui::TextWrapped("SDL Position: X:%d Y:%d", layout.WinX, layout.WinY);
     
     ImGui::TextWrapped("SDL Flags: 0x%08X", sdlFlags);
     
-    ImGui::TextWrapped("Video Pos: %dx%d", (int)layout.VideoPos.x,(int)layout.VideoPos.y);
-    ImGui::TextWrapped("Video Size: %dx%d", (int)layout.VideoSize.x, (int)layout.VideoSize.y);
+    ImGui::TextWrapped("Client Pos: %dx%d", (int)layout.ClientPos.x,(int)layout.ClientPos.y);
+    ImGui::TextWrapped("Client Size: %dx%d", (int)layout.ClientSize.x, (int)layout.ClientSize.y);
 
     ImGui::Separator();
-    ImGui::TextWrapped("IsMaximized: %s", win_main.state.isMaximized ? "Yes" : "No");
-    ImGui::TextWrapped("IsFullscreen: %s", win_main.state.isFullscreen ? "Yes" : "No");
+    ImGui::TextWrapped("IsMaximized: %s", window.state.display.isMaximized ? "Yes" : "No");
+    ImGui::TextWrapped("IsFullscreen: %s", window.state.display.isFullscreen ? "Yes" : "No");
     ImGui::Separator();
-    ImGui::TextWrapped("HitTest Zone: %s", win_main.state.hittestname.c_str());
+    ImGui::TextWrapped("HitTest Zone: %s", window.state.input.hittestname.c_str());
     ImGui::Separator();
 
     // Lấy danh sách script dưới dạng struct (Giả sử bạn dùng GetAllScripts trả về vector hoặc map)

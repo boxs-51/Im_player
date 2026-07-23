@@ -81,6 +81,17 @@ void MPVObserver::Init() {
         {"stream-path", MPV_FORMAT_STRING}, {"stream-pos", MPV_FORMAT_INT64}, {"network-time", MPV_FORMAT_DOUBLE}
     }, "Cache");
 
+    ObserveProps({
+        {"vo-configured", MPV_FORMAT_FLAG},
+        {"display-sync-active", MPV_FORMAT_FLAG},
+        {"frame-drop-count", MPV_FORMAT_INT64},
+        {"decoder-frame-drop-count", MPV_FORMAT_INT64},
+        {"packet-drop-count", MPV_FORMAT_INT64},
+        {"vsync-jitter", MPV_FORMAT_DOUBLE},
+        {"file-size", MPV_FORMAT_INT64},
+        {"demuxer-cache-state", MPV_FORMAT_NODE},
+        {"pause-for-cache", MPV_FORMAT_FLAG}
+    }, "Advanced");
     mpv_observe_property(m_mpv, 0, "af-metadata/ebur_measurer", MPV_FORMAT_NODE);
 
     RATE_LIMITED_COUT(initmpvobservers_complete, 1, std::cout << "=================== [MPV] Observer registration complete ===================");
@@ -244,39 +255,6 @@ void MPVObserver::UpdateVideoParams(const mpv_node* node) {
         if ((n = mpv_node_dict_find_local(node, "sar")) && n->format == MPV_FORMAT_DOUBLE)            m.params.vsar = n->u.double_;
         if ((n = mpv_node_dict_find_local(node, "sig-peak")) && n->format == MPV_FORMAT_DOUBLE)       m.params.vsig_peak = n->u.double_;
     });
-    return;
-    // Cập nhật vào biến global cũ để tương thích ngược
-    auto& params = g_videoInfo.g_videoparams;
-    {
-        if ((n = mpv_node_dict_find_local(node, "pixelformat")) && n->format == MPV_FORMAT_STRING)    g_videoInfo.g_videoparams.vpixfmt = n->u.string;            RATE_LIMITED_COUT(video_pixfmt, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Pixel Format: " << g_videoInfo.g_videoparams.vpixfmt);
-        if ((n = mpv_node_dict_find_local(node, "primaries")) && n->format == MPV_FORMAT_STRING)      g_videoInfo.g_videoparams.vprimaries = n->u.string;         RATE_LIMITED_COUT(video_primaries, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Color Primaries: " << g_videoInfo.g_videoparams.vprimaries);
-        if ((n = mpv_node_dict_find_local(node, "gamma")) && n->format == MPV_FORMAT_STRING)          g_videoInfo.g_videoparams.vgamma = n->u.string;             RATE_LIMITED_COUT(video_gamma, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Gamma: " << g_videoInfo.g_videoparams.vgamma);
-        if ((n = mpv_node_dict_find_local(node, "colormatrix")) && n->format == MPV_FORMAT_STRING)    g_videoInfo.g_videoparams.vcolormatrix = n->u.string;       RATE_LIMITED_COUT(video_colormatrix, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Color Matrix: " << g_videoInfo.g_videoparams.vcolormatrix);
-        if ((n = mpv_node_dict_find_local(node, "colorlevels")) && n->format == MPV_FORMAT_STRING)    g_videoInfo.g_videoparams.vcolorlevels = n->u.string;       RATE_LIMITED_COUT(video_colorlevels, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Color Levels: " << g_videoInfo.g_videoparams.vcolorlevels);
-        if ((n = mpv_node_dict_find_local(node, "stereo-in")) && n->format == MPV_FORMAT_STRING)      g_videoInfo.g_videoparams.vstereo_in = n->u.string;         RATE_LIMITED_COUT(video_stereo_in, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Stereo In: " << g_videoInfo.g_videoparams.vstereo_in);
-        if ((n = mpv_node_dict_find_local(node, "chroma-location")) && n->format == MPV_FORMAT_STRING)g_videoInfo.g_videoparams.vchroma_location = n->u.string;   RATE_LIMITED_COUT(video_chroma_location, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Chroma Location: " << g_videoInfo.g_videoparams.vchroma_location);
-        if ((n = mpv_node_dict_find_local(node, "aspect-name")) && n->format == MPV_FORMAT_STRING)    g_videoInfo.g_videoparams.vaspect_name = n->u.string;       RATE_LIMITED_COUT(video_aspect_name, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Aspect Name: " << g_videoInfo.g_videoparams.vaspect_name);
-        if ((n = mpv_node_dict_find_local(node, "sar-name")) && n->format == MPV_FORMAT_STRING)       g_videoInfo.g_videoparams.vsar_name = n->u.string;          RATE_LIMITED_COUT(video_vsar_name, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Storage Aspect Ratio Name " << g_videoInfo.g_videoparams.vsar_name);
-        if ((n = mpv_node_dict_find_local(node, "light")) && n->format == MPV_FORMAT_STRING)          g_videoInfo.g_videoparams.vlight = n->u.string;             RATE_LIMITED_COUT(video_light, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Light: " << g_videoInfo.g_videoparams.vlight);
-    }
-    {
-        if ((n = mpv_node_dict_find_local(node, "w")) && n->format == MPV_FORMAT_INT64)               params.vwidth = (int)n->u.int64;         RATE_LIMITED_COUT(video_w, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Width: " << params.vwidth);
-        if ((n = mpv_node_dict_find_local(node, "h")) && n->format == MPV_FORMAT_INT64)               params.vheight = (int)n->u.int64;        RATE_LIMITED_COUT(video_h, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Height: " << params.vheight);
-        if ((n = mpv_node_dict_find_local(node, "dw")) && n->format == MPV_FORMAT_INT64)              params.vdisp_w = (int)n->u.int64;        RATE_LIMITED_COUT(video_dw, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Display Width: " << params.vdisp_w);
-        if ((n = mpv_node_dict_find_local(node, "dh")) && n->format == MPV_FORMAT_INT64)              params.vdisp_h = (int)n->u.int64;        RATE_LIMITED_COUT(video_dh, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Display Height: " << params.vdisp_h);
-        if ((n = mpv_node_dict_find_local(node, "crop-x")) && n->format == MPV_FORMAT_INT64)          params.vcrop_x = (int)n->u.int64;        RATE_LIMITED_COUT(video_vcrop_x, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Crop X: " << params.vcrop_x);
-        if ((n = mpv_node_dict_find_local(node, "crop-y")) && n->format == MPV_FORMAT_INT64)          params.vcrop_y = (int)n->u.int64;        RATE_LIMITED_COUT(video_vcrop_y, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Crop Y: " << params.vcrop_y);
-        if ((n = mpv_node_dict_find_local(node, "crop-w")) && n->format == MPV_FORMAT_INT64)          params.vcrop_w = (int)n->u.int64;        RATE_LIMITED_COUT(video_vcrop_w, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Crop Width: " << params.vcrop_w);
-        if ((n = mpv_node_dict_find_local(node, "crop-h")) && n->format == MPV_FORMAT_INT64)          params.vcrop_h = (int)n->u.int64;        RATE_LIMITED_COUT(video_vcrop_h, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Crop Height: " << params.vcrop_h);
-        if ((n = mpv_node_dict_find_local(node, "rotate")) && n->format == MPV_FORMAT_INT64)          params.vrotate = (int)n->u.int64;        RATE_LIMITED_COUT(video_rotate, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Rotate: " << params.vrotate);
-        if ((n = mpv_node_dict_find_local(node, "average-bpp")) && n->format == MPV_FORMAT_INT64)     params.average_bpp = (int)n->u.int64;    RATE_LIMITED_COUT(video_average_bpp, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Average bpp: " << params.average_bpp);
-    }
-    {
-        if ((n = mpv_node_dict_find_local(node, "aspect")) && n->format == MPV_FORMAT_DOUBLE)         params.vaspect = n->u.double_;           RATE_LIMITED_COUT(video_aspect, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Aspect: " << params.vaspect);
-        if ((n = mpv_node_dict_find_local(node, "par")) && n->format == MPV_FORMAT_DOUBLE)            params.vpar = n->u.double_;              RATE_LIMITED_COUT(video_par, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Pixel Aspect Ratio: " << params.vpar);
-        if ((n = mpv_node_dict_find_local(node, "sar")) && n->format == MPV_FORMAT_DOUBLE)            params.vsar = n->u.double_;              RATE_LIMITED_COUT(video_sar, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Storage Aspect Ratio: " << params.vsar);
-        if ((n = mpv_node_dict_find_local(node, "sig-peak")) && n->format == MPV_FORMAT_DOUBLE)       params.vsig_peak = n->u.double_;         RATE_LIMITED_COUT(video_sig_peak, 1, std::cout << "[DEBUG] [INFO] [VideoParams] Sig Peak: " << params.vsig_peak);
-    }
 }
 
 void MPVObserver::UpdateAudioParams(const mpv_node* node) {
@@ -291,23 +269,12 @@ void MPVObserver::UpdateAudioParams(const mpv_node* node) {
         if ((n = mpv_node_dict_find_local(node, "channels")) && n->format == MPV_FORMAT_STRING)       m.params.achannels_str = n->u.string;
         if ((n = mpv_node_dict_find_local(node, "hr-channels")) && n->format == MPV_FORMAT_STRING)    m.params.ahr_channels = n->u.string;
     });
-    return;
-    // Cập nhật vào biến global cũ để tương thích ngược
-    auto& params = g_videoInfo.g_audioarams;
-    if ((n = mpv_node_dict_find_local(node, "format")) && n->format == MPV_FORMAT_STRING)         params.aformat = n->u.string;              RATE_LIMITED_COUT(audio_format, 1,std::cout << "[DEBUG] [INFO] [AudioParams] Format: " << params.aformat << "");
-    if ((n = mpv_node_dict_find_local(node, "samplerate")) && n->format == MPV_FORMAT_INT64)      params.asamplerate = (int)n->u.int64;      RATE_LIMITED_COUT(audio_samplerate, 1,std::cout << "[DEBUG] [INFO] [AudioParams] Sample Rate: " << params.asamplerate << " Hz");
-    if ((n = mpv_node_dict_find_local(node, "channel-count")) && n->format == MPV_FORMAT_INT64)   params.channel_count = (int)n->u.int64;    RATE_LIMITED_COUT(audio_channel_count, 1,std::cout << "[DEBUG] [INFO] [AudioParams] Channel Count: " << params.channel_count << "");
-    if ((n = mpv_node_dict_find_local(node, "channels")) && n->format == MPV_FORMAT_STRING)       params.achannels_str = n->u.string;        RATE_LIMITED_COUT(audio_channels_str, 1,std::cout << "[DEBUG] [INFO] [AudioParams] Channels: " << params.achannels_str << "");
-    if ((n = mpv_node_dict_find_local(node, "hr-channels")) && n->format == MPV_FORMAT_STRING)    params.ahr_channels = n->u.string;         RATE_LIMITED_COUT(audio_hr_channels, 1,std::cout << "[DEBUG] [INFO] [AudioParams] HR Channels: " << params.ahr_channels << "");
 }
 
 void MPVObserver::UpdateTrackList(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_ARRAY || !node->u.list) {
         m_state.WriteTrack([&](auto& m){ m.tracks.clear(); });
         m_state.WriteSubtitle([&](auto& m){ m.hasSubtitles = false; });
-        return;
-        g_videoInfo.g_tracks.clear();
-        g_videoInfo.hasSubtitles = false;
         return;
     }
 
@@ -396,17 +363,11 @@ void MPVObserver::UpdateTrackList(const mpv_node* node) {
     // Cập nhật vào State System mới
     m_state.WriteTrack([&](TrackModel& m) { m.tracks = tmp; });
     m_state.WriteSubtitle([&](SubtitleModel& m) { m.hasSubtitles = found_sub; });
-    return;
-    // Cập nhật vào biến global cũ
-    g_videoInfo.hasSubtitles = found_sub;
-    g_videoInfo.g_tracks.swap(tmp);
 }
 
 void MPVObserver::UpdateAudioDeviceList(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_ARRAY || !node->u.list) {
         m_state.WriteAudio([&](auto& m){ m.device.audioDevices.clear(); });
-        return;
-        g_playbackStatus.g_audioDevices.clear();
         return;
     }
     
@@ -431,16 +392,11 @@ void MPVObserver::UpdateAudioDeviceList(const mpv_node* node) {
 
     // Cập nhật vào State System mới
     m_state.WriteAudio([&](AudioModel& m) { m.device.audioDevices = tmp; });
-    return;
-    // Cập nhật vào biến global cũ
-    g_playbackStatus.g_audioDevices.swap(tmp);
 }
 
 void MPVObserver::UpdateChapterList(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_ARRAY || !node->u.list || node->u.list->num == 0) {
         m_state.WriteTrack([&](auto& m){ m.chapters.clear(); });
-        return;
-        g_videoInfo.g_chapters.clear();
         return;
     }
     std::vector<ChapterInfo> tmp;
@@ -463,16 +419,11 @@ void MPVObserver::UpdateChapterList(const mpv_node* node) {
 
     // Cập nhật vào State System mới
     m_state.WriteTrack([&](TrackModel& m) { m.chapters = tmp; });
-    return;
-    // Cập nhật vào biến global cũ
-    g_videoInfo.g_chapters.swap(tmp);
 }
 
 void MPVObserver::UpdatePlaylist(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_ARRAY || !node->u.list) {
         m_state.WritePlaylist([&](auto& m){ m.playlist.clear(); });
-        return;
-        g_playbackStatus.g_playlist.clear();
         return;
     }
     std::vector<PlaylistEntry> tmp;
@@ -503,16 +454,11 @@ void MPVObserver::UpdatePlaylist(const mpv_node* node) {
 
     // Cập nhật vào State System mới
     m_state.WritePlaylist([&](PlaylistModel& m) { m.playlist = tmp; });
-    return;
-    // Cập nhật vào biến global cũ
-    g_playbackStatus.g_playlist.swap(tmp);
 }
 
 void MPVObserver::UpdateMetadata(const mpv_node* node) {
     if (!node || node->format != MPV_FORMAT_NODE_MAP || !node->u.list) {
         m_state.WriteMedia([&](auto& m){ m.metadata.clear(); });
-        return;
-        g_videoInfo.metadata.clear();
         return;
     }
 
@@ -534,10 +480,6 @@ void MPVObserver::UpdateMetadata(const mpv_node* node) {
 
     // Cập nhật vào State System mới
     m_state.WriteMedia([&](MediaModel& m) { m.metadata = tmp; });
-    return;
-    // Cập nhật vào biến global cũ
-    g_videoInfo.metadata.swap(tmp);
-
 }
 
 void MPVObserver::UpdateLoudnessMetadata(const mpv_node* node) {
@@ -571,27 +513,6 @@ void MPVObserver::UpdateLoudnessMetadata(const mpv_node* node) {
             else if (key == "lavfi.r128.sample_peak") { m.loudness.sample_peak = parse_db(val_str); }
         }
     });
-    return;
-    // Cập nhật vào biến global cũ
-    auto& ctx = g_videoInfo.g_audioarams;
-    for (int i = 0; i < list->num; i++) {
-        if (list->values[i].format != MPV_FORMAT_STRING) continue;
-        std::string key = list->keys[i];
-        const char* val_str = list->values[i].u.string;
-
-        if (key == "lavfi.r128.M") { ctx.loudness_momentary = parse_db(val_str); }
-        else if (key == "lavfi.r128.S") { ctx.loudness_shortterm = parse_db(val_str); }
-        else if (key == "lavfi.r128.I") { ctx.loudness_integrated = parse_db(val_str); }
-        else if (key == "lavfi.r128.LRA") { ctx.loudness_range = parse_db(val_str); }
-        else if (key == "lavfi.r128.LRA.low") { ctx.loudness_lra_low = parse_db(val_str); }
-        else if (key == "lavfi.r128.LRA.high") { ctx.loudness_lra_high = parse_db(val_str); }
-        else if (key == "lavfi.r128.true_peak") { ctx.true_peak = parse_db(val_str); }
-        else if (key == "lavfi.r128.true_peaks_ch0") { ctx.true_peak_ch0 = parse_db(val_str); }
-        else if (key == "lavfi.r128.true_peaks_ch1") { ctx.true_peak_ch1 = parse_db(val_str); }
-        else if (key == "lavfi.r128.sample_peaks_ch0") { ctx.sample_peak_ch0 = parse_db(val_str); }
-        else if (key == "lavfi.r128.sample_peaks_ch1") { ctx.sample_peak_ch1 = parse_db(val_str); }
-        else if (key == "lavfi.r128.sample_peak") { ctx.sample_peak = parse_db(val_str); }
-    }
 }
 
 
@@ -602,7 +523,6 @@ void MPVObserver::ProcessEvents() {
         switch (event->event_id) {
 
         case MPV_EVENT_SHUTDOWN: {
-            //g_playbackStatus.hasFile = false;   
             RATE_LIMITED_COUT(mpv_shutdown, 1,std::cout << "[DEBUG] [INFO] [MPV] MPV is shutting down."); 
             break;
         }
@@ -626,8 +546,6 @@ void MPVObserver::ProcessEvents() {
                 //m.flags.isIdleActive = false;
                 m.isLoadingMedia = true;
             });
-            //g_playbackStatus.ilde = false;
-            //g_playbackStatus.isLoadingMedia = true;
             break;
         }
         case MPV_EVENT_END_FILE: {
@@ -646,9 +564,7 @@ void MPVObserver::ProcessEvents() {
             {
                 m_state.WritePlayback([&](auto& m) {
                     m.isLoadingMedia = false;
-                    //m.flags.hasFile = false;
                 });
-                //g_playbackStatus.isLoadingMedia = false;
                 int err = data->error;
                 std::string errStr = mpv_error_string(err);
                 RATE_LIMITED_COUT(mpv_end_file_error, 1,std::cout << "[ERROR] [MPV ERROR] Playback error occurred: " << errStr << "";);
@@ -682,22 +598,11 @@ void MPVObserver::ProcessEvents() {
             }*/
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
-                m.flags.hasFile = true;
             });
  
-            //g_playbackStatus.isLoadingMedia = false;
-            //g_playbackStatus.hasFile = true;
             break;
         }
         case MPV_EVENT_IDLE: {
-            // Cập nhật State System mới
-//            m_state.WritePlayback([&](auto& m) {
-                //m.flags.isIdleActive = true;
-//                m.flags.hasFile = false;
-//            });
-            // Cập nhật biến global cũ
-            //g_playbackStatus.hasFile = false; 
-            //g_playbackStatus.ilde = true ;
             RATE_LIMITED_COUT(mpv_idle, 1,std::cout << "[DEBUG] [INFO] [MPV] MPV is now idle."); 
             break;
         }
@@ -716,8 +621,6 @@ void MPVObserver::ProcessEvents() {
 //            m_state.WritePlayback([&](auto& m) {
 //                m.flags.isSeeking = true;
 //            });
-            // Cập nhật biến global cũ
-            //g_playbackStatus.isSeeking = true; 
             RATE_LIMITED_COUT(mpv_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
@@ -726,7 +629,6 @@ void MPVObserver::ProcessEvents() {
             // m_state.WritePlayback([&](auto& m) {
             //    m.flags.isSeeking = true;
             //});
-            //g_playbackStatus.isSeeking = false; 
             if(pendingSeekTime >= 0.0){
                 auto* commander = MPVManager::GetInstance().GetDefaultSession()->GetCommander();
                 if (commander && !(GetVideoType() == VideoType::Live)) commander->Seek(pendingSeekTime, g_playbackStatus.duration);
@@ -795,27 +697,6 @@ void MPVObserver::HandleStringProperty(const char* name, const char* value) {
     else if (strcmp(name, "audio-client-name") == 0) m_state.WriteAudio([&](auto& m) { m.device.audio_client_name = value; });
     else if (strcmp(name, "sub-codec") == 0) m_state.WriteSubtitle([&](auto& m) { m.sub_codec = value; });
     else if (strcmp(name, "sub-ass-override") == 0) m_state.WriteSubtitle([&](auto& m) { m.sub_ass_override = value; });
-    return;
-    // Cập nhật biến global cũ để tương thích ngược
-    if (strcmp(name, "loop") == 0)                          {g_playbackStatus.loopMode = value;                                    RATE_LIMITED_COUT(loop_mode, 1,std::cout << "[DEBUG] [INFO] [Playback] Loop Mode updated: " << g_playbackStatus.loopMode << "");}
-    else if (strcmp(name, "working-directory") == 0)        {g_playbackStatus.working_directory  = value;}
-    else if (strcmp(name, "filename") == 0)                 {g_playbackStatus.hasFile = true; g_playbackStatus.filename = value;   RATE_LIMITED_COUT(filename, 1,std::cout << "[DEBUG] [INFO] [Media] Filename updated: " << g_playbackStatus.filename << "");}
-    else if (strcmp(name, "stream-open-filename") == 0)     {g_playbackStatus.streamUrl = value;                                   RATE_LIMITED_COUT(stream_open_filename, 1,std::cout << "[DEBUG] [INFO] [Media] Stream Open Filename updated: " << g_playbackStatus.streamUrl << "");}
-    else if (strcmp(name, "media-title") == 0)              {g_playbackStatus.mediaTitle = value;                                  RATE_LIMITED_COUT(media_title, 1,std::cout << "[DEBUG] [INFO] [Media] Media Title updated: " << g_playbackStatus.mediaTitle << "");}
-    else if (strcmp(name, "file-format") == 0)              {g_playbackStatus.fileFormat = value;                                  RATE_LIMITED_COUT(file_format, 1,std::cout << "[DEBUG] [INFO] [Media] File Format updated: " << g_playbackStatus.fileFormat << "");}
-    else if (strcmp(name, "title") == 0)                    {g_playbackStatus.Title = value;                                       RATE_LIMITED_COUT(title, 1,std::cout << "[DEBUG] [INFO] [Media] Title updated: " << g_playbackStatus.Title << "");}
-    else if (strcmp(name, "sub-ass-override") == 0)         {g_playbackStatus.g_subinfo.sub_ass_override  = value;}
-    else if (strcmp(name, "audio-client-name") == 0)        {g_playbackStatus.audio_client_name = value;                           RATE_LIMITED_COUT(video_bitrate, 1,std::cout << "[DEBUG] [INFO] [Video] Audio Client Name updated: " << g_playbackStatus.audio_client_name << " ");}
-    else if (strcmp(name, "sub-codec") == 0)                {g_playbackStatus.g_subinfo.sub_codec  = value;                        RATE_LIMITED_COUT(sub_codec, 1,std::cout << "[DEBUG] [INFO] [Subtitles] Subtitle Codec updated: " << g_playbackStatus.g_subinfo.sub_codec << "");}
-    else if (strcmp(name, "audio-codec") == 0)              {g_videoInfo.acodec = value;                                           RATE_LIMITED_COUT(audio_codec, 1,std::cout << "[DEBUG] [INFO] [Audio] Audio Codec updated: " << g_videoInfo.acodec << "");}
-    else if (strcmp(name, "ao") == 0)                       {g_videoInfo.a_out = value;}
-    else if (strcmp(name, "audio-device") == 0)             {g_videoInfo.audio_device = value;                                     RATE_LIMITED_COUT(audio_device, 1,std::cout << "[DEBUG] [INFO] [Audio] Audio Device updated: " << g_videoInfo.audio_device << "");}
-    else if (strcmp(name, "af") == 0)                       {g_videoInfo.a_filter = value;}
-    else if (strcmp(name, "vo") == 0)                       {g_videoInfo.v_out = value;}
-    else if (strcmp(name, "hwdec-current") == 0 )           {g_videoInfo.hwdec = value;                                            RATE_LIMITED_COUT(hwdec_current, 1,std::cout << "[DEBUG] [INFO] [Video] HWDEC updated: " << g_videoInfo.hwdec << "");}
-    else if (strcmp(name, "video-codec") == 0)              {g_videoInfo.vcodec = value;                                           RATE_LIMITED_COUT(video_codec, 1,std::cout << "[DEBUG] [INFO] [Video] Video Codec updated: " << g_videoInfo.vcodec << "");}
-    else if (strcmp(name, "video-format") == 0)             {g_videoInfo.video_format = value;                                     RATE_LIMITED_COUT(video_format, 1,std::cout << "[DEBUG] [INFO] [Video] Video Format updated: " << g_videoInfo.video_format << "");}
-    else if (strcmp(name, "stream-path") == 0)              {g_playbackStatus.stream_path  = value;}
 }
 
 void MPVObserver::HandleFlagProperty(const char* name, bool value) {
@@ -829,17 +710,9 @@ void MPVObserver::HandleFlagProperty(const char* name, bool value) {
     else if (strcmp(name, "mute") == 0) m_state.WriteAudio([&](auto& m) { m.volume.isMuted = value; });
     else if (strcmp(name, "sub-visibility") == 0) m_state.WriteSubtitle([&](auto& m) { m.sub_Visible = value; });
     else if (strcmp(name, "demuxer-via-network") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_via_network = value; });
-    return;
-    // Cập nhật biến global cũ để tương thích ngược
-    if (strcmp(name, "pause") == 0)                          {g_playbackStatus.isPaused = value;                                   RATE_LIMITED_COUT(pause_state, 1,std::cout << "[DEBUG] [INFO] [Playback] Pause state updated: " << (g_playbackStatus.isPaused ? "Paused" : "Playing") << "");}
-    else if (strcmp(name, "core-idle") == 0)                 {g_playbackStatus.isCoreIdle = value;                                 RATE_LIMITED_COUT(core_idle, 1,std::cout << "[DEBUG] [INFO] [Playback] Core Idle state updated: " << (g_playbackStatus.isCoreIdle ? "Idle" : "Active") << "");}
-    else if (strcmp(name, "idle-active") == 0)               {g_playbackStatus.idle_active = value;}
-    else if (strcmp(name, "eof-reached") == 0)               {g_playbackStatus.eofReached = value;                                 RATE_LIMITED_COUT(eof_reached, 1,std::cout << "[DEBUG] [INFO] [Playback] EOF Reached state updated: " << (g_playbackStatus.eofReached ? "Yes" : "No") << "");}
-    else if (strcmp(name, "mute") == 0)                      {g_playbackStatus.isMuted = value;                                    RATE_LIMITED_COUT(mute_state, 1,std::cout << "[DEBUG] [INFO] [Audio] Mute state updated: " << (g_playbackStatus.isMuted ? "Muted" : "Unmuted") << "");}
-    else if (strcmp(name, "seekable") == 0)                  {g_playbackStatus.seekable = value;                                   RATE_LIMITED_COUT(seekable_state, 1,std::cout << "[DEBUG] [INFO] [Playback] Seekable state updated: " << (g_playbackStatus.seekable ? "Yes" : "No") << "");}
-    else if (strcmp(name, "seeking") == 0)                   {g_playbackStatus.seeking = value; g_playbackStatus.isSeeking = value; RATE_LIMITED_COUT(seeking, 1,std::cout << "[DEBUG] [INFO] [Playback] Seeking updated: " << g_playbackStatus.seeking << "");}
-    else if (strcmp(name, "sub-visibility") == 0)            {g_playbackStatus.g_subinfo.sub_Visible = value;                      RATE_LIMITED_COUT(sub_visibility, 1,std::cout << "[DEBUG] [INFO] [Subtitles] Subtitle Visibility updated: " << (g_playbackStatus.g_subinfo.sub_Visible ? "Visible" : "Hidden") << "");}
-    else if (strcmp(name, "demuxer-via-network") == 0)       {g_playbackStatus.demuxer_via_network = value;}
+    else if (strcmp(name, "vo-configured") == 0);
+    else if (strcmp(name, "display-sync-active") == 0);
+    else if (strcmp(name, "pause-for-cache") == 0);
 }
 
 void MPVObserver::HandleInt64Property(const char* name, int64_t value) {
@@ -858,31 +731,10 @@ void MPVObserver::HandleInt64Property(const char* name, int64_t value) {
     else if (strcmp(name, "playlist-count") == 0) m_state.WritePlaylist([&](auto& m) { m.g_playlist_count = (int)value; });
     else if (strcmp(name, "stream-pos") == 0) m_state.WriteNetwork([&](auto& m) { m.stream_pos = value; });
     else if (strcmp(name, "cache-buffering-state") == 0) m_state.WriteNetwork([&](auto& m) { m.cache_buffering_state = (int)value; });
-    return;
-    // Cập nhật biến global cũ để tương thích ngược
-    if (strcmp(name, "volume") == 0)                       {g_playbackStatus.volume = (int)value;                                 RATE_LIMITED_COUT(volume_level, 1,std::cout << "[DEBUG] [INFO] [Audio] Volume updated: " << g_playbackStatus.volume << "}");}
-    else if (strcmp(name, "playlist-pos") == 0)            {g_playbackStatus.g_PlayingIndex = (int)value;                           RATE_LIMITED_COUT(playlist_pos, 1,std::cout << "[DEBUG] [INFO] [Playlist] Current Playing Index updated: " << g_playbackStatus.g_PlayingIndex << "");}
-    else if (strcmp(name, "playlist-pos-1") == 0)          {g_playbackStatus.g_PlayingIndex_1 = (int)value;                         RATE_LIMITED_COUT(playlist_pos_1, 1,std::cout << "[DEBUG] [INFO] [Playlist] Current Playing Index -1 updated: " << g_playbackStatus.g_PlayingIndex_1 << "");}
-    else if (strcmp(name, "playlist-count") == 0) {
-        g_playbackStatus.g_playlist_count = (int)value;
-        if (g_playbackStatus.g_playlist_count >= 2 && playImmediately) {
-            playImmediately = false;
-            int newIndex = (int)g_playbackStatus.g_playlist.size() - 1;
-            auto* commander = MPVManager::GetInstance().GetDefaultSession()->GetCommander();
-            if (commander) commander->Exec("playlist-play-index " + std::to_string(newIndex));
-            RATE_LIMITED_COUT(playlist_play_index, 1,std::cout << "[DEBUG] [INFO] [Playlist] Auto-playing newly added item at index: " << newIndex << "");
-        }
-    }
-    else if (strcmp(name, "chapter") == 0)                   {g_videoInfo.g_current_chapter = (int)value;                           RATE_LIMITED_COUT(chapter_index, 1,std::cout << "[DEBUG] [INFO] [Chapters] Current Chapter Index updated: " << g_videoInfo.g_current_chapter << "");}
-    else if (strcmp(name, "audio-bitrate") == 0)             {g_videoInfo.abitrate = (int)value;                                    RATE_LIMITED_COUT(audio_bitrate, 1000,std::cout << "[DEBUG] [INFO] [Audio] Audio Bitrate updated: " << g_videoInfo.abitrate/1000 << " kbps");}
-    else if (strcmp(name, "audio-samplerate") == 0)          {g_videoInfo.asamplerate = (int)value;                                 RATE_LIMITED_COUT(audio_samplerate, 1,std::cout << "[DEBUG] [INFO] [Audio] Audio Sample Rate updated: " << g_videoInfo.asamplerate << " Hz");}
-    else if (strcmp(name, "audio-channels") == 0)            {g_videoInfo.achannels = (int)value;                                   RATE_LIMITED_COUT(audio_channels, 1,std::cout << "[DEBUG] [INFO] [Audio] Audio Channels updated: " << g_videoInfo.achannels << "");}
-    else if (strcmp(name, "video-bitrate") == 0)             {g_videoInfo.vbitrate = (int)value;                                    RATE_LIMITED_COUT(video_bitrate, 1000,std::cout << "[DEBUG] [INFO] [Video] Video Bitrate updated: " << g_videoInfo.vbitrate/1000 << " kbps");}
-    else if (strcmp(name, "video-rotate") == 0)            {g_videoInfo.rotate = (int)value;                                      RATE_LIMITED_COUT(video_rotation, 1,std::cout << "[DEBUG] [INFO] [Video] Video Rotation updated: " << g_videoInfo.rotate << "");}
-    else if (strcmp(name, "width") == 0)                     {g_videoInfo.width = (int)value;                                       RATE_LIMITED_COUT(width, 1,std::cout << "[DEBUG] [INFO] [Video] Video Width updated: " << g_videoInfo.width << "");}
-    else if (strcmp(name, "height") == 0)                    {g_videoInfo.height = (int)value;                                      RATE_LIMITED_COUT(height, 1,std::cout << "[DEBUG] [INFO] [Video] Video Height updated: " << g_videoInfo.height << "");}
-    else if (strcmp(name, "stream-pos") == 0)                {g_playbackStatus.stream_pos = (int)value;}
-    else if (strcmp(name, "cache-buffering-state") == 0 )    {g_playbackStatus.cache_buffering_state = (int)value;}
+    else if (strcmp(name, "frame-drop-count") == 0);
+    else if (strcmp(name, "decoder-frame-drop-count") == 0);
+    else if (strcmp(name, "packet-drop-count") == 0);
+    else if (strcmp(name, "file-size") == 0);
 }
 
 void MPVObserver::HandleDoubleProperty(const char* name, double value) {
@@ -902,23 +754,7 @@ void MPVObserver::HandleDoubleProperty(const char* name, double value) {
     else if (strcmp(name, "demuxer-cache-time") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_cache_time = value; });
     else if (strcmp(name, "demuxer-bitrate") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_bitrate = value; });
     else if (strcmp(name, "audio-buffer") == 0) m_state.WriteNetwork([&](auto& m) { m.audio_buffer = value; });
-    return;
-    // Cập nhật biến global cũ để tương thích ngược
-    if      (strcmp(name, "duration") == 0)                 {g_playbackStatus.duration = value;                                       RATE_LIMITED_COUT(duration, 1000,std::cout << "[DEBUG] [INFO] [Playback] Duration updated: " << g_playbackStatus.duration << " seconds");}
-    else if (strcmp(name, "percent-pos") == 0)              {g_playbackStatus.percent_pos = value;}
-    else if (strcmp(name, "time-pos") == 0)                 {g_playbackStatus.timePos = value; g_playbackStatus.hasTime = true;       RATE_LIMITED_COUT(time_pos, 1000,std::cout << "[DEBUG] [INFO] [Playback] Time Position updated: " << g_playbackStatus.timePos << " seconds");}
-    else if (strcmp(name, "playback-time") == 0)            {g_playbackStatus.playbackTime = value;                                   RATE_LIMITED_COUT(playback_time, 1000,std::cout << "[DEBUG] [INFO] [Playback] Playback Time updated: " << g_playbackStatus.playbackTime << " seconds");}
-    else if (strcmp(name, "speed") == 0)                    {g_playbackStatus.speed = value;                                          RATE_LIMITED_COUT(playback_speed, 1,std::cout << "[DEBUG] [INFO] [Playback] Speed updated: " << g_playbackStatus.speed << "x");}
-    else if (strcmp(name, "time-remaining") == 0)           {g_playbackStatus.time_remaining = value;                                 RATE_LIMITED_COUT(time_remaining, 1,std::cout << "[DEBUG] [INFO] [Playback] Time Remaining updated: " << g_playbackStatus.time_remaining << "");}
-    else if (strcmp(name, "sub-scale") == 0)                {g_playbackStatus.g_subinfo.sub_scale = value;}
-    else if (strcmp(name, "sub-delay") == 0)                {g_playbackStatus.g_subinfo.sub_Delay = value;                            RATE_LIMITED_COUT(sub_delay, 1,std::cout << "[DEBUG] [INFO] [Subtitles] Subtitle Delay updated: " << g_playbackStatus.g_subinfo.sub_Delay << " seconds");}
-    else if (strcmp(name, "audio-delay") == 0)              {g_videoInfo.audio_delay = value;                                         RATE_LIMITED_COUT(audio_delay, 1,std::cout << "[DEBUG] [INFO] [Audio] Audio Delay updated: " << g_videoInfo.audio_delay << " s");}
-    else if (strcmp(name, "video-aspect-override") == 0)    {g_videoInfo.aspect = value;                                              RATE_LIMITED_COUT(video_aspect_override, 1,std::cout << "[DEBUG] [INFO] [Video] Video Aspect Ratio updated: " << g_videoInfo.aspect << "");}
-    else if (strcmp(name, "estimated-vf-fps") == 0)         {g_videoInfo.estimated_vf_fps_mpv = value;                                RATE_LIMITED_COUT(estimated_vf_fps, 1,std::cout << "[DEBUG] [INFO] [Video] Estimated VF FPS updated: " << g_videoInfo.estimated_vf_fps_mpv << "");}
-    else if (strcmp(name, "audio-buffer") == 0)             {g_playbackStatus.audio_buffer = value;                                   RATE_LIMITED_COUT(audio_buffer, 1000,std::cout << "[DEBUG] [INFO] [Network] Audio Buffer updated: " << g_playbackStatus.audio_buffer << " seconds");}
-    else if (strcmp(name, "demuxer-cache-duration") == 0)   {g_playbackStatus.demuxer_cache_duration = value;                         RATE_LIMITED_COUT(demuxer_cache_duration, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Cache Duration updated: " << g_playbackStatus.demuxer_cache_duration << " seconds");}
-    else if (strcmp(name, "demuxer-cache-time") == 0)       {g_playbackStatus.demuxer_cache_time = value;                             RATE_LIMITED_COUT(demuxer_cache_time, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Cache Time updated: " << g_playbackStatus.demuxer_cache_time << " seconds");}
-    else if (strcmp(name, "demuxer-bitrate") == 0)          {g_playbackStatus.demuxer_bitrate = value;                                RATE_LIMITED_COUT(demuxer_bitrate, 1000,std::cout << "[DEBUG] [INFO] [Network] Demuxer Bitrate updated: " << g_playbackStatus.demuxer_bitrate << " kbps");}
+    else if (strcmp(name, "vsync-jitter") == 0);
 }
 
 void MPVObserver::HandleNodeProperty(const char* name, const mpv_node* node) {
@@ -946,4 +782,5 @@ void MPVObserver::HandleNodeProperty(const char* name, const mpv_node* node) {
     }
     else if (strcmp(name, "audio-device-list") == 0)          UpdateAudioDeviceList(node);
     else if (strcmp(name, "af-metadata/ebur_measurer") == 0)  UpdateLoudnessMetadata(node);
+    else if (strcmp(name, "demuxer-cache-state") == 0);
 }

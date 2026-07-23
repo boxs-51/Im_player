@@ -68,20 +68,12 @@ FontManager& FontManager::Instance() {
 
 // ----------------- Clear -----------------
 void FontManager::Clear() {
-    // Delete GPU textures
-    for (auto& a : m_atlases) {
-        if (a.texID) {
-            glDeleteTextures(1, &a.texID);
-            a.texID = 0;
-        }
-        if (a.atlas) {
-            a.atlas->ClearTexData();
-            a.atlas->ClearFonts();
-            delete a.atlas;
-            a.atlas = nullptr;
-        }
+    // Với hệ thống dynamic atlas mới, chúng ta không quản lý texture thủ công nữa.
+    // Chỉ cần Clear() atlas hiện tại trong ImGuiIO.
+    if (ImGui::GetCurrentContext() && ImGui::GetIO().Fonts) {
+        ImGui::GetIO().Fonts->Clear();
     }
-    m_atlases.clear();
+    //m_atlases.clear();
     m_fonts.clear();
     m_activeFont = nullptr;
     m_currentFontIndex = -1;
@@ -99,12 +91,11 @@ bool FontManager::LoadFontsSmartMultiAtlas(
     std::vector<std::string> dirs
 )
 {
-
-    std::vector<std::string> exts = { ".ttf", ".otf" }; // skip .ttc to avoid stb parse issues
-
-    ImGuiIO& io = ImGui::GetIO();
-    io.Fonts->Clear();
+    // Hàm này giờ sẽ nhận atlas từ bên ngoài, nhưng để giữ nguyên signature,
+    // chúng ta sẽ giả định atlas đã được cung cấp cho ImGuiIO.
+    auto shared_atlas = ImGui::GetIO().Fonts;
     Clear();
+    shared_atlas->Clear();
     #ifdef USE_FREETYPE
     FT_Library ft = nullptr;
     if (FT_Init_FreeType(&ft)) {
@@ -112,6 +103,8 @@ bool FontManager::LoadFontsSmartMultiAtlas(
         return false;
     }
     #endif
+
+    std::vector<std::string> exts = { ".ttf", ".otf" }; // skip .ttc to avoid stb parse issues
 
     // clamp desired texture width to GPU limit if possible (we don't set TexDesiredWidth on older ImGui)
     GLint maxTex = 0;
@@ -123,9 +116,9 @@ bool FontManager::LoadFontsSmartMultiAtlas(
     int defaultIndex = -1;
     std::set<std::pair<std::string, std::string>> loadedSet;
 
-    ImFontAtlas* currentAtlas = new ImFontAtlas();
+    //ImFontAtlas* currentAtlas = shared_atlas.get(); // Sử dụng atlas dùng chung
     // Note: some ImGui versions don't expose TexDesiredWidth; skip setting to maintain compatibility.
-    m_atlases.push_back({ currentAtlas, 0, false });
+    // m_atlases.push_back({ currentAtlas, 0, false }); // Không cần quản lý atlas riêng nữa
 
     // reserve to avoid frequent reallocations
     m_fonts.reserve(std::min(maxFonts, 4096));
@@ -229,14 +222,14 @@ bool FontManager::LoadFontsSmartMultiAtlas(
             // Attempt to read Fonts.Size safely (older ImFontAtlas internals may differ)
             // Use fallback of 0 if not accessible
             #if defined(IMGUI_VERSION_NUM)
-            // try to access Fonts.Size where available
-            currentCount = (int)currentAtlas->Fonts.Size;
+            currentCount = (int)shared_atlas->Fonts.Size;
             #endif
 
             if (currentCount >= maxFontsPerAtlas) {
-                currentAtlas = new ImFontAtlas();
+                // This logic is now invalid with a single shared atlas.
+                // We assume maxFontsPerAtlas is large enough.
                 // Note: don't set TexDesiredWidth to stay compatible with ImGui versions without it
-                m_atlases.push_back({ currentAtlas, 0, false });
+                // m_atlases.push_back({ currentAtlas, 0, false });
             }
 
             ImFontConfig cfg{}; // zero-init for safety
@@ -295,22 +288,23 @@ bool FontManager::LoadFontsSmartMultiAtlas(
                         (ImWchar)0xF000, 
                         (ImWchar)0xFAFF, 
                         0 };
-                    font = currentAtlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size - 2.0f, &cfg, icon_ranges);
+                    font = shared_atlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size - 2.0f, &cfg, icon_ranges);
                 } else if (IsEmojiFont(family, path)) {
                     cfg.MergeMode = true;
                     static const ImWchar emoji_ranges[] = { 
                         (ImWchar)0x1F300, 
                         (ImWchar)0x1F6FF, 
                         0 };
-                    font = currentAtlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size, &cfg, emoji_ranges);
+                    font = shared_atlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size, &cfg, emoji_ranges);
                 } else {
-                    static const ImWchar default_ranges[] = {
+                    static const ImWchar default_ranges[] = { // NOLINT(cert-err58-cpp)
                         0x0020, 0x00FF,
                         0x0100, 0x024F,
                         0x1EA0, 0x1EFF,
+                        0x2000, 0x206F, // General Punctuation
                         0
                     };
-                    font = currentAtlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size, &cfg, default_ranges);
+                    font = shared_atlas->AddFontFromMemoryTTF(memCopy, fontSizeInt, size, &cfg, default_ranges);
                 }
             } catch (...) {
                 font = nullptr;
@@ -329,8 +323,8 @@ bool FontManager::LoadFontsSmartMultiAtlas(
             fe.file = path;
             fe.family = family;
             fe.style = style;
-            fe.imFont = font;
-            fe.atlas = currentAtlas;
+            fe.imFont = font; // font is owned by the atlas
+            fe.atlas = shared_atlas;
             fe.baseScale = 1.0f;
             // We still keep original buf in FontEntry.rawData if needed, but memCopy is owned by ImGui
             fe.rawData = buf;
@@ -354,14 +348,15 @@ bool FontManager::LoadFontsSmartMultiAtlas(
     FT_Done_FreeType(ft);
     #endif
 
-    // upload (requires GL context!). Caller must ensure context is current.
+    // NOTE: Atlas building (uploading to GPU) is now a separate step.
+    // The caller (main function) is responsible for calling BuildAtlas() after this.
 
-    UploadAtlasTextures_OpenGL3();
     if (m_fonts.empty()) {
         RATE_LIMITED_COUT(font_manager_no_fonts_loaded_failed_MultiAtlas, 1,std::cout << "[DEBUG] [WARNING] [FontManager] No fonts loaded. Using ImGui default font as fallback.\n");
-        ImFont* def = io.Fonts->AddFontDefault();
-        UploadAtlasTextures_OpenGL3();
-        m_fonts.push_back({ "builtin", "Default", "Regular", def, io.Fonts, 1.0f });
+        ImGuiIO& io = ImGui::GetIO(); // Cần cho AddFontDefault
+        ImFont* def = shared_atlas->AddFontDefault();
+        // BuildAtlas() will be called outside.
+        m_fonts.push_back({ "builtin", "Default", "Regular", def, shared_atlas, 1.0f, nullptr });
         m_activeFont = def;
         m_currentFontIndex = 0;
         RATE_LIMITED_COUT(font_manager_loaded_builtin_font_failed_MultiAtlas, 1,std::cout << "[DEBUG] [INFO] [FontManager] Loaded ImGui built-in default font as fallback.\n");
@@ -378,84 +373,22 @@ bool FontManager::LoadFontsSmartMultiAtlas(
     }
 }
 
+bool FontManager::BuildAtlas() {
+    // Với dynamic atlas, việc build được thực hiện tự động bởi backend.
+    // Hàm này không cần thiết nữa nhưng vẫn giữ lại để tương thích API.
+    auto atlas = ImGui::GetIO().Fonts;
+    if (atlas && atlas->IsBuilt())
+        return true; // Đã được build bởi backend rồi.
+    return false; // Nếu chưa được build, có thể có vấn đề ở backend.
+}
+
 
 // ----------------- Upload atlas textures -----------------
-void FontManager::UploadAtlasTextures_OpenGL3() {
-    for (auto& a : m_atlases) {
-        if (!a.atlas) continue;
-
-        if (!a.atlas->IsBuilt()){
-#if defined(IMGUI_ENABLE_FREETYPE)
-            const ImFontLoader* ft_loader = ImGuiFreeType::GetFontLoader();
-            if (ft_loader) {
-                a.atlas->SetFontLoader(ft_loader);
-            }
-            // Build regardless (FreeType loader will be used if set)
-            a.atlas->Build();
-#else
-            a.atlas->Build(); // build internal font texture
-#endif
-        }
-
-        // Try RGBA32 first
-        unsigned char* pixelsRGBA = nullptr;
-        int width = 0, height = 0;
-        a.atlas->GetTexDataAsRGBA32(&pixelsRGBA, &width, &height);
-
-        if (pixelsRGBA && width > 0 && height > 0) {
-            // upload RGBA texture
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            GLuint tex = 0;
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0,
-                         GL_RGBA, GL_UNSIGNED_BYTE, pixelsRGBA);
-            a.texID = tex;
-            a.atlas->SetTexID((ImTextureID)(intptr_t)tex);
-            a.built = true;
-            a.atlas->ClearTexData();
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            std::cout << "Uploaded RGBA atlas: " << width << "x" << height << " TexID=" << tex << "\n";
-            continue;
-        }
-
-        // Fallback: try alpha8 (1 byte per pixel)
-        unsigned char* pixelsA = nullptr;
-        a.atlas->GetTexDataAsAlpha8(&pixelsA, &width, &height);
-        if (pixelsA && width > 0 && height > 0) {
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
-            GLuint tex = 0;
-            glGenTextures(1, &tex);
-            glBindTexture(GL_TEXTURE_2D, tex);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glPixelStorei(GL_UNPACK_ROW_LENGTH, 0);
-            // Upload single channel; GL_RED preferred on modern GL
-#if defined(GL_RED)
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_R8, width, height, 0,
-                         GL_RED, GL_UNSIGNED_BYTE, pixelsA);
-            // Ensure red channel is used as alpha for shader that expects alpha mask
-            GLint swizzleMask[] = {GL_ONE, GL_ONE, GL_ONE, GL_RED};
-            glTexParameteriv(GL_TEXTURE_2D, GL_TEXTURE_SWIZZLE_RGBA, swizzleMask);
-#else
-            // Older GL: use GL_ALPHA if available
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_ALPHA, width, height, 0,
-                         GL_ALPHA, GL_UNSIGNED_BYTE, pixelsA);
-#endif
-            a.texID = tex;
-            a.atlas->SetTexID((ImTextureID)(intptr_t)tex);
-            a.built = true;
-            a.atlas->ClearTexData();
-            glPixelStorei(GL_UNPACK_ALIGNMENT, 4);
-            std::cout << "Uploaded ALPHA atlas: " << width << "x" << height << " TexID=" << tex << "\n";
-            continue;
-        }
-
-        std::cerr << "Atlas has no texture data, skip\n";
-    }
+bool FontManager::UploadAtlasTextures_OpenGL3(ImFontAtlas* atlas) {
+    // Với dynamic atlas, việc upload texture được quản lý bởi backend.
+    // Hàm này không còn cần thiết.
+    IM_UNUSED(atlas);
+    return true;
 }
 // ----------------- accessors -----------------
 void FontManager::SetCurrentFont(int index) {
@@ -730,8 +663,8 @@ bool FontManager::LoadFontsSpecific(float size, const std::string& fontDir) {
     io.Fonts->FontLoaderFlags |= ImGuiFreeTypeBuilderFlags_LoadColor;
 #endif
 
-    io.Fonts->Clear();
-    this->Clear();
+    //io.Fonts->Clear();
+    //this->Clear();
 
     std::string pathMain  = fontDir + "/Notosans-Regular.ttf";
     std::string pathCJK   = fontDir + "/NotoSansCJK-Regular.ttc";
@@ -746,11 +679,10 @@ bool FontManager::LoadFontsSpecific(float size, const std::string& fontDir) {
 
     // --- BƯỚC 1: LOAD FONT CHÍNH ---
     if (!IsValidFontFile(pathMain)) {
-        std::cout << "[ERROR] Main font missing or invalid: " << pathMain << "\n";
+        std::cerr << "[ERROR] Main font missing or invalid: " << pathMain << "\n";
         // Nếu font chính lỗi, dùng font mặc định của ImGui để tránh crash
-        ImFont* defFont = io.Fonts->AddFontDefault();
-        m_activeFont = defFont;
-        return false;
+        io.Fonts->AddFontDefault();
+        // Don't return false, try to merge others
     }
 
     ImFont* mainFont = io.Fonts->AddFontFromFileTTF(pathMain.c_str(), size, &mainCfg, io.Fonts->GetGlyphRangesDefault());

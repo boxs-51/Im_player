@@ -16,7 +16,7 @@ bool MPVSession::Init(WindowRuntime* runtime) {
     }
 
     m_renderer = std::make_unique<MPVRender>();
-    if (!m_renderer->Init(*m_player, runtime->graphicsBackend.get())) {
+    if (!m_renderer->Init(*m_player, runtime->resource.graphicsBackend.get())) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo MPVRender", nullptr);
         return false;
     }
@@ -31,18 +31,17 @@ bool MPVSession::Init(WindowRuntime* runtime) {
 
     // Cấu hình trạng thái ban đầu cho luồng render
     m_renderThread->state.mpv = m_player->GetHandle(); // <-- THÊM DÒNG NÀY
-    m_renderThread->state.ownerWindowId = runtime->id;
-    m_renderThread->state.window = runtime->sdlWindow;
+    m_renderThread->state.ownerWindowId = runtime->info.id;
+    m_renderThread->state.window = runtime->resource.sdlWindow;
     m_renderThread->state.render_ctx = m_renderer->GetContext();
-    m_renderThread->state.graphicsBackend = runtime->graphicsBackend.get(); // Lưu con trỏ backend
+    m_renderThread->state.graphicsBackend = runtime->resource.graphicsBackend.get(); // Lưu con trỏ backend
 
     if (runtime->properties.Contains("Layout")) {
-        auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
-        m_renderThread->state.surface.drawW = (int)layout.VideoSize.x;
-        m_renderThread->state.surface.drawH = (int)layout.VideoSize.y;
+        auto layout = runtime->properties.GetValue<WindowLayout>("Layout");
+        m_renderThread->state.surface.drawW = (int)layout.ClientSize.x;
+        m_renderThread->state.surface.drawH = (int)layout.ClientSize.y;
     }
-
-    std::any subContext = runtime->graphicsBackend->CreateSubContext();
+    std::any subContext = runtime->resource.graphicsBackend->CreateSubContext(runtime->resource.sdlWindow);
     if (!subContext.has_value()) {
         SDL_Log("Lỗi: Không thể tạo Shared Context cho luồng phụ MPV!");
         m_renderThread.reset(); // Hủy luồng nếu không tạo được context

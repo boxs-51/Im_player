@@ -4,9 +4,10 @@
 #include <string>
 #include <memory>
 #include "WindowTemplate.h"
-#include "WindowRuntime.h"
-#include <SDL_syswm.h>
-#include <gl3w.h>
+#include "WindowManager.h" 
+#include "WindowInitializer.h" // Thêm Initializer
+
+
 /**
  * @brief 
  * 
@@ -23,7 +24,9 @@ public:
      * @param tpl 
      */
     void RegisterTemplate(const std::string& name, const WindowTemplate& tpl) {
-        templates[name] = tpl;
+        // Sử dụng insert_or_assign để tránh lỗi C2280 do toán tử gán của WindowTemplate bị xóa.
+        // Điều này xảy ra vì WindowTemplate chứa các std::function có thể bắt giữ các đối tượng không thể sao chép.
+        templates.insert_or_assign(name, tpl);
     }
 
     const WindowTemplate* GetTemplate(const std::string& name) const {
@@ -35,7 +38,7 @@ public:
 class WindowFactory {
 private:
     WindowTemplateRegistry* registry;
-    uint32_t nextId = 1;
+    uint32_t nextId = 0;
 
 public:
     /**
@@ -51,17 +54,18 @@ public:
      * @param templateName 
      * @return WindowRuntime* 
      */
-    WindowRuntime* Create(const std::string& templateName) {
+    WindowRuntime* Create(const std::string& templateName, WindowRuntime* parent = nullptr) {
         const auto* tpl = registry->GetTemplate(templateName);
         if (!tpl) return nullptr;
 
         auto* runtime = new WindowRuntime();
-        runtime->id = nextId++;
+        runtime->info.templateName = templateName; // Lưu lại template name
+        runtime->info.id = nextId++;
+        runtime->state = tpl->state;
         runtime->style = tpl->style;
-        runtime->properties = tpl->defaultProperties; 
-        if (tpl->graphicsBackendFactory){
-            runtime->graphicsBackend = tpl->graphicsBackendFactory();
-        }
+        // Sử dụng Merge thay vì toán tử gán để tránh lỗi C2280,
+        // vì PropertyBag chứa std::recursive_mutex không thể sao chép.
+        runtime->properties.Merge(tpl->defaultProperties);
         if (tpl->rendererFactory) {
             runtime->renderer = tpl->rendererFactory();
         }
@@ -69,68 +73,11 @@ public:
             runtime->windowloop = tpl->windowloopFactory();
         }
 
-        // Tạo cửa sổ vật lý thông qua SDL2
-        Uint32 flags = runtime->graphicsBackend->GetWindowFlags();
-        if (runtime->style.hiden)      flags |= SDL_WINDOW_HIDDEN;
-        else flags |= SDL_WINDOW_SHOWN;
-        if (runtime->style.fullscreen) flags |= SDL_WINDOW_FULLSCREEN;  
-        if (runtime->style.borderless) flags |= SDL_WINDOW_BORDERLESS;
-        if (runtime->style.resizable)  flags |= SDL_WINDOW_RESIZABLE;
-        if (runtime->style.minimized)  flags |= SDL_WINDOW_MINIMIZED;
-        if (runtime->style.allowhighdpi) flags |= SDL_WINDOW_ALLOW_HIGHDPI;
-        runtime->sdlWindow = SDL_CreateWindow(
-            tpl->name.c_str(),
-            SDL_WINDOWPOS_CENTERED, SDL_WINDOWPOS_CENTERED,
-            runtime->state.width, runtime->state.height, flags
-        );
-
-        if (!runtime->sdlWindow) {
-            SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
-            delete runtime;
-            return false;
-        }
-        if (!runtime->graphicsBackend->InitContext(runtime->sdlWindow)) {
-            SDL_DestroyWindow(runtime->sdlWindow);
+        WindowInitializer initializer;
+        if (!initializer.Initialize(runtime, tpl, parent)) {
+            // Initializer đã log lỗi, chỉ cần dọn dẹp runtime
             delete runtime;
             return nullptr;
-        }
-
-        runtime->imguiCtx = ImGui::CreateContext();
-        ImGui::SetCurrentContext(runtime->imguiCtx);
-
-        if(!runtime->graphicsBackend->InitImGuiBackend(runtime->sdlWindow)){
-            SDL_DestroyWindow(runtime->sdlWindow);
-            delete runtime;
-            return nullptr;
-        };
-        
-        // Trích xuất HWND WinAPI và thực hiện Hook WndProc đa luồng / đa cửa sổ[cite: 4]
-        SDL_SysWMinfo wmInfo;
-        SDL_VERSION(&wmInfo.version);
-        SDL_GetWindowWMInfo(runtime->sdlWindow, &wmInfo);
-        runtime->hwnd = wmInfo.info.win.window;
-
-        // Lưu con trỏ runtime vào HWND của WinAPI[cite: 4]
-        SetPropW(runtime->hwnd, L"WINDOW_RUNTIME_PTR", (HANDLE)runtime);
-
-        // Thực hiện gài đè WndProc[cite: 4]
-        extern LRESULT CALLBACK MultiWindowWndProc(HWND, UINT, WPARAM, LPARAM);
-        WNDPROC oldProc = (WNDPROC)SetWindowLongPtrW(runtime->hwnd, GWLP_WNDPROC, (LONG_PTR)MultiWindowWndProc);
-        runtime->properties.Set<WNDPROC>("OldWndProc", oldProc);
-
-        // Áp dụng các Style nâng cao của WinAPI
-        LONG winStyle = GetWindowLong(runtime->hwnd, GWL_STYLE);
-        winStyle |= (  WS_MINIMIZEBOX  |
-                        WS_THICKFRAME |
-                        WS_CAPTION 
-                    );
-        if (runtime->style.snapEnabled) winStyle |= WS_MAXIMIZEBOX;
-        runtime->style.Style = winStyle;
-        SetWindowLong(runtime->hwnd, GWL_STYLE, winStyle);
-        SetWindowPos(runtime->hwnd, nullptr, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-
-        if (runtime->renderer) {
-            runtime->renderer->Initialize(runtime);
         }
 
         return runtime;

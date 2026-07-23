@@ -27,7 +27,7 @@ public:
     std::atomic<bool> g_WindowVisible{ true };
     std::atomic<bool> Audio_visualizers{ false };
 
-    std::atomic<int> framerender{ 0 };
+    std::atomic<float> framerender{ 0 };
 
     std::mutex mtx;
     std::condition_variable cv;

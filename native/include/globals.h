@@ -17,6 +17,7 @@ struct UiWindowsState {
 };
 
 
+extern int main_loop_rate;
 extern UiWindowsState uiState;
 
 extern std::vector<std::string> g_keywords;

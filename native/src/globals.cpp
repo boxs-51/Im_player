@@ -2,6 +2,7 @@
 // globals.cpp
 #include "globals.h"
 
+int main_loop_rate;
 UiWindowsState uiState;
 
 std::vector<std::string> g_keywords;

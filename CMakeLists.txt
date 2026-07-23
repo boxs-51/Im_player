@@ -58,10 +58,17 @@ add_executable(Im_player WIN32
     #
     native/src/mpv/session/MPVSession.cpp
     native/src/mpv/session/MPVManager.cpp
+
+    native/src/windows/main/MainWindowRenderer.cpp
+    native/src/windows/sub/MockSubWindowRenderer.cpp
+
     native/src/windows/WindowController.cpp
     native/src/windows/WindowProcHook.cpp
-    native/src/windows/main/MainWindowRenderer.cpp
-    native/src/windows/UpdateWindowState.cpp
+    native/src/windows/UIRenderThread.cpp
+    native/src/windows/WindowSharedGroup.cpp
+    native/src/windows/WindowInitializer.cpp
+    native/src/windows/WindowRelation.cpp
+    native/src/windows/NativeWindowRegistrar.cpp
     #
     native/src/gui/gui.cpp
     native/src/gui/gui_widgets.cpp
@@ -134,9 +141,11 @@ target_include_directories(Im_player PRIVATE
 
     native/src/windows
     native/src/windows/main
+    native/src/windows/sub
     native/src/popup
     native/src/threads
     native/src/backends
+    native/src/common
 
     native/imgui/misc/freetype
     native/imgui/backends

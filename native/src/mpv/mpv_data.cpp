@@ -51,7 +51,7 @@ MPVPlaybackStatus& GetMPVPlaybackStatus(){
             g_playbackStatus.isCoreIdle = m.flags.isCoreIdle;
             g_playbackStatus.ilde = m.flags.isIdleActive; // Cập nhật cả trường ilde cũ
             g_playbackStatus.idle_active = m.flags.isIdleActive;
-            g_playbackStatus.hasFile = m.flags.hasFile;
+            g_playbackStatus.hasFile = !m.flags.isIdleActive;
             g_playbackStatus.seekable = m.flags.seekable;
             g_playbackStatus.hasTime = m.timing.timePos > 0.0;
             g_playbackStatus.timePos = m.timing.timePos;

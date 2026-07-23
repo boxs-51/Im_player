@@ -2,51 +2,92 @@
 #pragma once
 #include <windows.h>
 #include <string>
+#include <functional>
+#include <memory>
+#include "backends/IGraphicsBackend.h"
 
-enum class ResizeEdge1 {
+enum class ResizeEdge {
     NONE, LEFT, RIGHT, TOP, BOTTOM,
     TOPLEFT, TOPRIGHT, BOTTOMLEFT, BOTTOMRIGHT
 };
 
-struct WindowState {
+struct WindowGeometryState {
     int x = CW_USEDEFAULT;
     int y = CW_USEDEFAULT;
     int width = 1280;
     int height = 720;
-    
-    int minWidth = 720;
-    int minHeight = 360;
+
+    int minWidth = 0;
+    int minHeight = 0;
     int maxWidth = 0;
     int maxHeight = 0;
-    
+
     int restoreW = 0;
     int restoreH = 0;
     RECT fullscreenRestoreRect = {};
     WINDOWPLACEMENT placement = { sizeof(WINDOWPLACEMENT) };
 
-    bool isFullscreen = false;
-    bool isMaximized = false;
-    bool isMinimized = false;
+    HMONITOR currentMonitor = nullptr;
+};
+
+struct WindowInputState {
     bool hasFocus = false;
     bool isActive = true;
-    bool isVisible = true;
-    bool isShown = true;
-    
-    UINT dpiX = 96;
-    UINT dpiY = 96;
-    
-    ResizeEdge1 resizeEdge = ResizeEdge1::NONE;
+    bool inputEnabled = true;
+
+    ResizeEdge resizeEdge = ResizeEdge::NONE;
     LRESULT lastHit = 0;
-    
-    // Trạng thái chuột trên các nút custom titlebar
+    std::string hittestname;
+
     bool mouseDownMin = false;
     bool mouseDownMax = false;
     bool mouseDownClose = false;
     bool mouseDownRestore = false;
 
+    bool mouseCaptured = false;
+
+    bool moving = false;
+    bool resizing = false;
+    bool dragging = false;
+
+    HCURSOR currentCursor = nullptr;
+};
+
+struct WindowDisplayState {
+    bool isFullscreen = false;
+    bool isMaximized = false;
+    bool isMinimized = false;
+    bool isVisible = true;
+    bool isShown = true;
+
+    UINT dpiX = 96;
+    UINT dpiY = 96;
+    float dpiScale = 1.0f;
+
+    bool mouseHoverMin = false;
+    bool mouseHoverMax = false;
+    bool mouseHoverClose = false;
+    bool mouseHoverRestore = false;
+};
+
+struct WindowRuntimeState {
+    bool modal = false;
+    bool created = false;
+    bool destroyed = false;
+    bool rendererReady = false;
+    bool swapchainReady = false;
+    bool surfaceLost = false;
+    bool eventLoopAttached = false;
+    bool renderingEnabled = true;
     bool is_dirty = false;
     bool isClosedPending = false;
-    std::string hittestname;
+};
+
+struct WindowState {
+    WindowGeometryState geometry;
+    WindowInputState input;
+    WindowDisplayState display;
+    WindowRuntimeState runtime;
 };
 
 struct WindowStyle {
@@ -58,10 +99,7 @@ struct WindowStyle {
     bool transparent = false;
     bool snapEnabled = true;
     bool trayIconEnabled = false;
-    bool hiden = false;
-    bool fullscreen = false;
     bool allowhighdpi = false;
-    bool minimized = false;
 
     int titleHeight = 28;
     int btnSize = 30;
@@ -70,5 +108,6 @@ struct WindowStyle {
     bool isMainWindow = false;
 
     LONG Style = WS_OVERLAPPEDWINDOW;
-    DWORD customStyleFlags = 0; 
+    DWORD customStyleFlags = 0;
+
 };

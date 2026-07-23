@@ -90,7 +90,6 @@ struct MpvFlagsModel {
     bool eofReached = false;
     bool isCoreIdle = true;
     bool isIdleActive = true; 
-    bool hasFile = false;
     bool seekable = false;
 };
 

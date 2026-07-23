@@ -17,7 +17,11 @@
 #include <iostream>
 #include <mutex>
 #include <shellapi.h>
+
+#include "WindowResource.h"
 #include "windows/WindowManager.h"
+#include "MPVSession.h"
+
 #include "globals.h"
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
@@ -810,8 +814,8 @@ void RenderListVideoMPV()
 {
     mpv_handle* mpv;
     auto* runtime = WindowManager::GetInstance().GetMainWindow();
-    if (runtime->mpvSession && runtime->mpvSession->GetPlayer()) 
-        mpv = runtime->mpvSession->GetPlayer()->GetHandle();
+    if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetPlayer()) 
+        mpv = runtime->resource.mpvSession->GetPlayer()->GetHandle();
     MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());

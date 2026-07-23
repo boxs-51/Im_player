@@ -10,6 +10,31 @@
 #include <log.h>
 #include <SDL.h>
 
+#include "WindowManager.h"
+
+void OpenMockSubWindow() {
+    auto& winManager = WindowManager::GetInstance();
+    const std::string templateName = "MockSubWindow";
+
+    // 1. Tìm xem có cửa sổ nào cùng loại đã bị ẩn không
+    WindowRuntime* Win = winManager.FindHiddenWindowByTemplate(templateName);
+
+    if (Win) {
+        // 2. Nếu có, chỉ cần hiện nó lên
+        if(Win->state.display.isShown)
+            winManager.HideWindow(Win->info.id);
+        else
+            winManager.ShowWindow(Win->info.id);
+    } else {
+        // 3. Nếu không, tạo mới như bình thường
+        // Lấy cửa sổ chính làm cha
+        WindowRuntime* mainWin = winManager.GetMainWindow();
+        if (mainWin) {
+            winManager.QueueCreateWindow(templateName, mainWin);
+        }
+    }
+}
+
 // --- Playback Hotkeys --- //
 bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     if (e->type != SDL_KEYDOWN)
@@ -22,8 +47,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
     MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
     VideoInfo& g_videoinfo = GetVideoInfo();
     auto& config = ConfigManager::Instance();
-    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return false;
-    auto* commander = runtime->mpvSession->GetCommander();
+    if (!runtime || !runtime->resource.mpvSession || !runtime->resource.mpvSession->GetCommander()) return false;
+    auto* commander = runtime->resource.mpvSession->GetCommander();
     bool isPlayable = (state == PlaybackState::Playing || state == PlaybackState::Paused) && state != PlaybackState::Loading;
 
     // --- ƯU TIÊN HOTKEY CÓ CTRL --- //
@@ -191,6 +216,12 @@ bool HandlePopupHotkeys(const SDL_Event* e) {
                 if (TestPopup.IsOpen()) {TestPopup.Close();
                 } else {OpenTestPopup(TestPopup);}    
                 return true; 
+            }
+            case SDLK_p: // Hotkey mới: Ctrl + P
+            {
+                // Gọi hàm logic để mở cửa sổ phụ
+                OpenMockSubWindow();
+                return true;
             }
             default:
                 break;

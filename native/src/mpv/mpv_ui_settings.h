@@ -20,7 +20,7 @@ int  PlayVideo(WindowRuntime* runtime, const std::string& Url, const std::string
 
 bool RenderToggleCombo(const char* label, bool& state);
 // ==== UI SIDEBAR ====
-void RenderIOCHSidebar(WindowRuntime* runtime ,ImVec2 videoPos ,ImVec2 videoSize, bool open, bool& show_ui_video ,ImVec2 iconPos);  // Giao diện chọn độ phân giải
+void RenderIOCHSidebar(WindowRuntime* runtime ,ImVec2 videoPos ,ImVec2 videoSize, bool open, ImVec2 iconPos);  // Giao diện chọn độ phân giải
 
 void StartResolutionFetchInBackground(const std::string& Url);
 

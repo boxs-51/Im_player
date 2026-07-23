@@ -16,6 +16,7 @@
 #include <string>
 #include <thread>
 
+#include "common/Exception.h"
 #define PIPE_NAME "\\\\.\\pipe\\MyUniqueAppPipe"
 using namespace WinToastLib;
 
@@ -146,6 +147,7 @@ void OnArgumentsReceived(const std::string& args) {
 // Thread lắng nghe Pipe
 void PipeServerThread() {
     while (true) {
+        try {
         HANDLE hPipe = CreateNamedPipeA(PIPE_NAME, PIPE_ACCESS_INBOUND, 
             PIPE_TYPE_MESSAGE | PIPE_READMODE_MESSAGE | PIPE_WAIT,
             1, 0, 8192, 0, NULL);
@@ -161,6 +163,11 @@ void PipeServerThread() {
             }
             DisconnectNamedPipe(hPipe);
             CloseHandle(hPipe);
+        }
+        } catch (const std::exception& e) {
+            SDL_Log("Exception in PipeServerThread: %s", e.what());
+        } catch (...) {
+            SDL_Log("Unknown exception in PipeServerThread.");
         }
     }
 }

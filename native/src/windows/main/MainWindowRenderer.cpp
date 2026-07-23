@@ -7,6 +7,9 @@
 #include <popup/popup.h>
 #include <mpv/session/MPVSession.h>
 
+#include "WindowUtils.h"
+
+
 #include <mpv/mpv_ui.h>
 #include <mpv/mpv_ui_settings.h>
 #include <mpv/render_gl.h>
@@ -14,22 +17,16 @@
 
 void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
     IMGUI_CHECKVERSION();
-    
-    // Khởi tạo ImGui Context riêng cho cửa sổ này và lưu vào PropertyBag
-    //ImGuiContext* imguiCtx = ImGui::CreateContext();
-    ImGui::SetCurrentContext(runtime->imguiCtx);
-    //runtime->properties.Set<ImGuiContext*>("ImGuiCtx", imguiCtx);
+    ImGui::SetCurrentContext(runtime->resource.imguiCtx);
 
     ImGuiIO& io = ImGui::GetIO();
     io.ConfigFlags |= ImGuiConfigFlags_NoMouseCursorChange;
-    io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
-
+    // TẮT tính năng multi-viewport của ImGui để tránh xung đột với WindowManager.
+    // Hệ thống của chúng ta đã tự quản lý các cửa sổ OS riêng.
+    // io.ConfigFlags |= ImGuiConfigFlags_ViewportsEnable;
+    
+    // Logic tải font đã được chuyển ra hàm main()
     CSImGui::InitThemeLibrary(ConfigManager::Instance().GetCommonSettings().themetype);
-
-    FontManager::Instance().LoadFontsSpecific(
-        ConfigManager::Instance().GetCommonSettings().fontsize, 
-        AutoPath<std::string>("%ROOT%", "config", "fonts")
-    );
     ImGui::StyleColorsDark();
     lastInteractionTime = SDL_GetTicks64();
 }
@@ -39,36 +36,53 @@ void MainWindowRenderer::UpdateUIState(WindowRuntime* runtime) {
     ImGuiIO& io = ImGui::GetIO();
     Uint64 currentTime = SDL_GetTicks64();
     
-    auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
-    
-    bool isMouseInsideVideo = (io.MousePos.x >= layout.videoArea.x && 
-                               io.MousePos.x <= (layout.videoArea.x + layout.videoArea.w) &&
-                               io.MousePos.y >= layout.videoArea.y && 
-                               io.MousePos.y <= (layout.videoArea.y + layout.videoArea.h));
+    const auto* layout = runtime->properties.GetPtr<WindowLayout>("Layout");
+    if (!layout) return;
+    bool isMouseInsideVideo = (io.MousePos.x >= layout->ClientArea.x && 
+                               io.MousePos.x <= (layout->ClientArea.x + layout->ClientArea.w) &&
+                               io.MousePos.y >= layout->ClientArea.y && 
+                               io.MousePos.y <= (layout->ClientArea.y + layout->ClientArea.h));
     
     bool isInteractingWithUI = io.WantCaptureMouse && (ImGui::IsAnyItemActive() || ImGui::IsAnyItemHovered());
     bool isMouseMoving = ((io.MouseDelta.x != 0.0f || io.MouseDelta.y != 0.0f) && io.WantCaptureMouse);
+    bool isACtionMouse = io.MouseDown[0];
 
     Uint32 currentTimeout = 300; 
     if (isInteractingWithUI)    currentTimeout = 5000; 
     else if (isMouseInsideVideo) currentTimeout = 1500; 
-    show_ui_video = runtime->properties.Get<bool>("ShowUiVideo", true);
-    if (isMouseMoving && isMouseInsideVideo) {
+    bool show_ui_video = runtime->properties.GetValue<bool>("ShowUiVideo", true);
+    if ((isMouseMoving || isACtionMouse) && isMouseInsideVideo) {
         lastInteractionTime = currentTime;
         if (!show_ui_video) {
             show_ui_video = true;
-            SDL_ShowCursor(SDL_ENABLE);
+            SDL_Event ev;
+            ev.type = SDL_CURSOR_EVENT;
+            ev.user.code = SDL_ENABLE;
+            SDLUtils::SDLX_PushUniqueEvent(ev);
+            //SDL_ShowCursor(SDL_ENABLE);
         }
     }
 
     if (IsAnyPopupOpen()) {
-        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) SDL_ShowCursor(SDL_ENABLE);
+        if (SDL_ShowCursor(SDL_QUERY) == SDL_DISABLE) {
+            SDL_Event ev;
+            ev.type = SDL_CURSOR_EVENT;
+            ev.user.code = SDL_DISABLE;
+            SDLUtils::SDLX_PushUniqueEvent(ev);
+            //SDL_ShowCursor(SDL_ENABLE);
+        }
     }
 
     if (show_ui_video && (currentTime - lastInteractionTime > currentTimeout)) {
         if (!ImGui::IsAnyItemActive()) {
             show_ui_video = false;
-            if (!IsAnyPopupOpen()) SDL_ShowCursor(SDL_DISABLE);
+            if (!IsAnyPopupOpen()) {
+                SDL_Event ev;
+                ev.type = SDL_CURSOR_EVENT;
+                ev.user.code = SDL_DISABLE;
+                SDLUtils::SDLX_PushUniqueEvent(ev);
+                //SDL_ShowCursor(SDL_DISABLE);
+            }
         }
     }
     
@@ -97,18 +111,22 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     
     #ifdef CUSTOM_TITLEBAR
 
-    if (!runtime->sdlWindow || runtime->state.isFullscreen) return;
+    if (!runtime->resource.sdlWindow || runtime->state.display.isFullscreen) return;
 
     ImVec2 titlePos = (_winPos);
     ImVec2 titleSize = (_winSize);
     float dt = ImGui::GetIO().DeltaTime;
     ImGui::SetNextWindowPos(titlePos);
-    ImGui::BeginChild("##TitleBar",titleSize);
+
+    std::string title_bar = "##TitleBar_" + runtime->info.templateName + "_" +std::to_string(runtime->info.id);
+    ImGui::BeginChild(title_bar.c_str(), titleSize);
 
     ImDrawList* dl = ImGui::GetWindowDrawList();
 
     ImGui::SetCursorScreenPos(titlePos);
-    ImGui::InvisibleButton("TitleBarRegion", titleSize);
+
+    std::string title_bar_region = "##TitleBarRegion_" + runtime->info.templateName + "_" + std::to_string(runtime->info.id);
+    ImGui::InvisibleButton(title_bar_region.c_str(), titleSize);
     //bool hoveredTitle = ImGui::IsItemHovered();
     //ImU32 btnBgColor = hoveredTitle ? IM_COL32(60,60,60,255) : IM_COL32(35,35,35,255);
     ImU32 btnBgColor = IM_COL32(35,35,35,255);
@@ -128,11 +146,12 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     ImGui::SetCursorScreenPos(closePos);
 
     // Kiểm tra trạng thái hover / click
-    bool clickedClose = ImGui::InvisibleButton("CloseBtn", btnSize);
+    std::string close_btn = "##CloseBtn_" + runtime->info.templateName + "_" + std::to_string(runtime->info.id);
+    bool clickedClose = ImGui::InvisibleButton(close_btn.c_str(), btnSize);
     bool hoveredClose = ImGui::IsItemHovered();
-    bool activeClose = (ImGui::IsItemHovered() && (runtime->state.mouseDownClose));
+    bool activeClose = (ImGui::IsItemHovered() && (runtime->state.input.mouseDownClose));
     CSImGui::ToolTip("Close", 2.0f, ToolTipFlags_Animation);
-    if(clickedClose || hoveredClose || activeClose) runtime->state.is_dirty = true;
+    if(clickedClose || hoveredClose || activeClose) runtime->state.runtime.is_dirty = true;
     // Điều chỉnh màu dựa vào trạng thái
     static ImVec4 closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 target_close = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
@@ -189,13 +208,14 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     ImVec2 maxPos(closePos.x - btnSize.x , titlePos.y );
     ImGui::SetCursorScreenPos(maxPos);
 
-    bool clickedMax =ImGui::InvisibleButton("MaxRestoreBtn", btnSize);
+    std::string max_restore_btn = "##MaxRestoreBtn_" + runtime->info.templateName + "_" + std::to_string(runtime->info.id);
+    bool clickedMax =ImGui::InvisibleButton(max_restore_btn.c_str(), btnSize);
     bool hoveredMax = ImGui::IsItemHovered();
-    bool activeMax  = (ImGui::IsItemHovered() && (runtime->state.mouseDownMax || runtime->state.mouseDownRestore));
+    bool activeMax  = (ImGui::IsItemHovered() && (runtime->state.input.mouseDownMax || runtime->state.input.mouseDownRestore));
 
-    CSImGui::ToolTip(runtime->state.isMaximized ? "Restore" : "Maximize", 2.0f, ToolTipFlags_Animation);
+    CSImGui::ToolTip(runtime->state.display.isMaximized ? "Restore" : "Maximize", 2.0f, ToolTipFlags_Animation);
 
-    if(clickedMax || hoveredMax || activeMax) runtime->state.is_dirty = true;
+    if(clickedMax || hoveredMax || activeMax) runtime->state.runtime.is_dirty = true;
 
     static ImVec4 maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 targetMax = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
@@ -211,7 +231,7 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
         float iconRounding = 1.0f;   // bán kính bo góc
         float iconScaleY  = 0.8f;    // tỉ lệ chiều cao
         float iconScaleX  = 0.8f;    // tỉ lệ chiều rộng
-        if (!runtime->state.isMaximized) {
+        if (!runtime->state.display.isMaximized) {
             float iconScaleY  = 1.0f;    // tỉ lệ chiều cao
             ImVec2 iconPos = ImVec2(maxPos.x + iconPad, maxPos.y + iconPad);
             ImVec2 iconSize = ImVec2(
@@ -235,10 +255,11 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     ImVec2 minPos(maxPos.x - btnSize.x , titlePos.y );
     ImGui::SetCursorScreenPos(minPos);
     
-    bool clickedMin = ImGui::InvisibleButton("MinBtn", btnSize);
+    std::string min_btn = "##MinBtn_" + runtime->info.templateName + "_" + std::to_string(runtime->info.id);
+    bool clickedMin = ImGui::InvisibleButton(min_btn.c_str(), btnSize);
     bool hoveredMin = ImGui::IsItemHovered();
-    bool activeMin  = (ImGui::IsItemHovered() && runtime->state.mouseDownMin);
-    if(clickedMin || hoveredMin || activeMin) runtime->state.is_dirty = true;
+    bool activeMin  = (ImGui::IsItemHovered() && runtime->state.input.mouseDownMin);
+    if(clickedMin || hoveredMin || activeMin) runtime->state.runtime.is_dirty = true;
 
     CSImGui::ToolTip("Minimize", 2.0f, ToolTipFlags_Animation);
 
@@ -259,11 +280,13 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     #endif
 }
 void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
-    auto layout = runtime->properties.Get<MainWindowLayout>("Layout");
+    const auto* layout = runtime->properties.GetPtr<WindowLayout>("Layout");
+    if(!layout) return;
     PlaybackState state = GetPlaybackState();
 
-    ImGui::SetNextWindowPos(ImVec2(layout.WinX, layout.WinY));
-    ImGui::SetNextWindowSize(ImVec2(layout.WinW, layout.WinH));
+
+    ImGui::SetNextWindowPos(ImVec2(layout->WinX, layout->WinY));
+    ImGui::SetNextWindowSize(ImVec2(layout->WinW, layout->WinH));
     ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
     
     ImGui::Begin("WindowMain", nullptr,
@@ -276,46 +299,45 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     UpdateUIState(runtime);
     
     // Gọi hàm render thanh tiêu đề không viền tùy biến
-    extern void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec2 _winPos, ImVec2 _winSize);
-    RenderTitleBarWindowObject(runtime, "Media Video Control", layout.TitlePos, layout.TitleSize);
+    RenderTitleBarWindowObject(runtime, "Media Video Control", layout->TitlePos, layout->TitleSize);
 
+    ImGui::SetNextWindowPos(layout->ClientPos);
+    ImGui::BeginChild("##VideoRegion", layout->ClientSize);
+    
     ShowSubWindows();
 
-    ImGui::SetNextWindowPos(layout.VideoPos);
-    ImGui::BeginChild("##VideoRegion", layout.VideoSize);
-    
     if (state == PlaybackState::Idle) {
-        RenderIdleBackground(AutoPath<std::string>("%ROOT%", "config", "icons", "idle.jpg"), layout.VideoPos, layout.VideoSize);
+        RenderIdleBackground(AutoPath<std::string>("%ROOT%", "config", "icons", "idle.jpg"), layout->ClientPos, layout->ClientSize);
     }
 
-    bool flagRenderVideo = runtime->properties.Get<bool>("RenderVideoFlag", false);
+    bool flagRenderVideo = runtime->properties.GetValue<bool>("RenderVideoFlag", true);
     if (flagRenderVideo || state == PlaybackState::Paused || state == PlaybackState::Seeking ||
         state == PlaybackState::Playing || state == PlaybackState::EndOfFile) {
-        if (runtime->mpvSession && runtime->mpvSession->GetRenderer())
-            runtime->mpvSession->GetRenderer()->Render(layout.VideoSize, runtime->graphicsBackend.get());
-        RenderGhostStatusOverlay(layout.VideoPos, layout.VideoSize, (state == PlaybackState::Paused));
+        if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetRenderer() && runtime->resource.graphicsBackend.get())
+            runtime->resource.mpvSession->GetRenderer()->Render(layout->ClientSize, runtime->resource.graphicsBackend.get());
+        RenderGhostStatusOverlay(layout->ClientPos, layout->ClientSize, (state == PlaybackState::Paused));
         runtime->properties.Set<bool>("RenderVideoFlag", false);
     }
 
     if (state == PlaybackState::Playing || state == PlaybackState::Paused || 
         state == PlaybackState::Seeking || state == PlaybackState::EndOfFile) {
         
-        //RenderPlayerControls(mpv.mpv, layout.VideoPos, layout.VideoSize,
-        if (runtime->mpvSession)
-            RenderPlayerControls(runtime, layout.VideoPos, layout.VideoSize, runtime->state.isFullscreen, show_ui_video);
+        //RenderPlayerControls(mpv.mpv, layout->ClientPos, layout->ClientSize,
+        if (runtime->resource.mpvSession)
+            RenderPlayerControls(runtime, layout->ClientPos, layout->ClientSize);
 
-        RenderSeekingOverlay(layout.VideoPos, layout.VideoSize);
+        RenderSeekingOverlay(layout->ClientPos, layout->ClientSize);
     }
     
     if (state == PlaybackState::Loading) { 
-        RenderLoading(layout.VideoPos, layout.VideoSize);
+        RenderLoading(layout->ClientPos, layout->ClientSize);
     }
     
     ImGui::EndChild();
     ImGui::End();
 
     if (IsAnyPopupOpen()) {
-        if (runtime->state.isFullscreen || runtime->state.isMaximized) {
+        if (runtime->state.display.isFullscreen || runtime->state.display.isMaximized) {
             ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
         }
         RenderAllPopups();

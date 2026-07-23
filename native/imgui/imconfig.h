@@ -143,3 +143,8 @@ namespace ImGui
     void MyFunction(const char* name, MyMatrix44* mtx);
 }
 */
+
+// Bật tính năng thread-local storage cho context của ImGui
+#define GImGui MyImGuiTLS
+struct ImGuiContext;
+extern thread_local ImGuiContext* MyImGuiTLS;

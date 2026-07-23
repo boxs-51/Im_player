@@ -1,5 +1,6 @@
 local utils = require 'mp.utils'
 local opt = require 'mp.options'
+local msg = require 'mp.msg' -- Dùng mp.msg để log ra console của mpv
 
 -- ================= CONFIG =================
 local options = {
@@ -16,13 +17,14 @@ local is_windows = package.config:sub(1,1) == "\\"
 local sep = package.config:sub(1,1)
 
 local function join(a,b)
+    if not a or not b then return "" end
     if a:sub(-1) == sep then return a..b end
     return a..sep..b
 end
 
-local exe_path = mp.get_property("mpv-executable-path")
-local exe_dir = exe_path:match("^(.*)[\\/]")
-local script_dir = mp.get_script_directory()
+local exe_path = mp.get_property("mpv-executable-path") or ""
+local exe_dir = exe_path:match("^(.*)[\\/]") or mp.get_script_directory()
+local script_dir = mp.get_script_directory() or "."
 
 local ytdlp_name = is_windows and "yt-dlp.exe" or "yt-dlp"
 local ytdlp_exe = join(exe_dir, ytdlp_name)
@@ -58,20 +60,30 @@ local function trim_log()
     end
 end
 
-local function log(msg)
+local function log(text, is_error)
+    -- In ra mpv console
+    if is_error then
+        msg.error(text)
+    else
+        msg.info(text)
+    end
+
     ensure_log_dir()
     trim_log()
 
     local mode = log_initialized and "a" or "w"
     log_initialized = true
 
-    local f = io.open(log_path, mode)
+    local f, err = io.open(log_path, mode)
     if f then
         if mode == "w" then
             f:write("\n===== NEW SESSION =====\n")
         end
-        f:write(os.date("[%Y-%m-%d %H:%M:%S] ")..msg.."\n")
+        local prefix = is_error and "[ERROR] " or "[INFO] "
+        f:write(os.date("[%Y-%m-%d %H:%M:%S] ")..prefix..text.."\n")
         f:close()
+    else
+        msg.warn("Cannot write to log file: "..tostring(err))
     end
 end
 
@@ -83,8 +95,15 @@ local function run(args)
         timeout = options.timeout,
         cancellable = false
     })
-    if not res or res.status ~= 0 then
-        log("Error: "..(res and res.stderr or "nil"))
+    
+    -- Xử lý an toàn khi res bị nil
+    if not res then
+        log("Error: Subprocess returned nil (Timeout or Executable not found)", true)
+        return { status = -1, stdout = "", stderr = "Subprocess nil" }
+    end
+
+    if res.status ~= 0 then
+        log("Error (Status "..tostring(res.status).."): "..(res.stderr or "unknown error"), true)
     end
     return res
 end
@@ -97,6 +116,7 @@ end
 
 local function vtable(v)
     local t = {}
+    if not v then return t end
     for n in v:gmatch("%d+") do
         table.insert(t, tonumber(n))
     end
@@ -121,15 +141,24 @@ local function valid_file(path)
 end
 
 local function download(url, out)
-    for i=1, options.retry_count do
-        log("Download attempt "..i)
+    for i = 1, options.retry_count do
+        log("Download attempt " .. i .. "/" .. options.retry_count)
 
-        local res = run(is_windows and
-            {"curl","-L","-o",out,url} or
-            {"curl","-L","-o",out,url}
-        )
+        -- Thử Curl với User-Agent
+        local res = run({"curl", "-L", "-H", "User-Agent: mpv-script", "-o", out, url})
 
-        if res.status == 0 and valid_file(out) then
+        -- Nếu Curl thất bại, thử dùng PowerShell Bật TLS 1.2
+        if not res or res.status ~= 0 or not valid_file(out) then
+            log("Curl download failed. Retrying download with PowerShell...")
+            local ps_dl = string.format(
+                "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ..
+                "Invoke-WebRequest -Uri '%s' -OutFile '%s' -Headers @{'User-Agent'='Mozilla/5.0'}",
+                url, out
+            )
+            res = run({"powershell", "-NoProfile", "-Command", ps_dl})
+        end
+
+        if valid_file(out) then
             return true
         end
     end
@@ -145,8 +174,8 @@ local function safe_replace(tmp, target)
 
     local ok, err = os.rename(tmp, target)
     if not ok then
-        log("Rename failed: "..tostring(err))
-        os.rename(backup, target)
+        log("Rename failed: "..tostring(err), true)
+        os.rename(backup, target) -- Rollback
         return false
     end
 
@@ -157,64 +186,117 @@ end
 -- ================= VERSION FETCH =================
 local function get_local()
     if not utils.file_info(ytdlp_exe) then return nil end
-    local res = run({ytdlp_exe,"--version"})
+    local res = run({ytdlp_exe, "--version"})
     return normalize(res.stdout)
 end
 
 local function get_remote()
     local api = "https://api.github.com/repos/yt-dlp/yt-dlp/releases/latest"
-    local res = run({"curl","-s",api})
+    
+    -- Cách 1: Thử Curl kèm User-Agent Header
+    local res = run({"curl", "-s", "-L", "-H", "User-Agent: mpv-script", api})
 
-    if res.status ~= 0 then return nil end
+    -- Cách 2: Nếu Curl lỗi, Fallback sang PowerShell (Bật ép TLS 1.2 + User-Agent)
+    if not res or res.status ~= 0 or not res.stdout or res.stdout == "" then
+        log("curl failed. Retrying with PowerShell (TLS 1.2 forced)...")
+        
+        local ps_cmd = string.format(
+            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ..
+            "$ProgressPreference='SilentlyContinue'; " ..
+            "try { $r = Invoke-RestMethod -Uri '%s' -Headers @{'User-Agent'='mpv-script'}; Write-Output $r.tag_name } catch { Write-Error $_ }",
+            api
+        )
+        res = run({"powershell", "-NoProfile", "-Command", ps_cmd})
+    end
 
-    log("GitHub raw: "..(res.stdout or "nil"))
+    -- Cách 3: Nếu cả API đều bị chặn, cào thẳng tag_name từ trang GitHub Release HTML (Fallback cuối)
+    if not res or res.status ~= 0 or not res.stdout or res.stdout == "" then
+        log("API fetch failed. Fallback to scraping GitHub HTML page...")
+        local html_url = "https://github.com/yt-dlp/yt-dlp/releases/latest"
+        local ps_html_cmd = string.format(
+            "[Net.ServicePointManager]::SecurityProtocol = [Net.SecurityProtocolType]::Tls12; " ..
+            "(Invoke-WebRequest -Uri '%s' -Headers @{'User-Agent'='Mozilla/5.0'}).BaseResponse.ResponseUri.AbsoluteUri",
+            html_url
+        )
+        res = run({"powershell", "-NoProfile", "-Command", ps_html_cmd})
+    end
 
-    return normalize(res.stdout:match('"tag_name"%s*:%s*"v?([%d%.]+)"'))
+    if not res or res.status ~= 0 or not res.stdout then 
+        log("CRITICAL: All fetch methods failed (Network/TLS/Firewall issue)", true)
+        return nil 
+    end
+
+    local tag = res.stdout:match('"tag_name"%s*:%s*"v?([%d%.]+)"') or normalize(res.stdout)
+    if not tag then
+        log("Failed to parse version tag from response: "..tostring(res.stdout), true)
+    end
+    return normalize(tag)
 end
 
--- ================= MAIN =================
-local function update()
+-- ================= MAIN LOGIC =================
+local function update_logic()
     log("=== CHECK START ===")
+
+    if not options.auto_update then
+        log("Auto update is disabled in options.")
+        return
+    end
 
     local local_v = get_local()
     local remote_v = get_remote()
 
     if not remote_v then
-        log("Cannot fetch remote version")
+        log("Cannot fetch remote version. Aborting update.", true)
         return
     end
 
     if not local_v then
-        log("No local version → fresh install")
+        log("No local version found -> fresh install")
     elseif compare_version(local_v, remote_v) >= 0 then
-        log("Already latest: "..local_v)
+        log("Already on latest version: "..local_v)
         return
     end
+
+    log("New version detected: "..remote_v.." (Current: "..(local_v or "None")..")")
 
     local url = "https://github.com/yt-dlp/yt-dlp/releases/latest/download/"..ytdlp_name
     local tmp = ytdlp_exe..".tmp"
 
     if not download(url, tmp) then
-        log("Download failed")
+        log("Download failed after "..options.retry_count.." attempts", true)
         return
     end
 
     if not safe_replace(tmp, ytdlp_exe) then
-        log("Update failed (rollback done)")
+        log("Update failed during file replacement (rollback applied)", true)
         return
     end
 
     if not is_windows then
-        run({"chmod","+x",ytdlp_exe})
+        run({"chmod", "+x", ytdlp_exe})
     end
 
-    log("Updated to "..remote_v)
+    log("Successfully updated yt-dlp to "..remote_v)
 
     mp.set_property("ytdl_path", ytdlp_exe)
 
     log("=== CHECK END ===")
 end
 
+-- ================= EXCEPTION HANDLER (TRY-CATCH) =================
+local function safe_update()
+    -- xpcall đóng vai trò như try-catch trong các ngôn ngữ khác
+    local status, err = xpcall(update_logic, debug.traceback)
+    
+    if not status then
+        -- Nếu có lỗi xảy ra (Runtime Error), đoạn này sẽ hứng lỗi và Stack Trace
+        log("\n----------------------------------------", true)
+        log("CRITICAL EXCEPTION / RUNTIME ERROR CAUGHT:", true)
+        log(tostring(err), true)
+        log("----------------------------------------\n", true)
+    end
+end
+
 -- ================= INIT =================
-mp.add_timeout(1, update)
-mp.register_script_message("check_update_yt-dlp", update)
+mp.add_timeout(1, safe_update)
+mp.register_script_message("check_update_yt-dlp", safe_update)

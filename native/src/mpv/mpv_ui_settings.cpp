@@ -276,19 +276,19 @@ void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, V
                     });
                     if (g_playbackStatus.hasFile) {
                         if(videotype == VideoType::Live) {
-                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.video.ids[i]);
+                            if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                                runtime->resource.mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.video.ids[i]);
                         } else {
                             pendingSeekTime = g_playbackStatus.timePos;
                             std::string selectedResolutio = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolutio](AppSettings& s) {
                                 s.selectedResolution = selectedResolutio;
                             });
-                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolutio);
+                            if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                                runtime->resource.mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolutio);
                         }
                         std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) runtime->mpvSession->GetCommander()->Exec(cmd);
+                        if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) runtime->resource.mpvSession->GetCommander()->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -323,20 +323,20 @@ void AudioQualityPage( WindowRuntime* runtime, VideoAudioFormats &formats , Vide
                     });
                     if (g_playbackStatus.hasFile) {
                         if(videotype == VideoType::Live){
-                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.audio.ids[i]);
+                            if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                                runtime->resource.mpvSession->GetCommander()->SetPropertyString("ytdl-format", all_formats.audio.ids[i]);
                         }else{
                             pendingSeekTime = g_playbackStatus.timePos;
                             std::string selectedResolution = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolution](AppSettings& s) {
                                 s.selectedAudio = selectedResolution;
                             });
-                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                                runtime->mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolution);
+                            if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                                runtime->resource.mpvSession->GetCommander()->SetPropertyString("ytdl-format", selectedResolution);
                         }
                         
                         std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) runtime->mpvSession->GetCommander()->Exec(cmd);
+                        if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) runtime->resource.mpvSession->GetCommander()->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -367,8 +367,8 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
             s.playbackSpeed = new_speed;
         });
         // Gửi lệnh trực tiếp đến mpv
-        if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-            runtime->mpvSession->GetCommander()->SetSpeed((double)new_speed);
+        if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+            runtime->resource.mpvSession->GetCommander()->SetSpeed((double)new_speed);
         Cfg.SaveVideo();
     });
 
@@ -396,8 +396,8 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
                 Cfg.UpdateVideoSettings([s](AppSettings& ss) {
                     ss.playbackSpeed = s;
                 });
-                if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                    runtime->mpvSession->GetCommander()->SetSpeed((double)s);
+                if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                    runtime->resource.mpvSession->GetCommander()->SetSpeed((double)s);
                 Cfg.SaveVideo();
             });
 
@@ -411,7 +411,7 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
 void OptionsPage(){
 
 }
-void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize, bool open, bool& show_ui_video ,ImVec2 iconPos) {
+void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize, bool open, ImVec2 iconPos) {
     static float anim = 0.0f;
     UpdateHoverAnim(anim, open, 15.0f);
     
@@ -540,8 +540,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                         s.enableSubtitles = enableSubtitles;
                     });
-                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                        runtime->mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
+                    if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                        runtime->resource.mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
                 bool repeatVideo = videoCfg.repeatVideo;
@@ -549,8 +549,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.UpdateVideoSettings([repeatVideo](AppSettings& s) {
                         s.repeatVideo = repeatVideo;
                     });
-                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                        runtime->mpvSession->GetCommander()->SetPropertyString("loop-file", s ? "inf" : "no");
+                    if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                        runtime->resource.mpvSession->GetCommander()->SetPropertyString("loop-file", s ? "inf" : "no");
                     Cfg.SaveVideo();
                 });
                 bool autoPlayNext = videoCfg.autoPlayNext;
@@ -558,13 +558,14 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.UpdateVideoSettings([autoPlayNext](AppSettings& s) {
                         s.autoPlayNext = autoPlayNext;
                     });
-                    if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                        runtime->mpvSession->GetCommander()->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
+                    if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                        runtime->resource.mpvSession->GetCommander()->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
 
-                bool Audio_visualizers = runtime->mpvSession->GetRenderThread()->state.Audio_visualizers;
+                bool Audio_visualizers = runtime->resource.mpvSession->GetRenderThread()->state.Audio_visualizers;
                 UI_Toggle("Trình chiếu âm thanh ", &Audio_visualizers, scaleFactor, true, [&](bool s) {
+                    runtime->resource.mpvSession->GetRenderThread()->state.Audio_visualizers.store(s);
                 });
                 break;
             }
@@ -624,8 +625,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                             Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                                 s.enableSubtitles = enableSubtitles;
                             });
-                            if (runtime && runtime->mpvSession && runtime->mpvSession->GetCommander()) 
-                                runtime->mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
+                            if (runtime && runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander()) 
+                                runtime->resource.mpvSession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
                             Cfg.SaveVideo();
                         });
 
@@ -649,8 +650,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
 
 
 void ApplyPlaybackSettings(WindowRuntime* runtime) {
-    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return;
-    auto* commander = runtime->mpvSession->GetCommander();
+    if (!runtime || !runtime->resource.mpvSession || !runtime->resource.mpvSession->GetCommander()) return;
+    auto* commander = runtime->resource.mpvSession->GetCommander();
 
     auto& Cfg = ConfigManager::Instance();
     auto videoCfg = Cfg.GetVideoSettings();
@@ -688,8 +689,8 @@ int PlayVideo(WindowRuntime* runtime,
               const std::string& resolutionFormat, 
               const std::string& title )
 {
-    if (!runtime || !runtime->mpvSession || !runtime->mpvSession->GetCommander()) return -1;
-    auto* commander = runtime->mpvSession->GetCommander();
+    if (!runtime || !runtime->resource.mpvSession || !runtime->resource.mpvSession->GetCommander()) return -1;
+    auto* commander = runtime->resource.mpvSession->GetCommander();
 
     std::string chosenFormat = resolutionFormat;
     if (!(GetVideoType() == VideoType::Local))
@@ -711,7 +712,7 @@ int PlayVideo(WindowRuntime* runtime,
 
 void CallThread_URLFetch(WindowRuntime* runtime, const std::string& Url , bool playNow ,  const std::string& title ,const std::string& format_id) {
 
-    GetThreadManager().Run(ThreadID::URLFetch, [=]() {
+    GetThreadManager().Run("URLFetch", [=]() {
         
         auto& Cfg = ConfigManager::Instance(); 
         //v_Settings.selectedResolution = v_Settings.selectedFormat + "+" + v_Settings.selectedAudio;

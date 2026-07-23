@@ -7,43 +7,43 @@
 #include "WindowPropertyBag.h"
 #include "WindowRenderer.h"
 #include "WindowController.h"
+#include "WindowInfo.h"
+#include "WindowResource.h"
+#include "WindowRelation.h"
 
-#include "MPVSession.h"
-#include "IGraphicsBackend.h" // Thêm include
 
 #include "utils.h" 
-// Forward declaration
-class MPVSession;
-class IGraphicsBackend;
-class WindowRenderer;
-class WindowController;
+
 class FrameTimer;
 
-using WindowId = uint32_t;
 /**
  * @brief 
  * 
  */
 class WindowRuntime {
 public:
-    WindowId id = 0;
-    SDL_Window* sdlWindow = nullptr;
-    HWND hwnd = nullptr;
 
-    ImGuiContext* imguiCtx = nullptr;
-    std::unique_ptr<IGraphicsBackend> graphicsBackend ; // Thay thế cho SDL_GLContext[cite: 14]
-
+    WindowInfo info;
     WindowState state;
     WindowStyle style;
     PropertyBag properties;
     
+    WindowRelation relation;
+    WindowResource resource;
+ 
     std::unique_ptr<WindowRenderer> renderer;
     std::unique_ptr<WindowController> controller;
-    
-    MPVSession* mpvSession = nullptr; // Chỉ giữ con trỏ, không sở hữu
-    // Mỗi cửa sổ có một FrameTimer riêng để quản lý tần suất cập nhật của nó.
+
     std::unique_ptr<FrameTimer> windowloop;
+
+    //bool isTemporarilyHidden = false;
+
 
     WindowRuntime(WindowId id = 0, SDL_Window* sdlWindow = nullptr, HWND hwnd = nullptr);
     ~WindowRuntime();
+
+    // --- Các hàm tiện ích truy vấn ---
+    WindowRuntime* GetParent();
+    std::vector<WindowRuntime*> GetChildren();
+    bool HasVisibleChildren();
 };
