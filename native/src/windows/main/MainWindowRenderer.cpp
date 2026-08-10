@@ -153,7 +153,8 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
     CSImGui::ToolTip("Close", 2.0f, ToolTipFlags_Animation);
     if(clickedClose || hoveredClose || activeClose) runtime->state.runtime.is_dirty = true;
     // Điều chỉnh màu dựa vào trạng thái
-    static ImVec4 closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    auto& closeColor = runtime->state.display.closeColor;
+    closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 target_close = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     if (hoveredClose) target_close = ImVec4(0.90f, 0.23f, 0.23f, 1.0f);
     if (activeClose) target_close = ImVec4(0.75f, 0.10f, 0.10f, 1.0f);
@@ -217,7 +218,8 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
 
     if(clickedMax || hoveredMax || activeMax) runtime->state.runtime.is_dirty = true;
 
-    static ImVec4 maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    auto& maxColor = runtime->state.display.maxColor;
+    maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 targetMax = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     if (hoveredMax) targetMax = ImVec4(0.235f, 0.235f,0.235f, 1.0f);
     if (activeMax) targetMax = ImVec4(0.353f , 0.353f, 0.353f, 1.0f);
@@ -263,7 +265,8 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
 
     CSImGui::ToolTip("Minimize", 2.0f, ToolTipFlags_Animation);
 
-    static ImVec4 minColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    auto& minColor = runtime->state.display.minColor;
+    minColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     ImVec4 target_min = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
     if (hoveredMin) target_min = ImVec4(0.235f, 0.235f, 0.235f, 1.0f);
     if (activeMin)  target_min = ImVec4(0.353f, 0.353f, 0.353f, 1.0f);

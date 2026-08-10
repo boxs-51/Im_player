@@ -23,6 +23,8 @@ public:
     virtual void SwapWindow(SDL_Window* window) = 0; // Hàm mới để hoán đổi buffer
     
     virtual bool ProcessEvent(const SDL_Event* e) = 0;
+    virtual void Resize(int newWidth, int newHeight) = 0;
+
     // Cung cấp các tham số render cho mpv_render_context_render
     virtual std::vector<mpv_render_param> GetMpvRenderParams(const ImVec2& size) = 0;
 

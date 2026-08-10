@@ -36,6 +36,13 @@ public:
      */
     void RequestRender();
 
+    /**
+     * @brief Yêu cầu luồng render thay đổi kích thước viewport.
+     * @param newWidth Chiều rộng mới.
+     * @param newHeight Chiều cao mới.
+     */
+    void RequestResize(int newWidth, int newHeight);
+
 private:
     /**
      * @brief Hàm chính của luồng, chứa vòng lặp render.
@@ -51,6 +58,9 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
     bool m_needsRender = false;
+    bool m_needsResize = false;
+    int m_newWidth = 0;
+    int m_newHeight = 0;
 
     // Luồng render của cửa sổ chính sẽ sở hữu backend đồ họa
     IGraphicsBackend* m_graphicsBackend; // Con trỏ không sở hữu, WindowRuntime::resource sở hữu

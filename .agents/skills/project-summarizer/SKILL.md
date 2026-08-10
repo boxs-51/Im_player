@@ -1,59 +1,64 @@
 ---
 name: project-summarizer
-description: Tự động phân tích cấu trúc mã nguồn trong thư mục và xuất ra một file Markdown (ARCHITECTURE.md hoặc PROJECT_STRUCTURE.md) tóm tắt toàn bộ cây thư mục, chức năng các module và luồng hoạt động chính.
+description: Phân tích kiến trúc mã nguồn C++, trích xuất metadata, đồ thị phụ thuộc/sở hữu (Ownership/Lifetime), mô hình đa luồng, phân loại rủi ro lỗi và nợ kỹ thuật. Xuất các file FOLDER_INFO.md ở các folder con, ARCHITECTURE_INDEX.md và PROJECT_STRUCTURE.md ở root.
 ---
 
-# Quy Trắc Tạo File Tóm Tắt Cấu Trúc Dự Án (Project Structure Summary)
+# Quy Trắc Phân Tích Kiến Trúc & Nguy Cơ Lỗi C++ Nâng Cao
 
-Khi được yêu cầu "tóm tắt cấu trúc thư mục" hoặc "tạo file tài liệu kiến trúc", hãy thực hiện chính xác các bước sau:
+Khi được yêu cầu "tóm tắt cấu trúc thư mục", "phân tích dự án" hoặc "tạo tài liệu kiến trúc", thực hiện chính xác các bước sau:
 
-## 1. Các bước thực hiện:
-1. Sử dụng MCP `filesystem` để quét toàn bộ cây thư mục hiện tại.
-2. Bỏ qua các thư mục rác/build không cần thiết (ví dụ: `node_modules`, `build`, `bin`, `.git`, `out`, `.vs`, `venv`).
-3. Phân tích chức năng chính của từng thư mục và các file cốt lõi (`main`, `config`, `core`, `models`, `controllers`, v.v.).
-4. Tạo/Ghi đè một file Markdown tên là `PROJECT_STRUCTURE.md` tại thư mục gốc.
+## 1. Bốn File Đầu Ra Cần Sinh:
+1. **`FOLDER_INFO.md`** tại từng thư mục con (chứa Metadata, Ownership, Threading, Classified Bugs, Tech Debt,...).
+2. **`ARCHITECTURE_INDEX.md`** tại root (Index ngắn gọn vài trăm dòng để AI tra cứu cực nhanh).
+3. **`PROJECT_STRUCTURE.md`** tại root (Tài liệu kiến trúc toàn diện tổng hợp từ các module).
 
-## 2. Định dạng chuẩn cho file `PROJECT_STRUCTURE.md`:
+---
+
+## 2. Template Chuẩn Cho `FOLDER_INFO.md` (Thư Mục Con)
 
 ```markdown
-# 🏛️ Tóm Tắt Cấu Trúc Dự Án
+# Metadata
+- **Last Scan:** [YYYY-MM-DD]
+- **Source Files:** [Số lượng file]
+- **Hash:** [Mã Hash nội dung]
+- **Depends On:** [Tên các module phụ thuộc]
+- **Scanned Files:** [Danh sách các file .cpp/.h]
 
-> *File này được tạo tự động để tổng quan kiến trúc mã nguồn.*
+# 📂 Thư Mục: `[Tên_Thư_Mục]`
 
----
+## 1. Architecture Decisions & Design Patterns
+- **Patterns:** [Factory / Observer / Strategy / Singleton / Command]
+- **Decisions:** [Ví dụ: One ImGui Context per Window -> Reason: Thread-safe]
 
-## 📂 1. Cây Thư Mục Tổng Quan (Directory Tree)
+## 2. Dependency & Ownership Graph
+### Dependency
+`[Module]` → `[Lower Module]` → `[Backend]`
 
-\`\`\`text
-.
-├── src/
-│   ├── core/          # Xử lý logic cốt lõi
-│   ├── ui/            # Giao diện người dùng
-│   └── main.cpp       # Entry point
-├── config/            # File cấu hình
-└── README.md
-\`\`\`
+### Ownership & Lifetime
+- `[OwnerClass]` **owns** `[ChildClass]`
+- `[ClassA]` **shares** `[SharedResource]`
+- **Lifetime:** `Create()` → `InitContext()` → `Running` → `DestroyContext()` → `Destroy()`
 
----
+## 3. Thread Model & Event/Data Flow
+- **Main Thread:** [SDL Event, UI Logic]
+- **Render Thread:** [ImGui, OpenGL context]
+- **Worker/Callback Thread:** [MPV Observer]
+- **Synchronization:** `std::mutex`, `std::atomic`
+- **Event Flow:** `SDL_Event` → `WindowManager` → `WindowRuntime` → `Renderer`
+- **Data Flow:** `VideoInfo` → `MPVObserver` → `PropertyBag` → `Renderer`
 
-## 🛠️ 2. Chi Tiết Các Module Chính
+## 4. Public APIs & Configuration
+- **APIs:** `Create()`, `Destroy()`, `Render()`, `Update()`, `Resize()`
+- **Configuration:** Uses `WindowStyle`, `PropertyBag`, `GraphicsBackend`
 
-### `src/core/`
-* **Nhiệm vụ:** Quản lý logic chính, xử lý dữ liệu.
-* **Các file quan trọng:**
-  * `engine.cpp`: Động cơ xử lý chính.
-  * `utils.h`: Các hàm tiện ích dùng chung.
+## 5. Risk Matrix & Error-Prone Areas (Classified)
+- **Memory:** [Leak, dangling pointer, double free]
+- **Thread:** [Data race, deadlock, UI block]
+- **Rendering:** [Invalid context, unbound FBO]
+- **Exception:** [Uncaught exceptions]
+- **Performance / Complexity:** [O(n²) loops, `WindowRuntime::Update()` - 320 lines (Risk: High)]
+- **Ownership:** [Circular reference]
 
-### `src/ui/`
-* **Nhiệm vụ:** Dựng giao diện và xử lý sự kiện người dùng.
-
----
-
-## 🔄 3. Luồng Hoạt Động Chính (Execution Flow)
-1. `main()` khởi tạo cấu hình từ `config/`.
-2. Module UI đăng ký các callback với Core Engine.
-3. Vòng lặp sự kiện chính được kích hoạt.
-
----
-*Cập nhật gần nhất: [YYYY-MM-DD]*
-\`\`\`
+## 6. Technical Debt (TODO / FIXME / HACK)
+- `WindowRuntime.cpp` - **TODO:** Chưa có EventQueue
+- `Renderer.cpp` - **FIXME:** Context cleanup timing

@@ -15,8 +15,12 @@ bool MPVSession::Init(WindowRuntime* runtime) {
         return false;
     }
 
+#ifdef RENDER_MPV_THREAD
+    m_renderThread = std::make_shared<MPVRenderThread>();
+#endif
+
     m_renderer = std::make_unique<MPVRender>();
-    if (!m_renderer->Init(*m_player, runtime->resource.graphicsBackend.get())) {
+    if (!m_renderer->Init(*m_player, runtime->resource.graphicsBackend.get(), m_renderThread)) {
         SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể tạo MPVRender", nullptr);
         return false;
     }
@@ -27,14 +31,13 @@ bool MPVSession::Init(WindowRuntime* runtime) {
     m_observer->Init();
 
 #ifdef RENDER_MPV_THREAD
-    m_renderThread = std::make_shared<MPVRenderThread>();
-
     // Cấu hình trạng thái ban đầu cho luồng render
     m_renderThread->state.mpv = m_player->GetHandle(); // <-- THÊM DÒNG NÀY
     m_renderThread->state.ownerWindowId = runtime->info.id;
     m_renderThread->state.window = runtime->resource.sdlWindow;
     m_renderThread->state.render_ctx = m_renderer->GetContext();
     m_renderThread->state.graphicsBackend = runtime->resource.graphicsBackend.get(); // Lưu con trỏ backend
+    m_renderThread->state.Audio_visualizers = m_renderer->IsAudioVisualizerEnabled();
 
     if (runtime->properties.Contains("Layout")) {
         auto layout = runtime->properties.GetValue<WindowLayout>("Layout");

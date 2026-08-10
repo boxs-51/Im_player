@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include <windows.h>
 #include <memory>
+#include <mutex> // Thêm vào để sử dụng std::mutex
 #include "WindowDefs.h"
 #include "WindowPropertyBag.h"
 #include "WindowRenderer.h"
@@ -22,6 +23,9 @@ class FrameTimer;
  */
 class WindowRuntime {
 public:
+    // Mutex để bảo vệ các truy cập đồng thời vào 'state' và các dữ liệu khác
+    // từ luồng chính và luồng render.
+    mutable std::mutex stateMutex;
 
     WindowInfo info;
     WindowState state;

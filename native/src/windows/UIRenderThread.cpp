@@ -51,6 +51,16 @@ void UIRenderThread::RequestRender() {
     m_cv.notify_one();
 }
 
+void UIRenderThread::RequestResize(int newWidth, int newHeight) {
+    {
+        std::lock_guard lock(m_mutex);
+        m_needsResize = true;
+        m_newWidth = newWidth;
+        m_newHeight = newHeight;
+    }
+    m_cv.notify_one();
+}
+
 void UIRenderThread::Run() {
 try {
     // Kích hoạt context đồ họa cho luồng này
@@ -68,12 +78,28 @@ try {
     while (m_running) {
         {
             std::unique_lock lock(m_mutex);
-            m_cv.wait(lock, [&] { return m_needsRender || !m_running; });
+            m_cv.wait(lock, [&] { return m_needsRender || m_needsResize || !m_running; });
 
             if (!m_running) break;
 
+            // Xử lý thay đổi kích thước TRƯỚC khi render
+            if (m_needsResize) {
+                m_graphicsBackend->Resize(m_newWidth, m_newHeight);
+                m_needsResize = false;
+            }
+            
+            // Nếu không có yêu cầu render, có thể chỉ là yêu cầu resize, quay lại chờ
+            //if (!m_needsRender) {
+            //    continue;
+            //}
+
             m_needsRender = false; // Reset cờ yêu cầu
         }
+
+        // --- BẮT ĐẦU VÙNG AN TOÀN LUỒNG ---
+        // Khóa mutex của runtime để đảm bảo không có luồng nào khác
+        // (đặc biệt là luồng chính) thay đổi trạng thái trong khi chúng ta đang vẽ.
+        std::lock_guard<std::mutex> stateLock(m_ownerRuntime->stateMutex);
 
         // Chỉ render nếu cửa sổ đang hiển thị
         if (!m_ownerRuntime->state.display.isVisible) continue;

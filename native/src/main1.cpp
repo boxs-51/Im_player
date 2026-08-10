@@ -69,6 +69,9 @@ void Cleanup() {}
 void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& running) {
     if (!runtime) return;
 
+    // Khóa mutex để đảm bảo an toàn luồng khi cập nhật trạng thái từ luồng chính
+    std::lock_guard<std::mutex> lock(runtime->stateMutex);
+
     ImGuiContext* imguiCtx = runtime->resource.imguiCtx;
     if (imguiCtx) {
         ImGui::SetCurrentContext(imguiCtx);

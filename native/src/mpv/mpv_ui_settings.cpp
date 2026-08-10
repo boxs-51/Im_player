@@ -563,10 +563,13 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.SaveVideo();
                 });
 
-                bool Audio_visualizers = runtime->resource.mpvSession->GetRenderThread()->state.Audio_visualizers;
-                UI_Toggle("Trình chiếu âm thanh ", &Audio_visualizers, scaleFactor, true, [&](bool s) {
-                    runtime->resource.mpvSession->GetRenderThread()->state.Audio_visualizers.store(s);
-                });
+                if (auto* renderer = runtime->resource.mpvSession->GetRenderer()) {
+                    bool isAudioVis = renderer->IsAudioVisualizerEnabled();
+                    
+                    UI_Toggle("Trình chiếu âm thanh ", &isAudioVis, scaleFactor, true, [renderer](bool enabled) {
+                        renderer->SetAudioVisualizerEnabled(enabled);
+                    });
+                }
                 break;
             }
         

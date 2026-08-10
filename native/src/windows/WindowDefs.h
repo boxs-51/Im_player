@@ -64,6 +64,10 @@ struct WindowDisplayState {
     UINT dpiY = 96;
     float dpiScale = 1.0f;
 
+    ImVec4 closeColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    ImVec4 maxColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+    ImVec4 minColor = ImVec4(0.137f, 0.137f, 0.137f, 1.0f);
+
     bool mouseHoverMin = false;
     bool mouseHoverMax = false;
     bool mouseHoverClose = false;

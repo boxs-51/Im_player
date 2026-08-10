@@ -4,6 +4,7 @@
 #include "MainWindowState.h"
 #include "WindowManager.h"
 #include "WindowResource.h"
+#include "UIRenderThread.h"
 
 #include "MPVSession.h"
 #include "mpv/mpv_data.h"
@@ -73,6 +74,10 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
     const auto* oldLayout = runtime->properties.GetPtr<WindowLayout>("Layout");
     if (!oldLayout || oldLayout->ClientSize.x != localLayout.ClientSize.x || oldLayout->ClientSize.y != localLayout.ClientSize.y) {
         hasSizeChanged = true;
+        // Yêu cầu luồng UI thay đổi kích thước viewport đồ họa một cách an toàn
+        if (runtime->resource.uiRenderThread) {
+            runtime->resource.uiRenderThread->RequestResize(localLayout.ClientArea.w, localLayout.ClientArea.h);
+        }
     }
 
     // Bước 3: ĐỒNG BỘ SANG LUỒNG MPV

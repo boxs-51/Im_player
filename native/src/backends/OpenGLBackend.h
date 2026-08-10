@@ -59,8 +59,12 @@ public:
         if (SDL_GL_MakeCurrent(window, glContext) != 0) return false;
         if (gl3wInit() != 0) return false;
         
-        SDL_GL_SetSwapInterval(0);
+        SDL_GL_SetSwapInterval(1); // BẬT V-SYNC ĐỂ CHỐNG XÉ HÌNH/NHẤP NHÁY
         return true;
+    }
+
+    void Resize(int newWidth, int newHeight) override {
+        glViewport(0, 0, newWidth, newHeight);
     }
 
     bool InitImGuiBackend(SDL_Window* window) override {
@@ -72,19 +76,14 @@ public:
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
-        
-        // Bạn có thể giữ hoặc bỏ clear tùy vào việc Renderer chính có clear nền riêng không
-        glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
-        glClear(GL_COLOR_BUFFER_BIT);
 
+        // Bạn có thể giữ hoặc bỏ clear tùy vào việc Renderer chính có clear nền riêng không
+         glClearColor(0.1f, 0.1f, 0.1f, 1.0f);
+         glClear(GL_COLOR_BUFFER_BIT);
     }
 
     void EndFrame(SDL_Window* window) override {
         ImGui::Render();
-        int w, h; 
-        SDL_GL_GetDrawableSize(window, &w, &h);
-        glViewport(0, 0, w, h);
-        
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
 

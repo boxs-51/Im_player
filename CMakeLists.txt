@@ -108,7 +108,7 @@ target_compile_definitions(Im_player PRIVATE
     NOMINMAX
     IMGUI_IMPL_OPENGL_LOADER_GLAD
     CUSTOM_TITLEBAR
-    RENDER_MPV_THREAD
+    //RENDER_MPV_THREAD
 )
 # Include path
 target_include_directories(Im_player PRIVATE

@@ -18,11 +18,15 @@ MPVRender::~MPVRender() {
     Shutdown();
 }
 
-bool MPVRender::Init(MPVPlayer& player, IGraphicsBackend* backend) {
+bool MPVRender::Init(MPVPlayer& player, IGraphicsBackend* backend, std::shared_ptr<MPVRenderThread> renderThread) {
     if (m_render_ctx) return true;
 
     mpv_handle* mpv_ptr = player.GetHandle();
     if (!mpv_ptr || !backend) return false;
+
+#ifdef RENDER_MPV_THREAD
+    m_renderThread = renderThread;
+#endif
 
     // Các tham số này vẫn là của OpenGL, nhưng có thể được mở rộng sau này
     mpv_opengl_init_params gl_init_params{};
@@ -39,10 +43,15 @@ bool MPVRender::Init(MPVPlayer& player, IGraphicsBackend* backend) {
     }
 
 #ifdef RENDER_MPV_THREAD
+    // Callback không còn dùng MPVManager nữa, mà dùng userdata truyền m_renderThread
     mpv_render_context_set_update_callback(m_render_ctx, [](void* userdata) {
-        auto* session = MPVManager::GetInstance().GetDefaultSession();
-        if (session && session->GetRenderThread()) session->GetRenderThread()->RequestRender();
-    }, nullptr);
+        auto* renderThreadPtr = static_cast<std::weak_ptr<MPVRenderThread>*>(userdata);
+        if (renderThreadPtr) {
+            if (auto thread = renderThreadPtr->lock()) {
+                thread->RequestRender();
+            }
+        }
+    }, new std::weak_ptr<MPVRenderThread>(m_renderThread)); // Cần giải phóng trong Shutdown() nếu dùng heap allocation
 #else
     mpv_render_context_set_update_callback(m_render_ctx, [](void*) {
         SDL_Event ev;
@@ -56,25 +65,23 @@ bool MPVRender::Init(MPVPlayer& player, IGraphicsBackend* backend) {
 
 void MPVRender::Shutdown() {
     if (m_render_ctx) {
+        mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);
         mpv_render_context_free(m_render_ctx);
         m_render_ctx = nullptr;
     }
 }
-bool Audio_visualizers = false;
-void MPVRender::Render(const ImVec2& size, IGraphicsBackend* backend) {
-    if (!m_render_ctx || !backend || Audio_visualizers) return;
 
-    // Lấy con trỏ tới session để truy cập luồng render
-    auto* session = MPVManager::GetInstance().GetDefaultSession();
-    if (!session) return;
+void MPVRender::Render(const ImVec2& size, IGraphicsBackend* backend) {
+    if (!m_render_ctx || !backend || m_audioVisualizers.load()) return;
 
 #ifdef RENDER_MPV_THREAD
-    if (!session || !session->GetRenderThread() || !session->GetRenderThread()->state.fboPool) return;
+    auto thread = m_renderThread.lock();
+    if (!thread || !thread->state.fboPool) return;
 
     FrameTextureInfo frameInfo;
     // Thử lấy frame ổn định vài lần với một khoảng nghỉ ngắn để chờ luồng render hoàn thành
     for (int i = 0; i < 3; ++i) {
-        frameInfo = session->GetRenderThread()->state.fboPool->GetStableFrame();
+        frameInfo = thread->state.fboPool->GetStableFrame();
         if (frameInfo.texID.has_value()) {
             break;
         }
