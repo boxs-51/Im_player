@@ -3,8 +3,8 @@
 #include "notification.h"
 #include "utils.h"
 
-#include <mpv/mpv_ui_settings.h>
-#include <mpv/mpv_data.h>
+
+#include "player/mpv_data.h"
 
 #include <string>
 #include <windows.h>
@@ -140,7 +140,6 @@ void OnArgumentsReceived(const std::string& args) {
             ShowWindow(hwnd, SW_SHOW);
         }
         SetForegroundWindow(hwnd);
-        CallThread_URLFetch(nullptr,args,true);
     }
 }
 

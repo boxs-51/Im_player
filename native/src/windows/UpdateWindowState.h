@@ -6,8 +6,8 @@
 #include "WindowResource.h"
 #include "UIRenderThread.h"
 
-#include "MPVSession.h"
-#include "mpv/mpv_data.h"
+#include "player/session/PlayerSession.h"
+#include "player/mpv_data.h"
 #include <SDL.h>
 
 #ifdef RENDER_MPV_THREAD
@@ -82,8 +82,8 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
 
     // Bước 3: ĐỒNG BỘ SANG LUỒNG MPV
     #ifdef RENDER_MPV_THREAD
-    if (runtime->resource.mpvSession && runtime->style.isMainWindow) {
-        std::weak_ptr<MPVRenderThread> weakRenderThread = runtime->resource.mpvSession->GetRenderThread();
+    if (runtime->resource.PlayerSession && runtime->style.isMainWindow) {
+        std::weak_ptr<PlayBackRenderThread> weakRenderThread = runtime->resource.PlayerSession->GetRenderThread();
         
         if (auto sharedRenderThread = weakRenderThread.lock()) {
             auto& renderState = sharedRenderThread->state;

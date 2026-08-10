@@ -5,7 +5,7 @@
 #include <any>
 #include <vector>
 #include <mpv/render.h>
-#include "mpv/render/IFrameBufferPool.h"
+#include "player/render/IFrameBufferPool.h"
 class IGraphicsBackend {
 public:
     virtual ~IGraphicsBackend() = default;
@@ -26,7 +26,7 @@ public:
     virtual void Resize(int newWidth, int newHeight) = 0;
 
     // Cung cấp các tham số render cho mpv_render_context_render
-    virtual std::vector<mpv_render_param> GetMpvRenderParams(const ImVec2& size) = 0;
+    virtual std::vector<mpv_render_param> GetPlayBackRenderParams(const ImVec2& size) = 0;
 
     // Các getter cho thuộc tính OpenGL
     virtual unsigned int GetGLInternalFormat() const = 0;

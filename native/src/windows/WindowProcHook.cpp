@@ -8,7 +8,8 @@
 #include "WindowResource.h"
 #include "WindowManager.h"
 #include "UIRenderThread.h"
-#include "MPVSession.h"
+
+#include "player/session/PlayerSession.h"
 
 #include <windowsx.h>
 
@@ -210,8 +211,8 @@ LRESULT CALLBACK MultiWindowWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                 auto& winManager = WindowManager::GetInstance();
                 runtime->state.runtime.is_dirty = RouteWindowStateUpdate(runtime);
 
-                if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetCommander())
-                    runtime->resource.mpvSession->GetCommander()->Update();
+                if (runtime->resource.playersession && runtime->resource.playersession->GetCommander())
+                    runtime->resource.playersession->GetCommander()->Update();
 
                 AdjustWindowFrameRates(winManager);
 

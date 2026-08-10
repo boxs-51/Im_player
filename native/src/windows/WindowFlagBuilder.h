@@ -4,6 +4,26 @@
 #include "WindowDefs.h"
 #include "backends/IGraphicsBackend.h"
 
+enum WinDownFlags{
+    CREATE_MPV = 0
+};
+
+class WindowFlagBuilder {
+private:
+    Uint32 flags = 0;
+
+public:
+    WindowFlagBuilder& CreateMPV(bool condition) {
+        if (condition) flags |= CREATE_MPV;
+        return *this;
+    }
+
+    Uint32 Build() const {
+        return flags;
+    }
+
+};
+
 class SDLFlagBuilder {
 private:
     Uint32 flags = 0;

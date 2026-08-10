@@ -1,10 +1,10 @@
 #include "globals.h"
 #include "utils.h"
 
-#include <mpv/mpv_ui_settings.h>
-#include <gui/gui.h>
-#include <mpv/mpv_data.h>
+#include "player/session/PlayerSession.h"
+#include "player/mpv_data.h"
 
+#include "gui/gui.h"
 
 #include "sidebar_popup.h"
 #include <imgui_internal.h>
@@ -20,7 +20,7 @@
 
 #include "WindowResource.h"
 #include "windows/WindowManager.h"
-#include "MPVSession.h"
+
 
 #include "globals.h"
 static int g_CurrentIndex = -1;
@@ -277,7 +277,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
 
     auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (v.hoverAnim > 0.01f && isClicked) {
-        CallThread_URLFetch(runtime, v.link.c_str(), true);
+        runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(v.link.c_str());
         UpdateVideoData(VideoSource::Watched, v.link.c_str());
     }
     ImGui::SetCursorScreenPos(cardMin);
@@ -297,7 +297,7 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             ShellExecuteA(nullptr, "open", v.link.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 
         if (ImGui::MenuItem("App List MPV")) {
-            CallThread_URLFetch(runtime, v.link.c_str(), false, v.title.c_str());
+            runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(v.link.c_str());
             UpdateVideoData(VideoSource::Watched, v.link.c_str());
         }
         ImGui::EndPopup();
@@ -814,8 +814,8 @@ void RenderListVideoMPV()
 {
     mpv_handle* mpv;
     auto* runtime = WindowManager::GetInstance().GetMainWindow();
-    if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetPlayer()) 
-        mpv = runtime->resource.mpvSession->GetPlayer()->GetHandle();
+    if (runtime->resource.playersession && runtime->resource.playersession->GetPlayer()) 
+        mpv = runtime->resource.playersession->GetPlayer()->GetHandle();
     MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
     ImVec2 avail = ImGui::GetContentRegionAvail();
     ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());

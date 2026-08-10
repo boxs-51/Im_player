@@ -1,0 +1,33 @@
+{
+    "version": 6,
+    "configurePresets": [
+        {
+            "name": "windows-vcpkg",
+            "displayName": "Windows + vcpkg + Visual Studio",
+            "generator": "Visual Studio 18 2026",
+            "binaryDir": "${sourceDir}/build",
+
+            "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
+
+            "architecture": {
+                "value": "x64",
+                "strategy": "external"
+            },
+
+            "cacheVariables": {
+                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg/vcpkg_installed"
+            }
+        }
+    ],
+
+    "buildPresets": [
+        {
+            "name": "windows-vcpkg-debug",
+            "configurePreset": "windows-vcpkg",
+            "configuration": "Debug"
+        }
+    ]
+}
+
+

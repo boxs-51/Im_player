@@ -59,7 +59,7 @@ bool WindowInitializer::InitializeSDL(WindowRuntime* runtime, const WindowTempla
         .Fullscreen(runtime->state.display.isFullscreen)
         .Borderless(runtime->style.borderless)
         .Resizable(runtime->style.resizable)
-        .Minimized(runtime->state.display.isMaximized)
+        .Minimized(runtime->state.display.isMinimized)
         .HighDPI(runtime->style.allowhighdpi)
         .WithBackend(backend)
         .Build();
@@ -137,7 +137,27 @@ void WindowInitializer::InitializeRenderer(WindowRuntime* runtime) {
 }
 
 void WindowInitializer::AttachMPV(WindowRuntime* runtime, WindowRuntime* parent) {
-    if (parent && parent->resource.mpvSession) {
-        runtime->resource.mpvSession = parent->resource.mpvSession;
+    if (!runtime) return;
+
+    if (parent) {
+        // Cửa sổ con: Phân định Semantic rõ ràng
+        // 1. Sao chép ID phiên phát từ cha để có thể truy cập Commander/Property/Observer
+        runtime->resource.playersessionid = parent->resource.playersessionid;
+        runtime->resource.playersession = parent->resource.playersession;
+
+        // 2. ĐÁNH DẤU CỬA SỔ CON: Không cho phép tự mở render loop video riêng lên FBO 
+        // để tránh 2 window cùng render vào 1 mpv_render_context gây crash/xé hình
+        runtime->properties.Set<bool>("IsSecondaryMpvOutput", true);
+        runtime->properties.Set<bool>("RenderVideoFlag", false);
+    } else {
+        if(runtime->style.create_mpv && !runtime->resource.playersession) {
+            // Cửa sổ độc lập / Root Window: Tự tạo một PlayerSession mới
+            auto* session = PlayerManager::GetInstance().CreateSession(runtime);
+            if (session) {
+                runtime->resource.playersessionid = session->GetId();
+                runtime->resource.playersession = session;
+                runtime->properties.Set<bool>("IsSecondaryMpvOutput", false);
+            }
+        }
     }
 }

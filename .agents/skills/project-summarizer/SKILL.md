@@ -45,7 +45,7 @@ Khi được yêu cầu "tóm tắt cấu trúc thư mục", "phân tích dự �
 - **Worker/Callback Thread:** [MPV Observer]
 - **Synchronization:** `std::mutex`, `std::atomic`
 - **Event Flow:** `SDL_Event` → `WindowManager` → `WindowRuntime` → `Renderer`
-- **Data Flow:** `VideoInfo` → `MPVObserver` → `PropertyBag` → `Renderer`
+- **Data Flow:** `VideoInfo` → `PlaybackObserver` → `PropertyBag` → `Renderer`
 
 ## 4. Public APIs & Configuration
 - **APIs:** `Create()`, `Destroy()`, `Render()`, `Update()`, `Resize()`

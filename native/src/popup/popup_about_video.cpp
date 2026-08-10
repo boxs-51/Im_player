@@ -2,18 +2,18 @@
 #include "globals.h"
 #include "utils.h"
 
-#include "mpv/mpv_basic_formats.h"
-#include <gui/gui.h>
-#include "mpv/mpv_ui.h"
-#include <mpv/mpv_data.h>
+#include "gui/gui.h"
 
-#include "mpv/scripts/script_manager.h"
-#include "mpv/session/MPVManager.h"
-#include"popup_about_video.h"
+#include "player/mpv_data.h"
+#include "player/mpv_basic_formats.h"
+#include "player/scripts/script_manager.h"
+#include "player/session/PlayerManager.h"
+#include "player/session/PlayerSession.h"
+#include "popup_about_video.h"
 
 #include "WindowManager.h"
 #include "MainWindowState.h"
-#include "MPVSession.h"
+
 
 #include <imgui.h>
 #include <functional>
@@ -104,7 +104,7 @@ void ShowVideoInfo() {
     }
     
     #ifdef RENDER_MPV_THREAD
-    auto* session = MPVManager::GetInstance().GetDefaultSession();
+    auto* session = PlayerManager::GetInstance().GetDefaultSession();
     if (session && session->GetRenderThread())
     {
         CSImGui::InfoRow("Frame Render FPS :", "%.2f", session->GetRenderThread()->state.framerender.load());
@@ -388,9 +388,9 @@ void ShowPlaybackInfo() {
 
         auto& window = *WindowManager::GetInstance().GetMainWindow();
 
-        if(window.resource.mpvSession && window.resource.mpvSession->GetState()){
-            auto& state = *window.resource.mpvSession->GetState();
-            state.ReadPlayback([&](const auto& g_playback){
+        auto* state = window.resource.playersession->GetState();
+        if(state) {
+            state->ReadPlayback([&](const auto& g_playback){
                 CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timing.timePos);
             });
         }

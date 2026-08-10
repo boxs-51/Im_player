@@ -17,7 +17,7 @@ Tài liệu này giải thích kiến trúc và luồng hoạt động của cá
 └───────────────────┘                                           ├─> IGraphicsBackend (Đồ họa)
  (Xử lý message Win32)                                          ├─> WindowController (Điều khiển)
                                                                 ├─> WindowRenderer (Vẽ UI)
-                                                                └─> MPVSession* (Link tới MPV)
+                                                                └─> PlayerSession* (Link tới MPV)
 ```
 
 ---
@@ -45,7 +45,7 @@ Tài liệu này giải thích kiến trúc và luồng hoạt động của cá
 
 - **Điều khiển & Tương tác:**
   - `controller`: `std::unique_ptr<WindowController>` cung cấp các API để thực hiện hành động trên cửa sổ (Move, Resize, Close...).
-  - `mpvSession`: `MPVSession*` là con trỏ **không sở hữu** tới session MPV đang được liên kết với cửa sổ này. Quyền sở hữu thực sự nằm ở `MPVManager`.
+  - `PlayerSession`: `PlayerSession*` là con trỏ **không sở hữu** tới session MPV đang được liên kết với cửa sổ này. Quyền sở hữu thực sự nằm ở `PlayerManager`.
 
 ---
 
@@ -124,7 +124,7 @@ Lớp này kế thừa từ `WindowRenderer` và chịu trách nhiệm vẽ toà
 4.  **Vẽ Title Bar:** Gọi hàm `RenderTitleBarWindowObject()` để vẽ thanh tiêu đề tùy chỉnh.
 5.  **Vẽ vùng Video:**
     - Bắt đầu một `ImGui::BeginChild` với kích thước của vùng video đã tính toán.
-    - Nếu video đang phát, gọi `runtime->mpvSession->GetRenderer()->Render()` để vẽ texture video do MPV cung cấp.
+    - Nếu video đang phát, gọi `runtime->PlayerSession->GetRenderer()->Render()` để vẽ texture video do MPV cung cấp.
     - Vẽ các lớp phủ (overlay) khác như icon loading, icon pause, thanh điều khiển player (`RenderPlayerControls`)...
 
 ---

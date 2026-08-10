@@ -2,11 +2,11 @@
 #include "utils.h"
 #include "json.hpp"
 
-#include <popup/popup_url.h>
-#include <mpv/mpv_basic_formats.h>
-#include <gui/gui.h>
-#include <mpv/mpv_ui.h>
-#include <mpv/mpv_ui_settings.h>
+#include "player/mpv_basic_formats.h"
+
+#include "popup/popup_url.h"
+#include "gui/gui.h"
+#include "windows/WindowManager.h"
 
 #include <commdlg.h>  
 #include <vector>
@@ -613,10 +613,10 @@ void RenderPopupOverlay_Url(ReusablePopup& popup) {
     if(popup.IsOpen()) {
         popup.Render();
     }
-    #include "windows/WindowManager.h"
+    
     auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (urlConfirmed && !outResultURL.empty()) {
-        CallThread_URLFetch(runtime, WideToUTF8(outResultURL), true);
+        if(runtime)runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(WideToUTF8(outResultURL));
         urlConfirmed = false;
         outResultURL.clear();
     }

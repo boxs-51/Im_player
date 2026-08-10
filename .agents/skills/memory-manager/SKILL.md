@@ -70,7 +70,7 @@ Discovery / Hypothesis (Đoán) ──> Staging Memory (Confidence < 70%)
     "WindowRuntime::Update": {
       "file": "src/core/WindowRuntime.cpp",
       "complexity": "High",
-      "calls": ["Renderer::Render", "MPVSession::Observe"]
+      "calls": ["Renderer::Render", "PlayerSession::Observe"]
     }
   }
 }

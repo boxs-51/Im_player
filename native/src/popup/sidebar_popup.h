@@ -1,7 +1,7 @@
 // sidebar_window.h
 #pragma once
-#include <mpv/mpv_data.h>
-#include <mpv/client.h>
+#include "player/mpv_data.h"
+#include "mpv/client.h"
 
 #include "backends/client_backend.h"
 

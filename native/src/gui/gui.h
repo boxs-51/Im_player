@@ -7,6 +7,8 @@
 #include <imgui.h>
 #include <stdint.h>
 #include <functional>
+#include "gui_widgets.h"
+
 #define SMOOTH_LERP(speed, dt) (1.0f - expf(-(speed) * (dt)))
 #define IM_COL32_LERP(A, B, T) \
     IM_COL32( \

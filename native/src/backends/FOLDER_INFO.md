@@ -23,7 +23,7 @@ Thư mục này vi phạm Nguyên tắc trách nhiệm đơn (Single Responsibil
     - **Strategy:** `IGraphicsBackend` là một interface (chiến lược) định nghĩa các hoạt động đồ họa. `OpenGLBackend` và `D3D11Backend` là các chiến lược cụ thể.
 - **Decisions:**
     - Toàn bộ ứng dụng được tách biệt khỏi một API đồ họa cụ thể, cho phép chuyển đổi giữa OpenGL và D3D11 khi khởi tạo.
-    - Tích hợp sâu với `libmpv` thông qua `mpv_render_context` và `GetMpvRenderParams`, cho phép MPV render video trực tiếp vào texture của backend đồ họa.
+    - Tích hợp sâu với `libmpv` thông qua `mpv_render_context` và `GetPlayBackRenderParams`, cho phép MPV render video trực tiếp vào texture của backend đồ họa.
 
 ### 1.2. Dependency & Ownership Graph
 - **Dependency:** `WindowRuntime` → `IGraphicsBackend` ← `OpenGLBackend` / `D3D11Backend`

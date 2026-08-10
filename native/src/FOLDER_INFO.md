@@ -9,7 +9,7 @@
 
 ## 1. Architecture Decisions & Design Patterns
 - **Patterns:** 
-  - **Singleton:** `ConfigManager`, `FontManager`, `MPVManager`, `WindowManager` are all implemented as Singletons.
+  - **Singleton:** `ConfigManager`, `FontManager`, `PlayerManager`, `WindowManager` are all implemented as Singletons.
   - **Factory:** A `WindowFactory` combined with a `WindowTemplateBuilder` is used to create different types of windows (`VideoPlayerMain`, `MockSubWindow`).
   - **Facade:** `hotkey_handler.cpp` acts as a facade for various subsystems triggered by user input (Playback control, UI popups).
   - **Strategy:** The graphics backend is abstracted (`OpenGLBackend`, `D3D11Backend`), allowing different rendering strategies to be plugged into a `WindowRuntime`.
@@ -20,14 +20,14 @@
 
 ## 2. Dependency & Ownership Graph
 ### Dependency
-`main1.cpp` → `WindowManager` → `WindowRuntime` → `IGraphicsBackend`, `MPVSession`, `ImGuiContext`
-`main1.cpp` → `FontManager`, `ConfigManager`, `MPVManager`, `ThreadManager`
-`hotkey_handler.cpp` → `MPVSession::Commander`, `WindowManager`
+`main1.cpp` → `WindowManager` → `WindowRuntime` → `IGraphicsBackend`, `PlayerSession`, `ImGuiContext`
+`main1.cpp` → `FontManager`, `ConfigManager`, `PlayerManager`, `ThreadManager`
+`hotkey_handler.cpp` → `PlayerSession::Commander`, `WindowManager`
 
 ### Ownership & Lifetime
 - `main()` creates and owns `WindowManager`.
 - `WindowManager` owns all `WindowRuntime` instances.
-- `MPVManager` owns all `MPVSession` instances. WindowRuntime holds a raw pointer to its `MPVSession`.
+- `PlayerManager` owns all `PlayerSession` instances. WindowRuntime holds a raw pointer to its `PlayerSession`.
 - `FontManager` loads fonts into a shared `ImFontAtlas` owned by a `WindowSharedGroup`, which is then shared by related `WindowRuntime`s. Font data ownership is transferred to ImGui.
 
 ## 3. Thread Model & Event/Data Flow
@@ -42,7 +42,7 @@
 - **Event Flow:** `SDL_PollEvent` (Main Thread) → `HandleWindowRuntimeEvent` → `runtime->resource.graphicsBackend->ProcessEvent(e)` & `HandleHotkeys(e)`. Custom events like `SDL_MPV_RENDER_UPDATE` trigger rendering flags.
 - **Data Flow:**
   - **Settings:** `ConfigManager` loads from JSON → `v_Settings` / `c_Settings` structs → Accessed via `GetVideoSettings()`/`GetCommonSettings()`.
-  - **Playback:** `hotkey_handler` → `MPVSession::Commander` → `mpv_command`.
+  - **Playback:** `hotkey_handler` → `PlayerSession::Commander` → `mpv_command`.
   - **New URL from Pipe:** `PipeServerThread` → `OnArgumentsReceived` → `CallThread_URLFetch`.
 
 ## 4. Public APIs & Configuration

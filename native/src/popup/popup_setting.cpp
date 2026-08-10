@@ -1,5 +1,4 @@
-#include "mpv/mpv_ui.h"
-#include "mpv/shaders/shaders_manager.h"
+#include "player/shaders/shaders_manager.h"
 
 #include <gui/gui.h>
 #include "globals.h"

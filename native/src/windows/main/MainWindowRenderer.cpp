@@ -5,15 +5,16 @@
 #include "settings_manager.h"
 #include "globals.h"
 #include <popup/popup.h>
-#include <mpv/session/MPVSession.h>
+#include "player/session/PlayerSession.h"
 
 #include "WindowUtils.h"
 
-
-#include <mpv/mpv_ui.h>
-#include <mpv/mpv_ui_settings.h>
 #include <mpv/render_gl.h>
-#include <mpv/mpv_data.h>
+
+//#include <mpv_ui.h>
+#include "ui/ui.h"
+
+#include <player/mpv_data.h>
 
 void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
     IMGUI_CHECKVERSION();
@@ -316,8 +317,8 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     bool flagRenderVideo = runtime->properties.GetValue<bool>("RenderVideoFlag", true);
     if (flagRenderVideo || state == PlaybackState::Paused || state == PlaybackState::Seeking ||
         state == PlaybackState::Playing || state == PlaybackState::EndOfFile) {
-        if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetRenderer() && runtime->resource.graphicsBackend.get())
-            runtime->resource.mpvSession->GetRenderer()->Render(layout->ClientSize, runtime->resource.graphicsBackend.get());
+        if (runtime->resource.playersession && runtime->resource.playersession->GetRenderer() && runtime->resource.graphicsBackend.get())
+            runtime->resource.playersession->GetRenderer()->Render(layout->ClientSize, runtime->resource.graphicsBackend.get());
         RenderGhostStatusOverlay(layout->ClientPos, layout->ClientSize, (state == PlaybackState::Paused));
         runtime->properties.Set<bool>("RenderVideoFlag", false);
     }
@@ -326,7 +327,7 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
         state == PlaybackState::Seeking || state == PlaybackState::EndOfFile) {
         
         //RenderPlayerControls(mpv.mpv, layout->ClientPos, layout->ClientSize,
-        if (runtime->resource.mpvSession)
+        if (runtime->resource.playersession)
             RenderPlayerControls(runtime, layout->ClientPos, layout->ClientSize);
 
         RenderSeekingOverlay(layout->ClientPos, layout->ClientSize);

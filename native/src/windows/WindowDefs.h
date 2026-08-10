@@ -109,6 +109,7 @@ struct WindowStyle {
     int btnSize = 30;
     int resizeMargin = 8;
 
+    bool create_mpv = false;
     bool isMainWindow = false;
 
     LONG Style = WS_OVERLAPPEDWINDOW;

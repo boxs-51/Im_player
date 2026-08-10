@@ -8,30 +8,32 @@
 #include <csignal>
 #include "utils.h"
 
-#include <gui/gui.h>
-#include <mpv/mpv_ui_settings.h>
-#include <MPVManager.h>
-#include <mpv/mpv_data.h>
-#include <mpv/audio/filter/af_m.h>
+#include "gui/gui.h"
+
+#include "player/session/PlayerManager.h"
+#include "player/mpv_data.h"
+#include "player/audio/filter/af_m.h"
+
 #include "settings_manager.h"
-#include <popup/popup.h>
+#include "popup/popup.h"
 #include "hotkey_handler.h"
 #include <backends/backend.h>
 #include <threads/thread_manager.h>
 #include <log.h>
 #include "notification.h"
 
-#include "WindowManager.h"
-#include "MainWindowRenderer.h"
-#include "MockSubWindowRenderer.h" // Thêm include cho renderer mới
-#include "MainWindowState.h"
+#include "windows/main/MainWindowRenderer.h"
+#include "windows/main/MainWindowState.h"
+#include "windows/sub/MockSubWindowRenderer.h" // Thêm include cho renderer mới
+
+#include "windows/WindowManager.h"
 #include "FontManager.h"
-#include "UpdateWindowState.h"
-#include "WindowFactory.h"
-#include "UIRenderThread.h"
-#include "WindowSharedGroup.h"
+#include "windows/UpdateWindowState.h"
+#include "windows/WindowFactory.h"
+#include "windows/UIRenderThread.h"
+#include "windows/WindowSharedGroup.h"
 #include "common/Exception.h"
-#include "WindowTemplateBuilder.h"
+#include "windows/WindowTemplateBuilder.h"
 
 // Gọi lớp trừu tượng đồ họa của bạn từ bài thiết kế trước
 #include "OpenGLBackend.h" 
@@ -82,11 +84,11 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
         runtime->resource.graphicsBackend->ProcessEvent(e);
 
     if (e->type == SDL_MPV_RENDER_UPDATE) {
-        if (runtime->resource.mpvSession) runtime->properties.Set<bool>("RenderVideoFlag", true);
+        if (runtime->resource.playersession) runtime->properties.Set<bool>("RenderVideoFlag", true);
     }
     if (e->type == SDL_MPV_EVENT) {
-        if (runtime->resource.mpvSession && runtime->resource.mpvSession->GetObserver()) 
-            runtime->resource.mpvSession->GetObserver()->ProcessEvents();
+        if (runtime->resource.playersession && runtime->resource.playersession->GetObserver()) 
+            runtime->resource.playersession->GetObserver()->ProcessEvents();
     }
     if (e->type == SDL_CURSOR_EVENT){
         SDL_ShowCursor(e->user.code);
@@ -116,11 +118,6 @@ void HandleWindowRuntimeEvent(WindowRuntime* runtime, const SDL_Event* e, bool& 
 
     if (HandleHotkeys(e, runtime)) return;
 }
-/** 
-    @brief Tự động điều chỉnh tốc độ làm mới (FPS) cho từng cửa sổ dựa trên trạng thái của chúng.
-    @param winManager Trình quản lý cửa sổ.
-**/
-
 
 int main(int argc, char** argv) {
 
@@ -151,6 +148,7 @@ try {
     }
 
     ConfigManager::Instance().LoadAll();
+    
     WindowTemplateRegistry registry;
     WindowFactory factory(&registry);
     auto& winManager = WindowManager::GetInstance();
@@ -162,6 +160,7 @@ try {
         .WithStyle([](WindowStyle& s) {
             s.isMainWindow = true;
             s.borderless = true;
+            s.create_mpv = true;
         })
         .WithState([](WindowState& s) {
             s.geometry.minWidth = 720;
@@ -188,14 +187,12 @@ try {
         .Register(registry, "MockSubWindow");
 
     // Khởi tạo và nạp thẳng đối tượng thiết lập đồ họa trừu tượng (OpenGL) vào cửa sổ[cite: 20]
-    // BẠN CÓ THỂ CHỌN BACKEND Ở ĐÂY
 
     winManager.QueueCreateWindow("VideoPlayerMain");
     winManager.ProcessCreationQueue(); // Xử lý ngay để có mainWin
     WindowRuntime* mainWin = winManager.GetMainWindow();
     if (!mainWin) { // Kiểm tra xem mainWin đã được tạo thành công chưa
         // Dọn dẹp trước khi thoát
-        winManager.DestroyWindow(mainWin->info.id);
         if (hMutex) {
             ReleaseMutex(hMutex);
             CloseHandle(hMutex);
@@ -219,18 +216,18 @@ try {
         ImFontAtlasUpdateNewFrame(sharedGroup->m_sharedFontAtlas.get(), ImGui::GetFrameCount(), (ImGui::GetIO().BackendFlags & ImGuiBackendFlags_RendererHasTextures) != 0);
     }
 
-    // Tạo session và chuyển quyền sở hữu cho MPVManager
-    auto mpvSession = std::make_unique<MPVSession>("main");
-    if (!mpvSession->Init(mainWin)) {
-        SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo MPV Session.", nullptr);
-        Cleanup();
-        return 1;
-    }
+    // Tạo session và chuyển quyền sở hữu cho PlayerManager
+    //mainWin->resource.PlayerSessionId = "main";
+    //auto PlayerSession = std::make_unique<PlayerSession>(mainWin->resource.PlayerSessionId);
+    //if (!PlayerSession->Init(mainWin)) {
+    //    SDL_ShowSimpleMessageBox(SDL_MESSAGEBOX_ERROR, "Lỗi", "Không thể khởi tạo MPV Session.", nullptr);
+    //    Cleanup();
+    //    return 1;
+    //}
     // Đăng ký session với Manager và gán con trỏ thô cho Window
-    mainWin->resource.mpvSession = MPVManager::GetInstance().RegisterSession(std::move(mpvSession));
-    
-  
-    // MPVManager giờ đã quản lý session, không cần tìm kiếm nữa
+   // mainWin->resource.PlayerSession = PlayerManager::GetInstance().RegisterSession(std::move(PlayerSession));
+
+    // PlayerManager giờ đã quản lý session, không cần tìm kiếm nữa
     // Gọi cập nhật trạng thái ban đầu (Sử dụng hàm định tuyến)[cite: 20]
     mainWin->state.runtime.is_dirty = RouteWindowStateUpdate(mainWin);
 
@@ -239,7 +236,7 @@ try {
 
     if (argc >= 2) {
         std::string Url = argv[1];
-        CallThread_URLFetch(mainWin, Url, true);
+        mainWin->resource.GetPlayerSession()->GetCommander()->LoadFile(Url);
     }
 
     FrameTimer mainloop(60);
@@ -247,6 +244,7 @@ try {
 
     // Danh sách các cửa sổ cần đóng sau khi vòng lặp sự kiện kết thúc
     std::vector<WindowId> windowsToClose;
+    const WindowId mainWinId = mainWin ? mainWin->info.id : 0;
 
     while (running) {
         mainloop.startFrame();
@@ -256,11 +254,16 @@ try {
         winManager.ProcessCreationQueue();
         PlaybackState state = GetPlaybackState();
 
-        // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
-        if (mainWin->properties.GetValue<bool>("TriggerToggleFullscreen", false)) {
-            mainWin->controller->ToggleFullscreen();
-            mainWin->state.runtime.is_dirty = RouteWindowStateUpdate(mainWin); // Sử dụng hàm định tuyến mới[cite: 20]
-            mainWin->properties.Set<bool>("TriggerToggleFullscreen", false);
+        // Kiểm tra lại con trỏ mainWin an toàn từ winManager qua mainWinId
+        WindowRuntime* currentMainWin = winManager.GetWindowById(mainWinId);
+
+        if(currentMainWin){
+            // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
+            if (mainWin->properties.GetValue<bool>("TriggerToggleFullscreen", false)) {
+                mainWin->controller->ToggleFullscreen();
+                mainWin->state.runtime.is_dirty = RouteWindowStateUpdate(mainWin); // Sử dụng hàm định tuyến mới[cite: 20]
+                mainWin->properties.Set<bool>("TriggerToggleFullscreen", false);
+            }
         }
 
         // Loại bỏ đoạn code `#ifdef RENDER_MPV_THREAD` ở vòng lặp chính này 
@@ -291,8 +294,8 @@ try {
         }
 
         // Cập nhật các lệnh đang chờ của MPV (ví dụ: delayed seek)
-        if (mainWin->resource.mpvSession && mainWin->resource.mpvSession->GetCommander()) 
-            mainWin->resource.mpvSession->GetCommander()->Update();
+        if (mainWin->resource.playersession && mainWin->resource.playersession->GetCommander()) 
+            mainWin->resource.playersession->GetCommander()->Update();
         AudioFilterManager::Instance().UpdateAdaptiveFilters();
 
         // Gọi hàm điều chỉnh FPS tự động cho tất cả các cửa sổ
@@ -321,9 +324,8 @@ try {
                 if (!winToClose) continue;
 
                 // Nếu là cửa sổ chính, hoặc cửa sổ không được thiết kế để ẩn/hiện -> Hủy
-                if (winToClose->style.isMainWindow /* || some_other_condition */) {
+                if (winToClose->style.isMainWindow || idToClose == mainWinId /* || some_other_condition */) {
                     running = false;
-                    winManager.DestroyWindow(idToClose);
                 } else {
                     // Nếu là cửa sổ phụ -> Chỉ ẩn đi
                     winManager.HideWindow(idToClose);
@@ -340,11 +342,14 @@ try {
         CloseHandle(hMutex);
     }
     
-    // Dọn dẹp tất cả các cửa sổ còn lại khi thoát
-    if (mainWin) {
-        winManager.DestroyWindow(mainWin->info.id);
+    std::vector<WindowId> allIds;
+    for (auto& [id, window] : winManager) {
+        allIds.push_back(id);
     }
-    // Cleanup(); // CleanupMPV is now handled by ~MPVSession
+    for (WindowId id : allIds) {
+        winManager.DestroyWindow(id);
+    }
+    // Cleanup(); // CleanupMPV is now handled by ~PlayerSession
     return 0;
 } catch (const AppException& e) {
     SDL_Log("Caught AppException: %s", e.what());

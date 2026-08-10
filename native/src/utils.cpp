@@ -7,10 +7,10 @@
 #include "stb_image.h"
 #include <popup/popup.h>
 
-#include <mpv/mpv_basic_formats.h>
+#include <player/mpv_basic_formats.h>
 #include <gui/gui.h>
-#include <mpv/render/MPVRenderThread.h>
-#include <mpv/session/MPVManager.h>
+#include <player/render/PlayBackRenderThread.h>
+#include <player/session/PlayerManager.h>
 #include <backends/backend.h>
 
 #include <filesystem>

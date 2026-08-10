@@ -6,10 +6,18 @@
                 
                 "${workspaceFolder}/native/include",  
 
-                "${workspaceFolder}/native/include/mpv",      
-                "${workspaceFolder}/native/src/mpv/shaders",      
-                "${workspaceFolder}/native/src/mpv/scripts", 
-                "${workspaceFolder}/native/src/mpv/audio/filter", 
+                "${workspaceFolder}/native/include/mpv",   
+
+                "${workspaceFolder}/native/src/player/shaders",      
+                "${workspaceFolder}/native/src/player/scripts", 
+                "${workspaceFolder}/native/src/player/audio/filter",
+                "${workspaceFolder}/native/src/player/audio",
+                "${workspaceFolder}/native/src/player/player",
+                "${workspaceFolder}/native/src/player/command",
+                "${workspaceFolder}/native/src/player/render",
+                "${workspaceFolder}/native/src/player/session",
+                "${workspaceFolder}/native/src/player/event",
+
                 
 
                 "${workspaceFolder}/native/include/nlohmann",  
@@ -23,6 +31,8 @@
                 "${workspaceFolder}/native/include/openssl",
                 "${workspaceFolder}/native/src",
                 "${workspaceFolder}/native/src/windows",
+                "${workspaceFolder}/native/src/windows/main",
+                "${workspaceFolder}/native/src/windows/main/ui",
                 "${workspaceFolder}/native/src/popup",
                 "${workspaceFolder}/native/src/threads",
                 "${workspaceFolder}/native/src/backends",

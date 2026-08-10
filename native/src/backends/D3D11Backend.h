@@ -3,7 +3,7 @@
 #include <d3d11.h>
 #include <SDL_syswm.h>
 #include "imgui_impl_sdl2.h"
-#include "mpv/render/IFrameBufferPool.h"
+#include "player/render/IFrameBufferPool.h"
 #include "imgui_impl_dx11.h"
 
 class D3D11Backend : public IGraphicsBackend {
@@ -76,7 +76,7 @@ public:
     // Các phương thức này không áp dụng cho D3D11, trả về giá trị mặc định/trống
     std::any CreateSubContext(SDL_Window* ownerWindow) override { return std::any(); }
     bool MakeCurrent(SDL_Window* window, const std::any& context) override { return true; }
-    std::vector<mpv_render_param> GetMpvRenderParams(const ImVec2& size) override { return {}; }
+    std::vector<mpv_render_param> GetPlayBackRenderParams(const ImVec2& size) override { return {}; }
     unsigned int GetGLInternalFormat() const override { return 0; }
     unsigned int GetGLFormat() const override { return 0; }
     unsigned int GetGLType() const override { return 0; }

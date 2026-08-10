@@ -8,7 +8,7 @@ description: Tự động kích hoạt BẤT KỲ KHI NÀO người dùng hỏi 
 # Quy Trình Truy Vết Lỗi & Luồng Dữ Liệu 6 Cấp Độ (6-Level Trace Debugger)
 
 
-Khi nhận câu hỏi tìm lỗi, trace luồng dữ liệu (như *"Tại sao EventQueue lỗi?"*, *"Trace MPVSession"*), thực hiện nghiêm ngặt theo **Pipeline Cascade 6 Level**:
+Khi nhận câu hỏi tìm lỗi, trace luồng dữ liệu (như *"Tại sao EventQueue lỗi?"*, *"Trace PlayerSession"*), thực hiện nghiêm ngặt theo **Pipeline Cascade 6 Level**:
 
 Ưu tiên truy vết 6 cấp độ (Architecture Index -> Folder Info -> Symbol -> Raw Source -> Discovery -> Repair). Hỗ trợ xuất Root Cause Report, Flow Trace và đề xuất tự động cập nhật tài liệu.
 

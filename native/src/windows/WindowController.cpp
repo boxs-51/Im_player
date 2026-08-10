@@ -2,7 +2,7 @@
 #include "WindowController.h"
 #include "WindowRuntime.h"
 #include <SDL_syswm.h>
-#include "mpv/session/MPVSession.h"
+#include "player/session/PlayerSession.h"
 #include "WindowManager.h" 
 #include "WindowRelation.h"
 #include "UIRenderThread.h"

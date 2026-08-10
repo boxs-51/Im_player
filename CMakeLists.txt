@@ -25,39 +25,39 @@ add_executable(Im_player WIN32
     native/src/wintoastlib.cpp
     native/src/settings_manager.cpp
     native/src/stb_impl.cpp
-    #
-    native/src/mpv/mpv_basic_formats.cpp
+    # 
+    native/src/player/mpv_basic_formats.cpp
   
-    native/src/mpv/mpv_ui.cpp
-    native/src/mpv/mpv_ui_settings.cpp
-    native/src/mpv/mpv_data.cpp
+    native/src/windows/main/mpv_ui.cpp
+    native/src/windows/main/mpv_ui_settings.cpp
+    native/src/player/mpv_data.cpp
     #
-    native/src/mpv/audio/filter/af_m_core.cpp
-    native/src/mpv/audio/filter/af_m_ai.cpp
-    native/src/mpv/audio/filter/af_m_io.cpp
-    native/src/mpv/audio/filter/af_m_safety.cpp
-    native/src/mpv/audio/filter/af_m_sync.cpp
+    native/src/player/audio/filter/af_m_core.cpp
+    native/src/player/audio/filter/af_m_ai.cpp
+    native/src/player/audio/filter/af_m_io.cpp
+    native/src/player/audio/filter/af_m_safety.cpp
+    native/src/player/audio/filter/af_m_sync.cpp
     #
-    native/src/mpv/video/filter/video_filter_manager.cpp
+    native/src/player/video/filter/video_filter_manager.cpp
     #
-    native/src/mpv/shaders/shader_manager.cpp
+    native/src/player/shaders/shader_manager.cpp
     #
-    native/src/mpv/scripts/script_manager.cpp
+    native/src/player/scripts/script_manager.cpp
     #
-    native/src/mpv/command/MPVCommand.cpp
+    native/src/player/command/PlaybackCommand.cpp
     #
-    native/src/mpv/event/MPVObserver.cpp
+    native/src/player/event/PlaybackObserver.cpp
     #
-    native/src/mpv/player/MPVPlayer.cpp
+    native/src/player/player/Player.cpp
     #
-    native/src/mpv/property/MPVProperty.cpp
+    native/src/player/property/PlayBackProperty.cpp
     #
-    native/src/mpv/render/MPVRender.cpp
-    native/src/mpv/render/OpenGLFrameBufferPool.cpp
-    native/src/mpv/render/MPVRenderThread.cpp
+    native/src/player/render/PlayBackRender.cpp
+    native/src/player/render/OpenGLFrameBufferPool.cpp
+    native/src/player/render/PlayBackRenderThread.cpp
     #
-    native/src/mpv/session/MPVSession.cpp
-    native/src/mpv/session/MPVManager.cpp
+    native/src/player/session/PlayerSession.cpp
+    native/src/player/session/PlayerManager.cpp
 
     native/src/windows/main/MainWindowRenderer.cpp
     native/src/windows/sub/MockSubWindowRenderer.cpp
@@ -96,6 +96,11 @@ add_executable(Im_player WIN32
     #
     native/src/threads/thread_manager.cpp
 
+    native/src/windows/main/ui/ui_controls.cpp
+    native/src/windows/main/ui/ui_overlays.cpp
+    native/src/windows/main/ui/ui_settings.cpp
+    native/src/windows/main/ui/ui_widgets.cpp
+
 )
 
 # ================== WINDOWS DEFINES ==================
@@ -116,17 +121,17 @@ target_include_directories(Im_player PRIVATE
     native/src 
 
     native/include/mpv      
-    native/src/mpv  
-    native/src/mpv/shaders
-    native/src/mpv/scripts
-    native/src/mpv/audio
-    native/src/mpv/video
-    native/src/mpv/command
-    native/src/mpv/event
-    native/src/mpv/player
-    native/src/mpv/property
-    native/src/mpv/render
-    native/src/mpv/session
+    native/src/player  
+    native/src/player/shaders
+    native/src/player/scripts
+    native/src/player/audio
+    native/src/player/video
+    native/src/player/command
+    native/src/player/event
+    native/src/player/player
+    native/src/player/property
+    native/src/player/render
+    native/src/player/session
 
     native/src/gui
     native/include/nlohmann  
@@ -141,6 +146,7 @@ target_include_directories(Im_player PRIVATE
 
     native/src/windows
     native/src/windows/main
+    native/src/windows/main/ui
     native/src/windows/sub
     native/src/popup
     native/src/threads

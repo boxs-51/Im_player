@@ -52,6 +52,7 @@ private:
     
     WindowRuntime* m_ownerRuntime; // Con trỏ không sở hữu đến runtime của cửa sổ
     std::thread m_thread;
+    std::string m_registeredThreadName; // Lưu tên đã đăng ký để Unregister an toàn
     std::atomic<bool> m_running = false;
 
     // Cơ chế đồng bộ

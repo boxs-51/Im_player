@@ -8,123 +8,150 @@
 #include <mutex>
 #include <functional>
 
-
 /**
- * @brief 
- * 
+ * @brief
+ *
  */
-class WindowManager {
+class WindowManager
+{
 private:
-    WindowFactory* factory;
+    WindowFactory *factory;
     std::unordered_map<WindowId, std::unique_ptr<WindowRuntime>> windows;
+    mutable std::mutex m_windowsMutex;
 
     std::mutex m_queueMutex;
     std::vector<std::function<void()>> m_creationQueue;
 
-
     WindowManager() = default;
 
 public:
-    WindowManager(const WindowManager&) = delete;
-    WindowManager& operator=(const WindowManager&) = delete;
+    WindowManager(const WindowManager &) = delete;
+    WindowManager &operator=(const WindowManager &) = delete;
 
     // BƯỚC 3: Hàm tĩnh để lấy Instance duy nhất (Thread-safe từ C++11)
-    static WindowManager& GetInstance() {
+    static WindowManager &GetInstance()
+    {
         static WindowManager instance;
         return instance;
     }
 
-
-    void Initialize(WindowFactory* fact) {
+    void Initialize(WindowFactory *fact)
+    {
         factory = fact;
     }
 
     /**
-     * @brief Create a New Window object
-     * 
-     * @param templateName 
-     * @return WindowRuntime* 
+     * @brief Tạo cửa sổ đồng bộ ngay trên thread hiện tại (dùng khi cần nhận ngay kết quả như Main Window)
+     * @return WindowRuntime*
      */
-    // Trả về WindowId để có thể theo dõi cửa sổ vừa được yêu cầu tạo
-    WindowId QueueCreateWindow(const std::string& templateName, WindowRuntime* parent = nullptr) {
-        WindowId newId = 0; // Sẽ được gán trong factory
-        std::lock_guard<std::mutex> lock(m_queueMutex);
-        m_creationQueue.emplace_back([this, templateName, parent, &newId]() {
-            auto* runtime = factory->Create(templateName, parent); // Factory sẽ gán ID
-            if (runtime) {
-                newId = runtime->info.id;
-                windows[runtime->info.id] = std::unique_ptr<WindowRuntime>(runtime);
+    WindowRuntime *CreateWindowSync(const std::string &templateName, WindowRuntime *parent = nullptr)
+    {
+        if (!factory)
+            return nullptr;
 
-                // Thiết lập quan hệ hai chiều
+        auto *runtime = factory->Create(templateName, parent);
+        if (runtime)
+        {
+            WindowId id = runtime->info.id;
+            std::lock_guard<std::mutex> lock(m_windowsMutex);
+            windows[id] = std::unique_ptr<WindowRuntime>(runtime);
+
+            if (parent)
+            {
+                runtime->relation.parent = parent;
+                parent->relation.AddChild(runtime);
+            }
+        }
+        return runtime;
+    }
+
+    /**
+     * @brief Đưa yêu cầu tạo cửa sổ vào hàng đợi (An toàn Thread)
+     *
+     * @param onCreated Callback tùy chọn được gọi sau khi cửa sổ tạo thành công kèm WindowId thật.
+     * @param templateName
+     * @return WindowRuntime*
+     */
+    void QueueCreateWindow(
+        const std::string &templateName,
+        WindowRuntime *parent = nullptr,
+        std::function<void(WindowId)> onCreated = nullptr)
+    {
+        std::lock_guard<std::mutex> lock(m_queueMutex);
+        m_creationQueue.emplace_back([this, templateName, parent, onCreated]()
+                                     {
+            if (!factory) return;
+
+            auto* runtime = factory->Create(templateName, parent);
+            if (runtime) {
+                WindowId newId = runtime->info.id;
+                std::lock_guard<std::mutex> lock(m_windowsMutex);
+                windows[newId] = std::unique_ptr<WindowRuntime>(runtime);
+
                 if (parent) {
                     runtime->relation.parent = parent;
                     parent->relation.AddChild(runtime);
                 }
-            }
-        });
-        return newId;
+
+                if (onCreated) {
+                    onCreated(newId);
+                }
+            } });
     }
 
-    void ProcessCreationQueue() {
+    void ProcessCreationQueue()
+    {
         std::vector<std::function<void()>> queueCopy;
         {
             std::lock_guard<std::mutex> lock(m_queueMutex);
             queueCopy.swap(m_creationQueue);
         }
-        for (const auto& task : queueCopy) {
+        for (const auto &task : queueCopy)
+        {
             task();
         }
     }
 
     /**
-     * @brief 
-     * 
-     * @param id 
+     * @brief
+     *
+     * @param id
      */
-    void DestroyWindow(WindowId id) {
-        auto it = windows.find(id);
-        if (it == windows.end()) return;
-
-        WindowRuntime* runtime = it->second.get();
-
-        // 1. Hủy tất cả các cửa sổ con của nó trước (đệ quy)
-        // Tạo một bản sao của children vì vector gốc sẽ bị thay đổi trong vòng lặp
-        std::vector<WindowRuntime*> childrenCopy = runtime->relation.children;
-        for (WindowRuntime* child : childrenCopy) {
-            DestroyWindow(child->info.id);
-        }
-
-        // 2. Xóa chính nó khỏi danh sách con của cha nó
-        if (runtime->relation.parent) {
-            runtime->relation.parent->relation.RemoveChild(runtime);
-        }
-
-        // 3. Cuối cùng, xóa chính nó
-        windows.erase(it);
+    void DestroyWindow(WindowId id)
+    {
+        std::lock_guard<std::mutex> lock(m_windowsMutex);
+        DestroyWindowInternal(id);
     }
 
-    void HideWindow(WindowId id) {
-        WindowRuntime* runtime = GetWindowById(id);
-        if (runtime && runtime->resource.sdlWindow) {
+    void HideWindow(WindowId id)
+    {
+        WindowRuntime *runtime = GetWindowById(id);
+        if (runtime && runtime->resource.sdlWindow)
+        {
             SDL_HideWindow(runtime->resource.sdlWindow);
-    //        runtime->state.isShown = false;
-    //        runtime->isTemporarilyHidden = true; // Đánh dấu là chỉ ẩn tạm thời
+            //        runtime->state.isShown = false;
+            //        runtime->isTemporarilyHidden = true; // Đánh dấu là chỉ ẩn tạm thời
         }
     }
 
-    void ShowWindow(WindowId id) {
-        WindowRuntime* runtime = GetWindowById(id);
-        if (runtime && runtime->resource.sdlWindow) {
+    void ShowWindow(WindowId id)
+    {
+        WindowRuntime *runtime = GetWindowById(id);
+        if (runtime && runtime->resource.sdlWindow)
+        {
             SDL_ShowWindow(runtime->resource.sdlWindow);
-    //        runtime->state.isShown = true;
-    //        runtime->isTemporarilyHidden = false;
+            //        runtime->state.isShown = true;
+            //        runtime->isTemporarilyHidden = false;
         }
     }
 
     // Tìm một cửa sổ đã bị ẩn dựa trên template name
-    WindowRuntime* FindHiddenWindowByTemplate(const std::string& templateName) {
-        for (auto& [id, window] : windows) {
-            if (window->info.templateName == templateName) {
+    WindowRuntime *FindHiddenWindowByTemplate(const std::string &templateName)
+    {
+        for (auto &[id, window] : windows)
+        {
+            if (window->info.templateName == templateName)
+            {
                 return window.get();
             }
         }
@@ -134,14 +161,18 @@ public:
     // Hàm tiện ích mới: Tra cứu WindowRuntime từ SDL_Window vật lý
     /**
      * @brief Get the Window By S D L Handle object
-     * 
-     * @param sdlWin 
-     * @return WindowRuntime* 
+     *
+     * @param sdlWin
+     * @return WindowRuntime*
      */
-    WindowRuntime* GetWindowBySDLHandle(SDL_Window* sdlWin) {
-        if (!sdlWin) return nullptr;
-        for (auto& [id, runtime] : windows) {
-            if (runtime->resource.sdlWindow == sdlWin) {
+    WindowRuntime *GetWindowBySDLHandle(SDL_Window *sdlWin)
+    {
+        if (!sdlWin)
+            return nullptr;
+        for (auto &[id, runtime] : windows)
+        {
+            if (runtime->resource.sdlWindow == sdlWin)
+            {
                 return runtime.get();
             }
         }
@@ -149,38 +180,48 @@ public:
     }
     /**
      * @brief Get the All Windows object
-     * 
-     * @return std::vector<WindowRuntime*> 
+     *
+     * @return std::vector<WindowRuntime*>
      */
-    std::vector<WindowRuntime*> GetAllWindows() {
-        std::vector<WindowRuntime*> result;
+    std::vector<WindowRuntime *> GetAllWindows()
+    {
+        std::lock_guard<std::mutex> lock(m_windowsMutex);
+        std::vector<WindowRuntime *> result;
         result.reserve(windows.size());
-        for (auto& [id, runtime] : windows) {
+        for (auto &[id, runtime] : windows)
+        {
             result.push_back(runtime.get());
         }
         return result;
     }
     /**
      * @brief Get the Window By Id object
-     * 
-     * @param id 
-     * @return WindowRuntime* 
+     *
+     * @param id
+     * @return WindowRuntime*
      */
-    WindowRuntime* GetWindowById(WindowId id) {
+    WindowRuntime *GetWindowById(WindowId id)
+    {
+        std::lock_guard<std::mutex> lock(m_windowsMutex);
         auto it = windows.find(id);
-        if (it != windows.end()) {
+        if (it != windows.end())
+        {
             return it->second.get();
         }
         return nullptr;
     }
     /**
      * @brief Get the Main Window object
-     * 
-     * @return WindowRuntime* 
+     *
+     * @return WindowRuntime*
      */
-    WindowRuntime* GetMainWindow() {
-        for (auto& [id, runtime] : windows) {
-            if (runtime && runtime->style.isMainWindow) {
+    WindowRuntime *GetMainWindow()
+    {
+        std::lock_guard<std::mutex> lock(m_windowsMutex);
+        for (auto &[id, runtime] : windows)
+        {
+            if (runtime && runtime->style.isMainWindow)
+            {
                 return runtime.get();
             }
         }
@@ -189,72 +230,99 @@ public:
 
     /**
      * @brief Lấy con trỏ WindowRuntime từ một sự kiện SDL.
-     * 
+     *
      * @param e Sự kiện SDL.
      * @return WindowRuntime* Con trỏ đến runtime tương ứng, hoặc nullptr.
      */
-    WindowRuntime* GetWindowFromEvent(const SDL_Event* e) {
-        if (!e) return nullptr;
+    WindowRuntime *GetWindowFromEvent(const SDL_Event *e)
+    {
+        if (!e)
+            return nullptr;
 
         Uint32 winID = 0;
-        switch (e->type) {
-            // --- Window Events ---
-            case SDL_WINDOWEVENT:           winID = e->window.windowID; break;
+        switch (e->type)
+        {
 
-            // --- Keyboard Events ---
-            case SDL_KEYDOWN:               // Fallthrough
-            case SDL_KEYUP:                 winID = e->key.windowID; break;
-            case SDL_TEXTEDITING:           winID = e->edit.windowID; break;
-            case SDL_TEXTINPUT:             winID = e->text.windowID; break;
-            case SDL_KEYMAPCHANGED:         break; // Không có windowID
+        // --- Window Events ---
+        case SDL_WINDOWEVENT:
+            winID = e->window.windowID;
+            break;
 
-            // --- Mouse Events ---
-            case SDL_MOUSEMOTION:           winID = e->motion.windowID; break;
-            case SDL_MOUSEBUTTONDOWN:       // Fallthrough
-            case SDL_MOUSEBUTTONUP:         winID = e->button.windowID; break;
-            case SDL_MOUSEWHEEL:            winID = e->wheel.windowID; break;
+        // --- Keyboard Events ---
+        case SDL_KEYDOWN:
+        case SDL_KEYUP:
+            winID = e->key.windowID;
+            break;
+        case SDL_TEXTEDITING:
+            winID = e->edit.windowID;
+            break;
+        case SDL_TEXTINPUT:
+            winID = e->text.windowID;
+            break;
+        case SDL_KEYMAPCHANGED:
+            break;
 
-            // --- Drag and Drop Events ---
-            case SDL_DROPFILE:              // Fallthrough
-            case SDL_DROPTEXT:              // Fallthrough
-            case SDL_DROPBEGIN:             // Fallthrough
-            case SDL_DROPCOMPLETE:          winID = e->drop.windowID; break;
+        // --- Mouse Events ---
+        case SDL_MOUSEMOTION:
+            winID = e->motion.windowID;
+            break;
+        case SDL_MOUSEBUTTONDOWN:
+        case SDL_MOUSEBUTTONUP:
+            winID = e->button.windowID;
+            break;
+        case SDL_MOUSEWHEEL:
+            winID = e->wheel.windowID;
+            break;
 
-            // --- Display Events ---
-            //case SDL_DISPLAYEVENT:          winID = e->display.windowID; break;
+        // --- Drag and Drop Events ---
+        case SDL_DROPFILE:
+        case SDL_DROPTEXT:
+        case SDL_DROPBEGIN:
+        case SDL_DROPCOMPLETE:
+            winID = e->drop.windowID;
+            break;
 
-            // --- Touch Events ---
-            case SDL_FINGERDOWN:            // Fallthrough
-            case SDL_FINGERUP:              // Fallthrough
-            case SDL_FINGERMOTION:          winID = e->tfinger.windowID; break;
+        // --- Display Events ---
+        // case SDL_DISPLAYEVENT:          winID = e->display.windowID; break;
 
-            // --- Gesture Events ---
-            case SDL_DOLLARGESTURE:         // Fallthrough
-            case SDL_DOLLARRECORD:          // Fallthrough
-            //case SDL_MULTIGESTURE:          winID = e->mgesture.windowID; break;
+        // --- Touch Events ---
+        case SDL_FINGERDOWN:
+        case SDL_FINGERUP:
+        case SDL_FINGERMOTION:
+            winID = e->tfinger.windowID;
+            break;
 
-            // --- Sensor Events ---
-            //case SDL_SENSORUPDATE:          winID = e->sensor.windowID; break;
+        // --- Gesture Events ---
+        case SDL_DOLLARGESTURE:
+        case SDL_DOLLARRECORD:
+        // case SDL_MULTIGESTURE:          winID = e->mgesture.windowID; break;
 
-            // Các event còn lại (Joystick, Controller, Audio, User, Quit, v.v.)
-            // không thuộc về một window cụ thể nên winID mặc định = 0.
-            default:                        break;
+        // --- Sensor Events ---
+        // case SDL_SENSORUPDATE:          winID = e->sensor.windowID; break;
+
+        // Các event còn lại (Joystick, Controller, Audio, User, Quit, v.v.)
+        // không thuộc về một window cụ thể nên winID mặc định = 0.
+        default:
+            break;
         }
 
-        if (winID == 0) return nullptr;
+        if (winID == 0)
+            return nullptr;
 
-        SDL_Window* sdlWin = SDL_GetWindowFromID(winID);
+        SDL_Window *sdlWin = SDL_GetWindowFromID(winID);
         return GetWindowBySDLHandle(sdlWin);
     }
 
     /**
      * @brief Lấy con trỏ đến cửa sổ cha của một cửa sổ.
-     * 
+     *
      * @param childId ID của cửa sổ con.
      * @return WindowRuntime* Con trỏ đến cửa sổ cha, hoặc nullptr.
      */
-    WindowRuntime* GetParentOf(WindowId childId) {
-        if (WindowRuntime* child = GetWindowById(childId)) {
+    WindowRuntime *GetParentOf(WindowId childId)
+    {
+        if (WindowRuntime *child = GetWindowById(childId))
+        {
             return child->relation.parent;
         }
         return nullptr;
@@ -262,28 +330,53 @@ public:
 
     /**
      * @brief Lấy danh sách con trỏ đến tất cả cửa sổ con của một cửa sổ.
-     * 
+     *
      * @param parentId ID của cửa sổ cha.
      * @return std::vector<WindowRuntime*> Danh sách các cửa sổ con.
      */
-    std::vector<WindowRuntime*> GetChildrenOf(WindowId parentId) {
-        if (WindowRuntime* parent = GetWindowById(parentId)) {
+    std::vector<WindowRuntime *> GetChildrenOf(WindowId parentId)
+    {
+        if (WindowRuntime *parent = GetWindowById(parentId))
+        {
             return parent->relation.children;
         }
         return {};
     }
-    
+
     // Hỗ trợ vòng lặp range-based cho việc Duyệt Render ở main loop
     /**
-     * @brief 
-     * 
-     * @return auto 
+     * @brief
+     *
+     * @return auto
      */
     auto begin() { return windows.begin(); }
     /**
-     * @brief 
-     * 
-     * @return auto 
+     * @brief
+     *
+     * @return auto
      */
     auto end() { return windows.end(); }
+
+private:
+    void DestroyWindowInternal(WindowId id)
+    {
+        auto it = windows.find(id);
+        if (it == windows.end())
+            return;
+
+        WindowRuntime *runtime = it->second.get();
+
+        std::vector<WindowRuntime *> childrenCopy = runtime->relation.children;
+        for (WindowRuntime *child : childrenCopy)
+        {
+            DestroyWindowInternal(child->info.id); // Gọi hàm nội bộ
+        }
+
+        if (runtime->relation.parent)
+        {
+            runtime->relation.parent->relation.RemoveChild(runtime);
+        }
+
+        windows.erase(it);
+    }
 };
