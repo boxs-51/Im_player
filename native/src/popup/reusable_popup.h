@@ -2,16 +2,18 @@
 #include <string>
 #include <functional>
 #include <imgui.h>
-
+class WindowRuntime;
 class ReusablePopup {
 public:
     ReusablePopup() = default;
 
     // Mở popup với title và callback
-    void Open(const std::string& title, std::function<void(bool&)> contentFunc);
+    using ContentCallback = std::function<void(WindowRuntime*, bool&)>;
+
+    void Open(const std::string& title, ContentCallback contentFunc);
 
     // Render popup mỗi frame
-    void Render();
+    void Render(WindowRuntime* window);
 
     // Kiểm tra popup đang mở
     bool IsOpen() const;
@@ -21,7 +23,7 @@ public:
 
 private:
     std::string title_;
-    std::function<void(bool&)> contentCallback;
+    ContentCallback contentCallback;
     bool open = false;
 
     // Vị trí popup

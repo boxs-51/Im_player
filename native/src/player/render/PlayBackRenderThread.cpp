@@ -59,8 +59,8 @@ void PlayBackRenderThread::SetVideoSize(int w, int h) {
         state.surface.newW = w;
         state.surface.newH = h;
         state.surface.needResize = true;
-        RequestRender();
     }
+    Notify();
 }
 
 void PlayBackRenderThread::Run() {
@@ -156,7 +156,7 @@ try {
 
         mpv_opengl_fbo fbo{};
         if (this->state.graphicsBackend->GetMpvApiType() == std::string("opengl")) {
-            fbo.fbo = frame.fbo.has_value() ? static_cast<int>(std::any_cast<GLuint>(frame.fbo)) : 0;
+            fbo.fbo = static_cast<int>(frame.fbo);
             fbo.w = frame.contentW;
             fbo.h = frame.contentH;
             fbo.internal_format = this->state.graphicsBackend->GetGLInternalFormat();

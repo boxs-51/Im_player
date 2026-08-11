@@ -19,20 +19,20 @@ PlayerSession *PlayerManager::CreateSession(const std::string &id, WindowRuntime
 
     std::string sessionId = id.empty() ? GenerateUniqueSessionId() : id;
 
-    if (m_sessions.count(id))
+    if (m_sessions.count(sessionId))
     {
         return nullptr; // Session đã tồn tại
     }
 
-    auto session = std::make_unique<PlayerSession>(id);
+    auto session = std::make_unique<PlayerSession>(sessionId);
     if (session->Init(runtime))
     {
         if (m_defaultSessionId.empty())
         {
-            m_defaultSessionId = id;
+            m_defaultSessionId = sessionId;
         }
         auto *ptr = session.get();
-        m_sessions[id] = std::move(session);
+        m_sessions[sessionId] = std::move(session);
         return ptr;
     }
     return nullptr;

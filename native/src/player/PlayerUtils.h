@@ -104,3 +104,25 @@ const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
     }
     return nullptr;
 }
+
+const char* PlaybackStateToString(PlaybackState state) {
+    switch (state) {
+        case PlaybackState::Idle:        return "Idle";
+        case PlaybackState::Loading:     return "Loading";
+        case PlaybackState::Playing:     return "Playing";
+        case PlaybackState::Paused:      return "Paused";
+        case PlaybackState::Seeking:     return "Seeking";
+        case PlaybackState::EndOfFile:   return "End of File";
+        default:                         return "Unknown";
+    }
+}
+
+const char* VideoTypeToString(VideoType type) {
+    switch (type) {
+        case VideoType::None:          return "None";
+        case VideoType::Vio:           return "Vio Video";
+        case VideoType::Live:          return "Live Stream";
+        case VideoType::Local:         return "Local File";
+        default:                        return "Unknown";
+    }
+}

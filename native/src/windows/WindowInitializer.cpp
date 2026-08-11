@@ -143,20 +143,19 @@ void WindowInitializer::AttachMPV(WindowRuntime* runtime, WindowRuntime* parent)
         // Cửa sổ con: Phân định Semantic rõ ràng
         // 1. Sao chép ID phiên phát từ cha để có thể truy cập Commander/Property/Observer
         runtime->resource.playersessionid = parent->resource.playersessionid;
-        runtime->resource.playersession = parent->resource.playersession;
 
         // 2. ĐÁNH DẤU CỬA SỔ CON: Không cho phép tự mở render loop video riêng lên FBO 
         // để tránh 2 window cùng render vào 1 mpv_render_context gây crash/xé hình
         runtime->properties.Set<bool>("IsSecondaryMpvOutput", true);
         runtime->properties.Set<bool>("RenderVideoFlag", false);
     } else {
-        if(runtime->style.create_mpv && !runtime->resource.playersession) {
+        if(runtime->style.create_mpv && runtime->resource.playersessionid.empty()) {
             // Cửa sổ độc lập / Root Window: Tự tạo một PlayerSession mới
-            auto* session = PlayerManager::GetInstance().CreateSession(runtime);
-            if (session) {
+            if (auto* session = PlayerManager::GetInstance().CreateSession(runtime)) {
                 runtime->resource.playersessionid = session->GetId();
-                runtime->resource.playersession = session;
                 runtime->properties.Set<bool>("IsSecondaryMpvOutput", false);
+            } else {
+                runtime->resource.playersessionid.clear();
             }
         }
     }

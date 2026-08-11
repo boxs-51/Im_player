@@ -26,22 +26,22 @@ std::vector<ReusablePopup*>& GetAllPopups() {
     return allReusablePopups;
 }
 
-void RenderAllPopups() {
+void RenderAllPopups(WindowRuntime* window) {
     // Nếu vẫn còn dùng popup cũ (dạng ReusablePopup)
     if (Popup_Url.IsOpen()){
-        RenderPopupOverlay_Url(Popup_Url);
+        RenderPopupOverlay_Url(Popup_Url, window);
     }
     if (videoInfoPopup.IsOpen()) {
-        RenderVideoInfoPopup(videoInfoPopup); 
+        RenderVideoInfoPopup(videoInfoPopup, window); 
     }
     if (SettingPopup.IsOpen()) {
-        RenderSettingPopup(SettingPopup); 
+        RenderSettingPopup(SettingPopup, window); 
     }
     if (SidarBarPopup.IsOpen()) {
-        RenderSidarBarPopup(SidarBarPopup);
+        RenderSidarBarPopup(SidarBarPopup, window);
     }
     if (TestPopup.IsOpen()) {
-        RenderTestPopup(TestPopup);
+        RenderTestPopup(TestPopup, window);
     }
 }
 void OffPopup(){

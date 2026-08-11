@@ -26,11 +26,8 @@ add_executable(Im_player WIN32
     native/src/settings_manager.cpp
     native/src/stb_impl.cpp
     # 
-    native/src/player/mpv_basic_formats.cpp
-  
     native/src/windows/main/mpv_ui.cpp
     native/src/windows/main/mpv_ui_settings.cpp
-    native/src/player/mpv_data.cpp
     #
     native/src/player/audio/filter/af_m_core.cpp
     native/src/player/audio/filter/af_m_ai.cpp
@@ -47,6 +44,7 @@ add_executable(Im_player WIN32
     native/src/player/command/PlaybackCommand.cpp
     #
     native/src/player/event/PlaybackObserver.cpp
+    native/src/player/event/BuildFormatYTDLP.cpp
     #
     native/src/player/player/Player.cpp
     #

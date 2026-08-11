@@ -35,8 +35,6 @@ extern bool was_ui_video ;
 extern std::vector<std::wstring> playlist;
 
 
-extern double pendingSeekTime ;
-
 
 
 

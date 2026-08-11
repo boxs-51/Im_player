@@ -10,6 +10,16 @@ OpenGLFrameBufferPool::~OpenGLFrameBufferPool() {
     Shutdown();
 }
 
+void OpenGLFrameBufferPool::ClearFence(GraphicsFenceHandle& fence) {
+    if (fence) {
+        GLsync sync = static_cast<GLsync>(fence);
+        if (glIsSync(sync)) {
+            glDeleteSync(sync);
+        }
+        fence = nullptr;
+    }
+}
+
 void OpenGLFrameBufferPool::Init(IGraphicsBackend* backend) {
     if (!backend) return;
     m_backend = backend;
@@ -19,8 +29,8 @@ void OpenGLFrameBufferPool::Init(IGraphicsBackend* backend) {
         glGenFramebuffers(1, &fbo);
         glGenTextures(1, &texture);
 
-        m_frames[i].fbo = fbo;
-        m_frames[i].texture = texture;
+        m_frames[i].fbo = static_cast<GraphicsFboHandle>(fbo);
+        m_frames[i].texture = static_cast<GraphicsTextureHandle>(texture);
 
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, m_backend->GetGLInternalFormat(), MAX_W, MAX_H, 0, m_backend->GetGLFormat(), m_backend->GetGLType(), nullptr);
@@ -38,6 +48,7 @@ void OpenGLFrameBufferPool::Init(IGraphicsBackend* backend) {
         }
         m_frames[i].allocatedW = MAX_W;
         m_frames[i].allocatedH = MAX_H;
+        m_frames[i].fence = nullptr;
         m_frames[i].state.store(BufferState::FREE);
     }
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
@@ -45,25 +56,24 @@ void OpenGLFrameBufferPool::Init(IGraphicsBackend* backend) {
 
 void OpenGLFrameBufferPool::Shutdown() {
     for (int i = 0; i < 3; ++i) {
-        if (m_frames[i].fence.has_value()) glDeleteSync(std::any_cast<GLsync>(m_frames[i].fence));
-        if (m_frames[i].fbo.has_value()) {
-            GLuint fbo = std::any_cast<GLuint>(m_frames[i].fbo);
-            if(fbo) glDeleteFramebuffers(1, &fbo);
+        ClearFence(m_frames[i].fence);
+
+        if (m_frames[i].fbo) {
+            GLuint fbo = static_cast<GLuint>(m_frames[i].fbo);
+            glDeleteFramebuffers(1, &fbo);
+            m_frames[i].fbo = 0;
         }
-        if (m_frames[i].texture.has_value()) {
-            GLuint texture = std::any_cast<GLuint>(m_frames[i].texture);
-            if(texture) glDeleteTextures(1, &texture);
+        if (m_frames[i].texture) {
+            GLuint texture = static_cast<GLuint>(m_frames[i].texture);
+            glDeleteTextures(1, &texture);
+            m_frames[i].texture = 0;
         }
-        // m_frames[i] = {}; // Lỗi C2280: không thể gán vì có std::atomic
-        // Reset thủ công từng thành viên
-        m_frames[i].fbo.reset();
-        m_frames[i].texture.reset();
-        m_frames[i].fence.reset();
+
         m_frames[i].allocatedW = 0;
         m_frames[i].allocatedH = 0;
-        m_frames[i].state.store(BufferState::FREE);
+        m_frames[i].state.store(BufferState::FREE, std::memory_order_release);
     }
-    m_currentDisplayIndex = -1;
+    m_currentDisplayIndex.store(-1, std::memory_order_release);
 }
 
 int OpenGLFrameBufferPool::AcquireFreeBuffer() {
@@ -97,6 +107,7 @@ int OpenGLFrameBufferPool::AcquireFreeBuffer() {
 FrameTextureInfo OpenGLFrameBufferPool::GetStableFrame() {
     int newReadyIndex = -1;
 
+    // Tìm frame vừa render xong ở trạng thái READY
     for (int i = 0; i < 3; ++i) {
         BufferState expected = BufferState::READY;
         if (m_frames[i].state.compare_exchange_strong(expected, BufferState::DISPLAYING, std::memory_order_acq_rel)) {
@@ -106,31 +117,39 @@ FrameTextureInfo OpenGLFrameBufferPool::GetStableFrame() {
     }
 
     if (newReadyIndex != -1) {
-        if (m_frames[newReadyIndex].fence.has_value()) {
-            GLsync fence = std::any_cast<GLsync>(m_frames[newReadyIndex].fence);
-            GLenum wait = glClientWaitSync(fence, GL_SYNC_FLUSH_COMMANDS_BIT, 16000000); // 16ms timeout
-            if (wait == GL_WAIT_FAILED || wait == GL_TIMEOUT_EXPIRED) {
-                m_frames[newReadyIndex].state.store(BufferState::READY);
+        // Đồng bộ hóa GL Fence trên UI Thread
+        if (m_frames[newReadyIndex].fence) {
+            GLsync sync = static_cast<GLsync>(m_frames[newReadyIndex].fence);
+            GLenum waitResult = glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 16000000); // 16ms
+
+            if (waitResult == GL_WAIT_FAILED || waitResult == GL_TIMEOUT_EXPIRED) {
+                // Wait thất bại/Timeout: Hoàn lại trạng thái READY để thử lại lượt sau
+                m_frames[newReadyIndex].state.store(BufferState::READY, std::memory_order_release);
                 newReadyIndex = -1;
+            } else {
+                // Wait thành công: Dọn dẹp fence sau khi GPU đã hoàn tất render
+                ClearFence(m_frames[newReadyIndex].fence);
             }
         }
 
         if (newReadyIndex != -1) {
-            if (m_currentDisplayIndex != -1 && m_currentDisplayIndex != newReadyIndex) {
-                m_frames[m_currentDisplayIndex].state.store(BufferState::FREE, std::memory_order_release);
+            int oldDisplay = m_currentDisplayIndex.exchange(newReadyIndex, std::memory_order_acq_rel);
+            if (oldDisplay != -1 && oldDisplay != newReadyIndex) {
+                // Giải phóng frame hiển thị cũ về lại trạng thái FREE
+                m_frames[oldDisplay].state.store(BufferState::FREE, std::memory_order_release);
             }
-            m_currentDisplayIndex = newReadyIndex;
         }
     }
 
     FrameTextureInfo info;
-    if (m_currentDisplayIndex != -1) {
-        FrameNode& frame = m_frames[m_currentDisplayIndex];
-        info.texID = (ImTextureID)(intptr_t)std::any_cast<GLuint>(frame.texture);
+    int activeDisplayIndex = m_currentDisplayIndex.load(std::memory_order_acquire);
+    if (activeDisplayIndex != -1) {
+        FrameNode& frame = m_frames[activeDisplayIndex];
+        info.texID = reinterpret_cast<void*>(static_cast<uintptr_t>(frame.texture));
 
         if (frame.allocatedW > 0 && frame.allocatedH > 0) {
-            info.u = (float)frame.contentW / frame.allocatedW;
-            info.v = (float)frame.contentH / frame.allocatedH;
+            info.u = static_cast<float>(frame.contentW) / frame.allocatedW;
+            info.v = static_cast<float>(frame.contentH) / frame.allocatedH;
         }
     }
     return info;
@@ -139,10 +158,13 @@ FrameTextureInfo OpenGLFrameBufferPool::GetStableFrame() {
 void OpenGLFrameBufferPool::MarkAsReady(int index) {
     if (index < 0 || index >= 3) return;
 
-    if (m_frames[index].fence.has_value()) glDeleteSync(std::any_cast<GLsync>(m_frames[index].fence));
+    // Xóa fence cũ trước khi khởi tạo fence mới
+    ClearFence(m_frames[index].fence);
 
-    m_frames[index].fence = glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0);
-    glFlush();
+    // Tạo GL Fence Sync mới tại Render Thread
+    m_frames[index].fence = static_cast<GraphicsFenceHandle>(glFenceSync(GL_SYNC_GPU_COMMANDS_COMPLETE, 0));
+    glFlush(); // Bắt buộc glFlush để fence truyền lệnh sang GPU driver ngay lập tức
+
     m_frames[index].state.store(BufferState::READY, std::memory_order_release);
 }
 
@@ -166,8 +188,8 @@ void OpenGLFrameBufferPool::ResizeFrame(int index, int targetW, int targetH) {
     }
 
     if (needsRealloc) {
-        GLuint texture = std::any_cast<GLuint>(frame.texture);
-        GLuint fbo = std::any_cast<GLuint>(frame.fbo);
+        GLuint texture = static_cast<GLuint>(frame.texture);
+        GLuint fbo = static_cast<GLuint>(frame.fbo);
         glBindTexture(GL_TEXTURE_2D, texture);
         glTexImage2D(GL_TEXTURE_2D, 0, m_backend->GetGLInternalFormat(), frame.allocatedW, frame.allocatedH, 0, m_backend->GetGLFormat(), m_backend->GetGLType(), nullptr);
         glBindFramebuffer(GL_FRAMEBUFFER, fbo);

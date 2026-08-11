@@ -1,5 +1,8 @@
 #include "popup_test.h"
 #include "player/audio/filter/af_m.h"
+#include "WindowManager.h"
+
+#include "windows/WindowRuntime.h"
 #include <imgui.h>
 #include <vector>
 #include <string>
@@ -41,20 +44,24 @@ struct LocalLogger {
         }
 
         // 2. LẤY REAL-TIME LOGS TỪ LÕI MANAGER (Đã sửa lỗi đồng bộ, lấy trực tiếp trong frame vẽ)
-        auto core_logs = AudioFilterManager::Instance().GetLogs();
-        for (const auto& log : core_logs) {
-            ImVec4 text_color;
-            switch (log.level) {
-                case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; 
-                case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; 
-                case LogLevel::AI_Action: text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; 
-                case LogLevel::Info:
-                default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; 
-            }
+        auto* window = WindowManager::GetInstance().GetMainWindow();
+        auto* fillter = window->resource.GetPlayerSession()->GetAudioFilterManager();
+        auto& core_logs = fillter->GetLogs();
+        if(!core_logs.empty()) {
+            for (const auto& log : core_logs) {
+                ImVec4 text_color;
+                switch (log.level) {
+                    case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; 
+                    case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; 
+                    case LogLevel::AI_Action: text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; 
+                    case LogLevel::Info:
+                    default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; 
+                }
 
-            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
-            ImGui::SameLine();
-            ImGui::TextColored(text_color, "%s", log.message.c_str());
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
+                ImGui::SameLine();
+                ImGui::TextColored(text_color, "%s", log.message.c_str());
+            }
         }
         
         if (ScrollToBottom) { 
@@ -755,7 +762,10 @@ void DrawLogTab(AudioFilterManager& manager)
 
 void ShowTestPopup(bool& closePopup_Test)
 {
-    AudioFilterManager& manager = AudioFilterManager::Instance();
+    auto* window = WindowManager::GetInstance().GetMainWindow();
+    if (!window) return;
+    auto& manager = *window->resource.GetPlayerSession()->GetAudioFilterManager();
+
     AudioContext ctx = manager.GetCurrentContext();
 
     if (ImGui::BeginTabBar("##DebugTabs"))
@@ -794,13 +804,13 @@ void ShowTestPopup(bool& closePopup_Test)
 }
 
 void OpenTestPopup(ReusablePopup& popup) {
-    popup.Open("Audio Filter & Advanced Diagnostics Engine Dashboard", [](bool& closePopup_Test) {
+    popup.Open("Audio Filter & Advanced Diagnostics Engine Dashboard", [](WindowRuntime* runtime, bool& closePopup_Test) {
         ShowTestPopup(closePopup_Test);  
     });
 }
 
-void RenderTestPopup(ReusablePopup& popup){
+void RenderTestPopup(ReusablePopup& popup, WindowRuntime* window){
     if(popup.IsOpen()) {
-        popup.Render();
+        popup.Render(window);
     }
 }

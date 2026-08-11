@@ -1,7 +1,6 @@
 #include "ui_controls.h"
 #include "ui_settings.h"
-#include "player/mpv_data.h"
-#include "player/mpv_basic_formats.h"
+
 #include "player/session/PlayerSession.h"
 #include "gui/gui.h"
 #include "popup/popup.h"
@@ -63,7 +62,10 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
     UpdateHoverAnim(uiAlpha, show_ui_video, 5.0f);
     was_ui_video = true;
 
-    if (uiAlpha <= 0.01f){
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* player_state = player_session->GetState();
+
+    if (uiAlpha <= 0.01f || !player_session || !player_state){
         was_ui_video = false;
         return; 
     }
@@ -72,14 +74,32 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
     
     ImVec2 videoPos = (_pos);
     ImVec2 videoSize = (_size);
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    VideoInfo& g_videoInfo = GetVideoInfo();
-    bool paused = g_playbackStatus.isPaused;
-    float playbackTime = (float)g_playbackStatus.playbackTime;
-    float time_show_ui = (float)g_playbackStatus.timePos;
-    float duration = (float)g_playbackStatus.duration;
-    int volume = (int)g_playbackStatus.volume;
-    bool isMuted = g_playbackStatus.isMuted;
+
+    std::string mediaTitle;
+    bool paused;
+    float playbackTime;
+    float time_show_ui;
+    float duration;
+    float demuxer_cache_time;
+    int volume;
+    bool isMuted;
+
+    player_state->ReadPlayback([&](PlaybackModel const& m){
+        paused = m.flags.isPaused;
+        playbackTime = (float)m.timing.playbackTime;
+        time_show_ui = (float)m.timing.timePos;
+        duration = (float)m.timing.duration;
+    });
+    player_state->ReadAudio([&](auto const& m){
+        volume = (int)m.volume.volume;
+        isMuted = m.volume.isMuted;
+    });
+    player_state->ReadMedia([&](auto const& m){
+        mediaTitle = m.mediaTitle;
+    });
+    player_state->ReadNetwork([&](auto const& m){
+        demuxer_cache_time = (float)m.demuxer_cache_time;
+    });
 
     float timePosX = 0.0f;
     float scale = std::clamp(videoSize.x / 1280.0f, 0.1f, 2.0f);
@@ -128,8 +148,7 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
     bool is_text_hovered = ImGui::IsItemHovered();
     bool is_text_active = ImGui::IsItemActive();
     if (ImGui::IsItemClicked()) { /* Xử lý click vào tiêu đề */ }
-    //CSImGui::ShowTooltipDelayed(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str(), is_text_hovered , 3.0, "Header_Text_Part");
-    CSImGui::ToolTip(g_playbackStatus.mediaTitle.empty() ? "No Title" : g_playbackStatus.mediaTitle.c_str() , 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
+    CSImGui::ToolTip(mediaTitle.empty() ? "No Title" : mediaTitle.c_str() , 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
     ImGui::PopID();
 
     //--- ITEM 2: PHẦN BUTTON (Nằm cùng dòng) ---
@@ -167,7 +186,7 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
 
     // --- VẼ NỘI DUNG ---
     // Text Title
-    const char* title = (!g_playbackStatus.mediaTitle.empty()) ? g_playbackStatus.mediaTitle.c_str() : "No Title";
+    const char* title = (!mediaTitle.empty()) ? mediaTitle.c_str() : "No Title";
     ImVec2 text_pos = ImVec2(t_min.x + 15.0f, t_min.y + (total_h - ImGui::GetTextLineHeight()) * 0.5f);
     ImGui::RenderTextEllipsis(draw_list, text_pos, ImVec2(t_max.x - 10.0f, t_max.y), t_max.x - 10.0f, title, NULL, NULL);
 
@@ -212,35 +231,39 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
         [&](Phase phase, Slot slot, SliderState* state, SliderRenderData* rd, ImDrawList* dl)
         {
             if(phase == Phase::Init){
-                rd->buffer_t = g_playbackStatus.demuxer_cache_time / duration;
+                rd->buffer_t = demuxer_cache_time / duration;
 
                 int currentChapterIndex = -1;
                 double start_time = 0.0f;
                 double end_time = 0.0f;
-                if (!g_videoInfo.g_chapters.empty()) {
-                    for (int i = 0; i < (int)g_videoInfo.g_chapters.size(); i++) {
-                        start_time = g_videoInfo.g_chapters[i].time;
-                        end_time = (i + 1 < (int)g_videoInfo.g_chapters.size()) ? g_videoInfo.g_chapters[i+1].time : g_playbackStatus.duration;
-                        if (g_playbackStatus.playbackTime >= start_time && g_playbackStatus.playbackTime < end_time) {
-                            currentChapterIndex = i;
-                            break;
+
+                player_state->ReadTrack([&](auto const& m){
+
+                    if (!m.chapters.empty()) {
+                        for (int i = 0; i < (int)m.chapters.size(); i++) {
+                            start_time = m.chapters[i].time;
+                            end_time = (i + 1 < (int)m.chapters.size()) ? m.chapters[i+1].time : duration;
+                            if (playbackTime >= start_time && playbackTime < end_time) {
+                                currentChapterIndex = i;
+                                break;
+                            }
                         }
                     }
-                }
-                if (currentChapterIndex >= 0 && duration > 0.0)
-                {
-                    float start_t = (float)(start_time / duration);
-                    float end_t = (float)(end_time / duration);
+                    if (currentChapterIndex >= 0 && duration > 0.0)
+                    {
+                        float start_t = (float)(start_time / duration);
+                        float end_t = (float)(end_time / duration);
 
-                    rd->chapter_range_start = ImClamp(start_t, 0.0f, 1.0f);
-                    rd->chapter_range_end = ImClamp(end_t, 0.0f, 1.0f);
-                }
-                rd->markers.clear();
-                rd->markers.reserve(g_videoInfo.g_chapters.size());
-                for (auto& c : g_videoInfo.g_chapters)
-                {
-                    rd->markers.push_back(c.time / duration);
-                }
+                        rd->chapter_range_start = ImClamp(start_t, 0.0f, 1.0f);
+                        rd->chapter_range_end = ImClamp(end_t, 0.0f, 1.0f);
+                    }
+                    rd->markers.clear();
+                    rd->markers.reserve(m.chapters.size());
+                    for (auto& c : m.chapters)
+                    {
+                        rd->markers.push_back(c.time / duration);
+                    }
+                });
 
                 rd->col_track = ImVec4(0.235f, 0.235f, 0.235f, 0.706f);
                 rd->col_buffer = ImVec4(0.784f, 0.784f, 0.784f, 0.588f);
@@ -290,22 +313,24 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
                     else
                         td->config.text = Format("%02d:%02d", m, s);
                 }
-                if (!g_videoInfo.g_chapters.empty()) {
-                    td->config.show_title = false;
+                player_state->ReadTrack([&](auto const& m){
+                    if (!m.chapters.empty()) {
+                        td->config.show_title = false;
 
-                    for (size_t i = 0; i < g_videoInfo.g_chapters.size(); ++i) {
-                        double startTime = g_videoInfo.g_chapters[i].time;
-                        double endTime = (i + 1 < g_videoInfo.g_chapters.size()) 
-                                        ? g_videoInfo.g_chapters[i + 1].time 
-                                        : g_playbackStatus.duration; 
+                        for (size_t i = 0; i < m.chapters.size(); ++i) {
+                            double startTime = m.chapters[i].time;
+                            double endTime = (i + 1 < m.chapters.size()) 
+                                            ? m.chapters[i + 1].time 
+                                            : duration; 
 
-                        if (td->item.seek_value >= startTime && td->item.seek_value < endTime) {
-                            td->config.show_title = true;
-                            td->config.title = g_videoInfo.g_chapters[i].title.c_str();
-                            break; 
+                            if (td->item.seek_value >= startTime && td->item.seek_value < endTime) {
+                                td->config.show_title = true;
+                                td->config.title = m.chapters[i].title.c_str();
+                                break; 
+                            }
                         }
                     }
-                }
+                });
                 td->config.max_width = 240.0f;
                 td->config.max_height = 180.0f;
                 td->config.align = ImGuiTooltip::Align_Center;
@@ -334,39 +359,42 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
     );
     ImGui::PopStyleVar(2);
     ImGui::PopStyleColor(3);
-
+            
     if(!onlyShowSeekBar){
         float i = 0.0f;
         auto* playercommand = runtime->resource.GetPlayerSession()->GetCommander();
 
-        if(!(g_playbackStatus.g_PlayingIndex == 0 && g_playbackStatus.g_playlist_count > 0)){
-            ImGui::SetCursorPos(ImVec2(controlPos.x, controlPos.y)); i = i + 1.0f;
-            if (CSImGui::CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
-                if (playercommand) 
-                    playercommand->PlaylistPrev();
-            }
-            CSImGui::ToolTip("Previous Video", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
-        }
+        player_state->ReadPlaylist([&](auto const& m){
 
-        static PlayPauseData playData;
-        playData.paused = !paused;
-        ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 1.0f;
-        if (CSImGui::CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize, &playData)) {
-            if (playercommand) {
-                if (paused) playercommand->Play();
-                else playercommand->Pause();
+            if(!(m.g_PlayingIndex == 0 && m.g_playlist_count > 0)){
+                ImGui::SetCursorPos(ImVec2(controlPos.x, controlPos.y)); i = i + 1.0f;
+                if (CSImGui::CustomIconButton("##prev", DrawPrevIcon, iconSize)) {
+                    if (playercommand) 
+                        playercommand->PlaylistPrev();
+                }
+                CSImGui::ToolTip("Previous Video", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
             }
-        }
-        CSImGui::ToolTip(paused ? "Play##Btntoggle" : "Pause##Btntoggle", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
 
-        if(!(g_playbackStatus.g_PlayingIndex == (int)g_playbackStatus.g_playlist.size() - 1) && g_playbackStatus.g_playlist_count >= 2){
-            ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 2.0f;
-            if (CSImGui::CustomIconButton("##next", DrawNextIcon, iconSize)) {
-                if (playercommand) 
-                    playercommand->PlaylistNext();
+            static PlayPauseData playData;
+            playData.paused = !paused;
+            ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 1.0f;
+            if (CSImGui::CustomIconButton("##toggle", DrawPlayPauseIcon, iconSize, &playData)) {
+                if (playercommand) {
+                    if (paused) playercommand->Play();
+                    else playercommand->Pause();
+                }
             }
-            CSImGui::ToolTip("Next Video", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
-        }
+            CSImGui::ToolTip(paused ? "Play##Btntoggle" : "Pause##Btntoggle", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
+
+            if(!(m.g_PlayingIndex == (int)m.playlist.size() - 1) && m.g_playlist_count >= 2){
+                ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); i = i + 2.0f;
+                if (CSImGui::CustomIconButton("##next", DrawNextIcon, iconSize)) {
+                    if (playercommand) 
+                        playercommand->PlaylistNext();
+                }
+                CSImGui::ToolTip("Next Video", 3.0f, ToolTipFlags_Animation | ToolTipFlags_ClampWindow);
+            }
+        });
 
         ImGui::BeginGroup();
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * i, controlPos.y)); 

@@ -1,7 +1,7 @@
 #pragma once
 #include "af_m_types.h"
 #include "utils.h"
-#include "player/mpv_data.h"
+
 #include <client.h>
 #include <unordered_map>
 #include <mutex>
@@ -13,14 +13,18 @@
 #include <windows.h>
 #endif
 
+class PlayerStateSystem;
 class AudioFilterManager {
 public:
-    static AudioFilterManager& Instance();
+    AudioFilterManager();
+    ~AudioFilterManager();
 
     AudioFilterManager(const AudioFilterManager&) = delete;
     AudioFilterManager& operator=(const AudioFilterManager&) = delete;
 
-    void Init(mpv_handle* h);
+    void Init(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr);
+    void AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr);
+    void DetachPlayer();
     
     void ToggleFilter(const std::string& id, bool state);
     void SetAllFiltersState(bool enabled);
@@ -82,8 +86,7 @@ private:
     const size_t MAX_LOG_SIZE = 100;
     
 private:
-    AudioFilterManager() : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
-    ~AudioFilterManager() = default;
+    PlayerStateSystem* m_stateSystem = nullptr;
 
     void AddFilter(const std::string& id, const std::string& name, const std::string& group);
     void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);

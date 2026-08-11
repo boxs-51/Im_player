@@ -1,5 +1,5 @@
 #include "Player.h"
-#include "player/mpv_data.h"
+
 #include "player/shaders/shaders_manager.h"
 #include "player/scripts/script_manager.h"
 #include "player/audio/filter/af_m.h"
@@ -35,9 +35,6 @@ bool Player::Init() {
 
     ShaderManager::Instance().Init(m_mpv);
     ShaderManager::Instance().LoadState();
-
-    AudioFilterManager::Instance().Init(m_mpv);
-    AudioFilterManager::Instance().LoadFromFile();
 
     mpv_request_log_messages(m_mpv, "v");
 

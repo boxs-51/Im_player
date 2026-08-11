@@ -39,5 +39,7 @@ private:
     std::atomic<bool> m_audioVisualizers{false};
 #ifdef RENDER_MPV_THREAD
     std::weak_ptr<PlayBackRenderThread> m_renderThread; // Dùng weak_ptr để tránh vòng lặp tham chiếu (circular reference)
+    // Quản lý RAII cho userdata truyền vào MPV Callback
+    std::unique_ptr<std::weak_ptr<PlayBackRenderThread>> m_callbackUserdata;
 #endif
 };

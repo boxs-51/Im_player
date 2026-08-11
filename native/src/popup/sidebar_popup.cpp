@@ -2,7 +2,9 @@
 #include "utils.h"
 
 #include "player/session/PlayerSession.h"
-#include "player/mpv_data.h"
+
+
+#include "windows/WindowRuntime.h"
 
 #include "gui/gui.h"
 
@@ -21,60 +23,32 @@
 #include "WindowResource.h"
 #include "windows/WindowManager.h"
 
-
 #include "globals.h"
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
 
-void OpenSidarBarPopup(ReusablePopup& popup) {
-    popup.Open("Sidebar", [](bool& closePopup_siderbar) {
-        ShowSidarBarPopup(closePopup_siderbar);
-    });
-}
-
-void RenderSidarBarPopup(ReusablePopup& popup) {
-    popup.Render();
-}
-
-void ShowSidarBarPopup(bool& closePopup_siderbar) {
-    
-    if (ImGui::BeginTabBar("##ListTabs")) {
-        ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
-        if (ImGui::BeginTabItem("Youtube")) {
-            RenderVideoList();
-            ImGui::EndTabItem();
-        }
-        if (ImGui::BeginTabItem("ListMPV")) {
-            RenderListVideoMPV();
-            ImGui::EndTabItem();
-        }
-        ImGui::PopStyleColor();
-        ImGui::EndTabBar();
-        
-    }
-}
-void RenderVideoItem(VideoItem& v, float listWidth) {
+void RenderVideoItem(VideoItem &v, float listWidth)
+{
     ImGui::BeginChild(v.id.c_str(), ImVec2(listWidth, 140), false, ImGuiWindowFlags_NoScrollbar);
 
-    bool canHover =  ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows)||
-                     ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows)  ;
+    bool canHover = ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows) ||
+                    ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
 
     float thumb_width = 200.0f;
     float thumb_height = 120.0f;
     float padding = 10.0f;
-    float text_width = listWidth - thumb_width - padding - 10.0f; 
+    float text_width = listWidth - thumb_width - padding - 10.0f;
 
     // --- Thumbnail ---
     ImGui::BeginGroup();
 
-    const float thumbInsetX = 10.0f;   // cách mép trái card
-    const float thumbInsetY = 10.0f;  // cách mép trên card
+    const float thumbInsetX = 10.0f; // cách mép trái card
+    const float thumbInsetY = 10.0f; // cách mép trên card
 
     ImVec2 cursor = ImGui::GetCursorScreenPos();
     ImVec2 thumbStart = ImVec2(
         cursor.x + thumbInsetX,
-        cursor.y + thumbInsetY
-    );
+        cursor.y + thumbInsetY);
     ImVec2 thumbMin = thumbStart;
     ImVec2 thumbMax = ImVec2(thumbStart.x + thumb_width, thumbStart.y + thumb_height);
     ImVec2 thumbSize(thumb_width, thumb_height);
@@ -83,8 +57,8 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
 
     if (g_thumbnailCache.count(v.id) && g_thumbnailCache[v.id].loaded)
     {
-        auto& tex = g_thumbnailCache[v.id];
-        ImGui::Image((void*)(intptr_t)tex.tex, thumbSize);
+        auto &tex = g_thumbnailCache[v.id];
+        ImGui::Image((void *)(intptr_t)tex.tex, thumbSize);
     }
     else
     {
@@ -105,57 +79,51 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             thumbMin,
             thumbMax,
             IM_COL32(40, 40, 40, 180),
-            6.0f
-        );
+            6.0f);
 
         // 3️⃣ Text căn giữa
-        const char* txt = "⏳ Loading...";
+        const char *txt = "⏳ Loading...";
         ImVec2 txtSize = ImGui::CalcTextSize(txt);
 
         ImGui::GetWindowDrawList()->AddText(
             ImVec2(
                 thumbMin.x + (thumbSize.x - txtSize.x) * 0.5f,
-                thumbMin.y + (thumbSize.y - txtSize.y) * 0.5f
-            ),
+                thumbMin.y + (thumbSize.y - txtSize.y) * 0.5f),
             IM_COL32(200, 200, 200, 220),
-            txt
-        );
+            txt);
 
-        if (visible){
+        if (visible)
+        {
             LoadThumbnail(v);
         }
     }
 
     // --- Overlay thời lượng trên thumbnail ---
-    if (!v.duration.empty()) {
+    if (!v.duration.empty())
+    {
         ImVec2 durationSize = ImGui::CalcTextSize(v.duration.c_str());
         ImVec2 pos = ImVec2(
             thumbStart.x + thumb_width - durationSize.x - 8.0f,
-            thumbStart.y + thumb_height - durationSize.y - 6.0f
-        );
+            thumbStart.y + thumb_height - durationSize.y - 6.0f);
         ImGui::GetWindowDrawList()->AddRectFilled(
             ImVec2(pos.x - 4, pos.y - 2),
             ImVec2(pos.x + durationSize.x + 4, pos.y + durationSize.y + 2),
             IM_COL32(0, 0, 0, 180),
-            4.0f
-        );
+            4.0f);
         ImGui::GetWindowDrawList()->AddText(pos, IM_COL32(255, 255, 255, 255), v.duration.c_str());
     }
 
     ImGui::EndGroup();
 
-    ImGui::SameLine(0,padding);
+    ImGui::SameLine(0, padding);
 
     // --- Phần chữ bên phải thumbnail ---
-    float metaHeight = 45.0f; // chiều cao cố định cho vùng metadata (views, likes, channel, date)
+    float metaHeight = 45.0f;  // chiều cao cố định cho vùng metadata (views, likes, channel, date)
     float titleHeight = 75.0f; // chiều cao vùng tiêu đề (wrap)
 
     // Vùng tiêu đề
     ImGui::BeginGroup();
-    ImGui::BeginChild((v.id + "_title").c_str(), ImVec2(text_width, titleHeight), false, ImGuiWindowFlags_NoScrollbar ||
-                                                                                         ImGuiWindowFlags_NoScrollWithMouse ||
-                                                                                         ImGuiWindowFlags_NoBackground ||
-                                                                                         ImGuiWindowFlags_NoInputs);
+    ImGui::BeginChild((v.id + "_title").c_str(), ImVec2(text_width, titleHeight), false, ImGuiWindowFlags_NoScrollbar || ImGuiWindowFlags_NoScrollWithMouse || ImGuiWindowFlags_NoBackground || ImGuiWindowFlags_NoInputs);
     ImGui::PushTextWrapPos(ImGui::GetCursorPosX() + text_width);
     ImGui::TextWrapped("%s", v.title.c_str());
     ImVec2 titleTextMin = ImGui::GetItemRectMin();
@@ -164,22 +132,19 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
     ImGui::EndChild();
 
     // Vùng metadata cố định
-    ImGui::BeginChild((v.id + "_meta").c_str(), ImVec2(text_width, metaHeight), false, ImGuiWindowFlags_NoScrollbar ||
-                                                                                       ImGuiWindowFlags_NoScrollWithMouse ||
-                                                                                       ImGuiWindowFlags_NoBackground ||
-                                                                                       ImGuiWindowFlags_NoInputs);
+    ImGui::BeginChild((v.id + "_meta").c_str(), ImVec2(text_width, metaHeight), false, ImGuiWindowFlags_NoScrollbar || ImGuiWindowFlags_NoScrollWithMouse || ImGuiWindowFlags_NoBackground || ImGuiWindowFlags_NoInputs);
 
     // --- Views & Likes (icon) ---
-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(180,180,180,255));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(180, 180, 180, 255));
     ImGui::Text("View: %s  Like: %s", v.views, v.likes);
     ImGui::PopStyleColor();
 
     // --- Kênh & Ngày đăng ---
-    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150,150,150,255));
+    ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(150, 150, 150, 255));
     float lineStartX = ImGui::GetCursorPosX();
     float lineY = ImGui::GetCursorPosY();
     ImGui::SetCursorPos(ImVec2(lineStartX, lineY + 5));
-    
+
     // Kênh bên trái
     ImGui::Text("%s", v.channel.c_str());
     float channelWidth = ImGui::CalcTextSize(v.channel.c_str()).x;
@@ -197,17 +162,16 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
     ImVec2 itemMin = ImGui::GetWindowPos();
     ImVec2 itemMax = ImVec2(
         itemMin.x + ImGui::GetWindowWidth(),
-        itemMin.y + ImGui::GetWindowHeight()
-    );
+        itemMin.y + ImGui::GetWindowHeight());
 
     bool isHovered = ImGui::IsMouseHoveringRect(itemMin, itemMax) && canHover;
     bool isClicked = isHovered && !ImGui::IsAnyItemHovered() && ImGui::IsMouseReleased(ImGuiMouseButton_Left);
-    bool isDown    = isHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
+    bool isDown = isHovered && ImGui::IsMouseDown(ImGuiMouseButton_Left);
     bool hoveringTitle = ImGui::IsMouseHoveringRect(titleTextMin, titleTextMax) && canHover;
 
-    UpdateHoverAnim(v.titleHoverTime,hoveringTitle,12.0f);
-    UpdateHoverAnim(v.hoverAnim,isHovered,12.0f);
-    float hoverEase = v.hoverAnim * v.hoverAnim; 
+    UpdateHoverAnim(v.titleHoverTime, hoveringTitle, 12.0f);
+    UpdateHoverAnim(v.hoverAnim, isHovered, 12.0f);
+    float hoverEase = v.hoverAnim * v.hoverAnim;
 
     ImVec2 winMin = ImGui::GetWindowPos();
     ImVec2 winMax = ImVec2(winMin.x + ImGui::GetWindowWidth(), winMin.y + ImGui::GetWindowHeight());
@@ -220,9 +184,9 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
     ImVec2 holeMin = thumbMin;
     ImVec2 holeMax = thumbMax;
 
-    ImU32 hoverFill = IM_COL32(255,255,255,(int)(25 * v.hoverAnim));
-    ImU32 borderCol = IM_COL32(255,255,255,(int)(80 * hoverEase));
-    ImU32 pressFill = IM_COL32(255,255,255,(int)(45 * v.hoverAnim));
+    ImU32 hoverFill = IM_COL32(255, 255, 255, (int)(25 * v.hoverAnim));
+    ImU32 borderCol = IM_COL32(255, 255, 255, (int)(80 * hoverEase));
+    ImU32 pressFill = IM_COL32(255, 255, 255, (int)(45 * v.hoverAnim));
 
     CSImGui::CardHoleStyle style;
     style.rounding = 6.0f;
@@ -234,11 +198,11 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             cardMin,
             cardMax,
             baseBg,
-            rounding
-        );
+            rounding);
     }
 
-    if (v.titleHoverTime >= 1.0f) {
+    if (v.titleHoverTime >= 1.0f)
+    {
         ImGui::BeginTooltip();
         ImGui::PushTextWrapPos(400.0f);
         ImGui::TextUnformatted(v.title.c_str());
@@ -256,11 +220,10 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             holeMax,
             hoverFill,
             borderCol,
-            style
-        );
+            style);
     }
 
-    if (v.hoverAnim > 0.01f && isDown) 
+    if (v.hoverAnim > 0.01f && isDown)
     {
         CSImGui::DrawCardWithHole(
             ImGui::GetWindowDrawList(),
@@ -270,25 +233,23 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
             holeMax,
             pressFill,
             0,
-            style
-        );
+            style);
     }
-        
 
-    auto* runtime = WindowManager::GetInstance().GetMainWindow();
-    if (v.hoverAnim > 0.01f && isClicked) {
-        runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(v.link.c_str());
+    if (v.hoverAnim > 0.01f && isClicked)
+    {
+        if (auto *commander = WindowManager::GetInstance().GetMainWindow()->resource.GetPlayerSession()->GetCommander())
+            commander->LoadFile(v.link.c_str());
         UpdateVideoData(VideoSource::Watched, v.link.c_str());
     }
     ImGui::SetCursorScreenPos(cardMin);
     ImGui::InvisibleButton(
         ("##card_btn_" + v.id).c_str(),
-        ImVec2(cardMax.x - cardMin.x, cardMax.y - cardMin.y)
-    );
+        ImVec2(cardMax.x - cardMin.x, cardMax.y - cardMin.y));
 
     // --- Menu chuột phải ---
     if (ImGui::BeginPopupContextWindow(("##card_btn_" + v.id).c_str(),
-            ImGuiPopupFlags_MouseButtonRight))
+                                       ImGuiPopupFlags_MouseButtonRight))
     {
         if (ImGui::MenuItem("Copy URL"))
             ImGui::SetClipboardText(v.link.c_str());
@@ -296,8 +257,10 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
         if (ImGui::MenuItem("Open Link"))
             ShellExecuteA(nullptr, "open", v.link.c_str(), nullptr, nullptr, SW_SHOWNORMAL);
 
-        if (ImGui::MenuItem("App List MPV")) {
-            runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(v.link.c_str());
+        if (ImGui::MenuItem("App List MPV"))
+        {
+            if (auto *commander = WindowManager::GetInstance().GetMainWindow()->resource.GetPlayerSession()->GetCommander())
+                commander->LoadFile(v.link.c_str());
             UpdateVideoData(VideoSource::Watched, v.link.c_str());
         }
         ImGui::EndPopup();
@@ -308,9 +271,10 @@ void RenderVideoItem(VideoItem& v, float listWidth) {
     ImGui::Separator();
 }
 
-static bool ContainsIgnoreCase(const std::string& src, const char* key)
+static bool ContainsIgnoreCase(const std::string &src, const char *key)
 {
-    if (!key || !key[0]) return true;
+    if (!key || !key[0])
+        return true;
 
     std::string a = src;
     std::string b = key;
@@ -321,13 +285,13 @@ static bool ContainsIgnoreCase(const std::string& src, const char* key)
     return a.find(b) != std::string::npos;
 }
 
-static std::string ToLower(const std::string& s)
+static std::string ToLower(const std::string &s)
 {
     std::string r = s;
     std::transform(r.begin(), r.end(), r.begin(), ::tolower);
     return r;
 }
-static std::vector<std::string> SplitWords(const std::string& s)
+static std::vector<std::string> SplitWords(const std::string &s)
 {
     std::stringstream ss(s);
     std::string word;
@@ -340,17 +304,17 @@ static std::vector<std::string> SplitWords(const std::string& s)
 }
 struct SearchInputCtx
 {
-    std::vector<int>* filtered;
-    int* selected;
+    std::vector<int> *filtered;
+    int *selected;
 
     bool requestApply = false;
-    int  applyIndex   = -1;
+    int applyIndex = -1;
 };
 
 static SearchInputCtx g_searchCtx;
-static int SearchInputCallback(ImGuiInputTextCallbackData* data)
+static int SearchInputCallback(ImGuiInputTextCallbackData *data)
 {
-    SearchInputCtx* ctx = (SearchInputCtx*)data->UserData;
+    SearchInputCtx *ctx = (SearchInputCtx *)data->UserData;
 
     // TAB / RIGHT
     if (data->EventFlag == ImGuiInputTextFlags_CallbackCompletion)
@@ -359,7 +323,7 @@ static int SearchInputCallback(ImGuiInputTextCallbackData* data)
         {
             int sel = (*ctx->selected >= 0) ? *ctx->selected : 0;
             int idx = (*ctx->filtered)[sel];
-            const std::string& full = g_keywords[idx];
+            const std::string &full = g_keywords[idx];
 
             data->DeleteChars(0, data->BufTextLen);
             data->InsertChars(0, full.c_str());
@@ -374,7 +338,7 @@ static int SearchInputCallback(ImGuiInputTextCallbackData* data)
         if (ImGui::IsKeyPressed(ImGuiKey_Enter) && *ctx->selected >= 0)
         {
             int idx = (*ctx->filtered)[*ctx->selected];
-            const std::string& full = g_keywords[idx];
+            const std::string &full = g_keywords[idx];
 
             data->DeleteChars(0, data->BufTextLen);
             data->InsertChars(0, full.c_str());
@@ -389,7 +353,7 @@ static int SearchInputCallback(ImGuiInputTextCallbackData* data)
     if (ctx->requestApply && ctx->applyIndex >= 0)
     {
         int kwIndex = (*ctx->filtered)[ctx->applyIndex];
-        const std::string& kw = g_keywords[kwIndex];
+        const std::string &kw = g_keywords[kwIndex];
 
         data->DeleteChars(0, data->BufTextLen);
         data->InsertChars(0, kw.c_str());
@@ -404,17 +368,17 @@ static int SearchInputCallback(ImGuiInputTextCallbackData* data)
 struct KeywordItemState
 {
     float hoverAnim = 0.0f; // 0 -> 1
-    bool selected = false;   // đang được chọn bằng ↑↓
-    bool clicking = false;   // đang nhấn chuột
+    bool selected = false;  // đang được chọn bằng ↑↓
+    bool clicking = false;  // đang nhấn chuột
 };
 void RenderVideoList()
 {
     bool canHover =
-    ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) ||
-    ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
+        ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) ||
+        ImGui::IsWindowFocused(ImGuiFocusedFlags_RootAndChildWindows);
     ImVec2 avail = ImGui::GetContentRegionAvail();
     static bool keywordsLoaded = false;
-    static int  g_keywordSelected = -1;
+    static int g_keywordSelected = -1;
     static char search_buf[256] = "";
     static char last_buf[256] = "";
     static bool keywordPopupOpenPrev = false;
@@ -451,24 +415,22 @@ void RenderVideoList()
     ImGui::SetNextItemWidth(-FLT_MIN);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 8);
     ImGui::PushStyleVar(ImGuiStyleVar_FrameBorderSize, 1);
-    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0,0,0,0.4f));
-    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f,0.3f,0.3f,1));
+    ImGui::PushStyleColor(ImGuiCol_FrameBg, ImVec4(0, 0, 0, 0.4f));
+    ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.3f, 0.3f, 0.3f, 1));
 
     g_searchCtx.filtered = &g_filteredKeywordIndices;
     g_searchCtx.selected = &g_keywordSelected;
-
 
     bool enterPressed = ImGui::InputText(
         "##Search",
         search_buf,
         IM_ARRAYSIZE(search_buf),
         ImGuiInputTextFlags_EnterReturnsTrue |
-        ImGuiInputTextFlags_CallbackCompletion |
-        ImGuiInputTextFlags_CallbackAlways |
-        ImGuiInputTextFlags_NoUndoRedo,
+            ImGuiInputTextFlags_CallbackCompletion |
+            ImGuiInputTextFlags_CallbackAlways |
+            ImGuiInputTextFlags_NoUndoRedo,
         SearchInputCallback,
-        &g_searchCtx
-    );
+        &g_searchCtx);
     ImGui::PopStyleColor(2);
     ImGui::PopStyleVar(2);
 
@@ -483,9 +445,11 @@ void RenderVideoList()
         g_filteredKeywordIndices.clear();
 
         // Rebuild lowercase cache if needed or keywords changed
-        if (!keywordsCacheValid || g_keywordsLowerCached.size() != g_keywords.size()) {
+        if (!keywordsCacheValid || g_keywordsLowerCached.size() != g_keywords.size())
+        {
             g_keywordsLowerCached.clear();
-            for (const auto& kw : g_keywords) {
+            for (const auto &kw : g_keywords)
+            {
                 g_keywordsLowerCached.push_back(ToLower(kw));
             }
             keywordsCacheValid = true;
@@ -502,7 +466,7 @@ void RenderVideoList()
 
         for (int i = 0; i < (int)g_keywords.size(); i++)
         {
-            const std::string& kw = g_keywordsLowerCached[i]; // Use cached lowercase
+            const std::string &kw = g_keywordsLowerCached[i]; // Use cached lowercase
 
             if (!key.empty() && kw.rfind(key, 0) == 0)
             {
@@ -515,7 +479,7 @@ void RenderVideoList()
             else
             {
                 // liên quan: chứa ít nhất 1 token
-                for (const auto& t : tokens)
+                for (const auto &t : tokens)
                 {
                     if (t.size() >= 2 && kw.find(t) != std::string::npos)
                     {
@@ -529,18 +493,15 @@ void RenderVideoList()
         // gộp theo độ ưu tiên
         g_filteredKeywordIndices.insert(
             g_filteredKeywordIndices.end(),
-            starts.begin(), starts.end()
-        );
+            starts.begin(), starts.end());
         g_filteredKeywordIndices.insert(
             g_filteredKeywordIndices.end(),
-            contains.begin(), contains.end()
-        );
+            contains.begin(), contains.end());
         g_filteredKeywordIndices.insert(
             g_filteredKeywordIndices.end(),
-            related.begin(), related.end()
-        );
+            related.begin(), related.end());
     }
-    const char* inlineSuggestion = nullptr;
+    const char *inlineSuggestion = nullptr;
     std::string typed = search_buf;
     std::string ghost;
     // 1. Nếu có item được chọn bằng keyboard
@@ -555,7 +516,7 @@ void RenderVideoList()
         int idx = g_filteredKeywordIndices[0];
         inlineSuggestion = g_keywords[idx].c_str();
     }
-   
+
     if (inlineSuggestion)
     {
         std::string s = inlineSuggestion;
@@ -569,7 +530,7 @@ void RenderVideoList()
 
     if (searchFocused && !ghost.empty())
     {
-        ImDrawList* dl = ImGui::GetWindowDrawList();
+        ImDrawList *dl = ImGui::GetWindowDrawList();
 
         ImVec2 textPos = ImGui::GetItemRectMin();
         ImVec2 textSize = ImGui::CalcTextSize(search_buf);
@@ -581,12 +542,11 @@ void RenderVideoList()
         dl->AddText(
             pos,
             IM_COL32(180, 180, 180, 120), // mờ
-            ghost.c_str()
-        );
+            ghost.c_str());
     }
     Disabehotkey = searchFocused;
 
-    ImVec2 inputPos  = ImGui::GetItemRectMin();
+    ImVec2 inputPos = ImGui::GetItemRectMin();
     ImVec2 inputSize = ImGui::GetItemRectSize();
 
     // ================= KEYBOARD NAV =================
@@ -599,7 +559,6 @@ void RenderVideoList()
 
         if (ImGui::IsKeyPressed(ImGuiKey_UpArrow))
             g_keywordSelected = (g_keywordSelected - 1 + count) % count;
-
     }
     // ================= KEYWORD POPUP (InvisibleButton Version) =================
     static bool popupHovered = false;
@@ -622,23 +581,22 @@ void RenderVideoList()
 
         float popupHeight = visibleCount * ITEM_HEIGHT + ImGui::GetStyle().WindowPadding.y * 2;
 
-        ImGui::SetNextWindowPos({ inputPos.x, inputPos.y + inputSize.y + 4 });
-        ImGui::SetNextWindowSize({ inputSize.x, popupHeight + 10.0f});
+        ImGui::SetNextWindowPos({inputPos.x, inputPos.y + inputSize.y + 4});
+        ImGui::SetNextWindowSize({inputSize.x, popupHeight + 10.0f});
 
         ImGui::PushStyleVar(ImGuiStyleVar_WindowRounding, 10);
-        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {10,10});
-        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.05f,0.05f,0.05f,0.95f));
-        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f,0.25f,0.25f,1));
+        ImGui::PushStyleVar(ImGuiStyleVar_WindowPadding, {10, 10});
+        ImGui::PushStyleColor(ImGuiCol_WindowBg, ImVec4(0.05f, 0.05f, 0.05f, 0.95f));
+        ImGui::PushStyleColor(ImGuiCol_Border, ImVec4(0.25f, 0.25f, 0.25f, 1));
 
         ImGui::Begin("##keyword_popup", nullptr,
-            ImGuiWindowFlags_NoTitleBar |
-            ImGuiWindowFlags_NoResize |
-            ImGuiWindowFlags_NoMove |
-            ImGuiWindowFlags_NoSavedSettings |
-            ImGuiWindowFlags_NoFocusOnAppearing |
-            ImGuiWindowFlags_NoBringToFrontOnFocus |
-            ImGuiWindowFlags_NoDecoration 
-        );
+                     ImGuiWindowFlags_NoTitleBar |
+                         ImGuiWindowFlags_NoResize |
+                         ImGuiWindowFlags_NoMove |
+                         ImGuiWindowFlags_NoSavedSettings |
+                         ImGuiWindowFlags_NoFocusOnAppearing |
+                         ImGuiWindowFlags_NoBringToFrontOnFocus |
+                         ImGuiWindowFlags_NoDecoration);
 
         // 🔥 VÙNG CUỘN
         ImGui::BeginChild(
@@ -646,9 +604,8 @@ void RenderVideoList()
             ImVec2(0, popupHeight),
             false,
             ImGuiWindowFlags_AlwaysVerticalScrollbar |
-            ImGuiWindowFlags_NoNavFocus |
-            ImGuiWindowFlags_NoFocusOnAppearing
-        );
+                ImGuiWindowFlags_NoNavFocus |
+                ImGuiWindowFlags_NoFocusOnAppearing);
 
         static int lastSelected = -1;
         static std::vector<KeywordItemState> g_itemStates;
@@ -659,24 +616,23 @@ void RenderVideoList()
         for (int i = 0; i < totalCount; i++)
         {
             int idx = g_filteredKeywordIndices[i];
-            const std::string& k = g_keywords[idx];
+            const std::string &k = g_keywords[idx];
             // Lấy trạng thái
 
-            KeywordItemState& state = g_itemStates[i];
+            KeywordItemState &state = g_itemStates[i];
 
             state.selected = (i == g_keywordSelected);
-            
+
             ImGui::PushID(idx);
 
-            ImGui::BeginGroup(); 
+            ImGui::BeginGroup();
             ImVec2 groupStart = ImGui::GetCursorScreenPos();
 
             // --- InvisibleButton phủ toàn bộ width item ---
             ImVec2 itemSize(ImGui::GetContentRegionAvail().x, ITEM_HEIGHT);
             ImGui::InvisibleButton("##item", itemSize,
-                    ImGuiButtonFlags_None |
-                    ImGuiViewportFlags_NoFocusOnClick
-                );
+                                   ImGuiButtonFlags_None |
+                                       ImGuiViewportFlags_NoFocusOnClick);
             ImVec2 groupEnd = ImVec2(groupStart.x + itemSize.x, groupStart.y + itemSize.y);
 
             // --- Hover  ---
@@ -687,10 +643,10 @@ void RenderVideoList()
             state.clicking = ImGui::IsItemActive() && ImGui::IsMouseDown(ImGuiMouseButton_Left);
 
             // --- Tính màu theo trạng thái ---
-            ImVec4 normalCol = ImVec4(0.15f,0.15f,0.15f,1.0f);
-            ImVec4 hoverCol  = ImVec4(0.3f,0.3f,0.3f,1.0f);
-            ImVec4 selectedCol = ImVec4(0.2f,0.45f,1.0f,0.8f);
-            ImVec4 clickCol = ImVec4(0.1f,0.6f,1.0f,1.0f);
+            ImVec4 normalCol = ImVec4(0.15f, 0.15f, 0.15f, 1.0f);
+            ImVec4 hoverCol = ImVec4(0.3f, 0.3f, 0.3f, 1.0f);
+            ImVec4 selectedCol = ImVec4(0.2f, 0.45f, 1.0f, 0.8f);
+            ImVec4 clickCol = ImVec4(0.1f, 0.6f, 1.0f, 1.0f);
 
             ImVec4 finalCol = normalCol;
 
@@ -710,7 +666,7 @@ void RenderVideoList()
             ImGui::GetWindowDrawList()->AddRectFilled(groupStart, groupEnd, ImGui::ColorConvertFloat4ToU32(finalCol), 4.0f);
 
             // --- Khung border cho item ---
-            ImGui::GetWindowDrawList()->AddRect(groupStart, groupEnd, IM_COL32(100,100,100,255), 4.0f);
+            ImGui::GetWindowDrawList()->AddRect(groupStart, groupEnd, IM_COL32(100, 100, 100, 255), 4.0f);
 
             // --- Click chọn item ---
             if (ImGui::IsItemClicked())
@@ -725,7 +681,7 @@ void RenderVideoList()
             }
 
             // --- Vẽ text + nút Del ---
-            ImGui::SetCursorScreenPos(ImVec2(groupStart.x + 4, groupStart.y + 4));// padding left
+            ImGui::SetCursorScreenPos(ImVec2(groupStart.x + 4, groupStart.y + 4)); // padding left
             ImGui::TextUnformatted(k.c_str());
 
             // nút Del sát bên phải
@@ -760,8 +716,7 @@ void RenderVideoList()
         popupHovered =
             ImGui::IsWindowHovered(ImGuiHoveredFlags_ChildWindows);
 
-
-        ImGui::End();      // popup
+        ImGui::End(); // popup
 
         ImGui::PopStyleColor(2);
         ImGui::PopStyleVar(2);
@@ -776,8 +731,7 @@ void RenderVideoList()
         UpdateVideoData(
             g_searchQuery.empty()
                 ? VideoSource::Trending
-                : VideoSource::Search
-        );
+                : VideoSource::Search);
     }
 
     ImGui::EndChild();
@@ -788,74 +742,74 @@ void RenderVideoList()
     TrimThumbnailCache(); // Move outside render loop for performance
 
     ImGui::BeginChild("video_list",
-        ImGui::GetContentRegionAvail(),
-        false,
-        ImGuiWindowFlags_HorizontalScrollbar
-    );
+                      ImGui::GetContentRegionAvail(),
+                      false,
+                      ImGuiWindowFlags_HorizontalScrollbar);
 
-    for (auto& v : g_videoList)
+    for (auto &v : g_videoList)
         RenderVideoItem(v, ImGui::GetContentRegionAvail().x - 20);
 
     if (ImGui::GetScrollY() + ImGui::GetWindowHeight() >=
-        ImGui::GetScrollMaxY() - 50 && !g_loading)
+            ImGui::GetScrollMaxY() - 50 &&
+        !g_loading)
     {
         UpdateVideoData(
             g_searchQuery.empty()
                 ? VideoSource::Trending
-                : VideoSource::Search
-        );
+                : VideoSource::Search);
     }
 
     ImGui::EndChild();
 }
 
-
-void RenderListVideoMPV()
+void RenderListVideoMPV(WindowRuntime *runtime)
 {
-    mpv_handle* mpv;
-    auto* runtime = WindowManager::GetInstance().GetMainWindow();
-    if (runtime->resource.playersession && runtime->resource.playersession->GetPlayer()) 
-        mpv = runtime->resource.playersession->GetPlayer()->GetHandle();
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+    auto *player_session = runtime->resource.GetPlayerSession();
+    auto *state = player_session->GetState();
+
+    auto playlist = state->GetPlaylistModel();
+
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    ImGui::Text("Playlist (%d):", (int)g_playbackStatus.g_playlist.size());
-    ImGui::SameLine( avail.x - 20.0f , 0.0f);
-    if (g_CurrentIndex >= 0 && g_CurrentIndex < (int)g_playbackStatus.g_playlist.size()) {
-        if (ImGui::Button("Xóa")) {
+    ImGui::Text("Playlist (%d):", (int)playlist.playlist.size());
+    ImGui::SameLine(avail.x - 20.0f, 0.0f);
+    if (g_CurrentIndex >= 0 && g_CurrentIndex < (int)playlist.playlist.size())
+    {
+        if (ImGui::Button("Xóa"))
+        {
             int i = g_CurrentIndex;
-
-            g_playbackStatus.g_playlist.erase(g_playbackStatus.g_playlist.begin() + i);
+            playlist.playlist.erase(playlist.playlist.begin() + i);
             std::string indexStr = std::to_string(i);
-            const char* cmd[] = { "playlist-remove", indexStr.c_str(), nullptr };
-            int res = mpv_command(mpv, cmd);
-            if(!(res<0)) {
-                if (i >= g_playbackStatus.g_playlist.size())
-                    g_CurrentIndex = (int)g_playbackStatus.g_playlist.size() - 1;
-            } else {
-
+            const char *cmd[] = {"playlist-remove", indexStr.c_str(), nullptr};
+            if (auto *commander = player_session->GetCommander()){
+                int res = commander->Exec(cmd);
+                if (!(res < 0))
+                {
+                    if (i >= playlist.playlist.size())
+                        g_CurrentIndex = (int)playlist.playlist.size() - 1;
+                }
             }
         }
     }
     ImGui::Separator();
 
-    
     // --- Scrollable playlist ---
     ImVec2 avail_scroll = ImGui::GetContentRegionAvail();
     ImGui::BeginChild("scroll", ImVec2(avail_scroll), true); // giữ chỗ cho footer nút xóa
 
-    for (int i = 0 ; i < (int)g_playbackStatus.g_playlist.size(); ++i) {
-        std::string label = 
-                            (!g_playbackStatus.g_playlist[i].title.empty()) 
-                                ? g_playbackStatus.g_playlist[i].title 
-                                : ((!g_playbackStatus.g_playlist[i].filename.empty()) 
-                                    ? g_playbackStatus.g_playlist[i].filename 
-                                    : "No title");
+    for (int i = 0; i < (int)playlist.playlist.size(); ++i)
+    {
+        std::string label =
+            (!playlist.playlist[i].title.empty())
+                ? playlist.playlist[i].title
+                : ((!playlist.playlist[i].filename.empty())
+                       ? playlist.playlist[i].filename
+                       : "No title");
         std::string displayLabel = std::to_string(i + 1) + ". " + label;
 
         ImGui::PushID(i);
 
         bool isSelected = (i == g_CurrentIndex);
-        bool isPlaying  = (i == g_playbackStatus.g_PlayingIndex);
+        bool isPlaying = (i == playlist.g_PlayingIndex);
 
         // --- Highlight item ---
         if (isPlaying)
@@ -864,57 +818,76 @@ void RenderListVideoMPV()
             ImGui::PushStyleColor(ImGuiCol_Text, IM_COL32(255, 200, 0, 255)); // vàng cho item được chọn
 
         // Cho phép double-click
-        if (ImGui::Selectable(displayLabel.c_str(), isSelected, ImGuiSelectableFlags_AllowDoubleClick)) {
+        if (ImGui::Selectable(displayLabel.c_str(), isSelected, ImGuiSelectableFlags_AllowDoubleClick))
+        {
             g_CurrentIndex = i; // Chọn item để có thể xóa
 
             // Nếu double-click → phát video
-            if (ImGui::IsMouseDoubleClicked(0)) {
+            if (ImGui::IsMouseDoubleClicked(0))
+            {
                 std::string indexStr = std::to_string(i);
-                const char* cmd[] = { "playlist-play-index", indexStr.c_str(), nullptr };
-                int res = mpv_command(mpv, cmd);
-                if(!(res <0))
-                    g_playbackStatus.g_PlayingIndex = i; // Cập nhật trạng thái đang phát
-
-                if (g_OnVideoSelected) g_OnVideoSelected(i);
+                const char *cmd[] = {"playlist-play-index", indexStr.c_str(), nullptr};
+                if (auto* commander = player_session->GetCommander())
+                {
+                    int res = commander->Exec(cmd);
+                    if (!(res < 0))
+                        playlist.g_PlayingIndex = i; // Cập nhật trạng thái đang phát
+                }
+                if (g_OnVideoSelected)
+                    g_OnVideoSelected(i);
             }
         }
 
-        if (isPlaying || isSelected) ImGui::PopStyleColor();
+        if (isPlaying || isSelected)
+            ImGui::PopStyleColor();
 
         // --- Drag & Drop ---
-        if (ImGui::BeginDragDropSource()) {
+        if (ImGui::BeginDragDropSource())
+        {
             int payloadIndex = i;
             ImGui::SetDragDropPayload("DND_PLAYLIST_ITEM", &payloadIndex, sizeof(int));
             ImGui::Text("Move: %s", label.c_str());
             ImGui::EndDragDropSource();
         }
 
-        if (ImGui::BeginDragDropTarget()) {
-            if (const ImGuiPayload* payload = ImGui::AcceptDragDropPayload("DND_PLAYLIST_ITEM")) {
-                int srcIndex = *(const int*)payload->Data;
-                if (srcIndex != i) {
+        if (ImGui::BeginDragDropTarget())
+        {
+            if (const ImGuiPayload *payload = ImGui::AcceptDragDropPayload("DND_PLAYLIST_ITEM"))
+            {
+                int srcIndex = *(const int *)payload->Data;
+                if (srcIndex != i)
+                {
                     // Lưu trạng thái video đang phát
-                    int currentPlayingIndex = g_playbackStatus.g_PlayingIndex;
+                    int currentPlayingIndex = playlist.g_PlayingIndex;
 
                     // Swap trong g_playlist
-                    std::swap(g_playbackStatus.g_playlist[srcIndex], g_playbackStatus.g_playlist[i]);
+                    std::swap(playlist.playlist[srcIndex], playlist.playlist[i]);
 
                     // Thực hiện move trong MPV
                     std::string srcindexStr = std::to_string(srcIndex);
                     std::string indexStr = std::to_string(i);
-                    const char* cmd[] = { "playlist-move", srcindexStr.c_str(), indexStr.c_str(), nullptr };
-                    int res = mpv_command(mpv, cmd);
-                    if(!(res < 0)) {
-                        // --- Cập nhật g_CurrentIndex ---
-                        if (g_CurrentIndex == srcIndex) g_CurrentIndex = i;
-                        else if (g_CurrentIndex == i) g_CurrentIndex = srcIndex;
+                    const char *cmd[] = {"playlist-move", srcindexStr.c_str(), indexStr.c_str(), nullptr};
+                    if (auto* commander = player_session->GetCommander()) {
+                        int res = commander->Exec(cmd);
+                        if (!(res < 0))
+                        {
+                            // --- Cập nhật g_CurrentIndex ---
+                            if (g_CurrentIndex == srcIndex)
+                                g_CurrentIndex = i;
+                            else if (g_CurrentIndex == i)
+                                g_CurrentIndex = srcIndex;
 
-                        // --- Cập nhật g_PlayingIndex để video đang phát giữ đúng ---
-                        if (currentPlayingIndex == srcIndex) g_playbackStatus.g_PlayingIndex = i;        // nếu item đang phát là item bị move
-                        else if (currentPlayingIndex == i) g_playbackStatus.g_PlayingIndex = srcIndex;  // nếu item đang phát bị swap với item khác
-                        // Nếu video đang phát nằm giữa srcIndex và i, adjust chỉ số
-                        else if (currentPlayingIndex > srcIndex && currentPlayingIndex <= i) g_playbackStatus.g_PlayingIndex--;
-                        else if (currentPlayingIndex < srcIndex && currentPlayingIndex >= i) g_playbackStatus.g_PlayingIndex++;
+                            // --- Cập nhật g_PlayingIndex để video đang phát giữ đúng ---
+                            if (currentPlayingIndex == srcIndex)
+                                playlist.g_PlayingIndex = i; // nếu item đang phát là item bị move
+                            else if (currentPlayingIndex == i)
+                                playlist.g_PlayingIndex = srcIndex; // nếu item đang phát bị swap với item khác
+                            // Nếu video đang phát nằm giữa srcIndex và i, adjust chỉ số
+                            else if (currentPlayingIndex > srcIndex && currentPlayingIndex <= i)
+                                playlist.g_PlayingIndex--;
+                            else if (currentPlayingIndex < srcIndex && currentPlayingIndex >= i)
+                                playlist.g_PlayingIndex++;
+                        }
                     }
                 }
             }
@@ -924,4 +897,36 @@ void RenderListVideoMPV()
         ImGui::PopID();
     }
     ImGui::EndChild();
+}
+
+void ShowSidarBarPopup(WindowRuntime *runtime, bool &closePopup_siderbar)
+{
+
+    if (ImGui::BeginTabBar("##ListTabs"))
+    {
+        ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
+        if (ImGui::BeginTabItem("Youtube"))
+        {
+            RenderVideoList();
+            ImGui::EndTabItem();
+        }
+        if (ImGui::BeginTabItem("ListMPV"))
+        {
+            RenderListVideoMPV(runtime);
+            ImGui::EndTabItem();
+        }
+        ImGui::PopStyleColor();
+        ImGui::EndTabBar();
+    }
+}
+
+void OpenSidarBarPopup(ReusablePopup &popup)
+{
+    popup.Open("Sidebar", [](WindowRuntime *runtime, bool &closePopup_siderbar)
+               { ShowSidarBarPopup(runtime, closePopup_siderbar); });
+}
+
+void RenderSidarBarPopup(ReusablePopup &popup, WindowRuntime *window)
+{
+    popup.Render(window);
 }

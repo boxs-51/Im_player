@@ -6,6 +6,7 @@
 #include "popup_setting.h"
 #include "FontManager.h"
 #include "settings_manager.h"
+#include "windows/WindowRuntime.h"
 
 #include <imgui.h>
 #include <vector>
@@ -19,7 +20,7 @@ static bool isDirty = false;
 
 // Mở popup settings
 void OpenSettingPopup(ReusablePopup& popup) {
-    popup.Open("Settings", [](bool& closePopup_setting) {
+    popup.Open("Settings", [](WindowRuntime* runtime, bool& closePopup_setting) {
         ShowSettingsPopup(closePopup_setting);
     });
 }
@@ -557,8 +558,8 @@ void ShowSettingsPopup(bool& closePopup_setting) {
 }
 
 // Render popup mỗi frame
-void RenderSettingPopup(ReusablePopup& popup) {
+void RenderSettingPopup(ReusablePopup& popup, WindowRuntime* window) {
     if(popup.IsOpen()) {
-        popup.Render();
+        popup.Render(window);
     }
 }

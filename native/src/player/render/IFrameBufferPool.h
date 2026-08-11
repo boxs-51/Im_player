@@ -8,17 +8,22 @@ class IGraphicsBackend;
 
 enum class BufferState { FREE, RENDERING, READY, DISPLAYING };
 
+// Strongly-typed Handles để thay thế std::any 
+using GraphicsFboHandle = uint32_t;
+using GraphicsTextureHandle = uint32_t;
+using GraphicsFenceHandle = void*; // Cast sang GLsync trong OpenGL backend
+
 struct FrameNode {
-    std::any fbo;       // Sẽ là GLuint cho OpenGL, ID3D11RenderTargetView* cho D3D11
-    std::any texture;   // Sẽ là GLuint cho OpenGL, ID3D11ShaderResourceView* cho D3D11
+    GraphicsFboHandle fbo;       // Sẽ là GLuint cho OpenGL, ID3D11RenderTargetView* cho D3D11
+    GraphicsTextureHandle texture;   // Sẽ là GLuint cho OpenGL, ID3D11ShaderResourceView* cho D3D11
     int allocatedW = 0, allocatedH = 0;
     int contentW = 0, contentH = 0;
-    std::any fence;     // Sẽ là GLsync cho OpenGL
+    GraphicsFenceHandle fence;     // Sẽ là GLsync cho OpenGL
     std::atomic<BufferState> state{ BufferState::FREE };
 };
 
 struct FrameTextureInfo {
-    std::any texID{}; // ImTextureID (void*). Dùng {} để khởi tạo rỗng.
+    void* texID{ nullptr }; // ImTextureID (void*). Dùng {} để khởi tạo rỗng.
     float u = 1.0f, v = 1.0f;
 };
 

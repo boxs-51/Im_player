@@ -343,19 +343,40 @@ public:
         return {};
     }
 
-    // Hỗ trợ vòng lặp range-based cho việc Duyệt Render ở main loop
     /**
-     * @brief
-     *
-     * @return auto
+     * @brief Thực thi callback cho từng WindowRuntime một cách an toàn dưới Mutex lock.
      */
-    auto begin() { return windows.begin(); }
+    template<typename Func>
+    void ForEachWindow(Func&& func) {
+        std::vector<WindowRuntime*> snapshot;
+        {
+            std::lock_guard<std::mutex> lock(m_windowsMutex);
+            snapshot.reserve(windows.size());
+            for (auto& [id, runtime] : windows) {
+                if (runtime) {
+                    snapshot.push_back(runtime.get());
+                }
+            }
+        }
+        for (auto* runtime : snapshot) {
+            func(runtime);
+        }
+    }
+
     /**
-     * @brief
-     *
-     * @return auto
+     * @brief Lấy bản sao danh sách các con trỏ WindowRuntime hiện tại dưới Mutex lock.
      */
-    auto end() { return windows.end(); }
+    std::vector<WindowRuntime*> GetAllWindows() const {
+        std::lock_guard<std::mutex> lock(m_windowsMutex);
+        std::vector<WindowRuntime*> list;
+        list.reserve(windows.size());
+        for (const auto& [id, runtime] : windows) {
+            if (runtime) {
+                list.push_back(runtime.get());
+            }
+        }
+        return list;
+    }
 
 private:
     void DestroyWindowInternal(WindowId id)

@@ -43,7 +43,9 @@ bool PlayBackRender::Init(Player& player, IGraphicsBackend* backend, std::shared
     }
 
 #ifdef RENDER_MPV_THREAD
-    // Callback không còn dùng PlayerManager nữa, mà dùng userdata truyền m_renderThread
+    // Tạo và sở hữu callback userdata bằng unique_ptr
+    m_callbackUserdata = std::make_unique<std::weak_ptr<PlayBackRenderThread>>(m_renderThread);
+
     mpv_render_context_set_update_callback(m_render_ctx, [](void* userdata) {
         auto* renderThreadPtr = static_cast<std::weak_ptr<PlayBackRenderThread>*>(userdata);
         if (renderThreadPtr) {
@@ -51,7 +53,7 @@ bool PlayBackRender::Init(Player& player, IGraphicsBackend* backend, std::shared
                 thread->RequestRender();
             }
         }
-    }, new std::weak_ptr<PlayBackRenderThread>(m_renderThread)); // Cần giải phóng trong Shutdown() nếu dùng heap allocation
+    }, m_callbackUserdata.get());
 #else
     mpv_render_context_set_update_callback(m_render_ctx, [](void*) {
         SDL_Event ev;
@@ -65,10 +67,15 @@ bool PlayBackRender::Init(Player& player, IGraphicsBackend* backend, std::shared
 
 void PlayBackRender::Shutdown() {
     if (m_render_ctx) {
+        // Tắt callback trước khi hủy context và hủy userdata
         mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);
         mpv_render_context_free(m_render_ctx);
         m_render_ctx = nullptr;
     }
+#ifdef RENDER_MPV_THREAD
+    // Tự động giải phóng con trỏ userdata an toàn
+    m_callbackUserdata.reset();
+#endif
 }
 
 void PlayBackRender::Render(const ImVec2& size, IGraphicsBackend* backend) {
@@ -82,13 +89,13 @@ void PlayBackRender::Render(const ImVec2& size, IGraphicsBackend* backend) {
     // Thử lấy frame ổn định vài lần với một khoảng nghỉ ngắn để chờ luồng render hoàn thành
     for (int i = 0; i < 3; ++i) {
         frameInfo = thread->state.fboPool->GetStableFrame();
-        if (frameInfo.texID.has_value()) {
+        if (frameInfo.texID != nullptr) {
             break;
         }
         std::this_thread::sleep_for(std::chrono::milliseconds(1));
     }
-    if (frameInfo.texID.has_value()) {
-        ImGui::Image(std::any_cast<ImTextureID>(frameInfo.texID), size, ImVec2(0, 0), ImVec2(frameInfo.u, frameInfo.v));
+    if (frameInfo.texID != nullptr) {
+        ImGui::Image(static_cast<ImTextureID>(frameInfo.texID), size, ImVec2(0, 0), ImVec2(frameInfo.u, frameInfo.v));
     }
 #else
     // Lấy tham số render từ backend và gọi render

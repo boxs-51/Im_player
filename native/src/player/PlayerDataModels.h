@@ -3,7 +3,52 @@
 #include <string>
 #include <vector>
 #include <unordered_map>
-#include "mpv_basic_formats.h" // For VideoType enum
+#include <optional>
+
+enum class  VideoType{
+    None,
+    Vio,
+    Live,
+    Local
+};
+
+struct FormatGroup {
+
+    std::vector<std::string> formats; 
+    std::vector<std::string> short_labels;  
+    std::vector<std::string> full_labels;  
+    std::vector<std::string> urls;
+    std::vector<std::string> ids;
+};
+
+struct ResolutionOption {
+    std::string format_id, vcodec, acodec, size, frame_rate;
+    std::string bitrate_total, bitrate_video, bitrate_audio;
+    std::string codec_video, codec_audio, audio_sample_rate;
+    std::string resolution;
+    std::string url, ids;
+};
+struct VideoInfoResult {
+    std::vector<ResolutionOption> video_formats;
+    std::vector<ResolutionOption> audio_formats;
+    std::optional<std::string> video_active_id;
+    std::optional<std::string> audio_active_id;
+
+
+    // --- Live details ---
+    bool is_live = false;                   
+    std::string live_status;                 
+    std::optional<int64_t> start_time;     
+    std::optional<int64_t> end_time;         
+    std::optional<int64_t> release_timestamp; 
+    bool has_dvr = false;                    
+    std::optional<std::string> hls_manifest;  
+    std::string title;
+    std::string uploader;
+    std::optional<double> duration;          
+
+    bool file_local =false;
+};
 
 // --- Enums ---
 enum class PlaybackState : uint8_t {
@@ -16,7 +61,18 @@ enum class PlaybackState : uint8_t {
     NoFile
 };
 
-// --- Basic Data Structures (mostly from mpv_data.h) ---
+// --- Basic Data Structures  ---
+
+struct MediaFormatsModel {
+
+    FormatGroup video;  
+    FormatGroup audio;  
+    std::optional<std::string> active_video; 
+    std::optional<std::string> active_audio; 
+    int video_index = 0;  
+    int audio_index = 0;  
+};
+
 struct AudioDeviceInfo {
     std::string name;
     std::string description;
@@ -113,6 +169,9 @@ struct PlaybackModel {
     PlaybackState state = PlaybackState::NoFile; 
     VideoType videoType = VideoType::None;
     bool isLoadingMedia = false; // Trạng thái loading của ứng dụng
+    double pendingseektime = 0.0;
+
+    MediaFormatsModel formats;
 
     MpvFlagsModel flags;
     TimingModel timing;

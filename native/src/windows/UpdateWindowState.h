@@ -7,7 +7,7 @@
 #include "UIRenderThread.h"
 
 #include "player/session/PlayerSession.h"
-#include "player/mpv_data.h"
+
 #include <SDL.h>
 
 #ifdef RENDER_MPV_THREAD
@@ -125,39 +125,39 @@ inline bool RouteWindowStateUpdate(WindowRuntime* runtime) {
 }
 
 inline void AdjustWindowFrameRates(WindowManager& winManager) {
-    PlaybackState state = GetPlaybackState();
 
-    for (auto& [id, windowInstance] : winManager) {
-        if (!windowInstance) continue;
+    winManager.ForEachWindow([](WindowRuntime *window){
+        if (!window) return;
 
         // Nếu cửa sổ bị ẩn hoặc thu nhỏ, giảm FPS xuống mức tối thiểu.
-        if (!windowInstance->state.display.isShown || windowInstance->state.display.isMinimized) {
-            if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(1);
-            continue;
+        if (!window->state.display.isShown || window->state.display.isMinimized) {
+            if (window->windowloop) window->windowloop->setTargetFPS(1);
+            return;
         }
 
         // Logic cho cửa sổ chính
-        if (windowInstance->style.isMainWindow) {
-            if (windowInstance->state.runtime.is_dirty) {
+        if (window->style.isMainWindow) {
+            if (window->state.runtime.is_dirty) {
                 // Nếu có tương tác (ví dụ: hover nút), tăng FPS để animation mượt mà.
-                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(60);
-                windowInstance->state.runtime.is_dirty = false; // Reset cờ sau khi xử lý.
+                if (window->windowloop) window->windowloop->setTargetFPS(60);
+                window->state.runtime.is_dirty = false; // Reset cờ sau khi xử lý.
             } else {
                 // Logic mặc định: FPS cao khi phát video, thấp khi tạm dừng.
-                if (windowInstance->windowloop) {
+                if (window->windowloop) {
+                    PlaybackState state = window->resource.GetPlayerSession()->GetState()->GetPlaybackState();
                     switch (state)
                     {
                     case PlaybackState::Playing:
-                        windowInstance->windowloop->setTargetFPS(60);
+                        window->windowloop->setTargetFPS(60);
                         break;
                     
                     case PlaybackState::Loading:
                     case PlaybackState::Seeking:
-                        windowInstance->windowloop->setTargetFPS(30);
+                        window->windowloop->setTargetFPS(30);
                         break;
                     
                     default:
-                        windowInstance->windowloop->setTargetFPS(15);
+                        window->windowloop->setTargetFPS(15);
                         break;
                     }
 
@@ -166,12 +166,12 @@ inline void AdjustWindowFrameRates(WindowManager& winManager) {
         } 
         // Logic cho các cửa sổ phụ
         else {
-            if (windowInstance->state.runtime.is_dirty) {
-                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(30); // Tăng FPS khi có tương tác.
-                windowInstance->state.runtime.is_dirty = false;
+            if (window->state.runtime.is_dirty) {
+                if (window->windowloop) window->windowloop->setTargetFPS(30); // Tăng FPS khi có tương tác.
+                window->state.runtime.is_dirty = false;
             } else {
-                if (windowInstance->windowloop) windowInstance->windowloop->setTargetFPS(15); // FPS thấp mặc định cho cửa sổ phụ.
+                if (window->windowloop) window->windowloop->setTargetFPS(15); // FPS thấp mặc định cho cửa sổ phụ.
             }
         }
-    }
+    });
 }

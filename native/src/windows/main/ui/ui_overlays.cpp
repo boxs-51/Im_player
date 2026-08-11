@@ -1,8 +1,9 @@
 #include "ui_overlays.h"
-#include "player/mpv_data.h"
+
 #include "gui/gui.h"
 #include "utils.h"
 #include <cmath>
+#include "windows/WindowRuntime.h"
 
 #include <GL/gl3w.h> 
 
@@ -59,11 +60,18 @@ void RenderLoading(const ImVec2& _pos, const ImVec2& _size) {
     );
 }
 
-void RenderSeekingOverlay(const ImVec2& _pos, const ImVec2& _size) {
+void RenderSeekingOverlay(WindowRuntime* runtime, const ImVec2& _pos, const ImVec2& _size) {
+    
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* player_state = player_session->GetState();
+    if (!player_state) return;
+
     static SeekingData data; 
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    data.g_isSeeking = g_playbackStatus.isSeeking;
-    data.currentTime = g_playbackStatus.timePos;
+  
+    player_state->ReadPlayback([&](PlaybackModel const& m){
+        data.g_isSeeking = m.flags.isSeeking;
+        data.currentTime = m.timing.timePos;
+    });
 
     float dt = ImGui::GetIO().DeltaTime;
 

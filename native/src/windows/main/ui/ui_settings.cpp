@@ -1,6 +1,6 @@
 #include "ui_settings.h"
 #include "ui_widgets.h"
-#include "player/mpv_data.h"
+
 #include "player/session/PlayerSession.h"
 #include "gui/gui.h"
 #include "WindowRuntime.h"
@@ -10,7 +10,7 @@
 #include <cmath>
 
 
-static VideoAudioFormats& all_formats = GetVideoAudioFormats();
+//static VideoAudioFormats& all_formats = GetVideoAudioFormats();
 enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed, Options };
 enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;
@@ -27,39 +27,61 @@ static auto ChangePage = [](SettingsPage next) {
     }
 };
 
-void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, VideoType videotype, float scale) {
+void ResolutionQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, VideoType videotype, float scale) {
+    
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 4.0f * scale);
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, IM_COL32(0,0,0,0));
     auto& Cfg = ConfigManager::Instance();
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+    
+    bool has_file = false;
+    int playingIndex = -1;
+
+    if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()) {
+        player_state->ReadPlayback([&](PlaybackModel const& m){
+            has_file = m.timing.duration > 0.0f;
+        });
+        player_state->ReadPlaylist([&](auto const& m){
+            playingIndex = m.g_PlayingIndex;
+        });
+    }
+
+
+    
     if (ImGui::BeginChild("##res_scroll_area", ImVec2(0, 0), false, ImGuiWindowFlags_NoMove)) {
-        for (int i = 0; i < (int)all_formats.video.full_labels.size(); ++i) {
-            bool is_active = (all_formats.video_index == i);
-            const char* label = all_formats.video.full_labels[i].c_str();
+        for (int i = 0; i < (int)formats.video.full_labels.size(); ++i) {
+            bool is_active = (formats.video_index == i);
+            const char* label = formats.video.full_labels[i].c_str();
 
             UI_SelectableItem(label, is_active, scale, [&]() {
-                if (all_formats.video_index != i) {
-                    all_formats.video_index = i;
-                    all_formats.active_video = all_formats.video.formats[i];
-                    std::string selectedFormat = all_formats.video.formats[i];
+                if (formats.video_index != i) {
+                    formats.video_index = i;
+                    formats.active_video = formats.video.formats[i];
+                    std::string selectedFormat = formats.video.formats[i];
                     Cfg.UpdateVideoSettings([selectedFormat](AppSettings& s) {
                         s.selectedFormat = selectedFormat;
                     });
-                    if (g_playbackStatus.hasFile) {
+                    if (has_file) {
+                        auto* commander = runtime->resource.GetPlayerSession()->GetCommander();
+
                         if(videotype == VideoType::Live) {
-                            if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                                runtime->resource.playersession->GetCommander()->SetPropertyString("ytdl-format", all_formats.video.ids[i]);
+                            if (commander) 
+                                commander->SetPropertyString("ytdl-format", formats.video.ids[i]);
                         } else {
-                            pendingSeekTime = g_playbackStatus.timePos;
+                            if(auto* state = runtime->resource.GetPlayerSession()->GetState()){
+                                state->WritePlayback([](auto& m){
+                                    m.pendingseektime = m.timing.timePos;
+                                });
+                            }
+   
                             std::string selectedResolutio = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolutio](AppSettings& s) {
                                 s.selectedResolution = selectedResolutio;
                             });
-                            if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                                runtime->resource.playersession->GetCommander()->SetPropertyString("ytdl-format", selectedResolutio);
+                            if (commander) 
+                                commander->SetPropertyString("ytdl-format", selectedResolutio);
                         }
-                        std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) runtime->resource.playersession->GetCommander()->Exec(cmd);
+                        std::string cmd = "playlist-play-index " + std::to_string(playingIndex);
+                        if (commander) commander->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -75,38 +97,56 @@ void ResolutionQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, V
     ImGui::PopStyleVar();
 }
 
-void AudioQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, VideoType videotype, float scale) {
+void AudioQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, VideoType videotype, float scale) {
     auto& Cfg = ConfigManager::Instance();
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+
+    bool has_file = false;
+    int playingIndex = -1;
+
+    if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()) {
+        player_state->ReadPlayback([&](PlaybackModel const& m){
+            has_file = m.timing.duration > 0.0f;
+
+        });
+        player_state->ReadPlaylist([&](auto const& m){
+            playingIndex = m.g_PlayingIndex;
+        });
+    }
+
     if (ImGui::BeginChild("##audio_scroll_area", ImVec2(0, 0), false)) {
-        for (int i = 0; i < (int)all_formats.audio.full_labels.size(); ++i) {
-            bool is_active = (all_formats.audio_index == i);
-            const char* label = all_formats.audio.full_labels[i].c_str();
+        for (int i = 0; i < (int)formats.audio.full_labels.size(); ++i) {
+            bool is_active = (formats.audio_index == i);
+            const char* label = formats.audio.full_labels[i].c_str();
             
             UI_SelectableItem(label, is_active, scale, [&]() {
-                if (all_formats.audio_index != i) {
-                    all_formats.audio_index = i;
-                    all_formats.active_audio = all_formats.audio.formats[i];
-                    std::string selectedAudio = all_formats.audio.formats[i];
+                if (formats.audio_index != i) {
+                    formats.audio_index = i;
+                    formats.active_audio = formats.audio.formats[i];
+                    std::string selectedAudio = formats.audio.formats[i];
                     Cfg.UpdateVideoSettings([selectedAudio](AppSettings& s) {
                         s.selectedAudio = selectedAudio;
                     });
-                    if (g_playbackStatus.hasFile) {
+                    if (has_file) {
+                        auto* commander = runtime->resource.GetPlayerSession()->GetCommander();
                         if(videotype == VideoType::Live){
-                            if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                                runtime->resource.playersession->GetCommander()->SetPropertyString("ytdl-format", all_formats.audio.ids[i]);
+                            if (commander) 
+                                commander->SetPropertyString("ytdl-format", formats.audio.ids[i]);
                         }else{
-                            pendingSeekTime = g_playbackStatus.timePos;
+                            if(auto* state = runtime->resource.GetPlayerSession()->GetState()){
+                                state->WritePlayback([] (auto& m){
+                                    m.pendingseektime = m.timing.timePos;
+                                });
+                            }
                             std::string selectedResolution = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
                             Cfg.UpdateVideoSettings([selectedResolution](AppSettings& s) {
                                 s.selectedAudio = selectedResolution;
                             });
-                            if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                                runtime->resource.playersession->GetCommander()->SetPropertyString("ytdl-format", selectedResolution);
+                            if (commander) 
+                                commander->SetPropertyString("ytdl-format", selectedResolution);
                         }
                         
-                        std::string cmd = "playlist-play-index " + std::to_string(g_playbackStatus.g_PlayingIndex);
-                        if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) runtime->resource.playersession->GetCommander()->Exec(cmd);
+                        std::string cmd = "playlist-play-index " + std::to_string(playingIndex);
+                        if (commander) commander->Exec(cmd);
                     }
                     Cfg.SaveVideo();
                 }
@@ -122,8 +162,15 @@ void AudioQualityPage(WindowRuntime* runtime, VideoAudioFormats &formats, VideoT
 
 void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
     auto& Cfg = ConfigManager::Instance();
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    float current_speed = (float)g_playbackStatus.speed;
+
+    float current_speed = 1.0f;
+    if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()) {
+        player_state->ReadPlayback([&](PlaybackModel const& m){
+            current_speed = m.config.speed;
+        });
+
+    }
+
     ImGui::Indent(10 * scale);
     ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.7f, 1.0f), "Tốc độ tùy chỉnh: %.2fx", current_speed);
     ImGui::Unindent(10 * scale);
@@ -133,8 +180,8 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
         Cfg.UpdateVideoSettings([new_speed](AppSettings& s){
             s.playbackSpeed = new_speed;
         });
-        if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-            runtime->resource.playersession->GetCommander()->SetSpeed((double)new_speed);
+        if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+            commander->SetSpeed((double)new_speed);
         Cfg.SaveVideo();
     });
 
@@ -159,8 +206,8 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
                 Cfg.UpdateVideoSettings([s](AppSettings& ss) {
                     ss.playbackSpeed = s;
                 });
-                if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                    runtime->resource.playersession->GetCommander()->SetSpeed((double)s);
+                if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+                    commander->SetSpeed((double)s);
                 Cfg.SaveVideo();
             });
 
@@ -182,7 +229,22 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
         current_page = SettingsPage::Main; 
         return;
     }
-    VideoInfo& g_videoInfo = GetVideoInfo();
+
+    bool has_file = false;
+    bool hasSubtitles = false;
+    MediaFormatsModel formats;
+    VideoType videotype;
+    if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()){
+        player_state->ReadSubtitle([&](auto const& m){
+            hasSubtitles = m.hasSubtitles;
+        });
+        player_state->ReadPlayback([&](PlaybackModel const& m){
+            has_file = m.timing.duration > 0.0f;
+            formats = m.formats;
+            videotype = m.videoType;
+        });
+    }
+    
     auto& Cfg = ConfigManager::Instance();
     auto videoCfg = Cfg.GetVideoSettings();
 
@@ -254,17 +316,16 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
 
         ImGui::PushStyleVar(ImGuiStyleVar_Alpha, anim * page_anim);
 
-        VideoType videotype = GetVideoType();
         switch (current_page) {
             case SettingsPage::Main:
             {
                 UI_GroupHeader("Chất lượng", scaleFactor);
                 if (videotype != VideoType::Local) {
-                    const char* res_label = all_formats.video.short_labels.empty() ? "N/A" : all_formats.video.short_labels[all_formats.video_index].c_str();
+                    const char* res_label = formats.video.short_labels.empty() ? "N/A" : formats.video.short_labels[formats.video_index].c_str();
                     UI_MenuItem("Độ phân giải", res_label, scaleFactor, [&]() { ChangePage(SettingsPage::ResolutionQuality); });
                 }
                 if (videotype != VideoType::Local) {
-                    const char* res_label = all_formats.audio.short_labels.empty() ? "N/A" : all_formats.audio.short_labels[all_formats.audio_index].c_str();
+                    const char* res_label = formats.audio.short_labels.empty() ? "N/A" : formats.audio.short_labels[formats.audio_index].c_str();
                     UI_MenuItem("Chất lượng âm thanh", res_label, scaleFactor, [&]() { ChangePage(SettingsPage::AudioQuality); });
                 }
     
@@ -277,12 +338,12 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 ImGui::Spacing();
                 UI_GroupHeader("Tùy chọn", scaleFactor);
                 bool enableSubtitles = videoCfg.enableSubtitles;
-                UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, g_videoInfo.hasSubtitles, [&](bool s) {
+                UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, hasSubtitles, [&](bool s) {
                     Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                         s.enableSubtitles = enableSubtitles;
                     });
-                    if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                        runtime->resource.playersession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
+                    if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+                        commander->SetPropertyString("sub-visibility", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
                 bool repeatVideo = videoCfg.repeatVideo;
@@ -290,8 +351,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.UpdateVideoSettings([repeatVideo](AppSettings& s) {
                         s.repeatVideo = repeatVideo;
                     });
-                    if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                        runtime->resource.playersession->GetCommander()->SetPropertyString("loop-file", s ? "inf" : "no");
+                    if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+                        commander->SetPropertyString("loop-file", s ? "inf" : "no");
                     Cfg.SaveVideo();
                 });
                 bool autoPlayNext = videoCfg.autoPlayNext;
@@ -299,12 +360,12 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                     Cfg.UpdateVideoSettings([autoPlayNext](AppSettings& s) {
                         s.autoPlayNext = autoPlayNext;
                     });
-                    if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                        runtime->resource.playersession->GetCommander()->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
+                    if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+                        commander->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
                     Cfg.SaveVideo();
                 });
 
-                if (auto* renderer = runtime->resource.playersession->GetRenderer()) {
+                if (auto* renderer = runtime->resource.GetPlayerSession()->GetRenderer()) {
                     bool isAudioVis = renderer->IsAudioVisualizerEnabled();
                     UI_Toggle("Trình chiếu âm thanh ", &isAudioVis, scaleFactor, true, [renderer](bool enabled) {
                         renderer->SetAudioVisualizerEnabled(enabled);
@@ -319,7 +380,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                ResolutionQualityPage(runtime, all_formats, videotype, scaleFactor);
+                ResolutionQualityPage(runtime, formats, videotype, scaleFactor);
                 break;
             }
 
@@ -329,7 +390,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 ImGui::Separator();
                 ImGui::Spacing();
 
-                AudioQualityPage(runtime, all_formats, videotype, scaleFactor);
+                AudioQualityPage(runtime, formats, videotype, scaleFactor);
                 break;
             }
         
@@ -362,12 +423,12 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                         ImGui::Spacing();
 
                         bool enableSubtitles = videoCfg.enableSubtitles;
-                        UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, g_videoInfo.hasSubtitles, [&](bool s) {
+                        UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, hasSubtitles, [&](bool s) {
                             Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
                                 s.enableSubtitles = enableSubtitles;
                             });
-                            if (runtime && runtime->resource.playersession && runtime->resource.playersession->GetCommander()) 
-                                runtime->resource.playersession->GetCommander()->SetPropertyString("sub-visibility", s ? "yes" : "no");
+                            if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+                                commander->SetPropertyString("sub-visibility", s ? "yes" : "no");
                             Cfg.SaveVideo();
                         });
 
@@ -383,32 +444,4 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
     }
     CSImGui::PopModernWindowStyle();
     ImGui::PopStyleVar();
-}
-
-void ApplyPlaybackSettings(WindowRuntime* runtime) {
-    if (!runtime || !runtime->resource.playersession || !runtime->resource.playersession->GetCommander()) return;
-    auto* commander = runtime->resource.playersession->GetCommander();
-
-    auto& Cfg = ConfigManager::Instance();
-    auto videoCfg = Cfg.GetVideoSettings();
-
-    commander->SetVolume(videoCfg.defaultVolume);
-
-    double speed = (double)videoCfg.playbackSpeed;
-    commander->SetSpeed(speed);
-
-    double audiodelay = (double)videoCfg.audiodelay;
-    commander->SetAudioDelay(audiodelay);
-
-    const char* sub_vis = videoCfg.enableSubtitles ? "yes" : "no";
-    commander->SetPropertyString("sub-visibility", sub_vis);
-
-    const char* repeat_mode = videoCfg.repeatVideo ? "inf" : "no";
-    commander->SetPropertyString("loop-file", repeat_mode);
-
-    const char* auto_next_mode = videoCfg.autoPlayNext ? "yes" : "no";
-    commander->SetPropertyString("playlist-auto-advance", auto_next_mode);
-
-    const char* loop_list = videoCfg.repeatlist ? "force" : "no";
-    commander->SetPropertyString("loop-playlist", loop_list);
 }

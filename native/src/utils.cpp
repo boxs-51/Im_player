@@ -7,7 +7,6 @@
 #include "stb_image.h"
 #include <popup/popup.h>
 
-#include <player/mpv_basic_formats.h>
 #include <gui/gui.h>
 #include <player/render/PlayBackRenderThread.h>
 #include <player/session/PlayerManager.h>
@@ -68,7 +67,8 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
 }
 void ApplyDynamicMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
-    VideoType type = GetVideoType();
+    VideoType type;
+    
     std::unordered_map<std::string, std::string> config;
     switch (type) {
         case VideoType::Live:

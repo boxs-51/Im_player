@@ -10,6 +10,8 @@
 #include "player/property/PlayBackProperty.h"
 #include "player/render/PlayBackRenderThread.h"
 #include "player/PlayerStateSystem.h"
+#include "player/audio/filter/af_m.h"
+#include "player/video/filter/video_filter_manager.h"
 
 #include "windows/WindowTemplate.h"
 
@@ -31,6 +33,9 @@ public:
     PlayerStateSystem* GetState() const { return m_state.get(); }
     std::shared_ptr<PlayBackRenderThread> GetRenderThread() const { return m_renderThread; }
 
+    AudioFilterManager* GetAudioFilterManager() const { return m_audioFilterManager.get(); }
+    VideoFilterManager* GetVideoFilterManager() const { return m_videoFilterManager.get(); }
+
 private:
     std::string m_id;
     std::unique_ptr<Player> m_player;
@@ -40,4 +45,8 @@ private:
     std::unique_ptr<PlayBackProperty> m_property;
     std::unique_ptr<PlayerStateSystem> m_state;
     std::shared_ptr<PlayBackRenderThread> m_renderThread;
+
+    std::unique_ptr<AudioFilterManager> m_audioFilterManager;
+    std::unique_ptr<VideoFilterManager> m_videoFilterManager;
+
 };

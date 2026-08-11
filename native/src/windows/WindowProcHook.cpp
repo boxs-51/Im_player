@@ -211,8 +211,8 @@ LRESULT CALLBACK MultiWindowWndProc(HWND hwnd, UINT msg, WPARAM wParam, LPARAM l
                 auto& winManager = WindowManager::GetInstance();
                 runtime->state.runtime.is_dirty = RouteWindowStateUpdate(runtime);
 
-                if (runtime->resource.playersession && runtime->resource.playersession->GetCommander())
-                    runtime->resource.playersession->GetCommander()->Update();
+                if (auto* commamder = runtime->resource.GetPlayerSession()->GetCommander())
+                    commamder->Update();
 
                 AdjustWindowFrameRates(winManager);
 

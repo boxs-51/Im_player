@@ -4,7 +4,7 @@
 #include "utils.h"
 
 
-#include "player/mpv_data.h"
+
 
 #include <string>
 #include <windows.h>
@@ -117,10 +117,9 @@ void ShowNotification(const std::wstring& title, const std::wstring& content) {
     WinToast::instance()->showToast(templ, nullptr);
 }
 void NotifyMPV() {
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    std::string title = g_playbackStatus.mediaTitle.empty() ? "Unknown Title" : g_playbackStatus.mediaTitle.c_str();
-    bool paused = g_playbackStatus.isPaused;
+    bool paused;
 
+    std::string title = "MPV";
     std::wstring status = paused ? L"Paused" : L"Playing";
 
     ShowNotification(ToWString(title), status);

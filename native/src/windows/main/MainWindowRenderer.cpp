@@ -14,7 +14,6 @@
 //#include <mpv_ui.h>
 #include "ui/ui.h"
 
-#include <player/mpv_data.h>
 
 void MainWindowRenderer::Initialize(WindowRuntime* runtime) {
     IMGUI_CHECKVERSION();
@@ -286,7 +285,7 @@ void RenderTitleBarWindowObject(WindowRuntime* runtime, const char* title, ImVec
 void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     const auto* layout = runtime->properties.GetPtr<WindowLayout>("Layout");
     if(!layout) return;
-    PlaybackState state = GetPlaybackState();
+    PlaybackState state = runtime->resource.GetPlayerSession()->GetState()->GetPlaybackState();
 
 
     ImGui::SetNextWindowPos(ImVec2(layout->WinX, layout->WinY));
@@ -317,8 +316,8 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
     bool flagRenderVideo = runtime->properties.GetValue<bool>("RenderVideoFlag", true);
     if (flagRenderVideo || state == PlaybackState::Paused || state == PlaybackState::Seeking ||
         state == PlaybackState::Playing || state == PlaybackState::EndOfFile) {
-        if (runtime->resource.playersession && runtime->resource.playersession->GetRenderer() && runtime->resource.graphicsBackend.get())
-            runtime->resource.playersession->GetRenderer()->Render(layout->ClientSize, runtime->resource.graphicsBackend.get());
+        if (runtime->resource.GetPlayerSession() && runtime->resource.GetPlayerSession()->GetRenderer() && runtime->resource.graphicsBackend.get())
+            runtime->resource.GetPlayerSession()->GetRenderer()->Render(layout->ClientSize, runtime->resource.graphicsBackend.get());
         RenderGhostStatusOverlay(layout->ClientPos, layout->ClientSize, (state == PlaybackState::Paused));
         runtime->properties.Set<bool>("RenderVideoFlag", false);
     }
@@ -327,10 +326,10 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
         state == PlaybackState::Seeking || state == PlaybackState::EndOfFile) {
         
         //RenderPlayerControls(mpv.mpv, layout->ClientPos, layout->ClientSize,
-        if (runtime->resource.playersession)
+        if (runtime->resource.GetPlayerSession())
             RenderPlayerControls(runtime, layout->ClientPos, layout->ClientSize);
 
-        RenderSeekingOverlay(layout->ClientPos, layout->ClientSize);
+        RenderSeekingOverlay(runtime, layout->ClientPos, layout->ClientSize);
     }
     
     if (state == PlaybackState::Loading) { 
@@ -344,7 +343,7 @@ void MainWindowRenderer::RenderUI(WindowRuntime* runtime) {
         if (runtime->state.display.isFullscreen || runtime->state.display.isMaximized) {
             ImGui::SetNextWindowViewport(ImGui::GetMainViewport()->ID);
         }
-        RenderAllPopups();
+        RenderAllPopups(runtime);
     }
 }
 

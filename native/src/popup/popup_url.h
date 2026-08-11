@@ -26,4 +26,4 @@ struct PopupData {
 
 
 void OpenURLPopup(class ReusablePopup& popup );
-void RenderPopupOverlay_Url(class ReusablePopup& popup) ;
+void RenderPopupOverlay_Url(class ReusablePopup& popup, class WindowRuntime* window);

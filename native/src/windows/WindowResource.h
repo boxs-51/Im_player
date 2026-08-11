@@ -22,15 +22,17 @@ struct WindowResource {
     std::unique_ptr<UIRenderThread> uiRenderThread;
 
     std::string playersessionid; // ID phiên phát chính thức
-    PlayerSession* playersession = nullptr; // Non-owning pointer (Dùng tạm thời / Backward compatibility)
-
     std::shared_ptr<WindowSharedGroup> sharedGroup; // Chỉ root window mới sở hữu
 
-    // Tra cứu an toàn qua PlayerManager, chống Dangling Pointer / Use-After-Free
-    PlayerSession* GetPlayerSession() const {
-        if (!playersessionid.empty()) {
-            return PlayerManager::GetInstance().GetSession(playersessionid);
+    /**
+     * @brief Lấy PlayerSession an toàn từ PlayerManager theo ID.
+     * @return PlayerSession* Trả về pointer hợp lệ hoặc nullptr nếu Session đã bị hủy.
+     */
+    PlayerSession* WindowResource::GetPlayerSession() const {
+        if (playersessionid.empty()) {
+            return nullptr;
         }
-        return playersession; // Fallback nếu chưa gán ID
+        // Tra cứu trực tiếp từ PlayerManager. Nếu Session không còn tồn tại, tự động trả về nullptr an toàn
+        return PlayerManager::GetInstance().GetSession(playersessionid);
     }
 };

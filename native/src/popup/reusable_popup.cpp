@@ -4,14 +4,14 @@
 #include <gui/gui.h>
 #include <imgui.h>
 
-void ReusablePopup::Open(const std::string& title, std::function<void(bool&)> contentFunc) {
+void ReusablePopup::Open(const std::string& title, ContentCallback contentFunc) {
     title_ = title;
     contentCallback = contentFunc;
     open = true;
     positionInitialized = false; // đặt lại vị trí lần đầu
 }
 
-void ReusablePopup::Render() {
+void ReusablePopup::Render(WindowRuntime* runtime) {
     if (!open || !contentCallback)
         return;
 
@@ -40,7 +40,7 @@ void ReusablePopup::Render() {
         
         // Vẽ nội dung bên trong
         // Lưu ý: Bên trong contentCallback, bạn nên gọi các hàm BeginModernChild đã hướng dẫn ở trên
-        contentCallback(closeRequested);
+        contentCallback(runtime, closeRequested);
 
         if (closeRequested)
             open = false;

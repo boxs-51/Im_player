@@ -15,6 +15,5 @@ bool g_WindowVisible = false;
 bool Disabehotkey = false;
 bool playImmediately = true;
 bool was_ui_video = false;
-double pendingSeekTime = -1.0;
 
 std::vector<std::wstring> playlist;

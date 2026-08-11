@@ -3,7 +3,7 @@
 #include "thread.h"
 #include "sidebar_popup.h"
 #include "player/session/PlayerSession.h"
-#include "player/mpv_data.h"
+
 #include "settings_manager.h"
 
 #include "WindowRuntime.h"
@@ -12,147 +12,235 @@
 
 #include "WindowManager.h"
 
-void OpenMockSubWindow() {
-    auto& winManager = WindowManager::GetInstance();
+void OpenMockSubWindow()
+{
+    auto &winManager = WindowManager::GetInstance();
     const std::string templateName = "MockSubWindow";
 
     // 1. Tìm xem có cửa sổ nào cùng loại đã bị ẩn không
-    WindowRuntime* Win = winManager.FindHiddenWindowByTemplate(templateName);
+    WindowRuntime *Win = winManager.FindHiddenWindowByTemplate(templateName);
 
-    if (Win) {
+    if (Win)
+    {
         // 2. Nếu có, chỉ cần hiện nó lên
-        if(Win->state.display.isShown)
+        if (Win->state.display.isShown)
             winManager.HideWindow(Win->info.id);
         else
             winManager.ShowWindow(Win->info.id);
-    } else {
+    }
+    else
+    {
         // 3. Nếu không, tạo mới như bình thường
         // Lấy cửa sổ chính làm cha
-        WindowRuntime* mainWin = winManager.GetMainWindow();
-        if (mainWin) {
+        WindowRuntime *mainWin = winManager.GetMainWindow();
+        if (mainWin)
+        {
             winManager.QueueCreateWindow(templateName, mainWin);
         }
     }
 }
 
 // --- Playback Hotkeys --- //
-bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
+bool HandleBasicHotkeys(const SDL_Event *e, WindowRuntime *runtime)
+{
     if (e->type != SDL_KEYDOWN)
         return false;
 
     SDL_Keycode key = e->key.keysym.sym;
     SDL_Keymod mod = SDL_GetModState();
-    // Lấy trạng thái phát lại
-    PlaybackState state = GetPlaybackState();
-    MPVPlaybackStatus& g_playback = GetMPVPlaybackStatus();
-    VideoInfo& g_videoinfo = GetVideoInfo();
-    auto& config = ConfigManager::Instance();
-    auto* playercommand = runtime->resource.playersession->GetCommander();
 
-    bool isPlayable = (state == PlaybackState::Playing || state == PlaybackState::Paused) && state != PlaybackState::Loading;
+    auto &config = ConfigManager::Instance();
+    auto* player = runtime->resource.GetPlayerSession();
 
     // --- ƯU TIÊN HOTKEY CÓ CTRL --- //
-    if (mod & KMOD_CTRL) {
-        const Uint8* state = SDL_GetKeyboardState(NULL);
+    if (mod & KMOD_CTRL)
+    {
+        const Uint8 *state = SDL_GetKeyboardState(NULL);
 
-        if (state[SDL_SCANCODE_UP] && state[SDL_SCANCODE_DOWN]) {
+        if (state[SDL_SCANCODE_UP] && state[SDL_SCANCODE_DOWN])
+        {
             // 👉 Thực hiện hành động đặc biệt, ví dụ reset audio delay:
             double resetDelay = 0.0;
-            if(playercommand) playercommand->SetAudioDelay(resetDelay);
-            config.UpdateVideoSettings([resetDelay](AppSettings& settings) {
-                settings.audiodelay = resetDelay;
-            });
+            if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
+                commander->SetAudioDelay(resetDelay);
+            config.UpdateVideoSettings([resetDelay](AppSettings &settings)
+                                       { settings.audiodelay = resetDelay; });
             config.SaveVideo();
             return true;
         }
-        if (state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT]) {
+        if (state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT])
+        {
             // 👉 Thực hiện hành động đặc biệt, ví dụ reset speed:
             double resetspeed = 1.0;
-            if(playercommand) playercommand->SetSpeed(resetspeed);
-            config.UpdateVideoSettings([resetspeed](AppSettings& settings) {
-                settings.playbackSpeed = resetspeed;
-            });
+            if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
+                commander->SetSpeed(resetspeed);
+            config.UpdateVideoSettings([resetspeed](AppSettings &settings)
+                                       { settings.playbackSpeed = resetspeed; });
             config.SaveVideo();
             return true;
         }
 
-        switch (key) {
-            case SDLK_UP:
-            case SDLK_DOWN:
-            {   
-                double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
-                if (key == SDLK_DOWN) step = -step;
-                double audio_delay = std::clamp(g_videoinfo.audio_delay + step , -10.0, 10.0);
-                if(playercommand) playercommand->SetAudioDelay(audio_delay);
-                config.UpdateVideoSettings([audio_delay](AppSettings& settings) {
-                    settings.audiodelay = audio_delay;
+        switch (key)
+        {
+        case SDLK_UP:
+        case SDLK_DOWN:
+        {
+            double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
+            if (key == SDLK_DOWN)
+                step = -step;
+
+            double audio_delay = 0.0;
+            if (auto* state = player->GetState()){
+                state->ReadAudio([&audio_delay](auto const& m){
+                audio_delay = m.codec.audio_delay;
                 });
-                config.SaveVideo();
-                return true;
             }
-            case SDLK_LEFT:
-            case SDLK_RIGHT:
-            {
-                double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
-                if (key == SDLK_LEFT) step = -step;
-                double speed = std::clamp(g_playback.speed + step, 0.2, 3.0);
-                if(playercommand) playercommand->SetSpeed(speed);
-                config.UpdateVideoSettings([speed](AppSettings& settings) {
-                    settings.playbackSpeed = speed;
+                
+            double new_audio_delay = std::clamp(audio_delay + step, -10.0, 10.0);
+            if (auto* playercommand = player->GetCommander())
+                playercommand->SetAudioDelay(new_audio_delay);
+
+            config.UpdateVideoSettings([new_audio_delay](AppSettings &settings)
+                                       { settings.audiodelay = new_audio_delay; });
+            config.SaveVideo();
+
+            return true;
+        }
+        case SDLK_LEFT:
+        case SDLK_RIGHT:
+        {
+            double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
+            if (key == SDLK_LEFT)
+                step = -step;
+            
+            double speed = 1.0;
+            if(auto* state = player->GetState()){
+                state->ReadPlayback([&speed](PlaybackModel const& m){
+                speed = m.config.speed;
                 });
-                config.SaveVideo();
-                return true;
             }
-            default:
-                return false;
+
+            double newspeed = std::clamp(speed + step, 0.2, 3.0);
+            if (auto* playercommand = player->GetCommander())
+                playercommand->SetSpeed(newspeed);
+
+            config.UpdateVideoSettings([newspeed](AppSettings &settings)
+                                       { settings.playbackSpeed = newspeed; });
+            config.SaveVideo();
+
+            return true;
+        }
+        default:
+            return false;
         }
     }
 
     // --- HOTKEY THƯỜNG (KHÔNG CÓ CTRL) --- //
-    if (isPlayable) {
-        switch (key) {
-            case SDLK_SPACE:
-                if (g_playback.isPaused) {
-                    if(playercommand) playercommand->Play();
-                } else {
-                    if(playercommand) playercommand->Pause();
-                }
-                return true;
+    bool isPlayable = true;
+    if(auto* state = player->GetState()){
+        state->ReadPlayback([&isPlayable](PlaybackModel const& m){
+        isPlayable = m.state == PlaybackState::Playing || m.state == PlaybackState::Paused;
+        });
+    }
 
-            case SDLK_LEFT:
-            case SDLK_RIGHT:
-            {
-                double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
-                if (key == SDLK_LEFT) step = -step;
-                float targetthime = (float)g_playback.playbackTime + step;
-                if(playercommand) playercommand->Seek(targetthime, (float)g_playback.duration);
-                return true;
-            }
-            case SDLK_DOWN: 
-            case SDLK_UP: 
-            {
-                float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
-                if (key == SDLK_DOWN) step = -step;
-                int newVol = (int)std::clamp(g_playback.volume + step, 0.0f, 130.0f);
-                if(playercommand) playercommand->SetVolume(newVol);
-                config.UpdateVideoSettings([newVol](AppSettings& settings) {
-                    settings.defaultVolume = newVol;
+    if (isPlayable)
+    {
+        switch (key)
+        {
+        case SDLK_SPACE:{
+
+            auto* playercommand = player->GetCommander();
+
+            bool isPaused = false;
+            if (auto* state = player->GetState()){
+                state->ReadPlayback([&isPaused](PlaybackModel const& m){
+                isPaused = m.flags.isPaused;
                 });
-                config.SaveVideo();
-                return true;
             }
 
-            case SDLK_m:
-                if(playercommand) playercommand->SetMute(!g_playback.isMuted);
-                return true;
+            if (isPaused)
+            {
+                if (playercommand)
+                    playercommand->Play();
+            }
+            else
+            {
+                if (playercommand)
+                    playercommand->Pause();
+            }
 
-            default:
-                break;
+            return true;
+        }
+
+        case SDLK_LEFT:
+        case SDLK_RIGHT:
+        {
+            double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
+            if (key == SDLK_LEFT)
+                step = -step;
+                
+            double playbackTime = 0.0;
+            double duration = 0.0;
+            if (auto* state = player->GetState()){
+                state->ReadPlayback([&playbackTime, &duration](PlaybackModel const& m){
+                playbackTime = m.timing.playbackTime;
+                duration = m.timing.duration;
+                });
+            }
+            
+            float targetthime = (float)playbackTime + step;
+            if (auto* playercommand = player->GetCommander())
+                playercommand->Seek(targetthime, (float)duration);
+
+            return true;
+        }
+        case SDLK_DOWN:
+        case SDLK_UP:
+        {
+            float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
+
+            if (key == SDLK_DOWN)
+                step = -step;
+
+            int volume = 100; 
+            if(auto* state = player->GetState()){
+                state->ReadAudio([&volume](auto const& m){
+                volume = m.volume.volume;
+                });
+            }
+
+            int newVol = (int)std::clamp(volume + step, 0.0f, 130.0f);
+            if (auto* playercommand = player->GetCommander()){
+                playercommand->SetVolume(newVol);
+            }
+
+            config.UpdateVideoSettings([newVol](AppSettings &settings)
+                                    { settings.defaultVolume = newVol; });
+            config.SaveVideo();
+            
+            return true;
+        }
+
+        case SDLK_m:
+        {
+            bool isMuted = false;
+            if(auto* state = player->GetState()){
+                state->ReadAudio([&isMuted](auto const& m){
+                isMuted = m.volume.isMuted;
+                });
+            };
+            player->GetCommander()->SetMute(!isMuted);
+ 
+            return true;
+        }
+        default:
+            break;
         }
     }
 
     // --- OTHER HOTKEYS (KHÔNG LIÊN QUAN PLAYBACK) --- //
-    if (key == SDLK_F11) {
+    if (key == SDLK_F11)
+    {
         runtime->properties.Set<bool>("TriggerToggleFullscreen", true);
         return true;
     }
@@ -161,7 +249,8 @@ bool HandleBasicHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
 }
 
 // --- Popup Hotkeys --- //
-bool HandlePopupHotkeys(const SDL_Event* e) {
+bool HandlePopupHotkeys(const SDL_Event *e)
+{
     if (e->type != SDL_KEYDOWN)
         return false;
 
@@ -169,95 +258,136 @@ bool HandlePopupHotkeys(const SDL_Event* e) {
     SDL_Keymod mod = SDL_GetModState();
 
     // ESC: đóng tất cả popup đang mở
-    if (key == SDLK_ESCAPE) {
+    if (key == SDLK_ESCAPE)
+    {
 
-        if (Popup_Url.IsOpen()) {
+        if (Popup_Url.IsOpen())
+        {
             Popup_Url.Close();
         }
-        else if (videoInfoPopup.IsOpen()) {
+        else if (videoInfoPopup.IsOpen())
+        {
             videoInfoPopup.Close();
         }
-        else if (SettingPopup.IsOpen()) {
+        else if (SettingPopup.IsOpen())
+        {
             SettingPopup.Close();
         }
-        else if (SidarBarPopup.IsOpen()) {
+        else if (SidarBarPopup.IsOpen())
+        {
             SidarBarPopup.Close();
         }
     }
 
-    if (mod & KMOD_CTRL) {
-        switch (key) {
-            case SDLK_u:
+    if (mod & KMOD_CTRL)
+    {
+        switch (key)
+        {
+        case SDLK_u:
+        {
+            if (Popup_Url.IsOpen())
             {
-                if (Popup_Url.IsOpen()) {Popup_Url.Close();
-                } else {OpenURLPopup(Popup_Url);}
-                return true;
+                Popup_Url.Close();
             }
-            case SDLK_a:
+            else
             {
-                if (videoInfoPopup.IsOpen()) {videoInfoPopup.Close();
-                } else {OpenVideoInfoPopup(videoInfoPopup);}    
-                return true;
+                OpenURLPopup(Popup_Url);
             }
-            case SDLK_l:
+            return true;
+        }
+        case SDLK_a:
+        {
+            if (videoInfoPopup.IsOpen())
             {
-                if (SidarBarPopup.IsOpen()){SidarBarPopup.Close();
-                } else {OpenSidarBarPopup(SidarBarPopup);}  
-                return true; 
+                videoInfoPopup.Close();
             }
-            case SDLK_s:
+            else
             {
-                if (SettingPopup.IsOpen()) {SettingPopup.Close();
-                } else {OpenSettingPopup(SettingPopup);}    
-                return true; 
+                OpenVideoInfoPopup(videoInfoPopup);
             }
-            case SDLK_t:
+            return true;
+        }
+        case SDLK_l:
+        {
+            if (SidarBarPopup.IsOpen())
             {
-                if (TestPopup.IsOpen()) {TestPopup.Close();
-                } else {OpenTestPopup(TestPopup);}    
-                return true; 
+                SidarBarPopup.Close();
             }
-            case SDLK_p: // Hotkey mới: Ctrl + P
+            else
             {
-                // Gọi hàm logic để mở cửa sổ phụ
-                OpenMockSubWindow();
-                return true;
+                OpenSidarBarPopup(SidarBarPopup);
             }
-            default:
-                break;
+            return true;
+        }
+        case SDLK_s:
+        {
+            if (SettingPopup.IsOpen())
+            {
+                SettingPopup.Close();
+            }
+            else
+            {
+                OpenSettingPopup(SettingPopup);
+            }
+            return true;
+        }
+        case SDLK_t:
+        {
+            if (TestPopup.IsOpen())
+            {
+                TestPopup.Close();
+            }
+            else
+            {
+                OpenTestPopup(TestPopup);
+            }
+            return true;
+        }
+        case SDLK_p: // Hotkey mới: Ctrl + P
+        {
+            // Gọi hàm logic để mở cửa sổ phụ
+            OpenMockSubWindow();
+            return true;
+        }
+        default:
+            break;
         }
     }
     return false;
 }
 
-bool HandleExtersionHotkeys(const SDL_Event* e){
+bool HandleExtersionHotkeys(const SDL_Event *e)
+{
     if (e->type != SDL_KEYDOWN)
         return false;
 
     SDL_Keycode key = e->key.keysym.sym;
     SDL_Keymod mod = SDL_GetModState();
-    switch (key) {
-        case SDLK_F12:
-        {
-            uiState.show_settings = !uiState.show_settings;
-            return true;
-        }
-        case SDLK_F1:
-        {
-            if (IsConsoleVisible()) 
-                CloseConsoleWindow();
-            else
-                OpenConsoleWindow();
-            return true;
-        }
-        default:
-            break;
+    switch (key)
+    {
+    case SDLK_F12:
+    {
+        uiState.show_settings = !uiState.show_settings;
+        return true;
+    }
+    case SDLK_F1:
+    {
+        if (IsConsoleVisible())
+            CloseConsoleWindow();
+        else
+            OpenConsoleWindow();
+        return true;
+    }
+    default:
+        break;
     }
     return false;
 }
 // Hàm tổng gộp xử lý hotkey
-bool HandleHotkeys(const SDL_Event* e, WindowRuntime* runtime) {
-    if (Disabehotkey) return false;
+bool HandleHotkeys(const SDL_Event *e, WindowRuntime *runtime)
+{
+    if (Disabehotkey)
+        return false;
     return HandleBasicHotkeys(e, runtime) ||
            HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);

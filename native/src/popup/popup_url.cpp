@@ -2,11 +2,10 @@
 #include "utils.h"
 #include "json.hpp"
 
-#include "player/mpv_basic_formats.h"
 
 #include "popup/popup_url.h"
 #include "gui/gui.h"
-#include "windows/WindowManager.h"
+#include "windows/WindowRuntime.h"
 
 #include <commdlg.h>  
 #include <vector>
@@ -547,7 +546,6 @@ void ShowURLPopupContent(bool& closePopup, PopupData& popupData, std::string& la
             outResultURL = urlInput;
             if (popupData.saveHistory) AddLocalToHistory(popupData, urlInput);
             pendingFiles.clear();
-            SetVideoTypeLocal();
             urlConfirmed = true;
             closePopup = true;
             invalidUrl = false;
@@ -604,19 +602,18 @@ void OpenURLPopup(ReusablePopup& popup) {
         needScrollToSelected = true; 
     }
 
-    popup.Open("Popup Url", [](bool& closePopup) {
+    popup.Open("Popup Url", [](WindowRuntime* runtime, bool& closePopup) {
         ShowURLPopupContent(closePopup, data, lastURLTruncatedCache, urlInputBufUtf8, pendingLocalFilesLocal);
     });
 }
 
-void RenderPopupOverlay_Url(ReusablePopup& popup) {
+void RenderPopupOverlay_Url(ReusablePopup& popup, WindowRuntime* window) {
     if(popup.IsOpen()) {
-        popup.Render();
+        popup.Render(window);
     }
     
-    auto* runtime = WindowManager::GetInstance().GetMainWindow();
     if (urlConfirmed && !outResultURL.empty()) {
-        if(runtime)runtime->resource.GetPlayerSession()->GetCommander()->LoadFile(WideToUTF8(outResultURL));
+        if(window)window->resource.GetPlayerSession()->GetCommander()->LoadFile(WideToUTF8(outResultURL));
         urlConfirmed = false;
         outResultURL.clear();
     }

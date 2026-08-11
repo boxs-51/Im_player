@@ -1,14 +1,28 @@
 #include "af_m.h"
 #include "af_m_log.h"
+
 #include <iostream>
 
-AudioFilterManager& AudioFilterManager::Instance() {
-    static AudioFilterManager instance;
-    return instance;
+AudioFilterManager::AudioFilterManager() 
+    : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), 
+      m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
+
+AudioFilterManager::~AudioFilterManager() {
+    DetachPlayer();
 }
 
-void AudioFilterManager::Init(mpv_handle* h) { 
-    mpv = h; 
+void AudioFilterManager::AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem) {
+    mpv = h;
+    m_stateSystem = stateSystem;
+}
+
+void AudioFilterManager::DetachPlayer() {
+    mpv = nullptr;
+    m_stateSystem = nullptr;
+}
+
+void AudioFilterManager::Init(mpv_handle* h, PlayerStateSystem* stateSystem) { 
+    AttachPlayer(h, stateSystem);
     path = AutoPath<std::string>("%ROOT%", "data", "audio_filter.json");
     m_channelMode = "stereo";
     m_autoMode = false;

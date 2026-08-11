@@ -1,8 +1,7 @@
 #include "PlaybackObserver.h"
 #include "player/player/Player.h"
-#include "player/mpv_data.h"
+
 #include "player/session/PlayerManager.h"
-#include "player/mpv_basic_formats.h"
 #include "player/PlayerDataModels.h"
 #include "globals.h"
 #include <log.h>
@@ -11,13 +10,11 @@
 #include <iostream>
 #include <unordered_map>
 
-static MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-static VideoInfo& g_videoInfo = GetVideoInfo();
 static std::mutex g_retry_mutex;
 static std::unordered_map<int, int> g_retryCount;
 static constexpr int MAX_RETRY = 1;
 
-PlaybackObserver::PlaybackObserver(Player& player, PlayerStateSystem& state) : m_player(player), m_mpv(player.GetHandle()), m_state(state) {}
+PlaybackObserver::PlaybackObserver(Player& player, PlayerStateSystem& state, PlaybackCommandDispatcher& commander) : m_player(player), m_mpv(player.GetHandle()), m_state(state), m_commander(commander) {}
 
 void PlaybackObserver::ObserveProps(const std::vector<std::pair<const char*, mpv_format>>& props, const char* groupName) {
     for (const auto& [name, fmt] : props) {
@@ -118,8 +115,8 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
             else if (err == MPV_ERROR_UNKNOWN_FORMAT)           RATE_LIMITED_COUT(mpv_error_unknown_format, 1,std::cout << "[ERROR] MPV_ERROR_UNKNOWN_FORMAT...");
 
             const char* cmd[] = { "set", "ytdl-format", "bestvideo[height<=1080]+bestaudio/best", nullptr };
-            auto* commander = PlayerManager::GetInstance().GetDefaultSession()->GetCommander();
-            if (commander) commander->Exec(cmd); 
+
+            m_commander.Exec(cmd); 
             RATE_LIMITED_COUT(mpv_error_loading_failed_ytdl_format_reset, 1,std::cout << "[WARNING] [MPV] Reset ytdl-format to default and retrying...");
             break;
         }
@@ -130,8 +127,14 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
             if(err == MPV_ERROR_GENERIC)                        RATE_LIMITED_COUT(mpv_error_generic, 1, std::cout << "[ERROR] MPV_ERROR_GENERIC...");
             else if (err == MPV_ERROR_LOADING_FAILED)           RATE_LIMITED_COUT(mpv_error_loading_failed, 1,std::cout << "[ERROR] MPV_ERROR_LOADING_FAILED...");
             else if (err == MPV_ERROR_NOTHING_TO_PLAY)          RATE_LIMITED_COUT(mpv_error_nothing_to_play, 1, std::cout << "[ERROR] MPV_ERROR_NOTHING_TO_PLAY...");
-            if (g_playbackStatus.g_PlayingIndex >= 0) {
-                int idx = g_playbackStatus.g_PlayingIndex;
+            
+            int PlayingIndex = -1;
+            m_state.ReadPlaylist([&PlayingIndex](auto const& m){
+                PlayingIndex = m.g_PlayingIndex;
+            });
+
+            if (PlayingIndex >= 0) {
+                int idx = PlayingIndex;
                 bool doRetry = false;
 
                 {
@@ -149,19 +152,18 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
 
                 if (doRetry) {
                     RATE_LIMITED_COUT(mpv_generic_error_retry, 1,std::cout << "[WARNING] [MPV] Retrying playback for index " << idx << "...");
-                    std::thread([ idx]() {
+                    auto* commanderPtr = &m_commander;
+                    std::thread([idx,commanderPtr]() {
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
                         std::string idx_str = std::to_string(idx);
                         const char* args[] = { "playlist-play-index", idx_str.c_str(), nullptr };
-                        auto* commander = PlayerManager::GetInstance().GetDefaultSession()->GetCommander();
-                        if (commander) commander->Exec(args); 
+                        commanderPtr->Exec(args); 
                     }).detach();
                 } else {
                     RATE_LIMITED_COUT(mpv_generic_error_max_retries, 1,std::cout << "[WARNING] [MPV] Max retries reached for index " << idx << ", removing from playlist.");
                     std::string idx_str = std::to_string(idx);
                     const char* args[] = { "playlist-remove", idx_str.c_str(), nullptr };
-                    auto* commander = PlayerManager::GetInstance().GetDefaultSession()->GetCommander();
-                    if (commander) commander->Exec(args); 
+                    m_commander.Exec(args); 
                 }
             }
             break;
@@ -194,11 +196,15 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
             else if(err == MPV_ERROR_INVALID_PARAMETER)         RATE_LIMITED_COUT(mpv_error_invalid_parameter, 1,std::cout << "[ERROR] MPV_ERROR_INVALID_PARAMETER..."); 
             else if(err == MPV_ERROR_UNINITIALIZED)             RATE_LIMITED_COUT(mpv_error_uninitialized, 1,std::cout << "[ERROR] MPV_ERROR_UNINITIALIZED...");
              
-            if (g_playbackStatus.g_PlayingIndex >= 0) {
-                std::string idx_str = std::to_string(g_playbackStatus.g_PlayingIndex);
+            int PlayingIndex = -1;
+            m_state.ReadPlaylist([&PlayingIndex](auto const& m){
+                PlayingIndex = m.g_PlayingIndex;
+            });
+            
+            if (PlayingIndex >= 0) {
+                std::string idx_str = std::to_string(PlayingIndex);
                 const char* args[] = { "playlist-remove", idx_str.c_str(), nullptr };
-                auto* commander = PlayerManager::GetInstance().GetDefaultSession()->GetCommander();
-                if (commander) commander->Exec(args); 
+                m_commander.Exec(args); 
             }
             break;
         }
@@ -530,7 +536,7 @@ void PlaybackObserver::ProcessEvents() {
             auto* msg = (mpv_event_log_message*)event->data;
 
             if (msg && msg->prefix && msg->text && std::string(msg->prefix) == "cplayer")
-                HandleYTDLLog(m_mpv,msg->text);
+                HandleYTDLLog(msg->text);
             
             if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
                                       strcmp(msg->level, "warn")  == 0 ))
@@ -590,12 +596,7 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_FILE_LOADED:{
-            /*
-            auto* session = PlayerManager::GetInstance().GetDefaultSession();
-            if (session && session->GetProperty()) {
-                if (auto index = session->GetProperty()->GetInt("playlist-pos")) g_playbackStatus.g_PlayingIndex = (int)index.value();
-                if (auto index = session->GetProperty()->GetInt("playlist-pos-1")) g_playbackStatus.g_PlayingIndex_1 = (int)index.value();
-            }*/
+
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
             });
@@ -626,27 +627,61 @@ void PlaybackObserver::ProcessEvents() {
         }
         case MPV_EVENT_PLAYBACK_RESTART: 
         {   
-            // m_state.WritePlayback([&](auto& m) {
-            //    m.flags.isSeeking = true;
-            //});
-            if(pendingSeekTime >= 0.0){
-                auto* commander = PlayerManager::GetInstance().GetDefaultSession()->GetCommander();
-                if (commander && !(GetVideoType() == VideoType::Live)) commander->Seek(pendingSeekTime, g_playbackStatus.duration);
-                RATE_LIMITED_COUT(playback_restart_seek, 1,std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << pendingSeekTime << " seconds.");
-                pendingSeekTime = -1.0;
+            double targetSeek = -1.0;
+            double duration = 0.0;
+
+            // Đọc đồng thời gán reset pendingseektime trong 1 lần lock duy nhất
+            m_state.WritePlayback([&](PlaybackModel& m) {
+                if (m.pendingseektime >= 0.0) {
+                    targetSeek = m.pendingseektime;
+                    duration = m.timing.duration;
+                    m.pendingseektime = -1.0; // Reset ngay sau khi lấy ra
+                }
+            });
+
+            // Thực thi lệnh Seek bên ngoài Lock (Tránh Deadlock)
+            if (targetSeek >= 0.0) {
+                m_state.ReadPlayback([&](PlaybackModel const& m) {
+                    if (m.videoType != VideoType::Live) {
+                        m_commander.Seek(targetSeek, duration);
+                    }
+                });
+                RATE_LIMITED_COUT(playback_restart_seek, 1, std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << targetSeek << " seconds.\n");
             }
-            RATE_LIMITED_COUT(playback_restart, 1,std::cout << "[DEBUG] [INFO] [MPV] Playback restarted.");
+
+            RATE_LIMITED_COUT(playback_restart, 1, std::cout << "[DEBUG] [INFO] [MPV] Playback restarted.\n");
             break;
         }
         case MPV_EVENT_PROPERTY_CHANGE: {
             HandlePropertyChange((mpv_event_property*)event->data);
+            HandlePlaybackState();
             break;
         }
         case MPV_EVENT_QUEUE_OVERFLOW: break;
         case MPV_EVENT_HOOK: break;
-        default: break;
+        default: break;  
         }
     }
+}
+
+void PlaybackObserver::HandlePlaybackState() {
+    m_state.WritePlayback([](auto& m) {
+        // 1. Xác định state mới
+        PlaybackState newState = PlaybackState::Playing;
+
+        if (m.flags.isIdleActive)            newState = PlaybackState::Idle;
+        else if (m.flags.eofReached && 
+                 !m.flags.isSeeking)         newState = PlaybackState::EndOfFile;
+        else if (m.isLoadingMedia)           newState = PlaybackState::Loading;
+        else if (m.flags.isSeeking)          newState = PlaybackState::Seeking;
+        else if (m.flags.isPaused)           newState = PlaybackState::Paused;
+
+        // 2. Chỉ cập nhật nếu thực sự có sự thay đổi (Tránh dirty state)
+        if (m.state != newState) {
+            m.state = newState;
+            // (Nếu có Event Manager, bạn có thể trigger event StateChanged tại đây)
+        }
+    });
 }
 
 void PlaybackObserver::HandlePropertyChange(mpv_event_property* prop) {
@@ -775,7 +810,6 @@ void PlaybackObserver::HandleNodeProperty(const char* name, const mpv_node* node
                 const mpv_node* codec = mpv_node_dict_find_local(track, "codec");
                 if (codec && codec->format == MPV_FORMAT_STRING) {
                     m_state.WriteSubtitle([&](auto& m) { m.sub_codec = codec->u.string; });
-                    g_playbackStatus.g_subinfo.sub_codec = codec->u.string;
                 }
             }
         }

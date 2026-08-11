@@ -12,29 +12,32 @@ public:
     PlaybackCommandDispatcher(Player& player);
 
     // Raw Commands
-    void Exec(const char** cmd);
-    void Exec(const std::string& cmd);
+    int Exec(const char** cmd);
+    int Exec(const std::string& cmd);
 
     // Properties
-    void SetPropertyString(const std::string& name, const std::string& value);
-    void SetPropertyDouble(const std::string& name, double value);
-    void SetPropertyFlag(const std::string& name, bool flag);
+    int SetPropertyString(const std::string& name, const std::string& value);
+    int SetPropertyDouble(const std::string& name, double value);
+    int SetPropertyFlag(const std::string& name, bool flag);
 
     // Basic Controls
-    void LoadFile(const std::string& url, const std::string& extraFlags = "append-play");
-    void Play();
-    void Pause();
-    void SetMute(bool mute);
-    void SetVolume(int volume);
-    void SetSpeed(double speed);
-    void SetAudioDelay(double delay);
-    void Seek(float targetTime, float duration, const std::string& mode = "absolute");
+    int LoadFile(const std::string& url, const std::string& extraFlags = "append-play");
+    int Play();
+    int Pause();
+    int SetMute(bool mute);
+    int SetVolume(int volume);
+    int SetSpeed(double speed);
+    int SetAudioDelay(double delay);
+    int Seek(float targetTime, float duration, const std::string& mode = "absolute");
     void Update(); // Called in main loop to handle pending commands
-    void PlaylistNext();
-    void PlaylistPrev();
+    int PlaylistNext();
+    int PlaylistPrev();
 
 private:
-    void DoSeek(float targetTime);
+    void ApplyPlaybackSettings();
+    int DoSeek(float targetTime);
+    
+private:
 
     Player& m_player;
 

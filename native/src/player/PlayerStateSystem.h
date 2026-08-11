@@ -165,12 +165,33 @@ public:
         return m_playlist;
     }
 
+    // Lấy một bản sao của thông tin mạng.
+    NetworkModel GetNetworkModel() const {
+        std::shared_lock lock(m_networkMutex);
+        return m_network;
+    }
+
     // Lấy một bản sao của TOÀN BỘ trạng thái
     FullPlayerState GetFullState() const {
         std::scoped_lock lock(m_playbackMutex, m_mediaMutex, m_videoMutex, m_audioMutex, 
                               m_subtitleMutex, m_trackMutex, m_playlistMutex, m_networkMutex);
         return {m_playback, m_media, m_video, m_audio, m_subtitle, m_track, m_playlist, m_network};
     }
+
+    
+    // Các hàm truy cập trực tiếp các thuộc tính đơn lẻ
+    
+    // Lấy 
+    PlaybackState GetPlaybackState() const {
+        std::shared_lock lock(m_playbackMutex);
+        return m_playback.state;
+    }
+
+    VideoType GetVideoType() const {
+        std::shared_lock lock(m_videoMutex);
+        return m_playback.videoType;
+    }
+    
 
 private:
     PlayerStateSystem(const PlayerStateSystem&) = delete;

@@ -11,8 +11,8 @@ extern ReusablePopup SettingPopup;
 extern ReusablePopup SidarBarPopup;
 extern ReusablePopup TestPopup;
 
-std::vector<ReusablePopup*>& GetAllPopups() ;
+std::vector<ReusablePopup*>& GetAllPopups();
 
 bool IsAnyPopupOpen();
-void RenderAllPopups();
+void RenderAllPopups(class WindowRuntime* window);
 void OffPopup();

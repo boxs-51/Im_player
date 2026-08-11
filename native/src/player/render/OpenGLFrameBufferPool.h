@@ -18,8 +18,11 @@ public:
     void ResizeFrame(int index, int targetW, int targetH) override;
 
 private:
+    void ClearFence(GraphicsFenceHandle& fence);
+
+private:
     std::array<FrameNode, 3> m_frames;
-    int m_currentDisplayIndex = -1;
+    std::atomic<int> m_currentDisplayIndex{ -1 };
     const int MAX_W;
     const int MAX_H;
     const int MAX_SAFE_TEXTURE_SIZE = 4096;

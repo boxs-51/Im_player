@@ -27,7 +27,11 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
     m_state = std::make_unique<PlayerStateSystem>();
     m_commander = std::make_unique<PlaybackCommandDispatcher>(*m_player);
     m_property = std::make_unique<PlayBackProperty>(*m_player);
-    m_observer = std::make_unique<PlaybackObserver>(*m_player, *m_state);
+
+    m_audioFilterManager = std::make_unique<AudioFilterManager>();
+    m_audioFilterManager->Init(m_player->GetHandle(), m_state.get());
+
+    m_observer = std::make_unique<PlaybackObserver>(*m_player, *m_state, *m_commander);
     m_observer->Init();
 
 #ifdef RENDER_MPV_THREAD

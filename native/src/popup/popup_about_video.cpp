@@ -4,12 +4,13 @@
 
 #include "gui/gui.h"
 
-#include "player/mpv_data.h"
-#include "player/mpv_basic_formats.h"
 #include "player/scripts/script_manager.h"
 #include "player/session/PlayerManager.h"
 #include "player/session/PlayerSession.h"
+#include "player/PlayerUtils.h"
+
 #include "popup_about_video.h"
+#include "windows/WindowRuntime.h"
 
 #include "WindowManager.h"
 #include "MainWindowState.h"
@@ -19,30 +20,32 @@
 #include <functional>
 
 // ------------ Các hàm hiển thị nội dung riêng -------------
-void ShowMediaInfo() {
+void ShowMediaInfo(WindowRuntime* runtime) {
 
     static bool showFullUrl = false;
 
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+    if (!state) return;
+
+    auto media = state->GetMediaModel();
+
     CSImGui::ModernHeader("Media Info");
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
 
     if (CSImGui::BeginInfoTable("media_info")) {
-
-        CSImGui::InfoRow("Title :", "%s", g_playbackStatus.Title.c_str());
-        CSImGui::InfoRow("Media Title :", "%s", g_playbackStatus.mediaTitle.c_str());
-        CSImGui::InfoRow("File :", "%s", g_playbackStatus.filename.c_str());
-        CSImGui::InfoRow("Format :", "%s", g_playbackStatus.fileFormat.c_str());
-        CSImGui::InfoRow("Working Directory :", "%s", g_playbackStatus.working_directory.c_str());
-        
-
+        CSImGui::InfoRow("Title :", "%s", media.title.c_str());
+        CSImGui::InfoRow("Media Title :", "%s", media.mediaTitle.c_str());
+        CSImGui::InfoRow("File :", "%s", media.filename.c_str());
+        CSImGui::InfoRow("Format :", "%s", media.fileFormat.c_str());
+        CSImGui::InfoRow("Working Directory :", "%s", media.working_directory.c_str());
         CSImGui::EndInfoTable();
     }
 
 
     // ====== STREAM URL (SPECIAL HANDLING) ======
-    if (!g_playbackStatus.streamUrl.empty()) {
+    if (!media.streamUrl.empty()) {
 
-        std::string full = g_playbackStatus.streamUrl.c_str();
+        std::string full = media.streamUrl.c_str();
         std::string display = showFullUrl ? full : TextUtils::TruncateText(full, 80);
 
         CSImGui::ModernHeader("Stream URL :");
@@ -72,21 +75,24 @@ void ShowMediaInfo() {
     }
 }
 
-void ShowVideoInfo() {
-    VideoInfo& g_videoInfo = GetVideoInfo();
+void ShowVideoInfo(WindowRuntime* runtime) {
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+    if (!state) return;
+    auto video = state->GetVideoModel();
     // ====== Overview ======
     CSImGui::ModernHeader("Overview");
 
     if (CSImGui::BeginInfoTable("video_overview")) {
 
-    CSImGui::InfoRow("Light :", "%s", g_videoInfo.g_videoparams.vlight.c_str());
-    CSImGui::InfoRow("Codec :", "%s", g_videoInfo.vcodec.c_str());
-    CSImGui::InfoRow("Pixel Format :", "%s", g_videoInfo.g_videoparams.vpixfmt.c_str());
-    CSImGui::InfoRow("Format :", "%s", g_videoInfo.video_format.c_str());
-    CSImGui::InfoRow("HW Decode :", "%s", g_videoInfo.hwdec.c_str());
-    CSImGui::InfoRow("Video OutPut :", "%s", g_videoInfo.v_out.c_str());
+        CSImGui::InfoRow("Light :", "%s", video.params.vlight.c_str());
+        CSImGui::InfoRow("Codec :", "%s", video.codec.vcodec.c_str());
+        CSImGui::InfoRow("Pixel Format :", "%s", video.params.vpixfmt.c_str());
+        CSImGui::InfoRow("Format :", "%s", video.codec.video_format.c_str());
+        CSImGui::InfoRow("HW Decode :", "%s", video.codec.hwdec.c_str());
+        CSImGui::InfoRow("Video OutPut :", "%s", video.codec.v_out.c_str());
 
-    CSImGui::EndInfoTable();
+        CSImGui::EndInfoTable();
     }
 
 
@@ -97,20 +103,18 @@ void ShowVideoInfo() {
 
     CSImGui::InfoRow("Main Loop Rate :", "%d", main_loop_rate);
 
-    auto* window = WindowManager::GetInstance().GetMainWindow();
-    if (window && window->windowloop){
-        CSImGui::InfoRow("WinDow ID :", "%d", (int)window->info.id);
-        CSImGui::InfoRow("WinDow Loop Rate :", "%d", (int)window->windowloop->getFPS());
+    if (runtime && runtime->windowloop){
+        CSImGui::InfoRow("WinDow ID :", "%d", (int)runtime->info.id);
+        CSImGui::InfoRow("WinDow Loop Rate :", "%d", (int)runtime->windowloop->getFPS());
     }
     
     #ifdef RENDER_MPV_THREAD
-    auto* session = PlayerManager::GetInstance().GetDefaultSession();
-    if (session && session->GetRenderThread())
+    if (auto* player_render_thread = player_session->GetRenderThread())
     {
-        CSImGui::InfoRow("Frame Render FPS :", "%.2f", session->GetRenderThread()->state.framerender.load());
+        CSImGui::InfoRow("Frame Render FPS :", "%.2f", player_render_thread->state.framerender.load());
     }
     #endif
-    CSImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", g_videoInfo.estimated_vf_fps_mpv);
+    CSImGui::InfoRow("Estimated FPS (mpv) :", "%.2f", video.stats.estimated_vf_fps_mpv);
     CSImGui::EndInfoTable();
     }
 
@@ -120,11 +124,11 @@ void ShowVideoInfo() {
 
     if (CSImGui::BeginInfoTable("video_resolution")) {
 
-    CSImGui::InfoRow("Size :", "%dx%d", g_videoInfo.width, g_videoInfo.height);
-    CSImGui::InfoRow("Display :", "%dx%d", g_videoInfo.g_videoparams.vdisp_w, g_videoInfo.g_videoparams.vdisp_h);
-    CSImGui::InfoRow("Aspect Name :", "%s", g_videoInfo.g_videoparams.vaspect_name.c_str());
-    CSImGui::InfoRow("SAR Name :", "%s", g_videoInfo.g_videoparams.vsar_name.c_str());
-    CSImGui::InfoRow("Aspect Ratio :", "%.2f", g_videoInfo.g_videoparams.vaspect);
+    CSImGui::InfoRow("Size :", "%dx%d", video.dimensions.width, video.dimensions.height);
+    CSImGui::InfoRow("Display :", "%dx%d", video.params.vdisp_w, video.params.vdisp_h);
+    CSImGui::InfoRow("Aspect Name :", "%s", video.params.vaspect_name.c_str());
+    CSImGui::InfoRow("SAR Name :", "%s", video.params.vsar_name.c_str());
+    CSImGui::InfoRow("Aspect Ratio :", "%.2f", video.dimensions.aspect);
 
     CSImGui::EndInfoTable();
     }
@@ -135,8 +139,8 @@ void ShowVideoInfo() {
 
     if (CSImGui::BeginInfoTable("video_crop")) {
 
-    CSImGui::InfoRow("Crop X x Y :" , "%d x %d", g_videoInfo.g_videoparams.vcrop_x, g_videoInfo.g_videoparams.vcrop_y);
-    CSImGui::InfoRow("Crop WH :", "%d x %d",g_videoInfo.g_videoparams.vcrop_w,g_videoInfo.g_videoparams.vcrop_h);
+    CSImGui::InfoRow("Crop X x Y :" , "%d x %d", video.params.vcrop_x, video.params.vcrop_y);
+    CSImGui::InfoRow("Crop WH :", "%d x %d",video.params.vcrop_w, video.params.vcrop_h);
     CSImGui::EndInfoTable();
     }
 
@@ -146,10 +150,10 @@ void ShowVideoInfo() {
 
     if (CSImGui::BeginInfoTable("video_color")) {
 
-    CSImGui::InfoRow("Primaries", "%s", g_videoInfo.g_videoparams.vprimaries.c_str());
-    CSImGui::InfoRow("Gamma", "%s", g_videoInfo.g_videoparams.vgamma.c_str());
-    CSImGui::InfoRow("Matrix", "%s", g_videoInfo.g_videoparams.vcolormatrix.c_str());
-    CSImGui::InfoRow("Levels", "%s", g_videoInfo.g_videoparams.vcolorlevels.c_str());
+    CSImGui::InfoRow("Primaries", "%s", video.params.vprimaries.c_str());
+    CSImGui::InfoRow("Gamma", "%s", video.params.vgamma.c_str());
+    CSImGui::InfoRow("Matrix", "%s", video.params.vcolormatrix.c_str());
+    CSImGui::InfoRow("Levels", "%s", video.params.vcolorlevels.c_str());
 
     CSImGui::EndInfoTable();
     }
@@ -160,22 +164,27 @@ void ShowVideoInfo() {
 
     if (CSImGui::BeginInfoTable("video_advanced")) {
 
-        CSImGui::InfoRow("Stereo In", "%s" ,g_videoInfo.g_videoparams.vstereo_in.c_str());
-        CSImGui::InfoRow("Chroma Location", "%s", g_videoInfo.g_videoparams.vchroma_location.c_str());
-        CSImGui::InfoRow("SAR / PAR", "%0.2f / %0.2f"," ", g_videoInfo.g_videoparams.vsar, g_videoInfo.g_videoparams.vpar);
-        CSImGui::InfoRow("Signal Peak" , "%d", g_videoInfo.g_videoparams.vsig_peak);
-        CSImGui::InfoRow("Avg BPP", "%d", g_videoInfo.g_videoparams.average_bpp);
-        CSImGui::InfoRow("Bitrate", "%d kbps", g_videoInfo.vbitrate / 1000);
+        CSImGui::InfoRow("Stereo In", "%s" ,video.params.vstereo_in.c_str());
+        CSImGui::InfoRow("Chroma Location", "%s", video.params.vchroma_location.c_str());
+        CSImGui::InfoRow("SAR / PAR", "%0.2f / %0.2f"," ", video.params.vsar, video.params.vpar);
+        CSImGui::InfoRow("Signal Peak" , "%d", video.params.vsig_peak);
+        CSImGui::InfoRow("Avg BPP", "%d", video.params.average_bpp);
+        CSImGui::InfoRow("Bitrate", "%d kbps", video.stats.vbitrate / 1000);
 
         CSImGui::EndInfoTable();
     }
 }
 
-void ShowAudioInfo() {
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
-    VideoInfo& g_videoInfo = GetVideoInfo();
+void ShowAudioInfo(WindowRuntime* runtime) {
+
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+    if (!state) return;
+
+    auto audio = state->GetAudioModel();
+
     // ====== Audio Devices ======
-    if (!g_playbackStatus.g_audioDevices.empty()) {
+    if (!audio.device.audioDevices.empty()) {
 
         if (CSImGui::ModernCollapsingHeader("Audio Devices",ImGuiTreeNodeFlags_DefaultOpen)) {
             // 1. Định nghĩa cấu trúc bảng
@@ -188,8 +197,8 @@ void ShowAudioInfo() {
             // 2. Bắt đầu bảng
             if (CSImGui::BeginListTable("audio_devices_v2", cols)) {
                 
-                for (auto& dev : g_playbackStatus.g_audioDevices) {
-                    bool active = (dev.name == g_videoInfo.audio_device);
+                for (auto& dev : audio.device.audioDevices) {
+                    bool active = (dev.name == audio.device.audio_device);
 
                     // 3. Bắt đầu hàng
                     CSImGui::BeginListRow();
@@ -226,12 +235,12 @@ void ShowAudioInfo() {
 
     if(CSImGui::BeginInfoTable("audio_info")){
 
-        CSImGui::InfoRow("Audio Client", "%s", g_playbackStatus.audio_client_name.c_str());
-        CSImGui::InfoRow("Audio Device", "%s", g_videoInfo.audio_device.c_str());
-        CSImGui::InfoRow("Audio Codec", "%s", g_videoInfo.acodec.c_str());
-        CSImGui::InfoRow("Audio Format", "%s", g_videoInfo.g_audioarams.aformat.c_str());
-        CSImGui::InfoRow("Audio OutPut", "%s", g_videoInfo.a_out.c_str());
-        CSImGui::InfoRow("Audio Fillter", "%s", g_videoInfo.a_filter.c_str());
+        CSImGui::InfoRow("Audio Client", "%s", audio.device.audio_client_name.c_str());
+        CSImGui::InfoRow("Audio Device", "%s", audio.device.audio_device.c_str());
+        CSImGui::InfoRow("Audio Codec", "%s", audio.codec.acodec.c_str());
+        CSImGui::InfoRow("Audio Format", "%s", audio.params.aformat.c_str());
+        CSImGui::InfoRow("Audio OutPut", "%s", audio.codec.a_out.c_str());
+        CSImGui::InfoRow("Audio Fillter", "%s", audio.codec.a_filter.c_str());
 
 
         CSImGui::EndInfoTable();
@@ -243,22 +252,28 @@ void ShowAudioInfo() {
 
     if(CSImGui::BeginInfoTable("audio_props")){
 
-        CSImGui::InfoRow("Mute :" , "%s", g_playbackStatus.isMuted ? "Yes" : "No") ;   
-        CSImGui::InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
-        CSImGui::InfoRow("Delay Audio :", "%.2f s", g_videoInfo.audio_delay);
-        CSImGui::InfoRow("Bitrate Audio :", "%d kbps", g_videoInfo.abitrate / 1000);
-        CSImGui::InfoRow("Sample Rate :", "%d Hz", g_videoInfo.g_audioarams.asamplerate);
-        CSImGui::InfoRow("Channels :", "%s (%d)",g_videoInfo.g_audioarams.achannels_str.c_str(),g_videoInfo.g_audioarams.channel_count);
-        CSImGui::InfoRow("Channels HR :", "%s", g_videoInfo.g_audioarams.ahr_channels.c_str());
+        CSImGui::InfoRow("Mute :" , "%s", audio.volume.isMuted ? "Yes" : "No") ;   
+        CSImGui::InfoRow("Volume :", "%d%%", audio.volume.volume);
+        CSImGui::InfoRow("Delay Audio :", "%.2f s", audio.codec.audio_delay);
+        CSImGui::InfoRow("Bitrate Audio :", "%d kbps", audio.codec.abitrate / 1000);
+        CSImGui::InfoRow("Sample Rate :", "%d Hz", audio.params.asamplerate);
+        CSImGui::InfoRow("Channels :", "%s (%d)",audio.params.achannels_str.c_str(),audio.params.channel_count);
+        CSImGui::InfoRow("Channels HR :", "%s", audio.params.ahr_channels.c_str());
 
         CSImGui::EndInfoTable();
     }
 }
-void ShowTrackInfo() {
-    VideoInfo& g_videoInfo = GetVideoInfo();
+void ShowTrackInfo(WindowRuntime* runtime) {
+
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+    if (!state) return;
+
+    auto trackinfo = state->GetTrackModel();
+
     CSImGui::ModernHeader("Track List");
 
-    for (const auto& track : g_videoInfo.g_tracks) {
+    for (const auto& track : trackinfo.tracks) {
         // Sử dụng ID của track để PushID cho an toàn
         std::string unique_id = track.common.type + "_" + std::to_string(track.common.id);
         ImGui::PushID(unique_id.c_str());
@@ -352,22 +367,33 @@ void ShowTrackInfo() {
         ImGui::PopID();
     }
 }
-void ShowPlaybackInfo() {
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+void ShowPlaybackInfo(WindowRuntime* runtime) {
+
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+
+    if (!state) return;
+
+    auto playback = state->GetPlaybackModel();
+    auto playlist = state->GetPlaylistModel();
+    auto subtitle = state->GetSubtitleModel();
+    auto network = state->GetNetworkModel();
+    auto audio = state->GetAudioModel();
+
     // ====== STATE ======
     CSImGui::ModernHeader("Playback State");
 
     if(CSImGui::BeginInfoTable("playback_state")){
 
-        CSImGui::InfoRow("Status :","%s", PlaybackStateToString(GetPlaybackState()));
-        CSImGui::InfoRow("Video Type :", "%s", VideoTypeToString(GetVideoType()));
-        CSImGui::InfoRow("Loop Mode :", "%s", g_playbackStatus.loopMode.c_str());
+        CSImGui::InfoRow("Status :","%s", PlaybackStateToString(state->GetPlaybackState()));
+        CSImGui::InfoRow("Video Type :", "%s", VideoTypeToString(state->GetVideoType()));
+        CSImGui::InfoRow("Loop Mode :", "%s", playback.config.loopMode.c_str());
 
-        CSImGui::InfoRow("Has File :", "%s", g_playbackStatus.hasFile ? "Yes" : "No");
-        CSImGui::InfoRow("Seekable :", "%s", g_playbackStatus.seekable ? "Yes" : "No");
-        CSImGui::InfoRow("Idle :", "%s", g_playbackStatus.idle_active ? "Yes" : "No");
+        CSImGui::InfoRow("Has File :", "%s", playlist.g_playlist_count > 0? "Yes" : "No");
+        CSImGui::InfoRow("Seekable :", "%s", playback.flags.seekable ? "Yes" : "No");
+        CSImGui::InfoRow("Idle :", "%s", playback.flags.isIdleActive ? "Yes" : "No");
 
-        CSImGui::InfoRow("Sub Visible :", "%s", g_playbackStatus.g_subinfo.sub_Visible ? "Yes" : "No");
+        CSImGui::InfoRow("Sub Visible :", "%s", subtitle.sub_Visible ? "Yes" : "No");
 
         CSImGui::EndInfoTable();
     }
@@ -378,26 +404,19 @@ void ShowPlaybackInfo() {
     CSImGui::ModernHeader("Timeline");
 
     float progress = 0.0f;
-    if (g_playbackStatus.duration > 0.0f)
-        progress = (float)(g_playbackStatus.timePos / g_playbackStatus.duration);
+    if (playback.timing.duration > 0.0f)
+        progress = (float)(playback.timing.timePos / playback.timing.duration);
 
     // Progress bar
     ImGui::ProgressBar(progress, ImVec2(-1, 8));
     
     if(CSImGui::BeginInfoTable("playback_time")){
 
-        auto& window = *WindowManager::GetInstance().GetMainWindow();
-
-        auto* state = window.resource.playersession->GetState();
-        if(state) {
-            state->ReadPlayback([&](const auto& g_playback){
-                CSImGui::InfoRow("Test Time-Pos :", "%.2f s", g_playback.timing.timePos);
-            });
-        }
-        CSImGui::InfoRow("Current :", "%.2f / %.2f s", g_playbackStatus.timePos, g_playbackStatus.duration);
-        CSImGui::InfoRow("Stream Pos :", "%d Bytes", g_playbackStatus.stream_pos);
-        CSImGui::InfoRow("Remaining :", "%.2f s", g_playbackStatus.time_remaining);
-        CSImGui::InfoRow("Percent :", "%.2f%%", g_playbackStatus.percent_pos);
+        CSImGui::InfoRow("Current :", "%.2f / %.2f s", playback.timing.timePos, playback.timing.duration);
+        CSImGui::InfoRow("Stream Pos :", "%d Bytes", network.stream_pos);
+        CSImGui::InfoRow("Current :", "%.2f / %.2f s", playback.timing.timePos, playback.timing.duration);
+        CSImGui::InfoRow("Remaining :", "%.2f s", playback.timing.time_remaining);
+        CSImGui::InfoRow("Percent :", "%.2f%%", playback.timing.percent_pos);
 
         CSImGui::EndInfoTable();
     }
@@ -408,48 +427,57 @@ void ShowPlaybackInfo() {
 
     if(CSImGui::BeginInfoTable("playback_props")){
 
-        CSImGui::InfoRow("Volume :", "%d%%", g_playbackStatus.volume);
-        CSImGui::InfoRow("Speed :", "%.2fx", g_playbackStatus.speed);
-        CSImGui::InfoRow("Subtitle Delay :", "%.2f s", g_playbackStatus.g_subinfo.sub_Delay);
+        CSImGui::InfoRow("Volume :", "%d%%", audio.volume.volume);
+        CSImGui::InfoRow("Speed :", "%.2fx", playback.config.speed);
+        CSImGui::InfoRow("Subtitle Delay :", "%.2f s", subtitle.sub_Delay);
 
         CSImGui::EndInfoTable();
     }
 }
 
-void ShowMetadata() {
+void ShowMetadata(WindowRuntime* runtime) {
+    auto* player_session = runtime->resource.GetPlayerSession();
+    if(auto* state = player_session->GetState()) {
+        state->ReadMedia([](auto const& m) {
+            if (m.metadata.empty()) {
+            ImGui::TextDisabled("No metadata available.");
+            } else {
+                for (auto& [key, value] : m.metadata) {
+                    ImGui::TextWrapped("%s: %s", key.c_str(), value.c_str());
+                }
+            }
 
-    VideoInfo& g_videoInfo = GetVideoInfo();
-    if (g_videoInfo.metadata.empty()) {
-        ImGui::TextDisabled("No metadata available.");
-    } else {
-        for (auto& [key, value] : g_videoInfo.metadata) {
-            ImGui::TextWrapped("%s: %s", key.c_str(), value.c_str());
-        }
+        });
     }
-
 }
-void ShowNetworkInfo() {
-    MPVPlaybackStatus& g_playbackStatus = GetMPVPlaybackStatus();
+void ShowNetworkInfo(WindowRuntime* runtime) {
+
+    auto* player_session = runtime->resource.GetPlayerSession();
+    auto* state = player_session->GetState();
+
+    if (!state) return;
+
+    auto network = state->GetNetworkModel();
+
     CSImGui::ModernHeader("Network / Buffer");
 
     if(CSImGui::BeginInfoTable("network_info")){
 
         
-        CSImGui::InfoRow("Cache Buffer State:", "%d s", g_playbackStatus.cache_buffering_state);
-        CSImGui::InfoRow("Cache Duration :", "%.2f s", g_playbackStatus.demuxer_cache_duration);
-        CSImGui::InfoRow("Cache Time :", "%.2f s", g_playbackStatus.demuxer_cache_time);
-        CSImGui::InfoRow("Audio Buffer :", "%.2f s", g_playbackStatus.audio_buffer);
-        CSImGui::InfoRow("Audio Buffer1 :", "%.2f s", g_playbackStatus.audio_demuxer);
-        CSImGui::InfoRow("Bitrate :", "%.2f kbps", g_playbackStatus.demuxer_bitrate);
-        CSImGui::InfoRow("Via Network :", "%s", g_playbackStatus.demuxer_via_network ? "Yes" : "No");
+        CSImGui::InfoRow("Cache Buffer State:", "%d s", network.cache_buffering_state);
+        CSImGui::InfoRow("Cache Duration :", "%.2f s", network.demuxer_cache_duration);
+        CSImGui::InfoRow("Cache Time :", "%.2f s", network.demuxer_cache_time);
+        CSImGui::InfoRow("Audio Buffer :", "%.2f s", network.audio_buffer);
+        CSImGui::InfoRow("Bitrate :", "%.2f kbps", network.demuxer_bitrate);
+        CSImGui::InfoRow("Via Network :", "%s", network.demuxer_via_network ? "Yes" : "No");
 
         CSImGui::EndInfoTable();
     }
     float bufferRatio = 0.0f;
 
-    if (g_playbackStatus.demuxer_cache_duration > 0.0f) {
-        bufferRatio = g_playbackStatus.demuxer_cache_time /
-                    g_playbackStatus.demuxer_cache_duration;
+    if (network.demuxer_cache_duration > 0.0f) {
+        bufferRatio = network.demuxer_cache_time /
+                    network.demuxer_cache_duration;
     }
 
     // Clamp tránh lỗi
@@ -459,7 +487,7 @@ void ShowNetworkInfo() {
     ImGui::ProgressBar(bufferRatio, ImVec2(-1, 8));
 
 }
-void ShowDuBugInFo(){
+void ShowDuBugInFo(WindowRuntime* runtime){
        
     ImGui::TextWrapped("=== Debug Info ===");
     // WinAPI
@@ -544,7 +572,7 @@ void ShowDuBugInFo(){
 
     
 }
-void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
+void ShowVideoInfoPopup(WindowRuntime* runtime, bool& closePopup_VideoInFo) {
     //ImVec2 avail = ImGui::GetContentRegionAvail();
 
     // Sử dụng Helper cho Child (Vùng bao ngoài)
@@ -559,13 +587,13 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
                 std::function<void()> Func; 
             };
             Tab tabs[] = {
-                {"Media",    [&]() { ShowMediaInfo(); }},
-                {"Video",    [&]() { ShowVideoInfo(); }},
-                {"Audio",    [&]() { ShowAudioInfo(); }},
-                {"Playback", [&]() { ShowPlaybackInfo(); }},
-                {"Network",  [&]() { ShowNetworkInfo(); }},
-                {"Track",    [&]() { ShowTrackInfo(); }},
-                {"Metadata", [&]() { ShowMetadata(); }}
+                {"Media",    [&]() { ShowMediaInfo(runtime); }},
+                {"Video",    [&]() { ShowVideoInfo(runtime); }},
+                {"Audio",    [&]() { ShowAudioInfo(runtime); }},
+                {"Playback", [&]() { ShowPlaybackInfo(runtime); }},
+                {"Network",  [&]() { ShowNetworkInfo(runtime); }},
+                {"Track",    [&]() { ShowTrackInfo(runtime); }},
+                {"Metadata", [&]() { ShowMetadata(runtime); }}
             };
 
             for (auto& tab : tabs) {
@@ -583,7 +611,7 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
             bool showDebug = true;
             if (showDebug && CSImGui::ModernTabItem("Debug")) {
                 if(CSImGui::BeginCard()){
-                    ShowDuBugInFo();
+                    ShowDuBugInFo(runtime);
                     CSImGui::EndCard();
                 }
                 CSImGui::EndModernTabItem();
@@ -596,14 +624,14 @@ void ShowVideoInfoPopup(bool& closePopup_VideoInFo) {
     //}
 }
 void OpenVideoInfoPopup(ReusablePopup& popup) {
-    popup.Open("Video Info", [](bool& closePopup_VideoInFo) {
-        ShowVideoInfoPopup(closePopup_VideoInFo);  // truyền ref
+    popup.Open("Video Info", [](WindowRuntime* runtime, bool& closePopup_VideoInFo) {
+        ShowVideoInfoPopup(runtime, closePopup_VideoInFo);  // truyền ref
     });
 }
 
-void RenderVideoInfoPopup(ReusablePopup& popup){
+void RenderVideoInfoPopup(ReusablePopup& popup, WindowRuntime* window){
     // Render popup mỗi frame
     if(popup.IsOpen()) {
-        popup.Render();
+        popup.Render(window);
     }
 }

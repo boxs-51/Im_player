@@ -1,33 +1,19 @@
 {
-    "version": 6,
+    "version": 8,
     "configurePresets": [
         {
-            "name": "windows-vcpkg",
-            "displayName": "Windows + vcpkg + Visual Studio",
+            "name": "Configure preset using toolchain file",
+            "displayName": "Configure preset using toolchain file",
+            "description": "Sets Ninja generator, build and install directory",
             "generator": "Visual Studio 18 2026",
-            "binaryDir": "${sourceDir}/build",
-
+            "binaryDir": "${sourceDir}/out/build/${presetName}",
             "toolchainFile": "${sourceDir}/vcpkg/scripts/buildsystems/vcpkg.cmake",
-
-            "architecture": {
-                "value": "x64",
-                "strategy": "external"
-            },
-
             "cacheVariables": {
-                "VCPKG_TARGET_TRIPLET": "x64-windows",
+                "CMAKE_BUILD_TYPE": "Debug",
+                "CMAKE_TOOLCHAIN_FILE": "",
+                "CMAKE_INSTALL_PREFIX": "${sourceDir}/out/install/${presetName}",
                 "VCPKG_INSTALLED_DIR": "${sourceDir}/vcpkg/vcpkg_installed"
             }
         }
-    ],
-
-    "buildPresets": [
-        {
-            "name": "windows-vcpkg-debug",
-            "configurePreset": "windows-vcpkg",
-            "configuration": "Debug"
-        }
     ]
 }
-
-
