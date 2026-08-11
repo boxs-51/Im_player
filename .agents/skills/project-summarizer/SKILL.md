@@ -7,14 +7,80 @@ description: Phân tích kiến trúc mã nguồn C++, trích xuất metadata, �
 
 Khi được yêu cầu "tóm tắt cấu trúc thư mục", "phân tích dự án" hoặc "tạo tài liệu kiến trúc", thực hiện chính xác các bước sau:
 
-## 1. Bốn File Đầu Ra Cần Sinh:
+## 1. Các File Đầu Ra Cần Sinh:
 1. **`FOLDER_INFO.md`** tại từng thư mục con (chứa Metadata, Ownership, Threading, Classified Bugs, Tech Debt,...).
 2. **`ARCHITECTURE_INDEX.md`** tại root (Index ngắn gọn vài trăm dòng để AI tra cứu cực nhanh).
 3. **`PROJECT_STRUCTURE.md`** tại root (Tài liệu kiến trúc toàn diện tổng hợp từ các module).
-
+4. **`SYMBOL_INDEX.md`** tại root
+5. **`KNOWN_ROOT_CAUSES.md`** tại root
+6. **`ARCHITECTURE_INDEX.md`** tại root
 ---
+## 2. Template Chuẩn Cho `KNOWN_ROOT_CAUSES.md`
 
-## 2. Template Chuẩn Cho `FOLDER_INFO.md` (Thư Mục Con)
+```markdown
+# Architecture Index
+
+## Core Managers (Singletons)
+- **`WindowManager`**: `native/src/windows/WindowManager.h`
+  - Manages the lifecycle of all application windows.
+  - Thread-safe queue for window creation.
+- **`PlayerManager`**: `native/src/mpv/session/PlayerManager.h`
+  - Manages the lifecycle of all media playback sessions (`PlayerSession`).
+- **`ConfigManager`**: (Implied from `main1.cpp`)
+  - Manages application configuration.
+
+## Core Runtime Objects (Composition)
+- **`WindowRuntime`**: `native/src/windows/WindowRuntime.h`
+  - Composite object representing a single window.
+  - Owns `WindowRenderer`, `WindowController`, `PropertyBag`.
+- **`PlayerSession`**: `native/src/mpv/session/PlayerSession.h`
+  - Facade for a `libmpv` instance.
+  - Owns `Player`, `PlaybackObserver`, `PlaybackCommandDispatcher`.
+
+## Design Patterns
+- **Factory/Builder**: `native/src/windows/WindowFactory.h`
+  - Creates `WindowRuntime` instances from `WindowTemplate`s.
+  - `WindowTemplateBuilder` provides a fluent API for defining templates.
+- **Strategy (Graphics)**: `native/src/backends/IGraphicsBackend.h`
+  - Interface for rendering backends (OpenGL, D3D11).
+  - Decouples rendering code from specific graphics APIs.
+- **Facade (MPV)**: `native/src/mpv/session/PlayerSession.h`
+  - Provides a clean C++ interface to the `libmpv` C API.
+
+## UI & Rendering
+- **`CSImGui`**: `native/src/gui/gui.h`
+  - Custom UI component library built on ImGui.
+- **`UIRenderThread`**: `native/src/windows/UIRenderThread.h`
+  - Per-window render thread.
+  - Keeps the main UI thread responsive.
+
+## Application Entry
+- **`main()`**: `native/src/main1.cpp`
+  - Initializes all systems and runs the main SDL event loop.
+```
+
+## 3. Template Chuẩn Cho `KNOWN_ROOT_CAUSES.md`
+
+```markdown
+# Known Root Cause Patterns
+- **Pattern:** `IM_ASSERT` failure at `ImGui::NewFrame()`
+  - **Root Cause:** Wrong/Unbound GL Context before ImGui frame start, or multi-threaded UI call without mutex.
+  - **Fix Strategy:** Verify context binding on render thread (`SDL_GL_MakeCurrent`).
+ ```
+
+## 4. Template Chuẩn Cho `SYMBOL_INDEX.md`
+
+```markdown
+# Symbol Index
+- **WindowRuntime**
+  - Type: `Class` | Defined: `src/window/WindowRuntime.h`
+  - References: `WindowFactory`, `WindowManager`, `Renderer`
+  - Lifecycle: `WindowFactory::Create()` ──> `WindowRuntime::Init()` ──> `Render()` ──> `Destroy()`
+- **IM_ASSERT**
+  - Type: `Macro` | Defined: `vendor/imgui/imgui.h`
+  - Domain: `UI Context / Assertion`
+```
+## 5. Template Chuẩn Cho `FOLDER_INFO.md` (Thư Mục Con)
 
 ```markdown
 # Metadata
@@ -62,3 +128,4 @@ Khi được yêu cầu "tóm tắt cấu trúc thư mục", "phân tích dự �
 ## 6. Technical Debt (TODO / FIXME / HACK)
 - `WindowRuntime.cpp` - **TODO:** Chưa có EventQueue
 - `Renderer.cpp` - **FIXME:** Context cleanup timing
+```
