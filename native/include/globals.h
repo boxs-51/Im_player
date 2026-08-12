@@ -28,11 +28,6 @@ extern std::string g_searchQuery;
 
 
 extern bool Disabehotkey;
-extern bool playImmediately;
-
-extern bool g_WindowVisible;
-extern bool was_ui_video ;
-extern std::vector<std::wstring> playlist;
 
 
 

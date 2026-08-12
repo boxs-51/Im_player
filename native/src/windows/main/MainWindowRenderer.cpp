@@ -6,7 +6,7 @@
 #include "globals.h"
 #include <popup/popup.h>
 #include "player/session/PlayerSession.h"
-
+#include "player/PlayerStateSystem.h"
 #include "WindowUtils.h"
 
 #include <mpv/render_gl.h>

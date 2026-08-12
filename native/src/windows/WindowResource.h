@@ -28,7 +28,7 @@ struct WindowResource {
      * @brief Lấy PlayerSession an toàn từ PlayerManager theo ID.
      * @return PlayerSession* Trả về pointer hợp lệ hoặc nullptr nếu Session đã bị hủy.
      */
-    PlayerSession* WindowResource::GetPlayerSession() const {
+    PlayerSession* GetPlayerSession() const {
         if (playersessionid.empty()) {
             return nullptr;
         }

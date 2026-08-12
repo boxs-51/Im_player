@@ -10,10 +10,9 @@
 using json = nlohmann::json;
 namespace fs = std::filesystem;
 
-ShaderManager& ShaderManager::Instance() {
-    static ShaderManager inst;
-    return inst;
-}
+ShaderManager::ShaderManager() {}
+ShaderManager::~ShaderManager() {}
+
 std::string ShaderManager::Quote(const std::string& s) {
     return "\"" + s + "\"";
 }

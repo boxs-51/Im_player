@@ -7,6 +7,7 @@
 
 #include "PlayerSession.h"
 
+class WindowRuntime;
 class PlayerManager {
 public:
     static PlayerManager& GetInstance();

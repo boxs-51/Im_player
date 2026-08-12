@@ -1,8 +1,9 @@
 #include "PlaybackObserver.h"
-#include "player/player/Player.h"
 
+#include "player/player/Player.h"
 #include "player/session/PlayerManager.h"
 #include "player/PlayerDataModels.h"
+#include "player/PlayerUtils.h"
 #include "globals.h"
 #include <log.h>
 #include <mutex>
@@ -600,6 +601,12 @@ void PlaybackObserver::ProcessEvents() {
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
             });
+            VideoType videotype;
+            m_state.ReadPlayback([&videotype](auto const& m) {
+                videotype = m.videoType;
+            })
+
+            ApplyDynamicMPVConfig(m_mpv, videotype);
  
             break;
         }

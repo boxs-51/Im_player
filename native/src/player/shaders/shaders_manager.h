@@ -59,8 +59,9 @@ struct Shader {
 
 class ShaderManager {
 public:
-    static ShaderManager& Instance();
 
+    ShaderManager();
+    ~ShaderManager();
     // Ngăn chặn copy singleton
     ShaderManager(const ShaderManager&) = delete;
     void operator=(const ShaderManager&) = delete;
@@ -111,8 +112,7 @@ public:
     void LoadState();
     void DiscardChanges();
 private:
-    ShaderManager() = default; 
-
+   
     // Helper nội bộ
     std::string Quote(const std::string& s);
     int HookPriority(HookStage h);

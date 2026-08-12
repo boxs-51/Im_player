@@ -1,4 +1,3 @@
-#include "player/shaders/shaders_manager.h"
 
 #include <gui/gui.h>
 #include "globals.h"
@@ -6,7 +5,10 @@
 #include "popup_setting.h"
 #include "FontManager.h"
 #include "settings_manager.h"
+
 #include "windows/WindowRuntime.h"
+#include "player/shaders/shaders_manager.h"
+
 
 #include <imgui.h>
 #include <vector>
@@ -21,7 +23,7 @@ static bool isDirty = false;
 // Mở popup settings
 void OpenSettingPopup(ReusablePopup& popup) {
     popup.Open("Settings", [](WindowRuntime* runtime, bool& closePopup_setting) {
-        ShowSettingsPopup(closePopup_setting);
+        ShowSettingsPopup(runtime, closePopup_setting);
     });
 }
 
@@ -118,12 +120,16 @@ void GeneralSettingsPage() {
     }
 }
 
-void ShaderSettingsPage() {
+void ShaderSettingsPage(WindowRuntime* runtime) {
+
+    auto* session = runtime->resource.GetPlayerSession();
+    if (!session) return;
+    auto& sm = *session->GetShaderManager();
+
     static bool wasConfigTabOpen = false;
     float scale = ImGui::GetStyle().FontScaleMain;
     ImVec2 avail = ImGui::GetContentRegionAvail();
-    auto& sm = ShaderManager::Instance();
-    
+
     if (CSImGui::BeginModernChild("ShaderSettingsPanel", avail, true)) {
         
         // --- HEADER & GIỚI THIỆU CHUNG ---
@@ -467,7 +473,7 @@ void ShaderSettingsPage() {
     }
 }
 // Hàm render nội dung chính của popup
-void ShowSettingsPopup(bool& closePopup_setting) {
+void ShowSettingsPopup(WindowRuntime* runtime, bool& closePopup_setting) {
     ImVec2 avail = ImGui::GetContentRegionAvail();
     
     // Sử dụng chiều cao cố định để dành chỗ cho hàng nút bấm ở dưới
@@ -513,7 +519,7 @@ void ShowSettingsPopup(bool& closePopup_setting) {
                 else if(selectedItem == 1) {
                     ImGui::TextDisabled("Quan ly Shader");
                     ImGui::Separator();
-                    ShaderSettingsPage();
+                    ShaderSettingsPage(runtime);
                     ImGui::Spacing();
                 }
                 else if (selectedItem == 2) {

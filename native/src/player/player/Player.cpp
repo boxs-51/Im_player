@@ -3,12 +3,12 @@
 #include "player/shaders/shaders_manager.h"
 #include "player/scripts/script_manager.h"
 #include "player/audio/filter/af_m.h"
-
-#include "utils.h"
-#include <SDL.h>
-#include <algorithm>
+#include "player/PlayerUtils.h"
 
 #include "windows/WindowUtils.h"
+
+#include <SDL.h>
+#include <algorithm>
 
 Player::Player() : m_mpv(nullptr) {}
 

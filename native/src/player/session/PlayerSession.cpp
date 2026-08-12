@@ -1,5 +1,18 @@
 #include "PlayerSession.h"
 #include "MainWindowState.h"
+
+#include "player/player/Player.h"
+#include "player/render/PlayBackRender.h"
+#include "player/event/PlaybackObserver.h"
+#include "player/command/PlaybackCommand.h"
+#include "player/property/PlayBackProperty.h"
+#include "player/render/PlayBackRenderThread.h"
+#include "player/PlayerStateSystem.h"
+#include "player/audio/filter/af_m.h"
+#include "player/video/filter/video_filter_manager.h"
+#include "player/shaders/shaders_manager.h"
+
+
 #include <SDL.h>
 
 PlayerSession::PlayerSession(std::string id) : m_id(std::move(id)) {}
@@ -30,6 +43,9 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
 
     m_audioFilterManager = std::make_unique<AudioFilterManager>();
     m_audioFilterManager->Init(m_player->GetHandle(), m_state.get());
+
+    m_shaderManager = std::make_unique<ShaderManager>();
+    m_shaderManager->Init(m_player->GetHandle());
 
     m_observer = std::make_unique<PlaybackObserver>(*m_player, *m_state, *m_commander);
     m_observer->Init();

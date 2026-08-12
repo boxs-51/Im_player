@@ -11,9 +11,4 @@ std::mutex g_mutex;
 std::string g_nextPageToken;
 std::string g_searchQuery;
 
-bool g_WindowVisible = false;
 bool Disabehotkey = false;
-bool playImmediately = true;
-bool was_ui_video = false;
-
-std::vector<std::wstring> playlist;
