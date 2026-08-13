@@ -141,6 +141,7 @@ public:
      */
     template<typename T>
     T* GetPtr(std::string_view key) {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
         // LƯU Ý: Con trỏ trả về có thể trở thành dangling. Cần có cơ chế quản lý vòng đời ở tầng cao hơn.
         auto it = properties.find(std::string(key));
         if (it == properties.end()) return nullptr;
@@ -159,6 +160,7 @@ public:
      */
     template<typename T>
     const T* GetPtr(std::string_view key) const {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
         // LƯU Ý: Con trỏ trả về có thể trở thành dangling. Cần có cơ chế quản lý vòng đời ở tầng cao hơn.
         auto it = properties.find(std::string(key));
         if (it == properties.end()) return nullptr;
@@ -202,6 +204,7 @@ public:
      */
     template<typename T>
     T& GetRef(std::string_view key) {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
         // LƯU Ý: Tham chiếu trả về có thể trở thành dangling. Cần có cơ chế quản lý vòng đời ở tầng cao hơn.
         T* ptr = GetPtr<T>(key);
         if (!ptr) throw std::runtime_error("Property not found or type mismatch: " + std::string(key));
@@ -219,6 +222,7 @@ public:
      */
     template<typename T>
     const T& GetRef(std::string_view key) const {
+        std::lock_guard<std::recursive_mutex> lock(m_mutex);
         // LƯU Ý: Tham chiếu trả về có thể trở thành dangling. Cần có cơ chế quản lý vòng đời ở tầng cao hơn.
         const T* ptr = GetPtr<T>(key);
         if (!ptr) throw std::runtime_error("Property not found or type mismatch: " + std::string(key));

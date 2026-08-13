@@ -7,7 +7,7 @@
 void AudioFilterManager::SyncAll() {
     if (!mpv) return;
 
-    RATE_LIMITED_COUT(sync_all_trace, 500, std::cout << "[DEBUG] [AudioFilter] Syncing filter chain..." << std::endl);
+    LOG(sync_all_trace, 500, std::cout << "[DEBUG] [AudioFilter] Syncing filter chain..." << std::endl);
 
     std::string full_af = "";
 
@@ -81,7 +81,7 @@ void AudioFilterManager::SyncAll() {
             ebur->isFailed = true;
             ebur->enabled = false;
             AddLog("[Architecture] Isolated 'f_ebur_measurer' due to initialization failure.", LogLevel::Warning);
-            RATE_LIMITED_COUT(af_apply_error, 1000, std::cout << "[ERROR] [AudioFilter] Failed to apply chain. MPV Error: " << error_code << std::endl);
+            LOG(af_apply_error, 1000, std::cout << "[ERROR] [AudioFilter] Failed to apply chain. MPV Error: " << error_code << std::endl);
             SyncAll();
             return;
         }
@@ -161,8 +161,8 @@ void AudioFilterManager::BatchUpdateParams(const std::vector<std::tuple<std::str
     }
 }
 
-void AudioFilterManager::RegisterParam(const std::string& id, const std::string& key, float min, float max, float def) {
-    if (auto* f = FindFilter(id)) f->params[key] = {def, min, max, def, def}; 
+void AudioFilterManager::RegisterParam(const std::string& id, const std::string& key, float min, float max, float def, bool ai_controllable) {
+    if (auto* f = FindFilter(id)) f->params[key] = {def, min, max, def, def, ai_controllable}; 
 }
 
 void AudioFilterManager::ResetFilter(const std::string& id) {
@@ -183,7 +183,7 @@ void AudioFilterManager::SetAllFiltersState(bool enabled) {
     }
     SetAdaptiveMode(enabled, m_currentPreset);
     if (changed) { 
-        RATE_LIMITED_COUT(filter_state_change, 500, std::cout << "[INFO] [AudioFilter] All filters enabled: " << (enabled ? "TRUE" : "FALSE") << std::endl);
+        LOG(filter_state_change, 500, std::cout << "[INFO] [AudioFilter] All filters enabled: " << (enabled ? "TRUE" : "FALSE") << std::endl);
         EvaluateSystemSafety(); 
         SyncAll(); 
     }

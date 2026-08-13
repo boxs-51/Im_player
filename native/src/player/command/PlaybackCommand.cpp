@@ -6,37 +6,37 @@
 #include <algorithm>
 #include <string>
 
-PlaybackCommandDispatcher::PlaybackCommandDispatcher(Player& player) : m_player(player) {}
+PlaybackCommand::PlaybackCommand(Player& player) : m_player(player) {}
 
-int PlaybackCommandDispatcher::Exec(const char** cmd) {
+int PlaybackCommand::Exec(const char** cmd) {
     if (m_player.GetHandle()) {
         return mpv_command(m_player.GetHandle(), cmd);
     }
     return -1;
 }
 
-int PlaybackCommandDispatcher::Exec(const std::string& cmd) {
+int PlaybackCommand::Exec(const std::string& cmd) {
     if (m_player.GetHandle()) {
         return mpv_command_string(m_player.GetHandle(), cmd.c_str());
     }
     return -1;
 }
 
-int  PlaybackCommandDispatcher::SetPropertyString(const std::string& name, const std::string& value) {
+int  PlaybackCommand::SetPropertyString(const std::string& name, const std::string& value) {
     if (m_player.GetHandle()) {
         return mpv_set_property_string(m_player.GetHandle(), name.c_str(), value.c_str());
     }
     return -1;
 }
 
-int PlaybackCommandDispatcher::SetPropertyDouble(const std::string& name, double value) {
+int PlaybackCommand::SetPropertyDouble(const std::string& name, double value) {
     if (m_player.GetHandle()) {
         return mpv_set_property(m_player.GetHandle(), name.c_str(), MPV_FORMAT_DOUBLE, &value);
     }
     return -1;
 }
 
-int PlaybackCommandDispatcher::SetPropertyFlag(const std::string& name, bool flag) {
+int PlaybackCommand::SetPropertyFlag(const std::string& name, bool flag) {
     if (m_player.GetHandle()) {
         int val = flag ? 1 : 0;
         return mpv_set_property(m_player.GetHandle(), name.c_str(), MPV_FORMAT_FLAG, &val);
@@ -44,20 +44,20 @@ int PlaybackCommandDispatcher::SetPropertyFlag(const std::string& name, bool fla
     return -1;
 }
 
-int PlaybackCommandDispatcher::LoadFile(const std::string& url, const std::string& extraFlags) {
-    PlaybackCommandDispatcher::ApplyPlaybackSettings();
+int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFlags) {
+    PlaybackCommand::ApplyPlaybackSettings();
     const char* cmd[] = { "loadfile", url.c_str(), extraFlags.c_str(), nullptr };
     return Exec(cmd);
 }
 
-int PlaybackCommandDispatcher::Play() { return SetPropertyFlag("pause", false); }
-int PlaybackCommandDispatcher::Pause() { return SetPropertyFlag("pause", true); }
-int PlaybackCommandDispatcher::SetMute(bool mute) { return SetPropertyFlag("mute", mute); }
-int PlaybackCommandDispatcher::SetVolume(int volume) { return SetPropertyDouble("volume", std::clamp(volume, 0, 130)); }
-int PlaybackCommandDispatcher::SetSpeed(double speed) { return SetPropertyDouble("speed", speed); }
-int PlaybackCommandDispatcher::SetAudioDelay(double delay) { return SetPropertyDouble("audio-delay", delay); }
+int PlaybackCommand::Play() { return SetPropertyFlag("pause", false); }
+int PlaybackCommand::Pause() { return SetPropertyFlag("pause", true); }
+int PlaybackCommand::SetMute(bool mute) { return SetPropertyFlag("mute", mute); }
+int PlaybackCommand::SetVolume(int volume) { return SetPropertyDouble("volume", std::clamp(volume, 0, 130)); }
+int PlaybackCommand::SetSpeed(double speed) { return SetPropertyDouble("speed", speed); }
+int PlaybackCommand::SetAudioDelay(double delay) { return SetPropertyDouble("audio-delay", delay); }
 
-int PlaybackCommandDispatcher::DoSeek(float targetTime) {
+int PlaybackCommand::DoSeek(float targetTime) {
     if (!m_player.GetHandle()) return -1 ;
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
@@ -68,7 +68,7 @@ int PlaybackCommandDispatcher::DoSeek(float targetTime) {
     return ret;
 }
 
-int PlaybackCommandDispatcher::Seek(float targetTime, float duration, const std::string& mode) {
+int PlaybackCommand::Seek(float targetTime, float duration, const std::string& mode) {
     if (!m_player.GetHandle() || duration <= 0.0f) return - 1;
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
     
@@ -82,22 +82,22 @@ int PlaybackCommandDispatcher::Seek(float targetTime, float duration, const std:
     return 0;
 }
 
-void PlaybackCommandDispatcher::Update() {
+void PlaybackCommand::Update() {
     if (m_isSeekPending && (SDL_GetTicks64() - m_lastSeekRequestTime >= SEEK_DELAY_MS)) {
         DoSeek(m_seekTargetTime);
     }
 }
 
-int PlaybackCommandDispatcher::PlaylistNext() {
+int PlaybackCommand::PlaylistNext() {
     const char* cmd[] = {"playlist-next", nullptr};
     return Exec(cmd);
 }
-int PlaybackCommandDispatcher::PlaylistPrev() {
+int PlaybackCommand::PlaylistPrev() {
     const char* cmd[] = {"playlist-prev", nullptr};
     return Exec(cmd);
 }
 
-void PlaybackCommandDispatcher::ApplyPlaybackSettings() {
+void PlaybackCommand::ApplyPlaybackSettings() {
 
     auto& Cfg = ConfigManager::Instance();
     auto videoCfg = Cfg.GetVideoSettings();

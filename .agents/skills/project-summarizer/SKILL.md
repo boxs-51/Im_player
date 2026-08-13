@@ -35,7 +35,7 @@ Khi được yêu cầu "tóm tắt cấu trúc thư mục", "phân tích dự �
   - Owns `WindowRenderer`, `WindowController`, `PropertyBag`.
 - **`PlayerSession`**: `native/src/mpv/session/PlayerSession.h`
   - Facade for a `libmpv` instance.
-  - Owns `Player`, `PlaybackObserver`, `PlaybackCommandDispatcher`.
+  - Owns `Player`, `PlaybackObserver`, `PlaybackCommand`.
 
 ## Design Patterns
 - **Factory/Builder**: `native/src/windows/WindowFactory.h`

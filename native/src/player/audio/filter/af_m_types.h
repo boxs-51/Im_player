@@ -14,7 +14,9 @@ enum class AudioPreset {
     Acoustic,       // Chuyên trị nhạc cụ gỗ, guitar, tôn giọng mộc mạc
     Gaming_FPS,     // Lọc dải trầm, tăng dải Trung-Cao để nghe rõ tiếng bước chân/súng
     Movie_Cinema,   // Giả lập rạp phim: Đẩy Sub-bass tạo độ rung chấn và tăng rõ lời thoại
-    Deep_Bass       // Chỉ tập trung tăng cường độ lực cho dải siêu trầm (Basshead)
+    Deep_Bass,      // Chỉ tập trung tăng cường độ lực cho dải siêu trầm (Basshead)
+    Karaoke,        // Tách lời ca sĩ, giữ lại nhạc nền
+    Audio_Restoration // Phục hồi âm thanh từ các bản ghi cũ, loại bỏ tiếng lách tách
 };
 
 enum class LogLevel { Info, Warning, Error, AI_Action };
@@ -31,6 +33,7 @@ struct FilterParam {
     float max;         // Giá trị lớn nhất cho phép
     float def;         // Giá trị mặc định ban đầu
     float user_target; // Ghi nhớ giá trị gốc do CHÍNH NGƯỜI DÙNG thiết lập/kéo trên UI
+    bool ai_controllable = false; // AI có được phép tự động điều chỉnh tham số này không?
 
     float lastSent = 999999.0f;
 };
@@ -38,11 +41,13 @@ struct FilterParam {
 struct AudioFilter {
     std::string id;       
     std::string name;     
+    std::string description; // Mô tả chức năng của bộ lọc
     bool enabled;         
     std::map<std::string, FilterParam> params; 
     std::string group;    
 
     bool isBypassManagement = false; 
+    bool ai_controllable = false; // AI có được phép tự động BẬT/TẮT bộ lọc này không?
     bool isFailed = false;
 
     std::string GetInitString() const {
@@ -60,6 +65,14 @@ struct AudioFilter {
                 return res;
             }
 
+            // Xử lý đặc biệt cho f_vocal_remover
+            if (id == "f_vocal_remover") {
+                if (params.count("mode") && params.at("mode").current > 0.5f) {
+                    res += "=mode=l-r";
+                }
+                // Nếu mode = 0, không thêm tham số, filter sẽ không có hiệu lực
+                return res;
+            }
 
             res += "=";
             bool first = true;
@@ -125,6 +138,13 @@ struct AudioContext {
     bool hearing_impaired = false;     // Cờ hỗ trợ người khiếm thính (Dialog Boost)
 };
 
+// Cấu trúc mới để quản lý trạng thái của các nhóm filter chuyên biệt
+struct SpecializedFilterState {
+    bool speech_enhancement = false;
+    bool noise_reduction = false;
+    bool audio_restoration = false;
+};
+
 struct AdaptiveTargets {
     // 1. Mảng 12 dải tần EQ Graphic
     std::vector<float> eq_gains = std::vector<float>(12, 0.0f);
@@ -148,4 +168,13 @@ struct AdaptiveTargets {
     float out_comp_threshold = -12.0f;
     float out_comp_makeup = 0.0f;
     float out_lim_threshold = -1.0f;
+
+    // 4. Trạng thái mục tiêu cho các bộ lọc chuyên biệt
+    bool speech_enhancement_enabled = false;
+    bool noise_reduction_enabled = false;
+    float speech_enhancement_level = -25.0f; // Mức tăng cường giọng nói mục tiêu
+    float noise_reduction_level = 0.0f;       // Mức giảm nhiễu mục tiêu
+    bool vocal_remover_enabled = false;
+    float vocal_remover_mode = 0.0f;          // Chế độ tách lời mục tiêu (0.0: tắt, 1.0: bật)
+    bool audio_restoration_enabled = false;
 };

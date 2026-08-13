@@ -597,7 +597,8 @@ void RenderPlayerControls(WindowRuntime* runtime, const ImVec2& _pos, const ImVe
 
         i = i + 11.5f;
 
-        bool isFullscreen_video = runtime->state.display.isFullscreen;
+        bool isFullscreen_video = runtime->GetSnapshot()->IsFullscreen();
+
         ImGui::SetCursorPos(ImVec2(controlPos.x + spacing * 17, controlPos.y));
         static FullscreenIconData fsData;
         fsData.fullscreen = isFullscreen_video;

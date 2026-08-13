@@ -7,9 +7,9 @@
 
 class Player; // Forward declaration
 
-class PlaybackCommandDispatcher {
+class PlaybackCommand {
 public:
-    PlaybackCommandDispatcher(Player& player);
+    PlaybackCommand(Player& player);
 
     // Raw Commands
     int Exec(const char** cmd);

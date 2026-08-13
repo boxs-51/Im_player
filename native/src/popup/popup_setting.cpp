@@ -3,11 +3,10 @@
 #include "globals.h"
 #include "utils.h"
 #include "popup_setting.h"
-#include "FontManager.h"
 #include "settings_manager.h"
 
 #include "windows/WindowRuntime.h"
-#include "player/shaders/shaders_manager.h"
+#include "player/session/PlayerSession.h"
 
 
 #include <imgui.h>
@@ -20,12 +19,6 @@ static std::string tempStyle;
 static int selectedItem = 0; 
 static bool isDirty = false;
 
-// Mở popup settings
-void OpenSettingPopup(ReusablePopup& popup) {
-    popup.Open("Settings", [](WindowRuntime* runtime, bool& closePopup_setting) {
-        ShowSettingsPopup(runtime, closePopup_setting);
-    });
-}
 
 void GeneralSettingsPage() {
     ImVec2 avail = ImGui::GetContentRegionAvail();
@@ -155,7 +148,7 @@ void ShaderSettingsPage(WindowRuntime* runtime) {
                 ImGui::SameLine();
                 if (CSImGui::ModernButton("Reload All")) sm.Reload(); 
 
-                std::vector<CSImGui::TableCol> cols = {
+                std::vector<TableCol> cols = {
                     {"", 40.0f * scale}, 
                     {"Tên Shader", 180.0f * scale},
                     {"Giai đoạn", 80.0f * scale},
@@ -561,6 +554,13 @@ void ShowSettingsPopup(WindowRuntime* runtime, bool& closePopup_setting) {
     if (CSImGui::SecondaryButton("Đóng", ImVec2(btnWidth, 35))) {
         closePopup_setting = true;
     }
+}
+
+// Mở popup settings
+void OpenSettingPopup(ReusablePopup& popup) {
+    popup.Open("Settings", [](WindowRuntime* runtime, bool& closePopup_setting) {
+        ShowSettingsPopup(runtime, closePopup_setting);
+    });
 }
 
 // Render popup mỗi frame

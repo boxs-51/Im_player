@@ -3,7 +3,6 @@
 
 #include "player/session/PlayerSession.h"
 
-
 #include "windows/WindowRuntime.h"
 
 #include "gui/gui.h"
@@ -12,8 +11,6 @@
 #include <imgui_internal.h>
 
 #include "backends/client_backend.h"
-
-#include "FontManager.h"
 
 #include <string>
 #include <iostream>
@@ -188,7 +185,7 @@ void RenderVideoItem(VideoItem &v, float listWidth)
     ImU32 borderCol = IM_COL32(255, 255, 255, (int)(80 * hoverEase));
     ImU32 pressFill = IM_COL32(255, 255, 255, (int)(45 * v.hoverAnim));
 
-    CSImGui::CardHoleStyle style;
+    CardHoleStyle style;
     style.rounding = 6.0f;
     style.borderThickness = 1.5f;
 
@@ -765,8 +762,9 @@ void RenderVideoList()
 void RenderListVideoMPV(WindowRuntime *runtime)
 {
     auto *player_session = runtime->resource.GetPlayerSession();
+    if (!player_session) return;
     auto *state = player_session->GetState();
-
+    if (!state) return;
     auto playlist = state->GetPlaylistModel();
 
     ImVec2 avail = ImGui::GetContentRegionAvail();

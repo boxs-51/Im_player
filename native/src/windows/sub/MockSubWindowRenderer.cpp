@@ -1,6 +1,8 @@
 #include "MockSubWindowRenderer.h"
 #include "windows/WindowRuntime.h"
-#include "main/MainWindowState.h"
+#include "WindowSnapshot.h"
+#include "main/ui/ui.h"
+
 #include "gui.h"
 #include <imgui.h>
 
@@ -8,13 +10,13 @@ void MockSubWindowRenderer::Initialize(WindowRuntime* runtime) {
     // Không cần khởi tạo gì cho renderer đơn giản này
 }
 
-void MockSubWindowRenderer::RenderUI(WindowRuntime* runtime) {
+void MockSubWindowRenderer::RenderUI(WindowRuntime* runtime, const WindowSnapshot& snapshot) {
     // UIRenderThread đã gọi BeginFrame/NewFrame.
     // Chúng ta chỉ cần vẽ nội dung của mình.
 
     // Giờ đây tất cả các cửa sổ đều dùng chung WindowLayout
-    auto layout = runtime->properties.GetValue<WindowLayout>("Layout");
-
+    //auto layout = runtime->properties.GetValue<WindowLayout>("Layout");
+    const auto layout = snapshot.GetLayout();
 
     ImGui::SetNextWindowPos(ImVec2(layout.WinX, layout.WinY));
     ImGui::SetNextWindowSize(ImVec2(layout.WinW, layout.WinH));
@@ -26,7 +28,7 @@ void MockSubWindowRenderer::RenderUI(WindowRuntime* runtime) {
         ImGuiWindowFlags_NoSavedSettings | ImGuiWindowFlags_NoBringToFrontOnFocus |
         ImGuiWindowFlags_NoNavFocus | ImGuiWindowFlags_NoFocusOnAppearing | ImGuiWindowFlags_NoMove
     );
-    RenderTitleBarWindowObject(runtime, "SubWindowCanvas", layout.TitlePos, layout.TitleSize);
+    RenderTitleBarWindowObject(runtime, "SubWindowCanvas", "", layout.TitlePos, layout.TitleSize);
 
     ImGui::Text("Đây là một cửa sổ phụ (sub-window) mô phỏng.");
     ImGui::Text("Bạn có thể vẽ bất cứ thứ gì ở đây bằng ImGui.");

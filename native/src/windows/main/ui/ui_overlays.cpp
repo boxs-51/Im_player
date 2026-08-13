@@ -3,6 +3,8 @@
 #include "gui/gui.h"
 #include "utils.h"
 #include <cmath>
+
+#include "player/session/PlayerSession.h"
 #include "windows/WindowRuntime.h"
 
 #include <GL/gl3w.h> 

@@ -5,5 +5,7 @@
 #include "ui_settings.h"
 #include "ui_controls.h"
 #include "ui_overlays.h"
+#include "ui_title_bar.h"
+#include "ui_state.h"
 
 #endif // MPV_UI_H

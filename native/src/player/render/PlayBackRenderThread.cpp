@@ -1,9 +1,10 @@
-#include "PlayBackRenderThread.h"
-#include "player/render/IFrameBufferPool.h"
+
 #include "threads/thread_manager.h"
-#include "player/session/PlayerManager.h"
-#include "WindowRuntime.h"
+#include <atomic>
 #include "player/render/PlayBackRender.h"
+#include "player/render/PlayBackRenderThread.h"
+#include "log.h" // Thêm header cho LOG
+#include "player/player/Player.h"
 
 #include "mpv/render_gl.h"
 #include <gl3w.h> // Thêm header cho GLuint
@@ -71,7 +72,7 @@ try {
     }
 
     if (!this->state.graphicsBackend->MakeCurrent(this->state.window, this->state.graphicsContext)) {
-        SDL_Log("Lỗi: Không thể bind MPV Sub-Context lên Render Thread!");
+        LOG_NO_KEY(1, "[RenderThread] ERROR: Failed to bind MPV Sub-Context to Render Thread!");
         state.hasExited = true;
         return;
     }
@@ -143,8 +144,16 @@ try {
         if (!this->state.fboPool) continue;
 
         int index = this->state.fboPool->AcquireFreeBuffer();
-        FrameNode& frame = this->state.fboPool->GetFrame(index);
+        m_lastAcquiredBufferId.store(index, std::memory_order_release);
 
+        if (index == -1) {
+            m_droppedFrames.fetch_add(1, std::memory_order_relaxed);
+            // Log này rất quan trọng để biết tại sao video bị đứng
+            LOG_NO_KEY(1, "[RenderThread] WARN: Failed to acquire buffer, dropping frame. Total dropped: %u", m_droppedFrames.load());
+            framerender.endFrame();
+            continue; 
+        }
+        FrameNode& frame = this->state.fboPool->GetFrame(index);
         int targetW = localDrawW;
         int targetH = localDrawH;
 
@@ -171,7 +180,9 @@ try {
         // Gọi Render MPV
         mpv_render_context_render(this->state.render_ctx, params.data());
 
-        this->state.fboPool->MarkAsReady(index);
+        uint64_t currentFrameId = ++m_frameCounter;
+        this->state.fboPool->MarkAsReady(index, currentFrameId);
+        m_lastRenderedFrameId.store(currentFrameId, std::memory_order_release);
         this->state.framerender.store(framerender.getFPS());
 
         SDL_Event ev;
@@ -183,8 +194,8 @@ try {
     if (state.fboPool) state.fboPool->Shutdown();
     state.hasExited = true;
 } catch (const std::exception& e) {
-    SDL_Log("Exception in PlayBackRenderThread: %s", e.what());
+    LOG_NO_KEY(1, "[RenderThread] CRITICAL ERROR: Exception in PlayBackRenderThread: %s", e.what());
 } catch (...) {
-    SDL_Log("Unknown exception in PlayBackRenderThread.");
+    LOG_NO_KEY(1, "[RenderThread] CRITICAL ERROR: Unknown exception in PlayBackRenderThread.");
 }
 }

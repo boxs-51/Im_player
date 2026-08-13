@@ -5,12 +5,13 @@
 #include <imgui_impl_sdl2.h>
 #include <imgui_impl_opengl3.h>
 #include "player/render/OpenGLFrameBufferPool.h" // Thêm include
+#include <imgui.h>
+#include <imgui_internal.h>
 #include <mpv/render_gl.h>
 
 class OpenGLBackend : public IGraphicsBackend {
 private:
     SDL_GLContext glContext = nullptr;
-    std::mutex m_imguiBackendMutex; // Khóa đồng bộ hóa ImGui Backend giữa các luồng
     // Các biến thành viên để lưu trữ dữ liệu cho mpv_render_param
     mpv_opengl_fbo m_mpv_fbo;
     int m_mpv_flip;
@@ -60,7 +61,8 @@ public:
         if (SDL_GL_MakeCurrent(window, glContext) != 0) return false;
         if (gl3wInit() != 0) return false;
         
-        SDL_GL_SetSwapInterval(1); // BẬT V-SYNC ĐỂ CHỐNG XÉ HÌNH/NHẤP NHÁY
+        SDL_GL_SetSwapInterval(1);
+
         return true;
     }
 
@@ -70,11 +72,13 @@ public:
 
     bool InitImGuiBackend(SDL_Window* window) override {
         ImGui_ImplSDL2_InitForOpenGL(window, glContext);
-        return ImGui_ImplOpenGL3_Init("#version 430 core");
+        ImGui_ImplOpenGL3_Init("#version 430 core");
+        ImGuiIO& io = ImGui::GetIO();
+        io.BackendFlags |= ImGuiBackendFlags_RendererHasTextures;
+        return true;
     }
 
     void BeginFrame(SDL_Window* window) override {
-        std::lock_guard<std::mutex> lock(m_imguiBackendMutex);
         ImGui_ImplOpenGL3_NewFrame();
         ImGui_ImplSDL2_NewFrame();
         ImGui::NewFrame();
@@ -85,7 +89,6 @@ public:
     }
 
     void EndFrame(SDL_Window* window) override {
-        std::lock_guard<std::mutex> lock(m_imguiBackendMutex);
         ImGui::Render();
         ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
     }
@@ -105,7 +108,6 @@ public:
     }
 
     bool ProcessEvent(const SDL_Event* e) override {
-        std::lock_guard<std::mutex> lock(m_imguiBackendMutex);
         return ImGui_ImplSDL2_ProcessEvent(e);
     }
 

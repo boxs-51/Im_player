@@ -6,8 +6,21 @@
 #include "NativeWindowRegistrar.h"
 #include "WindowSharedGroup.h"
 #include "UIRenderThread.h"
+#include "UpdateWindowState.h"
+#include "WindowManager.h"
+#include "EventQueue.h"
+
+#include "player/session/PlayerManager.h"
+#include "player/session/PlayerSession.h"
+
 #include <SDL.h>
+#include <SDL_syswm.h> // Thêm header này để lấy HWND
 #include <imgui.h>
+
+#if defined(_WIN32)
+#include <windows.h>
+#endif
+
 
 bool WindowInitializer::Initialize(WindowRuntime* runtime, const WindowTemplate* tpl, WindowRuntime* parent) {
     if (!runtime || !tpl) return false;
@@ -48,6 +61,7 @@ bool WindowInitializer::Initialize(WindowRuntime* runtime, const WindowTemplate*
     InitializeRenderer(runtime);
     AttachMPV(runtime, parent);
 
+    runtime->fontController->PrepareNewFrame();
     runtime->resource.uiRenderThread->Start();
 
     return true;
@@ -70,10 +84,24 @@ bool WindowInitializer::InitializeSDL(WindowRuntime* runtime, const WindowTempla
         runtime->state.geometry.width, runtime->state.geometry.height, flags
     );
 
+    if(runtime->resource.sdlWindow) {
+        runtime->state.runtime.created = true;
+    }
+
     if (!runtime->resource.sdlWindow) {
         SDL_Log("SDL_CreateWindow failed: %s", SDL_GetError());
         return false;
     }
+
+#if defined(_WIN32)
+    SDL_SysWMinfo wmInfo;
+    SDL_VERSION(&wmInfo.version);
+    if (SDL_GetWindowWMInfo(runtime->resource.sdlWindow, &wmInfo)) {
+        HWND hwnd = wmInfo.info.win.window;
+        // Bỏ cờ tô background mặc định của Win32 Class để diệt nhấp nháy trắng khi resize
+        SetClassLongPtr(hwnd, GCLP_HBRBACKGROUND, (LONG_PTR)GetStockObject(NULL_BRUSH));
+    }
+#endif
     return true;
 }
 
@@ -94,13 +122,19 @@ bool WindowInitializer::InitializeSharedGroup(WindowRuntime* runtime, WindowRunt
 }
 
 bool WindowInitializer::InitializeImGui(WindowRuntime* runtime) {
-    auto shared_atlas_ptr = runtime->relation.sharedGroup.lock();
-    if (!shared_atlas_ptr || !shared_atlas_ptr->m_sharedFontAtlas) {
-        SDL_Log("Failed to get shared font atlas from WindowSharedGroup.");
+    if (!runtime) return false;
+
+    // 2. Gán Controller cho runtime
+    runtime->fontController = std::make_unique<RuntimeFontController>(runtime);
+    
+    // 3. Khởi tạo Atlas riêng cho Window Context
+    if (!runtime->fontController->InitializeImGuiFontAtlas()) {
         return false;
     }
-    runtime->resource.imguiCtx = ImGui::CreateContext(shared_atlas_ptr->m_sharedFontAtlas.get());
+    // 4. Tạo ImGui Context sử dụng Atlas riêng của window đó
+    runtime->resource.imguiCtx = ImGui::CreateContext(runtime->fontController->GetAtlas());
     ImGui::SetCurrentContext(runtime->resource.imguiCtx);
+
     return true;
 }
 
@@ -128,6 +162,7 @@ bool WindowInitializer::InitializeThread(WindowRuntime* runtime) {
 
 void WindowInitializer::InitializeNative(WindowRuntime* runtime) {
     NativeWindowRegistrar::Register(runtime);
+    UpdateWindowState(runtime);
 }
 
 void WindowInitializer::InitializeRenderer(WindowRuntime* runtime) {

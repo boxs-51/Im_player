@@ -13,6 +13,7 @@
 #include <iostream>
 #include <unordered_set>
 #include <regex>
+#include <SDL2/SDL.h>
 
 using json = nlohmann::json;
 
@@ -117,6 +118,14 @@ namespace {
         } catch (...) {}
         return result;
     }
+
+    int GetDisplayMonitorHeight() {
+        SDL_DisplayMode mode;
+        if (SDL_GetCurrentDisplayMode(0, &mode) == 0 && mode.h > 0) {
+            return mode.h;
+        }
+        return 1080;
+    }
 }
 
 // ---------------------------- Member Methods implementation ----------------------------
@@ -131,17 +140,21 @@ void PlaybackObserver::UpdateVideoTypeInState(const VideoInfoResult& info) {
     });
 }
 
-void PlaybackObserver::BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup& videoGroup) {
+void PlaybackObserver::BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup& videoGroup, int screenHeight) {
     videoGroup.full_labels.clear();
     videoGroup.short_labels.clear();
     videoGroup.formats.clear();
     videoGroup.ids.clear();
     videoGroup.urls.clear();
 
-    videoGroup.full_labels.push_back("Auto");
+    std::string auto_fmt = "bestvideo[height<=" + std::to_string(screenHeight) + "]";
+    std::string auto_label = "Auto (Up to " + std::to_string(screenHeight) + "p)";
+
+    videoGroup.full_labels.push_back(auto_label);
     videoGroup.short_labels.push_back("Auto");
-    videoGroup.formats.push_back("bestvideo");
+    videoGroup.formats.push_back(auto_fmt);
     videoGroup.ids.push_back("auto");
+    videoGroup.urls.push_back("");
 
     std::unordered_set<std::string> seen;
     auto simplifyCodec = [](const std::string& codec) -> std::string {
@@ -156,10 +169,11 @@ void PlaybackObserver::BuildVideoOptions(const std::vector<ResolutionOption>& vi
         int height = 0;
         try { height = std::stoi(vf.resolution.substr(vf.resolution.find('x') + 1)); } catch (...) {}
 
-        std::string key = shortCodec + "#" + std::to_string(height);
+        std::string key = shortCodec + "#" + std::to_string(height) + "#" + vf.frame_rate;
         if (seen.count(key)) continue;
 
-        std::string short_label = vf.resolution;
+        std::string short_label = vf.resolution.empty() ? "Unknown" : vf.resolution;
+        if (!vf.frame_rate.empty() && vf.frame_rate != "30fps") short_label += " (" + vf.frame_rate + ")";
         std::string full_label = short_label;
         if (!vf.frame_rate.empty()) full_label += " @" + vf.frame_rate;
         if (!shortCodec.empty()) full_label += " • " + shortCodec;
@@ -170,6 +184,8 @@ void PlaybackObserver::BuildVideoOptions(const std::vector<ResolutionOption>& vi
         std::string format;
         if (!vf.resolution.empty()) format += "bestvideo[height<=" + std::to_string(height) + "]";
         if (!shortCodec.empty()) format += "[vcodec^=" + shortCodec + "]";
+
+        if (format.empty()) format = "bestvideo";
 
         videoGroup.full_labels.push_back(full_label);
         videoGroup.short_labels.push_back(short_label);
@@ -191,6 +207,8 @@ void PlaybackObserver::BuildAudioOptions(const std::vector<ResolutionOption>& au
     audioGroup.full_labels.push_back("Auto");
     audioGroup.short_labels.push_back("Auto");
     audioGroup.formats.push_back("bestaudio/best");
+    audioGroup.ids.push_back("auto");
+    audioGroup.urls.push_back("");
 
     std::unordered_set<std::string> seen;
 
@@ -221,25 +239,26 @@ void PlaybackObserver::BuildAudioOptions(const std::vector<ResolutionOption>& au
 }
 
 std::string PlaybackObserver::BuildCombinedFormat(const MediaFormatsModel& allFormats) {
-    std::string videoFmt = allFormats.active_video.value_or("bestvideo");
-    std::string audioFmt = allFormats.active_audio.value_or("bestaudio");
-    std::string format = videoFmt + "+" + audioFmt;
-
-    ConfigManager::Instance().UpdateVideoSettings([format](AppSettings& s) {
-        s.selectedResolution = format;
-    });
-
-    return format;
+    std::string videoFmt = allFormats.active_video.value_or("bestvideo[height<=1080]");
+    std::string audioFmt = allFormats.active_audio.value_or("bestaudio/best");
+    return videoFmt + "+" + audioFmt;
 }
 
 void PlaybackObserver::BuildAllFormats(const VideoInfoResult& info) {
     auto& Cfg = ConfigManager::Instance();
     MediaFormatsModel localFormats;
 
-    BuildVideoOptions(info.video_formats, localFormats.video);
+    int screenHeight = GetDisplayMonitorHeight();
+    BuildVideoOptions(info.video_formats, localFormats.video, screenHeight);
 
     // --- Active Video ---
     std::string userVideo = Cfg.GetVideoSettings().selectedFormat;
+
+    if (userVideo.empty()) {
+        userVideo = "bestvideo[height<=" + std::to_string(screenHeight) + "]";
+        Cfg.UpdateVideoSettings([userVideo](AppSettings& s) { s.selectedFormat = userVideo; });
+    }
+
     localFormats.video_index = 0;
     localFormats.active_video = std::nullopt;
 
@@ -254,6 +273,8 @@ void PlaybackObserver::BuildAllFormats(const VideoInfoResult& info) {
             Cfg.UpdateVideoSettings([target](AppSettings& s) { s.selectedFormat = target; });
             localFormats.video_index = 0;
         }
+    } else if (!localFormats.video.formats.empty()) {
+        localFormats.active_video = localFormats.video.formats[0];
     }
 
     BuildAudioOptions(info.audio_formats, localFormats.audio);
@@ -261,6 +282,7 @@ void PlaybackObserver::BuildAllFormats(const VideoInfoResult& info) {
     // --- Active Audio ---
     std::string userAudio = Cfg.GetVideoSettings().selectedAudio;
     localFormats.audio_index = 0;
+    localFormats.active_audio = std::nullopt;
 
     if (!userAudio.empty()) {
         auto it = std::find(localFormats.audio.formats.begin(), localFormats.audio.formats.end(), userAudio);
@@ -273,17 +295,17 @@ void PlaybackObserver::BuildAllFormats(const VideoInfoResult& info) {
             Cfg.UpdateVideoSettings([target](AppSettings& s) { s.selectedAudio = target; });
             localFormats.audio_index = 0;
         }
+    } else if (!localFormats.audio.formats.empty()) {
+        localFormats.active_audio = localFormats.audio.formats[0];
     }
 
     UpdateVideoTypeInState(info);
 
     std::string combinedFormat = BuildCombinedFormat(localFormats);
 
-    // Áp dụng trực tiếp qua m_commander
     m_commander.SetPropertyString("ytdl-format", combinedFormat);
     Cfg.SaveVideo();
 
-    // ✅ Đưa toàn bộ Formats vừa build xong vào State System chung thread-safe
     m_state.WritePlayback([localFormats](PlaybackModel& m) {
         m.formats = localFormats;
     });

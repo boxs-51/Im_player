@@ -3,7 +3,7 @@
 - **Source Files:** 6 (approx.)
 - **Hash:** [N/A for now]
 - **Depends On:** `mpv/player`, `mpv/observer`
-- **Scanned Files:** `PlayerManager.h`, `PlayerSession.h`, `Player.h`, `PlaybackObserver.h`, `PlaybackCommandDispatcher.h`, ...
+- **Scanned Files:** `PlayerManager.h`, `PlayerSession.h`, `Player.h`, `PlaybackObserver.h`, `PlaybackCommand.h`, ...
 
 # 📂 Folder: `mpv/session`
 
@@ -20,7 +20,7 @@
 
 ### Ownership & Lifetime
 - `PlayerManager` (Singleton) **owns** all `PlayerSession` objects via `std::vector<std::unique_ptr<PlayerSession>>`.
-- `PlayerSession` (Facade/Composite) **owns** its `Player`, `PlaybackObserver`, and `PlaybackCommandDispatcher`.
+- `PlayerSession` (Facade/Composite) **owns** its `Player`, `PlaybackObserver`, and `PlaybackCommand`.
 - The lifetime of a session is managed by `PlayerManager`.
 
 ## 3. Thread Model & Event/Data Flow

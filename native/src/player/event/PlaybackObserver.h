@@ -6,7 +6,7 @@
 
 class Player; // Forward declaration
 class PlayerStateSystem;
-class PlaybackCommandDispatcher;
+class PlaybackCommand;
 
 struct VideoInfoResult;
 struct ResolutionOption;
@@ -15,7 +15,7 @@ struct MediaFormatsModel;
 
 class PlaybackObserver {
 public:
-    PlaybackObserver(Player& player, PlayerStateSystem& state, PlaybackCommandDispatcher& commander);
+    PlaybackObserver(Player& player, PlayerStateSystem& state, PlaybackCommand& commander);
 
     void Init();
     void ProcessEvents();
@@ -27,7 +27,7 @@ private:
     // --- YTDL Format Parsing & Building Helpers ---
     void HandleYTDLLog(const std::string& text);
     void BuildAllFormats(const VideoInfoResult& info);
-    void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup& videoGroup);
+    void BuildVideoOptions(const std::vector<ResolutionOption>& videoFormats, FormatGroup& videoGroup, int screenHeight);
     void BuildAudioOptions(const std::vector<ResolutionOption>& audioFormats, FormatGroup& audioGroup);
     std::string BuildCombinedFormat(const MediaFormatsModel& allFormats);
     void UpdateVideoTypeInState(const VideoInfoResult& info);
@@ -55,6 +55,6 @@ private:
 
     Player& m_player;
     PlayerStateSystem& m_state;
-    PlaybackCommandDispatcher& m_commander;
+    PlaybackCommand& m_commander;
     mpv_handle* m_mpv;
 };

@@ -222,8 +222,6 @@ inline Vec4& operator/=(Vec4& lhs, float scalar) { lhs.x /= scalar; lhs.y /= sca
 
 void UpdateHoverAnim(float& animValue, bool isHovering, float speed = 12.0f);
 
-void ApplyDynamicMPVConfig(mpv_handle* mpv);
-void ApplyStaticMPVConfig(mpv_handle* mpv);
 void LoadAllScripts(mpv_handle* mpv);
 void TerminateHandler();
 void SignalHandler(int signal);
@@ -413,7 +411,7 @@ namespace TextUtils {
         if (text.length() <= maxLen) return text;
         return text.substr(0, maxLen) + "...";
     }
-    inline std::string TruncateTextByPixels(const char* text, float max_width) {
+    inline std::string TruncateTextByPixels(const char* text, float max_width = 10.f) {
         std::string s = text;
         ImVec2 size = ImGui::CalcTextSize(s.c_str());
         if (size.x <= max_width) return s;
@@ -571,8 +569,8 @@ namespace TextUtils {
 #include <thread>
 #include <cmath>
 #include <cstdint>
+#include <algorithm>
 
-// Tự động nhận diện SDL nếu header SDL.h đã được include trước đó
 #ifdef SDL_H_
     #define HAS_SDL
 #endif
@@ -581,69 +579,115 @@ class FrameTimer {
 public:
     /**
      * @brief Khởi tạo FrameTimer
-     * @param targetFPS Số khung hình tối đa mục tiêu trong 1 giây (Mặc định: 30).
-     * @note Điều kiện cần: targetFPS > 0 để tránh lỗi chia cho 0 khi tính frameDelay.
+     * @param targetFPS Tần số khung hình tối đa ban đầu
      */
     FrameTimer(int targetFPS = 30) {
-        setTargetFPS(targetFPS);
         auto now = std::chrono::high_resolution_clock::now();
         lastFrameTime = now;
         fpsTimestamp = now;
         startPoint = now;
-        
-        // Khởi tạo các mốc thời gian cho helper functions
         lastCallTime = now;
         lastInstantFrameTime = now;
+
+        setTargetFPS(targetFPS, 0.0f, true); // Khởi tạo lần đầu
     }
 
     /**
-     * @brief Thiết lập giới hạn FPS mục tiêu
-     * @param fps Tần số khung hình mong muốn
-     * @note Điều kiện cần: Nên truyền fps > 0. Nếu fps <= 0, hệ thống tự ép về 1 FPS.
+     * @brief Đặt FPS mục tiêu mới với cơ chế Smooth Transition Delay cho UI Animation
+     * @param fps Tần số khung hình mong muốn (Tự ép về 1 nếu <= 0)
+     * @param transition_delay_sec Thời gian hoãn (giây) khi hạ từ FPS Cao -> Thấp để UI chạy xong hiệu ứng (Mặc định 0.5s)
+     * @param forceImmediate Ép chuyển đổi ngay lập tức bỏ qua delay
      */
-    void setTargetFPS(int fps = 30) {
-        targetFPS = fps;
-        // Tính toán độ trễ mục tiêu dưới dạng microseconds
-        frameDelay = std::chrono::microseconds(1000000 / (targetFPS > 0 ? targetFPS : 1));
+    void setTargetFPS(int fps = 30, float transition_delay_sec = 0.5f, bool forceImmediate = false) {
+        int newFPS = (fps > 0) ? fps : 1;
+
+        if (newFPS == pendingTargetFPS && !forceImmediate) return;
+
+        pendingTargetFPS = newFPS;
+
+        // Trường hợp 1: Chuyển từ THẤP -> CAO (Tăng FPS) hoặc Ép ngay lập tức
+        if (pendingTargetFPS >= targetFPS || forceImmediate) {
+            targetFPS = pendingTargetFPS;
+            frameDelay = std::chrono::microseconds(1000000 / targetFPS);
+            fps_transition_timer = 0.0f; // Hủy bộ đếm chờ
+            resetTimingState();          // Reset để xóa khoảng Sleep thừa của FPS thấp
+        }
+        // Trường hợp 2: Chuyển từ CAO -> THẤP (Hạ FPS)
+        else {
+            // Đặt vào hàng chờ và đếm ngược delay để UI hoàn thành animation mượt mà
+            fps_transition_delay = transition_delay_sec;
+            fps_transition_timer = transition_delay_sec;
+        }
     }
 
     /**
-     * @brief Đánh dấu thời điểm BẮT ĐẦU xử lý/render của frame hiện tại
-     * @note Điều kiện cần: Phải được gọi ở BẮT ĐẦU vòng lặp main loop.
+     * @brief Reset mốc thời gian thực tế để tránh xé hình hoặc giật lag đột ngột
+     */
+    void resetTimingState() {
+        auto now = std::chrono::high_resolution_clock::now();
+        startPoint = now;
+        lastFrameTime = now;
+        fpsTimestamp = now;
+        lastCallTime = now;
+        lastInstantFrameTime = now;
+
+        deltaTime = 1.0f / static_cast<float>(targetFPS);
+        smoothedFPS = static_cast<float>(targetFPS);
+        currentFPS = static_cast<float>(targetFPS);
+        frameCount = 0;
+    }
+
+    /**
+     * @brief Đánh dấu thời điểm BẮT ĐẦU frame
      */
     void startFrame() {
         startPoint = std::chrono::high_resolution_clock::now();
     }
 
     /**
-     * @brief Đánh dấu KẾT THÚC frame, tiến hành delay khóa FPS và tính toán DeltaTime/FPS
-     * @note Điều kiện cần: 
-     *       - Phải được gọi ở KẾT THÚC vòng lặp main loop.
-     *       - Phải được gọi BẮT BUỘC sau startFrame() trong cùng một khung hình.
+     * @brief Đánh dấu KẾT THÚC frame, tiến hành delay khóa FPS và cập nhật bộ đếm
      */
     void endFrame() {
         auto endPoint = std::chrono::high_resolution_clock::now();
         auto duration = std::chrono::duration_cast<std::chrono::microseconds>(endPoint - startPoint);
 
-        // Khống chế FPS bằng cách Sleep/Delay khoảng thời gian dư thừa
+        // 1. Khống chế FPS bằng Delay/Sleep
         if (duration < frameDelay) {
             auto sleepTime = frameDelay - duration;
             
 #ifdef HAS_SDL
-            // SDL_Delay sử dụng milliseconds.
-            SDL_Delay(static_cast<uint32_t>(sleepTime.count() / 1000));
+            uint32_t ms = static_cast<uint32_t>(sleepTime.count() / 1000);
+            if (ms > 0) {
+                SDL_Delay(ms);
+            }
 #else
-            // C++ Standard sleep
             std::this_thread::sleep_for(sleepTime);
 #endif
         }
 
-        // Tính Delta Time (thời gian thực tế trôi qua giữa 2 lần kết thúc frame liên tiếp)
+        // 2. Tính Delta Time thực tế giữa 2 frame
         auto now = std::chrono::high_resolution_clock::now();
-        deltaTime = std::chrono::duration<float>(now - lastFrameTime).count();
+        float calculatedDelta = std::chrono::duration<float>(now - lastFrameTime).count();
+        
+        // Clamp Delta Time để chống va chạm vật lý/UI bị giật khi đơ khung hình
+        float maxAllowedDelta = (1.0f / static_cast<float>(targetFPS)) * 2.5f;
+        deltaTime = std::min(calculatedDelta, maxAllowedDelta);
+
         lastFrameTime = now;
 
-        // Cập nhật bộ đếm chuyển đổi trạng thái every_frame (khi chuyển từ FPS cao -> thấp)
+        // 3. Xử lý bộ đếm Delay chuyển đổi FPS (Từ Cao -> Thấp)
+        if (fps_transition_timer > 0.0f) {
+            fps_transition_timer -= deltaTime;
+            if (fps_transition_timer <= 0.0f) {
+                // Đã hết thời gian hoãn UI animation -> Tiến hành hạ FPS chính thức
+                targetFPS = pendingTargetFPS;
+                frameDelay = std::chrono::microseconds(1000000 / targetFPS);
+                fps_transition_timer = 0.0f;
+                resetTimingState();
+            }
+        }
+
+        // 4. Cập nhật bộ đếm 'every_frame' (Skip frame logic)
         if (transition_timer > 0.0f) {
             transition_timer -= deltaTime;
             if (transition_timer <= 0.0f) {
@@ -653,136 +697,86 @@ public:
         
         totalFrames++;
 
-        // Tính FPS trung bình (Cập nhật định kỳ 0.5 giây / lần)
+        // 5. Tính FPS trung bình (Cập nhật 0.5s/lần)
         frameCount++;
         float elapsedSinceFPSUpdate = std::chrono::duration<float>(now - fpsTimestamp).count();
         if (elapsedSinceFPSUpdate >= 0.5f) {
-            currentFPS = frameCount / elapsedSinceFPSUpdate;
+            currentFPS = static_cast<float>(frameCount) / elapsedSinceFPSUpdate;
             frameCount = 0;
             fpsTimestamp = now;
         }
     }
 
-    /**
-     * @brief Lấy Delta Time tính bằng giây
-     * @return Thời gian thực tế trôi qua giữa 2 frame (giây).
-     * @note Điều kiện cần: Cần gọi endFrame() ít nhất 1 lần để deltaTime có giá trị thực tế hợp lệ.
-     */
     float getDeltaTime() const { return deltaTime; }
-
-    /**
-     * @brief Lấy FPS trung bình (đã được làm mượt qua chu kỳ 0.5s)
-     * @return Tần số khung hình trung bình
-     * @note Điều kiện cần: endFrame() phải được gọi đều đặn trong main loop.
-     */
     float getFPS() const { return currentFPS; }
-    
-    /**
-     * @brief Tính toán FPS tức thời độc lập giữa 2 lần gọi hàm này
-     * @return FPS tính từ lần gọi hàm trước đến lần gọi hàm này
-     * @note Điều kiện cần: Hàm này cần được gọi liên tục mỗi frame. Tránh dùng chung lúc với endFrame() nếu không muốn tính trùng lặp.
-     */
+
     float updateAndGetFPS() {
         auto now = std::chrono::high_resolution_clock::now();
-        
         std::chrono::duration<float> elapsed = now - lastCallTime;
         lastCallTime = now;
 
         float dt = elapsed.count();
-        
-        // Tránh chia cho 0 nếu vòng lặp quá nhanh
-        if (dt > 0.0f) {
-            return 1.0f / dt;
-        }
-        return 0.0f;
+        return (dt > 0.0f) ? (1.0f / dt) : 0.0f;
     }
 
-    /**
-     * @brief Lấy FPS tức thời đã qua bộ lọc làm mượt EMA (Exponential Moving Average)
-     * @return FPS tức thời mượt mà (không bị nhảy số quá gắt)
-     * @note Điều kiện cần: Phải được gọi liên tục mỗi frame để thuật toán LERP/EMA hoạt động chuẩn xác.
-     */
     float getInstantFPS() {
         auto now = std::chrono::high_resolution_clock::now();
-
         float frameTime = std::chrono::duration<float>(now - lastInstantFrameTime).count();
         lastInstantFrameTime = now;
 
         if (frameTime > 0.0f) {
             float current = 1.0f / frameTime;
-            // Công thức LERP (Smooth factor 0.1f)
             smoothedFPS = smoothedFPS * 0.9f + current * 0.1f;
         }
         return smoothedFPS;
     }
 
-    /**
-     * @brief Kiểm tra tổng số frame đã đạt tới mốc target hay chưa
-     * @param target Mốc tổng số frame cần kiểm tra
-     * @note Điều kiện cần: totalFrames được tích lũy tự động sau mỗi lần gọi endFrame().
-     */
     bool hasReached(uint64_t target) const {
         return totalFrames >= target;
     }
 
-    /**
-     * @brief Kiểm tra xem frame hiện tại có thỏa mãn chu kỳ 'every_frame' hay không
-     * @return true nếu frame hiện tại cần thực hiện logic (ví dụ: Skip Frame / Render / AI Check)
-     * @note Điều kiện cần: 
-     *       - every_frame > 0 và totalFrames > 0 (đã chạy qua endFrame ít nhất 1 lần).
-     */
     bool isEvery() const {
         if (every_frame <= 0 || totalFrames == 0) return false;
         double result = std::fmod((double)totalFrames, (double)every_frame);
         return (result < 1.0);
     }
 
-    /**
-     * @brief Đặt khoảng cách chu kỳ frame (Cập nhật tức thì nếu nhanh hơn, hoặc trễ nếu chậm hơn)
-     * @param target_n Số lượng frame bỏ qua mục tiêu
-     * @param delay_seconds Thời gian trễ trước khi chuyển giao (mặc định 0.5s)
-     * @note Điều kiện cần: target_n > 0.
-     */
     void set_ev_frame(double target_n, float delay_seconds = 0.5f) {
-        // Trường hợp 1: Chuyển từ CHẬM sang NHANH (every_frame giảm)
         if (target_n < every_frame) {
-            every_frame = target_n;         // Áp dụng ngay lập tức
-            pending_every_frame = target_n; // Đồng bộ biến chờ
-            transition_timer = 0.0f;        // Hủy bỏ mọi bộ đếm đợi
+            every_frame = target_n;
+            pending_every_frame = target_n;
+            transition_timer = 0.0f;
         } 
-        // Trường hợp 2: Chuyển từ NHANH sang CHẬM (every_frame tăng)
         else if (target_n > every_frame) {
             if (target_n != pending_every_frame) {
-                pending_every_frame = target_n;  // Đặt mục tiêu mới vào hàng chờ
-                transition_timer = delay_seconds; // Bắt đầu đếm ngược delay
+                pending_every_frame = target_n;
+                transition_timer = delay_seconds;
             }
         }
     }
 
-    /**
-     * @brief Reset bộ đếm tổng số khung hình về 0
-     */
-    void resetTotalFrames() {
-        totalFrames = 0;
-    }
-
-    /**
-     * @brief Lấy tổng số frame đã xử lý từ lúc khởi tạo hoặc reset
-     */
+    void resetTotalFrames() { totalFrames = 0; }
     uint64_t getTotalFrames() const { return totalFrames; }
+    
+    int getTargetFPS() const { return targetFPS; }
+    bool isTransitioning() const { return fps_transition_timer > 0.0f; }
 
 private:
-    int targetFPS;
-    std::chrono::microseconds frameDelay;
+    int targetFPS = 30;
+    int pendingTargetFPS = 30;
+    std::chrono::microseconds frameDelay{33333};
+    
+    // Bộ đếm hoãn hạ FPS cho Animation/UI
+    float fps_transition_delay = 0.5f;
+    float fps_transition_timer = 0.0f;
+
     std::chrono::high_resolution_clock::time_point startPoint;
     std::chrono::high_resolution_clock::time_point lastFrameTime;
     
-    // Đã chuyển các biến static về member Variables để đảm bảo Thread/Instance-safe
     std::chrono::high_resolution_clock::time_point lastCallTime;
     std::chrono::high_resolution_clock::time_point lastInstantFrameTime;
     float smoothedFPS = 0.0f;
 
-    // Các biến phục vụ tính FPS
     std::chrono::high_resolution_clock::time_point fpsTimestamp;
     int frameCount = 0;
     float currentFPS = 0.0f;

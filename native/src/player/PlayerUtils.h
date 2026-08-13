@@ -3,7 +3,7 @@
 #include "player/PlayerStateSystem.h"
 #include <iostream>
 
-void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::string>& options, bool isProperty = false) {
+static void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::string>& options, bool isProperty = false) {
     for (const auto& [key, value] : options) {
         if (isProperty)
             mpv_set_property_string(mpv, key.c_str(), value.c_str());
@@ -11,7 +11,8 @@ void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::s
             mpv_set_option_string(mpv, key.c_str(), value.c_str());
     }
 }
-void ApplyStaticMPVConfig(mpv_handle* mpv) {
+
+inline void ApplyStaticMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
     
     SetMPVOptions(mpv, {
@@ -35,7 +36,7 @@ void ApplyStaticMPVConfig(mpv_handle* mpv) {
     });
     
 }
-void ApplyDynamicMPVConfig(mpv_handle* mpv, VideoType type) {
+inline void ApplyDynamicMPVConfig(mpv_handle* mpv, VideoType type) {
     if (!mpv) return;
 
     std::unordered_map<std::string, std::string> config;
@@ -113,7 +114,7 @@ void ApplyDynamicMPVConfig(mpv_handle* mpv, VideoType type) {
     SetMPVOptions(mpv, config, true);
 }
 
-void PrintMPVNode(mpv_handle* mpv, const mpv_node* node, int indent = 0) {
+inline static void PrintMPVNode(mpv_handle* mpv, const mpv_node* node, int indent = 0) {
     if (!mpv) return;
 
     mpv_node result;
@@ -202,7 +203,7 @@ static void HandlePropertyChange(mpv_handle* mpv, mpv_event* event) {
 }
 
 
-const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
+inline const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
     if (!node || node->format != MPV_FORMAT_NODE_MAP)
         return nullptr;
 
@@ -215,7 +216,7 @@ const mpv_node* mpv_node_dict_find(const mpv_node *node, const char *key) {
     return nullptr;
 }
 
-const char* PlaybackStateToString(PlaybackState state) {
+inline const char* PlaybackStateToString(PlaybackState state) {
     switch (state) {
         case PlaybackState::Idle:        return "Idle";
         case PlaybackState::Loading:     return "Loading";
@@ -227,7 +228,7 @@ const char* PlaybackStateToString(PlaybackState state) {
     }
 }
 
-const char* VideoTypeToString(VideoType type) {
+inline const char* VideoTypeToString(VideoType type) {
     switch (type) {
         case VideoType::None:          return "None";
         case VideoType::Vio:           return "Vio Video";

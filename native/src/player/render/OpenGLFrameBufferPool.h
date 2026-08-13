@@ -13,7 +13,7 @@ public:
     void Shutdown() override;
     int AcquireFreeBuffer() override;
     FrameTextureInfo GetStableFrame() override;
-    void MarkAsReady(int index) override;
+    void MarkAsReady(int index, uint64_t frameId) override;
     FrameNode& GetFrame(int index) override;
     void ResizeFrame(int index, int targetW, int targetH) override;
 
@@ -21,7 +21,9 @@ private:
     void ClearFence(GraphicsFenceHandle& fence);
 
 private:
-    std::array<FrameNode, 3> m_frames;
+    static constexpr int NUM_BUFFERS = 5; // Tăng số lượng buffer từ 3 lên 5
+
+    std::array<FrameNode, NUM_BUFFERS> m_frames;
     std::atomic<int> m_currentDisplayIndex{ -1 };
     const int MAX_W;
     const int MAX_H;

@@ -2,6 +2,9 @@
 #include "backends/IGraphicsBackend.h"
 #include "WindowManager.h" // Thêm để lấy mutex
 #include "WindowRenderer.h"
+#include "UpdateWindowState.h"
+#include "WindowDefs.h"
+#include "WindowSnapshot.h"
 
 #include <imgui.h>
 #include "common/Exception.h"
@@ -87,12 +90,6 @@ void UIRenderThread::Run()
             return;
         }
 
-        // XÓA BỎ LỆNH NÀY. Việc tắt V-Sync (giá trị 0) là một trong những nguyên nhân chính
-        // gây ra hiện tượng chớp đen khi resize. Chúng ta sẽ để cho backend
-        // (OpenGLBackend) tự quyết định giá trị swap interval, hiện tại đang là 1 (bật V-Sync),
-        // giúp đồng bộ hóa việc vẽ và chống xé hình/chớp.
-        // SDL_GL_SetSwapInterval(0);
-
         while (m_running)
         {
             {
@@ -111,57 +108,63 @@ void UIRenderThread::Run()
                 }
 
                 // Nếu không có yêu cầu render, có thể chỉ là yêu cầu resize, quay lại chờ
-                // if (!m_needsRender) {
-                //    continue;
-                //}
+                if (!m_needsRender) {
+                    continue;
+                }
 
                 m_needsRender = false; // Reset cờ yêu cầu
             }
 
-            // --- BẮT ĐẦU VÙNG AN TOÀN LUỒNG ---
-            // Khóa mutex của runtime để đảm bảo không có luồng nào khác
-            // (đặc biệt là luồng chính) thay đổi trạng thái trong khi chúng ta đang vẽ.
-            std::lock_guard<std::mutex> stateLock(m_ownerRuntime->stateMutex);
-
-            // Chỉ render nếu cửa sổ đang hiển thị
-            if (!m_ownerRuntime->state.display.isVisible)
-                continue;
-
+            {
+                std::lock_guard<std::mutex> lock(m_ownerRuntime->stateMutex);
+                // Chỉ render nếu cửa sổ đang hiển thị
+                if (!m_ownerRuntime->state.display.isVisible)
+                    continue;
+            }
+            
             // Sử dụng FrameTimer của chính cửa sổ này
             if (!m_ownerRuntime->windowloop)
                 continue;
-            m_ownerRuntime->windowloop->startFrame();
 
-            // --- LOGIC RENDER ĐƠN GIẢN HÓA ---
-            // Luồng này chỉ render cho m_ownerRuntime
-            WindowRuntime *currentWindow = m_ownerRuntime;
-
-            // Kích hoạt context đồ họa cho cửa sổ hiện tại và kiểm tra kết quả
-            if (!m_graphicsBackend->MakeCurrent(currentWindow->resource.sdlWindow, m_graphicsContext))
             {
-                SDL_Log("UIRenderThread Error: MakeCurrent failed for window ID %u", currentWindow->info.id);
-                // Giải phóng lock trước khi sleep/yield để tránh giữ stateMutex gây deadlock cho Main Thread
+    
+                std::lock_guard<std::mutex> lock(m_ownerRuntime->frameSyncMutex);
+                std::shared_ptr<const WindowSnapshot> snapshot = m_ownerRuntime->CaptureSnapshot();
+ 
+                m_ownerRuntime->windowloop->startFrame();
+
+                // --- LOGIC RENDER ĐƠN GIẢN HÓA ---
+                // Luồng này chỉ render cho m_ownerRuntime
+                WindowRuntime *currentWindow = m_ownerRuntime;
+                
+                // Kích hoạt context đồ họa cho cửa sổ hiện tại và kiểm tra kết quả
+                if (!m_graphicsBackend->MakeCurrent(currentWindow->resource.sdlWindow, m_graphicsContext))
+                {
+                    SDL_Log("UIRenderThread Error: MakeCurrent failed for window ID %u", currentWindow->info.id);
+                    // Giải phóng lock trước khi sleep/yield để tránh giữ stateMutex gây deadlock cho Main Thread
+                    m_ownerRuntime->windowloop->endFrame();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(10));
+                    continue;
+                }
+
+                if (currentWindow->resource.imguiCtx)
+                {
+                    ImGui::SetCurrentContext(currentWindow->resource.imguiCtx);
+                } // Đảm bảo đúng context ImGui
+
+                
+                m_graphicsBackend->BeginFrame(currentWindow->resource.sdlWindow);
+                
+                if (currentWindow->renderer)
+                {
+                    currentWindow->renderer->RenderUI(currentWindow, *snapshot);
+                }
+
+                m_graphicsBackend->EndFrame(currentWindow->resource.sdlWindow);
+                m_graphicsBackend->SwapWindow(currentWindow->resource.sdlWindow);
+
                 m_ownerRuntime->windowloop->endFrame();
-                std::this_thread::sleep_for(std::chrono::milliseconds(10));
-                continue;
             }
-
-            if (currentWindow->resource.imguiCtx)
-            {
-                ImGui::SetCurrentContext(currentWindow->resource.imguiCtx);
-            } // Đảm bảo đúng context ImGui
-
-            m_graphicsBackend->BeginFrame(currentWindow->resource.sdlWindow);
-
-            if (currentWindow->renderer)
-            {
-                currentWindow->renderer->RenderUI(currentWindow);
-            }
-
-            m_graphicsBackend->EndFrame(currentWindow->resource.sdlWindow);
-            m_graphicsBackend->SwapWindow(currentWindow->resource.sdlWindow);
-
-            m_ownerRuntime->windowloop->endFrame();
         }
     }
     catch (const std::exception &e)

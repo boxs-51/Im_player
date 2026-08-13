@@ -38,3 +38,5 @@ private:
     std::mutex m_mutex;
     std::condition_variable m_cv;
 };
+class WindowRuntime;
+void HandleWindowRuntimeEvent(WindowRuntime *runtime, const SDL_Event *e);

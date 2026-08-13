@@ -9,12 +9,9 @@
 #include "utils.h"
 #include <cmath>
 
-
-//static VideoAudioFormats& all_formats = GetVideoAudioFormats();
 enum class SettingsPage { Main, ResolutionQuality, AudioQuality, PlaybackSpeed, Options };
 enum class OptionsPage { Main, Subtitles };
 static SettingsPage current_page = SettingsPage::Main;
-static OptionsPage current_options_page = OptionsPage::Main;
 
 static float page_anim = 1.0f; 
 static SettingsPage last_page = SettingsPage::Main;
@@ -28,7 +25,6 @@ static auto ChangePage = [](SettingsPage next) {
 };
 
 void ResolutionQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, VideoType videotype, float scale) {
-    
     ImGui::PushStyleVar(ImGuiStyleVar_ScrollbarSize, 4.0f * scale);
     ImGui::PushStyleColor(ImGuiCol_ScrollbarBg, IM_COL32(0,0,0,0));
     auto& Cfg = ConfigManager::Instance();
@@ -45,8 +41,6 @@ void ResolutionQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, V
         });
     }
 
-
-    
     if (ImGui::BeginChild("##res_scroll_area", ImVec2(0, 0), false, ImGuiWindowFlags_NoMove)) {
         for (int i = 0; i < (int)formats.video.full_labels.size(); ++i) {
             bool is_active = (formats.video_index == i);
@@ -63,22 +57,24 @@ void ResolutionQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, V
                     if (has_file) {
                         auto* commander = runtime->resource.GetPlayerSession()->GetCommander();
 
-                        if(videotype == VideoType::Live) {
+                        if (videotype == VideoType::Live) {
                             if (commander) 
                                 commander->SetPropertyString("ytdl-format", formats.video.ids[i]);
                         } else {
-                            if(auto* state = runtime->resource.GetPlayerSession()->GetState()){
+                            if (auto* state = runtime->resource.GetPlayerSession()->GetState()) {
                                 state->WritePlayback([](auto& m){
                                     m.pendingseektime = m.timing.timePos;
                                 });
                             }
    
-                            std::string selectedResolutio = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
-                            Cfg.UpdateVideoSettings([selectedResolutio](AppSettings& s) {
-                                s.selectedResolution = selectedResolutio;
+                            std::string currentAudio = Cfg.GetVideoSettings().selectedAudio;
+                            if (currentAudio.empty()) currentAudio = "bestaudio/best";
+                            std::string combinedFmt = formats.video.formats[i] + "+" + currentAudio;
+                            Cfg.UpdateVideoSettings([combinedFmt](AppSettings& s) {
+                                s.selectedResolution = combinedFmt;
                             });
                             if (commander) 
-                                commander->SetPropertyString("ytdl-format", selectedResolutio);
+                                commander->SetPropertyString("ytdl-format", combinedFmt);
                         }
                         std::string cmd = "playlist-play-index " + std::to_string(playingIndex);
                         if (commander) commander->Exec(cmd);
@@ -106,7 +102,6 @@ void AudioQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, VideoT
     if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()) {
         player_state->ReadPlayback([&](PlaybackModel const& m){
             has_file = m.timing.duration > 0.0f;
-
         });
         player_state->ReadPlaylist([&](auto const& m){
             playingIndex = m.g_PlayingIndex;
@@ -128,21 +123,23 @@ void AudioQualityPage(WindowRuntime* runtime, MediaFormatsModel& formats, VideoT
                     });
                     if (has_file) {
                         auto* commander = runtime->resource.GetPlayerSession()->GetCommander();
-                        if(videotype == VideoType::Live){
+                        if (videotype == VideoType::Live) {
                             if (commander) 
                                 commander->SetPropertyString("ytdl-format", formats.audio.ids[i]);
-                        }else{
-                            if(auto* state = runtime->resource.GetPlayerSession()->GetState()){
-                                state->WritePlayback([] (auto& m){
+                        } else {
+                            if (auto* state = runtime->resource.GetPlayerSession()->GetState()) {
+                                state->WritePlayback([](auto& m){
                                     m.pendingseektime = m.timing.timePos;
                                 });
                             }
-                            std::string selectedResolution = Cfg.GetVideoSettings().selectedFormat + "+" + Cfg.GetVideoSettings().selectedAudio;
-                            Cfg.UpdateVideoSettings([selectedResolution](AppSettings& s) {
-                                s.selectedAudio = selectedResolution;
+                            std::string currentVideo = Cfg.GetVideoSettings().selectedFormat;
+                            if (currentVideo.empty()) currentVideo = "bestvideo[height<=1080]";
+                            std::string combinedFmt = currentVideo + "+" + formats.audio.formats[i];
+                            Cfg.UpdateVideoSettings([combinedFmt](AppSettings& s) {
+                                s.selectedResolution = combinedFmt;
                             });
                             if (commander) 
-                                commander->SetPropertyString("ytdl-format", selectedResolution);
+                                commander->SetPropertyString("ytdl-format", combinedFmt);
                         }
                         
                         std::string cmd = "playlist-play-index " + std::to_string(playingIndex);
@@ -168,7 +165,6 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
         player_state->ReadPlayback([&](PlaybackModel const& m){
             current_speed = m.config.speed;
         });
-
     }
 
     ImGui::Indent(10 * scale);
@@ -219,7 +215,30 @@ void PlaybackSpeedPage(WindowRuntime* runtime, float scale) {
     ImGui::EndChild();
 }
 
-//void OptionsPage() {}
+void OptionsPage(WindowRuntime* runtime, float scale) {
+    auto& Cfg = ConfigManager::Instance();
+    auto videoCfg = Cfg.GetVideoSettings();
+
+    UI_GroupHeader("Tùy chọn hiển thị & âm thanh", scale);
+
+    bool isAudioVis = false;
+    if (auto* renderer = runtime->resource.GetPlayerSession()->GetRenderer()) {
+        isAudioVis = renderer->IsAudioVisualizerEnabled();
+        UI_Toggle("Trình chiếu âm thanh", &isAudioVis, scale, true, [renderer](bool enabled) {
+            renderer->SetAudioVisualizerEnabled(enabled);
+        });
+    }
+
+    bool enableSubtitles = videoCfg.enableSubtitles;
+    UI_Toggle("Bật phụ đề mặc định", &enableSubtitles, scale, true, [&](bool s) {
+        Cfg.UpdateVideoSettings([s](AppSettings& ss) {
+            ss.enableSubtitles = s;
+        });
+        if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
+            commander->SetPropertyString("sub-visibility", s ? "yes" : "no");
+        Cfg.SaveVideo();
+    });
+}
 
 void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize, bool open, ImVec2 iconPos) {
     static float anim = 0.0f;
@@ -233,7 +252,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
     bool has_file = false;
     bool hasSubtitles = false;
     MediaFormatsModel formats;
-    VideoType videotype;
+    VideoType videotype = VideoType::Vio;
     if (auto* player_state = runtime->resource.GetPlayerSession()->GetState()){
         player_state->ReadSubtitle([&](auto const& m){
             hasSubtitles = m.hasSubtitles;
@@ -256,7 +275,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
     float targetHeight = 350.0f * scaleFactor;
 
     if (current_page == SettingsPage::ResolutionQuality || 
-        current_page == SettingsPage::AudioQuality ) {
+        current_page == SettingsPage::AudioQuality) {
         targetWidth = 300.0f * scaleFactor;
         targetHeight = 370.0f * scaleFactor;
     }
@@ -339,8 +358,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 UI_GroupHeader("Tùy chọn", scaleFactor);
                 bool enableSubtitles = videoCfg.enableSubtitles;
                 UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, hasSubtitles, [&](bool s) {
-                    Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
-                        s.enableSubtitles = enableSubtitles;
+                    Cfg.UpdateVideoSettings([s](AppSettings& ss) {
+                        ss.enableSubtitles = s;
                     });
                     if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
                         commander->SetPropertyString("sub-visibility", s ? "yes" : "no");
@@ -348,8 +367,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 });
                 bool repeatVideo = videoCfg.repeatVideo;
                 UI_Toggle("Lặp lại video", &repeatVideo, scaleFactor, true, [&](bool s) {
-                    Cfg.UpdateVideoSettings([repeatVideo](AppSettings& s) {
-                        s.repeatVideo = repeatVideo;
+                    Cfg.UpdateVideoSettings([s](AppSettings& ss) {
+                        ss.repeatVideo = s;
                     });
                     if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
                         commander->SetPropertyString("loop-file", s ? "inf" : "no");
@@ -357,8 +376,8 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 });
                 bool autoPlayNext = videoCfg.autoPlayNext;
                 UI_Toggle("Tự động phát tiếp", &autoPlayNext, scaleFactor, true, [&](bool s) {
-                    Cfg.UpdateVideoSettings([autoPlayNext](AppSettings& s) {
-                        s.autoPlayNext = autoPlayNext;
+                    Cfg.UpdateVideoSettings([s](AppSettings& ss) {
+                        ss.autoPlayNext = s;
                     });
                     if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
                         commander->SetPropertyString("playlist-auto-advance", s ? "yes" : "no");
@@ -367,7 +386,7 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
 
                 if (auto* renderer = runtime->resource.GetPlayerSession()->GetRenderer()) {
                     bool isAudioVis = renderer->IsAudioVisualizerEnabled();
-                    UI_Toggle("Trình chiếu âm thanh ", &isAudioVis, scaleFactor, true, [renderer](bool enabled) {
+                    UI_Toggle("Trình chiếu âm thanh", &isAudioVis, scaleFactor, true, [renderer](bool enabled) {
                         renderer->SetAudioVisualizerEnabled(enabled);
                     });
                 }
@@ -403,45 +422,22 @@ void RenderIOCHSidebar(WindowRuntime* runtime, ImVec2 videoPos, ImVec2 videoSize
                 PlaybackSpeedPage(runtime, scaleFactor);
                 break;
             }
+
             case SettingsPage::Options:
             {
-                switch (current_options_page)
-                {
-                    case OptionsPage::Main:
-                    {
-                        if (CSImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
-                        ImGui::Separator();
-                        ImGui::Spacing();
+                if (CSImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) ChangePage(SettingsPage::Main);
+                ImGui::Separator();
+                ImGui::Spacing();
 
-                        UI_MenuItem("Tùy chọn Phụ đề", "Cài đặt phụ đề", scaleFactor, [&]() { current_options_page = OptionsPage::Subtitles; });
-                        break;
-                    }
-                    case OptionsPage::Subtitles:
-                    {
-                        if (CSImGui::ModernSelectable("< Quay lại", false, 0, ImVec2(0, 25))) current_options_page = OptionsPage::Main;
-                        ImGui::Separator();
-                        ImGui::Spacing();
-
-                        bool enableSubtitles = videoCfg.enableSubtitles;
-                        UI_Toggle("Phụ đề", &enableSubtitles, scaleFactor, hasSubtitles, [&](bool s) {
-                            Cfg.UpdateVideoSettings([enableSubtitles](AppSettings& s) {
-                                s.enableSubtitles = enableSubtitles;
-                            });
-                            if (auto* commander = runtime->resource.GetPlayerSession()->GetCommander()) 
-                                commander->SetPropertyString("sub-visibility", s ? "yes" : "no");
-                            Cfg.SaveVideo();
-                        });
-
-                        break;
-                    }
-                }
+                OptionsPage(runtime, scaleFactor);
                 break;
             }
         }
 
-        ImGui::PopStyleVar();
-        ImGui::End();
+        ImGui::PopStyleVar(); // Pop Alpha anim * page_anim
     }
+    ImGui::End();
+
+    ImGui::PopStyleVar(); // Pop Alpha anim
     CSImGui::PopModernWindowStyle();
-    ImGui::PopStyleVar();
 }

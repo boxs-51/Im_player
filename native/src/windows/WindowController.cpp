@@ -6,62 +6,82 @@
 #include "WindowManager.h" 
 #include "WindowRelation.h"
 #include "UIRenderThread.h"
+#include "UpdateWindowState.h"
+#include <algorithm>
 
 void WindowController::Move(int x, int y) {
     if (!runtime->resource.hwnd) return;
     SetWindowPos(runtime->resource.hwnd, nullptr, x, y, 0, 0, SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED);
-    runtime->state.geometry.x = x;
-    runtime->state.geometry.y = y;
 }
 
 void WindowController::Resize(int w, int h) {
     if (!runtime->resource.hwnd) return;
     SetWindowPos(runtime->resource.hwnd, nullptr, 0, 0, w, h, SWP_NOMOVE | SWP_NOZORDER | SWP_FRAMECHANGED);
-    runtime->state.geometry.width = w;
-    runtime->state.geometry.minWidth = h;
 }
 
 void WindowController::ToggleFullscreen() {
     if (!runtime->resource.hwnd || !runtime->resource.sdlWindow) return;
     
-    if (!runtime->state.display.isFullscreen) {
-        // 1. LƯU TRẠNG THÁI TRƯỚC KHI FULLSCREEN
-        GetWindowRect(runtime->resource.hwnd, &runtime->state.geometry.fullscreenRestoreRect);
+    HWND hwnd = runtime->resource.hwnd;
+    bool isFullscreen = false;
+
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        isFullscreen = runtime->state.display.isFullscreen;
+    }
+
+    if (!isFullscreen) {
+        WINDOWPLACEMENT placement{};
+        placement.length = sizeof(WINDOWPLACEMENT);
+
+        if (!GetWindowPlacement(hwnd, &placement)) return;
+
+        RECT restoreRect{};
+        if (!GetWindowRect(hwnd, &restoreRect)) return;
+
+        int restoreW = restoreRect.right - restoreRect.left;
+        int restoreH = restoreRect.bottom - restoreRect.top;
         
-        // Lưu lại trạng thái placement (để biết trước đó có đang Maximize hay không)
-        runtime->state.geometry.placement.length = sizeof(WINDOWPLACEMENT);
-        GetWindowPlacement(runtime->resource.hwnd, &runtime->state.geometry.placement);
-        
-        SDL_GetWindowSize(runtime->resource.sdlWindow, &runtime->state.geometry.restoreW, &runtime->state.geometry.restoreH);
+        {
+            std::lock_guard<std::mutex> lock(runtime->stateMutex);
+            runtime->state.geometry.fullscreenRestoreRect = restoreRect;
+            runtime->state.geometry.placement = placement;
+            runtime->state.geometry.restoreW = restoreW;
+            runtime->state.geometry.restoreH = restoreH;
+        }
 
-        RECT rcScreen;
-        SystemParametersInfo(SPI_GETWORKAREA, 0, &rcScreen, 0);
-        SetWindowPos(runtime->resource.hwnd, HWND_TOP, rcScreen.left, rcScreen.top,
-                    rcScreen.right - rcScreen.left,
-                    rcScreen.bottom - rcScreen.top,
-                    SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        HMONITOR monitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+        MONITORINFO mi{};
+        mi.cbSize = sizeof(MONITORINFO);
 
+        if (!GetMonitorInfo(hwnd ? monitor : nullptr, &mi)) return;
 
-        runtime->state.display.isFullscreen = true;
+        const RECT& rc = mi.rcWork;
+
+        SetWindowPos(hwnd, HWND_TOP, rc.left, rc.top, rc.right - rc.left, rc.bottom - rc.top, SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+
+        {
+            std::lock_guard<std::mutex> lock(runtime->stateMutex);
+            runtime->state.display.isFullscreen = true;
+        }
     } 
     else {
-        // Restore vị trí và kích thước windowed
-        RECT rc = runtime->state.geometry.fullscreenRestoreRect;
-        SetWindowPos(runtime->resource.hwnd, HWND_TOP,
-                    rc.left, rc.top,
-                    rc.right - rc.left,
-                    rc.bottom - rc.top,
-                    SWP_NOZORDER | SWP_FRAMECHANGED | SWP_SHOWWINDOW);
+        WINDOWPLACEMENT placement{};
+        {
+            std::lock_guard<std::mutex> lock(runtime->stateMutex);
+            placement = runtime->state.geometry.placement;
+        }
 
-        // Restore trạng thái maximize/minimize
-        SetWindowPlacement(runtime->resource.hwnd, &runtime->state.geometry.placement);
+        placement.length = sizeof(WINDOWPLACEMENT);
+        placement.showCmd = SW_SHOWNORMAL;
+        SetWindowPlacement(hwnd, &placement);
 
-        // Đồng bộ lại kích thước SDL
-        SDL_SetWindowPosition(runtime->resource.sdlWindow, rc.left, rc.top);
-        SDL_SetWindowSize(runtime->resource.sdlWindow, runtime->state.geometry.restoreW, runtime->state.geometry.restoreH);
-
-        runtime->state.display.isFullscreen = false;
+        {
+            std::lock_guard<std::mutex> lock(runtime->stateMutex);
+            runtime->state.display.isFullscreen = false;
+        }
     }
+    UpdateWindowState(runtime);
 }
 
 void WindowController::Close() {
@@ -83,34 +103,130 @@ void WindowController::SetTitle(const std::string& title) {
 void WindowController::Maximize() {
     if (runtime->resource.sdlWindow) {
         SDL_MaximizeWindow(runtime->resource.sdlWindow);
-        //runtime->state.isMaximized = true;
     }
 }
 
 void WindowController::Minimize() {
     if (runtime->resource.sdlWindow) {
         SDL_MinimizeWindow(runtime->resource.sdlWindow);
-        //runtime->state.isMinimized = true;
     }
 }
 
 void WindowController::Restore() {
     if (runtime->resource.sdlWindow) {
         SDL_RestoreWindow(runtime->resource.sdlWindow);
-        //runtime->state.isMaximized = false;
-        //runtime->state.isMinimized = false;
     }
 }
 
 void WindowController::SetOpacity(float opacity) {
     if (runtime->resource.sdlWindow) {
-        // Đảm bảo giá trị opacity nằm trong khoảng hợp lệ [0.0, 1.0]
         float clamped_opacity = std::max(0.0f, std::min(1.0f, opacity));
         SDL_SetWindowOpacity(runtime->resource.sdlWindow, clamped_opacity);
     }
 }
 
-// Định nghĩa Constructor/Destructor cho WindowRuntime tại đây để tránh vòng lặp include
+// =========================================================================
+// IMPLEMENTATION CÁC HÀM NÂNG CẤP MỚI
+// =========================================================================
+
+void WindowController::SetAlwaysOnTop(bool enable) {
+    HWND hwnd = runtime->resource.hwnd;
+    if (!hwnd) return;
+
+    // Cập nhật thuộc tính Always On Top qua API Win32
+    HWND hWndInsertAfter = enable ? HWND_TOPMOST : HWND_NOTOPMOST;
+    SetWindowPos(hwnd, hWndInsertAfter, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOACTIVATE);
+
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.display.isPinned = enable;
+    }
+
+    UpdateWindowState(runtime);
+}
+
+void WindowController::ToggleAlwaysOnTop() {
+    bool currentPinned = false;
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        currentPinned = runtime->state.display.isPinned;
+    }
+    SetAlwaysOnTop(!currentPinned);
+}
+
+void WindowController::Focus() {
+    if (runtime->resource.sdlWindow) {
+        SDL_RaiseWindow(runtime->resource.sdlWindow);
+    }
+    if (runtime->resource.hwnd) {
+        SetForegroundWindow(runtime->resource.hwnd);
+        SetFocus(runtime->resource.hwnd);
+    }
+}
+
+void WindowController::Show() {
+    if (runtime->resource.sdlWindow) {
+        SDL_ShowWindow(runtime->resource.sdlWindow);
+    }
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.display.isVisible = true;
+    }
+}
+
+void WindowController::Hide() {
+    if (runtime->resource.sdlWindow) {
+        SDL_HideWindow(runtime->resource.sdlWindow);
+    }
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.display.isVisible = false;
+    }
+}
+
+void WindowController::CenterOnScreen() {
+    HWND hwnd = runtime->resource.hwnd;
+    if (!hwnd) return;
+
+    HMONITOR hMonitor = MonitorFromWindow(hwnd, MONITOR_DEFAULTTONEAREST);
+    MONITORINFO mi = { sizeof(MONITORINFO) };
+    if (!GetMonitorInfo(hMonitor, &mi)) return;
+
+    RECT winRect;
+    if (!GetWindowRect(hwnd, &winRect)) return;
+
+    int winWidth  = winRect.right - winRect.left;
+    int winHeight = winRect.bottom - winRect.top;
+
+    int x = mi.rcWork.left + (mi.rcWork.right - mi.rcWork.left - winWidth) / 2;
+    int y = mi.rcWork.top  + (mi.rcWork.bottom - mi.rcWork.top - winHeight) / 2;
+
+    Move(x, y);
+}
+
+void WindowController::SetBordered(bool bordered) {
+    if (runtime->resource.sdlWindow) {
+        SDL_SetWindowBordered(runtime->resource.sdlWindow, bordered ? SDL_TRUE : SDL_FALSE);
+    }
+}
+
+void WindowController::Flash(bool start) {
+    HWND hwnd = runtime->resource.hwnd;
+    if (!hwnd) return;
+
+    FLASHWINFO fw = { sizeof(FLASHWINFO) };
+    fw.hwnd = hwnd;
+    fw.dwFlags = start ? (FLASHW_ALL | FLASHW_TIMERNOFG) : FLASHW_STOP;
+    fw.uCount = start ? 5 : 0;
+    fw.dwTimeout = 0;
+    
+    FlashWindowEx(&fw);
+}
+
+// =========================================================================
+// CONSTRUCTOR & DESTRUCTOR CỦA WINDOWRUNTIME
+// =========================================================================
+
 WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
     info.id = _id;
     resource.sdlWindow = _sdlWindow;
@@ -118,24 +234,33 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
 
     controller = std::make_unique<WindowController>(this);
 }
+
 WindowRuntime::~WindowRuntime() {
-    if(resource.imguiCtx)
-        ImGui::SetCurrentContext(resource.imguiCtx);
-        
+    // 1. Dừng luồng Render trước
     if (resource.uiRenderThread) {
         resource.uiRenderThread->Stop();
     }
+
+    // 2. Shutdown Backend
     if (resource.graphicsBackend) {
-        // Mỗi luồng tự shutdown backend của nó
         resource.graphicsBackend->Shutdown(true);
     }
-
+    // 3. Set Current Context và hủy Context ImGui TRƯỚC khi xóa Font Controller
     if (resource.imguiCtx) {
+        ImGui::SetCurrentContext(resource.imguiCtx);
         ImGui::DestroyContext(resource.imguiCtx);
         resource.imguiCtx = nullptr;
     }
+
+    // 4. Xóa FontController (Xóa Atlas) SAU khi Destroy Context
+    if (fontController) {
+        fontController.reset();
+    }
+
+    // 5. Hủy SDL Window vật lý
     if (resource.sdlWindow) {
         SDL_DestroyWindow(resource.sdlWindow);
+        resource.sdlWindow = nullptr;
     }
 }
 
@@ -150,7 +275,6 @@ std::vector<WindowRuntime*> WindowRuntime::GetChildren() {
 }
 
 bool WindowRuntime::HasVisibleChildren() {
-    // Sử dụng std::function để tạo một hàm đệ quy
     std::function<bool(WindowId)> checkRecursively = 
         [&](WindowId currentId) -> bool {
         WindowRuntime* currentWin = WindowManager::GetInstance().GetWindowById(currentId);

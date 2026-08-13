@@ -6,6 +6,7 @@
 #include "popup/popup_url.h"
 #include "gui/gui.h"
 #include "windows/WindowRuntime.h"
+#include "player/session/PlayerSession.h"
 
 #include <commdlg.h>  
 #include <vector>

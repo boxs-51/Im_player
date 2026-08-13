@@ -1,6 +1,8 @@
 #include "PlayerManager.h"
 
 #include <chrono>
+#include <memory>
+
 PlayerManager &PlayerManager::GetInstance()
 {
     static PlayerManager instance;

@@ -14,7 +14,7 @@ Tài liệu này mô tả kiến trúc và luồng hoạt động của các th�
            ┌────────────────────────────────────────────┴───────────────────────────────────────────┐
            │                                                                                        │
 ┌──────────▼──────────┐  ┌───────────▼──────────┐  ┌───────────▼──────────┐  ┌──────────▼───────────┐  ┌──────────▼──────────┐
-|     Player       |  |      PlayBackRender       |  |      PlaybackObserver     |  | PlaybackCommandDispatcher |  |     PlayBackProperty      |
+|     Player       |  |      PlayBackRender       |  |      PlaybackObserver     |  | PlaybackCommand |  |     PlayBackProperty      |
 └─────────────────────┘  └──────────────────────┘  └──────────────────────┘  └──────────────────────┘  └──────────────────────┘
  (Sở hữu mpv_handle)     (Sở hữu mpv_render_ctx)   (Lắng nghe sự kiện)       (Gửi lệnh)                (Get/Set thuộc tính)
                                 │

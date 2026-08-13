@@ -16,7 +16,7 @@ Mã nguồn hiện tại có một nền tảng kiến trúc **khá tốt về �
 
 - Đã bắt đầu tách `WindowRuntime`, `WindowManager`, `WindowFactory`, `WindowTemplate`.
 - Đã có `PlayerSession` thay vì để toàn bộ MPV nằm trực tiếp trong UI.
-- Đã tách `Player`, `PlaybackCommandDispatcher`, `PlayBackProperty`, `PlaybackObserver`.
+- Đã tách `Player`, `PlaybackCommand`, `PlayBackProperty`, `PlaybackObserver`.
 - Đã xây dựng `PlayerStateSystem` với snapshot/read/write và lock riêng cho từng nhóm state.
 - Đã có hướng `IGraphicsBackend` để mở đường cho OpenGL/D3D11.
 - Đã có `PlayBackRenderThread` và FBO pool cho pipeline render bất đồng bộ.
@@ -98,7 +98,7 @@ Application
 │   ├── Player
 │   ├── PlayerSession
 │   ├── PlayerManager
-│   ├── PlaybackCommandDispatcher
+│   ├── PlaybackCommand
 │   ├── PlayBackProperty
 │   ├── PlaybackObserver
 │   ├── PlayerStateSystem
@@ -1381,7 +1381,7 @@ Không trả raw pointer/reference từ concurrent container.
 
 # 13. MPV command layer cần kiểm tra error
 
-`PlaybackCommandDispatcher`:
+`PlaybackCommand`:
 
 ```cpp
 mpv_command(...)
@@ -3225,7 +3225,7 @@ Hiện tại có:
 std::cout
 std::cerr
 SDL_Log
-RATE_LIMITED_COUT
+LOG
 Python logging
 ```
 

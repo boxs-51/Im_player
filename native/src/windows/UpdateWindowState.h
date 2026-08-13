@@ -1,12 +1,13 @@
-// UpdateWindowState.cpp
+// UpdateWindowState.h
 #pragma once
 #include "WindowRuntime.h"
-#include "MainWindowState.h"
 #include "WindowManager.h"
 #include "WindowResource.h"
 #include "UIRenderThread.h"
 
 #include "player/session/PlayerSession.h"
+#include "player/PlayerStateSystem.h"
+#include "player/render/PlayBackRenderThread.h"
 
 #include <SDL.h>
 
@@ -15,34 +16,33 @@
 #endif
 
 
-// Hàm 1: Cập nhật trạng thái vật lý chung cho TẤT CẢ các cửa sổ
-inline void UpdateWindowStateCommon(WindowRuntime* runtime) {
-    if (!runtime || !runtime->resource.sdlWindow) return;
 
-    //Uint32 flags = SDL_GetWindowFlags(runtime->sdlWindow);
-    //runtime->state.isShown = (flags & SDL_WINDOW_SHOWN) != 0;
-    //runtime->state.isMinimized = (flags & SDL_WINDOW_MINIMIZED) != 0;
-    //runtime->state.isMaximized = (flags & SDL_WINDOW_MAXIMIZED) != 0;
-    //runtime->state.isFullscreen = ((flags & SDL_WINDOW_FULLSCREEN_DESKTOP) != 0) || 
-    //                          ((flags & SDL_WINDOW_FULLSCREEN) != 0);
-    
-    runtime->state.display.isVisible = runtime->state.display.isShown && !runtime->state.display.isMinimized;
-}
-
-// Hàm 2: Cập nhật chuyên biệt cho Window Master (Tính toán hình học phức tạp + Đẩy kích thước sang MPV)
 inline bool UpdateWindowState(WindowRuntime* runtime) {
     if (!runtime || !runtime->resource.sdlWindow) return false;
 
-    // Bước 1: Đồng bộ các cờ vật lý cơ bản trước
-    UpdateWindowStateCommon(runtime);
 
     // Tạo các biến cục bộ để xử lý và so sánh
     WindowLayout localLayout;
     bool hasSizeChanged = false;
+    WindowLayout oldLayout;
+    bool isFullscreen = false;
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
 
-    // Lấy kích thước và vị trí từ SDL
-    SDL_GetWindowPosition(runtime->resource.sdlWindow, &localLayout.WinX, &localLayout.WinY);
-    SDL_GetWindowSize(runtime->resource.sdlWindow, &localLayout.WinW, &localLayout.WinH);
+        localLayout.WinX = runtime->state.geometry.x;
+        localLayout.WinY = runtime->state.geometry.y;
+        localLayout.WinW = runtime->state.geometry.width;
+        localLayout.WinH = runtime->state.geometry.height;
+
+        oldLayout = runtime->state.geometry.layout;
+
+        runtime->state.display.isVisible = runtime->state.display.isShown && !runtime->state.display.isMinimized;
+
+        isFullscreen = runtime->state.display.isFullscreen;
+
+        runtime->state.stateVersion ++;
+
+    }
 
     bool use_viewpoint = false;
     if (!use_viewpoint) {
@@ -51,7 +51,7 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
     }
 
     // Bước 2: Tính toán Hình học Layout trên biến cục bộ
-    if (runtime->state.display.isFullscreen) {
+    if (isFullscreen) {
         localLayout.ClientPos = ImVec2(0.0f, 0.0f);
         localLayout.ClientSize = ImVec2(static_cast<float>(localLayout.WinW), static_cast<float>(localLayout.WinH));
         localLayout.TitleSize = ImVec2(0.0f, 0.0f);
@@ -70,22 +70,32 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
     localLayout.ClientArea.w = static_cast<int>(localLayout.ClientSize.x);
     localLayout.ClientArea.h = static_cast<int>(localLayout.ClientSize.y);
 
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.geometry.layout = localLayout;
+    }
+
     // Kiểm tra sự thay đổi kích thước dựa trên Layout cũ (nếu có)
-    const auto* oldLayout = runtime->properties.GetPtr<WindowLayout>("Layout");
-    if (!oldLayout || oldLayout->ClientSize.x != localLayout.ClientSize.x || oldLayout->ClientSize.y != localLayout.ClientSize.y) {
+    if (oldLayout.ClientSize.x != localLayout.ClientSize.x || oldLayout.ClientSize.y != localLayout.ClientSize.y) {
         hasSizeChanged = true;
         // Yêu cầu luồng UI thay đổi kích thước viewport đồ họa một cách an toàn
         if (runtime->resource.uiRenderThread) {
             runtime->resource.uiRenderThread->RequestResize(localLayout.ClientArea.w, localLayout.ClientArea.h);
         }
     }
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.runtime.is_dirty = hasSizeChanged;
+        runtime->state.runtime.change_size = hasSizeChanged;
+       
+    }
 
     // Bước 3: ĐỒNG BỘ SANG LUỒNG MPV
     #ifdef RENDER_MPV_THREAD
-    if (runtime->resource.PlayerSession && runtime->style.isMainWindow) {
-        std::weak_ptr<PlayBackRenderThread> weakRenderThread = runtime->resource.PlayerSession->GetRenderThread();
-        
-        if (auto sharedRenderThread = weakRenderThread.lock()) {
+    if (runtime->resource.GetPlayerSession() && runtime->style.isMainWindow) {
+
+
+        if (auto* sharedRenderThread = runtime->resource.GetPlayerSession()->GetRenderThread()) {
             auto& renderState = sharedRenderThread->state;
             renderState.g_WindowVisible.store(runtime->state.display.isVisible, std::memory_order_relaxed);
 
@@ -108,9 +118,6 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
     }
     #endif
 
-    // Cập nhật dữ liệu mới vào PropertyBag
-    runtime->properties.Set<WindowLayout>("Layout", localLayout);
-
     return hasSizeChanged;
 }
 /**
@@ -118,60 +125,74 @@ inline bool UpdateWindowState(WindowRuntime* runtime) {
  * 
  * @param runtime 
  */
-inline bool RouteWindowStateUpdate(WindowRuntime* runtime) {
-    if (!runtime) return false;
-    // Giờ đây chỉ cần gọi một hàm duy nhất
-    return UpdateWindowState(runtime);
-}
 
-inline void AdjustWindowFrameRates(WindowManager& winManager) {
+inline void AdjustWindowFrameRates(WindowRuntime* runtime) {
 
-    winManager.ForEachWindow([](WindowRuntime *window){
-        if (!window) return;
+    if (!runtime) return;
 
-        // Nếu cửa sổ bị ẩn hoặc thu nhỏ, giảm FPS xuống mức tối thiểu.
-        if (!window->state.display.isShown || window->state.display.isMinimized) {
-            if (window->windowloop) window->windowloop->setTargetFPS(1);
-            return;
-        }
+    bool isShown = false;
+    bool isMinimized = false;
+    bool isFullscreen = false;
+    bool isDirty = false;
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        isShown = runtime->state.display.isShown;
+        isMinimized = runtime->state.display.isMinimized;
+        isFullscreen = runtime->state.display.isFullscreen;
+        isDirty = runtime->state.runtime.is_dirty;
+    }
 
-        // Logic cho cửa sổ chính
-        if (window->style.isMainWindow) {
-            if (window->state.runtime.is_dirty) {
-                // Nếu có tương tác (ví dụ: hover nút), tăng FPS để animation mượt mà.
-                if (window->windowloop) window->windowloop->setTargetFPS(60);
-                window->state.runtime.is_dirty = false; // Reset cờ sau khi xử lý.
-            } else {
-                // Logic mặc định: FPS cao khi phát video, thấp khi tạm dừng.
-                if (window->windowloop) {
-                    PlaybackState state = window->resource.GetPlayerSession()->GetState()->GetPlaybackState();
-                    switch (state)
-                    {
-                    case PlaybackState::Playing:
-                        window->windowloop->setTargetFPS(60);
-                        break;
-                    
-                    case PlaybackState::Loading:
-                    case PlaybackState::Seeking:
-                        window->windowloop->setTargetFPS(30);
-                        break;
-                    
-                    default:
-                        window->windowloop->setTargetFPS(15);
-                        break;
+    // Nếu cửa sổ bị ẩn hoặc thu nhỏ, giảm FPS xuống mức tối thiểu.
+    if (!isShown || isMinimized) {
+        if (runtime->windowloop) runtime->windowloop->setTargetFPS(1);
+        return;
+    }
+
+    // Logic cho cửa sổ chính
+    if (runtime->style.isMainWindow) {
+        if (isDirty) {
+            // Nếu có tương tác (ví dụ: hover nút), tăng FPS để animation mượt mà.
+            if (runtime->windowloop) runtime->windowloop->setTargetFPS(60);
+            isDirty = false; // Reset cờ sau khi xử lý.
+        } else {
+            // Logic mặc định: FPS cao khi phát video, thấp khi tạm dừng.
+            if (runtime->windowloop) {
+                if (auto* sesion = runtime->resource.GetPlayerSession()) {
+                    if (auto* player_state = sesion->GetState()) {
+                        PlaybackState state = player_state->GetPlaybackState();
+                        switch (state)
+                        {
+                        case PlaybackState::Playing:
+                            runtime->windowloop->setTargetFPS(60);
+                            break;
+                        
+                        case PlaybackState::Loading:
+                        case PlaybackState::Seeking:
+                            runtime->windowloop->setTargetFPS(30);
+                            break;
+                        
+                        default:
+                            runtime->windowloop->setTargetFPS(15);
+                            break;
+                        }
                     }
-
                 }
             }
-        } 
-        // Logic cho các cửa sổ phụ
-        else {
-            if (window->state.runtime.is_dirty) {
-                if (window->windowloop) window->windowloop->setTargetFPS(30); // Tăng FPS khi có tương tác.
-                window->state.runtime.is_dirty = false;
-            } else {
-                if (window->windowloop) window->windowloop->setTargetFPS(15); // FPS thấp mặc định cho cửa sổ phụ.
-            }
         }
-    });
+    } 
+    // Logic cho các cửa sổ phụ
+    else {
+        if (isDirty) {
+            if (runtime->windowloop) runtime->windowloop->setTargetFPS(30); // Tăng FPS khi có tương tác.
+            isDirty = false;
+        } else {
+            if (runtime->windowloop) runtime->windowloop->setTargetFPS(15); // FPS thấp mặc định cho cửa sổ phụ.
+        }
+    }
+
+    {
+        std::lock_guard<std::mutex> lock(runtime->stateMutex);
+        runtime->state.runtime.is_dirty = isDirty;
+    }
+  
 }

@@ -1,7 +1,8 @@
 #include "popup_test.h"
-#include "player/audio/filter/af_m.h"
+
 #include "WindowManager.h"
 
+#include "player/session/PlayerSession.h"
 #include "windows/WindowRuntime.h"
 #include <imgui.h>
 #include <vector>
@@ -44,26 +45,29 @@ struct LocalLogger {
         }
 
         // 2. LẤY REAL-TIME LOGS TỪ LÕI MANAGER (Đã sửa lỗi đồng bộ, lấy trực tiếp trong frame vẽ)
-        auto* window = WindowManager::GetInstance().GetMainWindow();
-        auto* fillter = window->resource.GetPlayerSession()->GetAudioFilterManager();
-        auto& core_logs = fillter->GetLogs();
-        if(!core_logs.empty()) {
-            for (const auto& log : core_logs) {
-                ImVec4 text_color;
-                switch (log.level) {
-                    case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; 
-                    case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; 
-                    case LogLevel::AI_Action: text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; 
-                    case LogLevel::Info:
-                    default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; 
-                }
+        if(auto* window = WindowManager::GetInstance().GetMainWindow()) {
+            if(auto* session = window->resource.GetPlayerSession()) {
+                if(auto* fillter = session->GetAudioFilterManager()) {
+                    auto& core_logs = fillter->GetLogs();
+                    if(!core_logs.empty()) {
+                        for (const auto& log : core_logs) {
+                            ImVec4 text_color;
+                            switch (log.level) {
+                                case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; 
+                                case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; 
+                                case LogLevel::AI_Action: text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; 
+                                case LogLevel::Info:
+                                default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; 
+                            }
 
-                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
-                ImGui::SameLine();
-                ImGui::TextColored(text_color, "%s", log.message.c_str());
+                            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
+                            ImGui::SameLine();
+                            ImGui::TextColored(text_color, "%s", log.message.c_str());
+                        }
+                    }
+                }
             }
         }
-        
         if (ScrollToBottom) { 
             ImGui::SetScrollHereY(1.0f); 
             ScrollToBottom = false; 
@@ -764,33 +768,36 @@ void ShowTestPopup(bool& closePopup_Test)
 {
     auto* window = WindowManager::GetInstance().GetMainWindow();
     if (!window) return;
-    auto& manager = *window->resource.GetPlayerSession()->GetAudioFilterManager();
+    auto* session = window->resource.GetPlayerSession();
+    if (!session) return;
+    auto* manager = session->GetAudioFilterManager();
+    if(!manager) return;
 
-    AudioContext ctx = manager.GetCurrentContext();
+    AudioContext ctx = manager->GetCurrentContext();
 
     if (ImGui::BeginTabBar("##DebugTabs"))
     {
         if (ImGui::BeginTabItem("Core"))
         {
-            DrawCoreMonitor(manager, ctx);
+            DrawCoreMonitor(*manager, ctx);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Adaptive"))
         {
-            DrawAdaptiveControl(manager, ctx);
+            DrawAdaptiveControl(*manager, ctx);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("EBU R128"))
         {
-            DrawEBUR128Monitor(manager, ctx);
+            DrawEBUR128Monitor(*manager, ctx);
             ImGui::EndTabItem();
         }
 
         if (ImGui::BeginTabItem("Logs"))
         {
-            DrawLogTab(manager);
+            DrawLogTab(*manager);
             ImGui::EndTabItem();
         }
 

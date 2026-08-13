@@ -1,12 +1,12 @@
 #include "Player.h"
 
-#include "player/shaders/shaders_manager.h"
+
 #include "player/scripts/script_manager.h"
-#include "player/audio/filter/af_m.h"
 #include "player/PlayerUtils.h"
 
 #include "windows/WindowUtils.h"
 
+#include "utils.h"
 #include <SDL.h>
 #include <algorithm>
 
@@ -32,9 +32,6 @@ bool Player::Init() {
 
     ScriptManager::Instance().Init(m_mpv);
     ScriptManager::Instance().LoadScriptFromFolder({ AutoPath<std::string>("%ROOT%","scripts") });
-
-    ShaderManager::Instance().Init(m_mpv);
-    ShaderManager::Instance().LoadState();
 
     mpv_request_log_messages(m_mpv, "v");
 

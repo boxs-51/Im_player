@@ -1,7 +1,8 @@
 #include "globals.h"
 
-#include <popup/reusable_popup.h>
-#include <gui/gui.h>
+#include "popup/reusable_popup.h"
+#include "windows/WindowRuntime.h"
+#include "gui/gui.h"
 #include <imgui.h>
 
 void ReusablePopup::Open(const std::string& title, ContentCallback contentFunc) {
@@ -11,9 +12,11 @@ void ReusablePopup::Open(const std::string& title, ContentCallback contentFunc) 
     positionInitialized = false; // đặt lại vị trí lần đầu
 }
 
-void ReusablePopup::Render(WindowRuntime* runtime) {
+PopupState ReusablePopup::Render(WindowRuntime* runtime) {
+    PopupState state{};
+
     if (!open || !contentCallback)
-        return;
+        return state;
 
     bool closeRequested = false;
 
@@ -37,7 +40,27 @@ void ReusablePopup::Render(WindowRuntime* runtime) {
     ImGuiWindowFlags window_flags = ImGuiWindowFlags_NoCollapse; 
     
     if (ImGui::Begin(title_.c_str(), &open, window_flags)) {
+
+        // --- BẮT TRẠNG THÁI TƯƠNG TÁC CỦA POPUP ---
+        // 1. Kiểm tra con trỏ chuột có đang Hover trên Popup (kể cả item con)
+        state.isHovered = ImGui::IsWindowHovered(ImGuiHoveredFlags_AllowWhenBlockedByActiveItem | ImGuiHoveredFlags_ChildWindows);
         
+        // 2. Kiểm tra Popup có đang được Focus hay không
+        state.isFocused = ImGui::IsWindowFocused(ImGuiFocusedFlags_ChildWindows);
+
+        // 3. Kiểm tra Click vào bất kỳ vùng nào thuộc Popup (chuột trái hoặc chuột phải)
+        state.isClicked = state.isHovered && (ImGui::IsMouseClicked(ImGuiMouseButton_Left) || ImGui::IsMouseClicked(ImGuiMouseButton_Right));
+
+        // 4. Kiểm tra có Widget con nào bên trong Popup đang Active (ví dụ: đang gõ input, kéo slider)
+        state.isAnyItemActive = ImGui::IsAnyItemActive();
+
+        state.isAnyItemHover = ImGui::IsAnyItemHovered();
+
+        if( state.isClicked || state.isAnyItemActive || state.isAnyItemHover) {
+            std::lock_guard<std::mutex> lock(runtime->stateMutex);
+            runtime->state.runtime.is_dirty = true;
+        }
+
         // Vẽ nội dung bên trong
         // Lưu ý: Bên trong contentCallback, bạn nên gọi các hàm BeginModernChild đã hướng dẫn ở trên
         contentCallback(runtime, closeRequested);
@@ -58,6 +81,7 @@ void ReusablePopup::Render(WindowRuntime* runtime) {
         // Reset logic khi đóng hẳn
         positionInitialized = false; 
     }
+    return state;
 }
 
 bool ReusablePopup::IsOpen() const {

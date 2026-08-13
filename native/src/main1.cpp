@@ -23,7 +23,6 @@
 #include "notification.h"
 
 #include "windows/main/MainWindowRenderer.h"
-#include "windows/main/MainWindowState.h"
 #include "windows/sub/MockSubWindowRenderer.h" // Thêm include cho renderer mới
 
 #include "windows/WindowManager.h"
@@ -34,6 +33,7 @@
 #include "windows/WindowSharedGroup.h"
 #include "common/Exception.h"
 #include "windows/WindowTemplateBuilder.h"
+#include "EventQueue.h"
 
 // Gọi lớp trừu tượng đồ họa của bạn từ bài thiết kế trước
 #include "OpenGLBackend.h"
@@ -62,76 +62,7 @@ extern "C"
 static bool running = true;
 void Cleanup() {}
 
-/**
- * @brief
- *
- * @param runtime
- * @param e
- * @param running
- */
-void HandleWindowRuntimeEvent(WindowRuntime *runtime, const SDL_Event *e, bool &running)
-{
-    if (!runtime)
-        return;
 
-    // Khóa mutex để đảm bảo an toàn luồng khi cập nhật trạng thái từ luồng chính
-    std::lock_guard<std::mutex> lock(runtime->stateMutex);
-
-    ImGuiContext *imguiCtx = runtime->resource.imguiCtx;
-    if (imguiCtx)
-    {
-        ImGui::SetCurrentContext(imguiCtx);
-    }
-    // Thay thế ImGui_ImplSDL2_ProcessEvent(e) bằng cách gọi vào backend của cửa sổ.
-    // Backend sẽ tự xử lý và cập nhật trạng thái input nội bộ của nó.
-    if (runtime->resource.graphicsBackend)
-        runtime->resource.graphicsBackend->ProcessEvent(e);
-
-    auto *session = runtime->resource.GetPlayerSession();
-    if (e->type == SDL_MPV_RENDER_UPDATE)
-    {
-        if (session)
-            runtime->properties.Set<bool>("RenderVideoFlag", true);
-    }
-    if (e->type == SDL_MPV_EVENT)
-    {
-        if (session->GetObserver())
-            session->GetObserver()->ProcessEvents();
-    }
-    if (e->type == SDL_CURSOR_EVENT)
-    {
-        SDL_ShowCursor(e->user.code);
-    }
-
-    if (e->type == SDL_WINDOWEVENT)
-    {
-        switch (e->window.event)
-        {
-        case SDL_WINDOWEVENT_RESIZED:
-        case SDL_WINDOWEVENT_MOVED:
-        case SDL_WINDOWEVENT_MAXIMIZED:
-        case SDL_WINDOWEVENT_RESTORED:
-        case SDL_WINDOWEVENT_MINIMIZED:
-        case SDL_WINDOWEVENT_HIDDEN:
-        case SDL_WINDOWEVENT_SHOWN:
-        case SDL_WINDOWEVENT_SIZE_CHANGED:
-        {
-            // Sử dụng hàm định tuyến tự động thay vì gọi cứng hàm cũ
-            runtime->state.runtime.is_dirty = RouteWindowStateUpdate(runtime);
-            break;
-        }
-        case SDL_WINDOWEVENT_CLOSE:
-        {
-            // Đánh dấu cửa sổ này cần được đóng, thay vì xử lý ngay
-            runtime->state.runtime.isClosedPending = true;
-            break;
-        }
-        }
-    }
-
-    if (HandleHotkeys(e, runtime))
-        return;
-}
 
 int main(int argc, char **argv)
 {
@@ -171,6 +102,10 @@ int main(int argc, char **argv)
 
         WindowTemplateRegistry registry;
         WindowFactory factory(&registry);
+
+        FontManager::Instance().ScanDirectories({ "assets/fonts", "C:/Windows/Fonts" });
+
+        // Khởi tạo WindowManager
         auto &winManager = WindowManager::GetInstance();
         winManager.Initialize(&factory);
 
@@ -221,24 +156,6 @@ int main(int argc, char **argv)
             return 1;
         }
 
-        // --- LOGIC MỚI: Tải font và build atlas cho nhóm cửa sổ chính ---
-        if (auto sharedGroup = mainWin->relation.sharedGroup.lock())
-        {
-            // 1. Gán atlas của cửa sổ chính cho ImGuiIO để FontManager có thể truy cập
-            ImGui::GetIO().Fonts = sharedGroup->m_sharedFontAtlas.get();
-
-            // 2. Tải tất cả các font cần thiết vào atlas này
-            FontManager::Instance().LoadFontsSpecific(
-                ConfigManager::Instance().GetCommonSettings().fontsize,
-                AutoPath<std::string>("%ROOT%", "config", "fonts"));
-
-            // 3. Build atlas để tạo texture trên GPU
-            FontManager::Instance().BuildAtlas();
-            ImFontAtlasUpdateNewFrame(sharedGroup->m_sharedFontAtlas.get(), ImGui::GetFrameCount(), (ImGui::GetIO().BackendFlags & ImGuiBackendFlags_RendererHasTextures) != 0);
-        }
-
-        // Gọi cập nhật trạng thái ban đầu (Sử dụng hàm định tuyến)[cite: 20]
-        mainWin->state.runtime.is_dirty = RouteWindowStateUpdate(mainWin);
 
 #ifdef RENDER_MPV_THREAD
 #endif
@@ -246,11 +163,12 @@ int main(int argc, char **argv)
         if (argc >= 2)
         {
             std::string Url = argv[1];
+            if(auto* session = mainWin->resource.GetPlayerSession())
             if (auto *commander = mainWin->resource.GetPlayerSession()->GetCommander())
                 commander->LoadFile(Url);
         }
 
-        FrameTimer mainloop(60);
+        FrameTimer mainloop(120);
         SDL_Event e;
 
         // Danh sách các cửa sổ cần đóng sau khi vòng lặp sự kiện kết thúc
@@ -265,23 +183,6 @@ int main(int argc, char **argv)
             // Xử lý các yêu cầu tạo cửa sổ từ các luồng khác
             winManager.ProcessCreationQueue();
 
-            // Kiểm tra lại con trỏ mainWin an toàn từ winManager qua mainWinId
-            WindowRuntime *currentMainWin = winManager.GetWindowById(mainWinId);
-
-            if (currentMainWin)
-            {
-                // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
-                if (mainWin->properties.GetValue<bool>("TriggerToggleFullscreen", false))
-                {
-                    mainWin->controller->ToggleFullscreen();
-                    mainWin->state.runtime.is_dirty = RouteWindowStateUpdate(mainWin); // Sử dụng hàm định tuyến mới[cite: 20]
-                    mainWin->properties.Set<bool>("TriggerToggleFullscreen", false);
-                }
-            }
-
-            // Loại bỏ đoạn code `#ifdef RENDER_MPV_THREAD` ở vòng lặp chính này
-            // Vì toàn bộ logic đồng bộ luồng MPV đã được tích hợp gọn gàng bên trong hàm `UpdateMainWindowState`![cite: 20]
-
             while (SDL_PollEvent(&e))
             {
                 if (e.type == SDL_QUIT)
@@ -289,7 +190,12 @@ int main(int argc, char **argv)
                     running = false;
                     // Khi nhận SDL_QUIT, yêu cầu đóng tất cả cửa sổ
                     winManager.ForEachWindow([](WindowRuntime *window)
-                                             { window->state.runtime.isClosedPending = true; });
+                    { 
+                        {
+                            std::lock_guard<std::mutex> lock(window->stateMutex);
+                            window->state.runtime.isClosedPending = true; 
+                        }
+                    });
                     break;
                 }
 
@@ -305,34 +211,53 @@ int main(int argc, char **argv)
 
                 if (targetWin)
                 {
-                    HandleWindowRuntimeEvent(targetWin, &e, running);
+                    HandleWindowRuntimeEvent(targetWin, &e);
                 }
             }
-
-            // Gọi hàm điều chỉnh FPS tự động cho tất cả các cửa sổ
-            AdjustWindowFrameRates(winManager);
-
 
             windowsToClose.clear();
             winManager.ForEachWindow([&windowsToClose](WindowRuntime *window)
             {
-                // Cập nhật các lệnh đang chờ của MPV (ví dụ: delayed seek)
-                if (auto *commander = window->resource.GetPlayerSession()->GetCommander())
-                    commander->Update();
+                // Kiểm tra sự kiện đổi Fullscreen được kích hoạt thông qua Controller/State nội tại
+                if (window->properties.GetValue<bool>("TriggerToggleFullscreen", false))
+                {
+                    window->controller->ToggleFullscreen();
+                    //UpdateWindowState(window);
+                    window->properties.Set<bool>("TriggerToggleFullscreen", false);
+                }
 
-                if (auto* audiofillter = window->resource.GetPlayerSession()->GetAudioFilterManager())
-                    audiofillter->UpdateAdaptiveFilters();
+                AdjustWindowFrameRates(window);
+
+                if (auto* session = window->resource.GetPlayerSession()) {
+                    // Cập nhật các lệnh đang chờ của MPV (ví dụ: delayed seek)
+                    if (auto* commander = session->GetCommander())
+                        commander->Update();
+
+                    if (auto* audiofillter = session->GetAudioFilterManager())
+                        audiofillter->UpdateAdaptiveFilters();
+                }
 
                 // Yêu cầu render cho tất cả các cửa sổ đang hiển thị
                 // Mỗi cửa sổ có luồng render riêng, yêu cầu render nếu nó hiển thị
-                if (window && window->resource.uiRenderThread && window->state.display.isVisible)
+                bool isClosedPending = false;
+                bool isVisible = false;
+                {
+                    std::lock_guard<std::mutex> lock(window->stateMutex);
+                    isClosedPending = window->state.runtime.isClosedPending;
+                    isVisible = window->state.display.isVisible;
+                }
+                if (window && window->resource.uiRenderThread && isVisible)
                 {
                     window->resource.uiRenderThread->RequestRender();
                 }
 
-                if (window->state.runtime.isClosedPending) {
+                if (isClosedPending) {
                     windowsToClose.push_back(window->info.id);
-                    window->state.runtime.isClosedPending = false;
+                    isClosedPending = false;
+                }
+                {
+                    std::lock_guard<std::mutex> lock(window->stateMutex);
+                    window->state.runtime.isClosedPending = isClosedPending;
                 }
             });
 
@@ -375,6 +300,7 @@ int main(int argc, char **argv)
         {
             winManager.DestroyWindow(id);
         }
+        FontManager::Instance().Shutdown();
         // Cleanup(); // CleanupMPV is now handled by ~PlayerSession
         return 0;
     }

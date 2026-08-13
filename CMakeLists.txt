@@ -34,6 +34,10 @@ add_executable(Im_player WIN32
     native/src/player/audio/filter/af_m_io.cpp
     native/src/player/audio/filter/af_m_safety.cpp
     native/src/player/audio/filter/af_m_sync.cpp
+    native/src/player/audio/filter/af_m_analyzer.cpp
+    native/src/player/audio/filter/af_m_context.cpp
+    native/src/player/audio/filter/af_m_dispatcher.cpp
+    native/src/player/audio/filter/af_m_engine.cpp
     #
     native/src/player/video/filter/video_filter_manager.cpp
     #
@@ -98,7 +102,24 @@ add_executable(Im_player WIN32
     native/src/windows/main/ui/ui_overlays.cpp
     native/src/windows/main/ui/ui_settings.cpp
     native/src/windows/main/ui/ui_widgets.cpp
+    native/src/windows/WindowResource.cpp
+    native/src/windows/main/ui/ui_title_bar.cpp
 
+    native/src/gui/core/gui_theme.cpp
+    native/src/gui/draw/gui_draw_helpers.cpp
+    native/src/gui/draw/icons/icon_media.cpp
+    native/src/gui/draw/icons/icon_system.cpp
+    native/src/gui/draw/icons/icon_volume.cpp
+    native/src/gui/widgets/gui_buttons.cpp
+    native/src/gui/widgets/gui_containers.cpp
+    native/src/gui/widgets/gui_inputs.cpp
+    native/src/gui/widgets/gui_slider.cpp
+    native/src/gui/widgets/gui_text.cpp
+    native/src/gui/widgets/gui_tooltip.cpp
+    native/src/windows/Evevnt.cpp
+    native/src/windows/RuntimeFontController.cpp
+    
+    
 )
 
 # ================== WINDOWS DEFINES ==================
@@ -111,7 +132,7 @@ target_compile_definitions(Im_player PRIVATE
     NOMINMAX
     IMGUI_IMPL_OPENGL_LOADER_GLAD
     CUSTOM_TITLEBAR
-    //RENDER_MPV_THREAD
+    RENDER_MPV_THREAD
 )
 # Include path
 target_include_directories(Im_player PRIVATE
@@ -132,6 +153,10 @@ target_include_directories(Im_player PRIVATE
     native/src/player/session
 
     native/src/gui
+    native/src/gui/core
+    native/src/gui/widgets
+    native/src/gui/draw
+
     native/include/nlohmann  
     native/include/KHR
     native/include/GL

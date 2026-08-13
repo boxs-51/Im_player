@@ -50,191 +50,243 @@ bool HandleBasicHotkeys(const SDL_Event *e, WindowRuntime *runtime)
     SDL_Keymod mod = SDL_GetModState();
 
     auto &config = ConfigManager::Instance();
-    auto* player = runtime->resource.GetPlayerSession();
 
     // --- ƯU TIÊN HOTKEY CÓ CTRL --- //
-    if (mod & KMOD_CTRL)
+    if (auto *player = runtime->resource.GetPlayerSession())
     {
-        const Uint8 *state = SDL_GetKeyboardState(NULL);
 
-        if (state[SDL_SCANCODE_UP] && state[SDL_SCANCODE_DOWN])
+        if (mod & KMOD_CTRL)
         {
-            // 👉 Thực hiện hành động đặc biệt, ví dụ reset audio delay:
-            double resetDelay = 0.0;
-            if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
-                commander->SetAudioDelay(resetDelay);
-            config.UpdateVideoSettings([resetDelay](AppSettings &settings)
-                                       { settings.audiodelay = resetDelay; });
-            config.SaveVideo();
-            return true;
-        }
-        if (state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT])
-        {
-            // 👉 Thực hiện hành động đặc biệt, ví dụ reset speed:
-            double resetspeed = 1.0;
-            if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
-                commander->SetSpeed(resetspeed);
-            config.UpdateVideoSettings([resetspeed](AppSettings &settings)
-                                       { settings.playbackSpeed = resetspeed; });
-            config.SaveVideo();
-            return true;
-        }
+            const Uint8 *state = SDL_GetKeyboardState(NULL);
 
-        switch (key)
-        {
-        case SDLK_UP:
-        case SDLK_DOWN:
-        {
-            double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
-            if (key == SDLK_DOWN)
-                step = -step;
-
-            double audio_delay = 0.0;
-            if (auto* state = player->GetState()){
-                state->ReadAudio([&audio_delay](auto const& m){
-                audio_delay = m.codec.audio_delay;
-                });
-            }
-                
-            double new_audio_delay = std::clamp(audio_delay + step, -10.0, 10.0);
-            if (auto* playercommand = player->GetCommander())
-                playercommand->SetAudioDelay(new_audio_delay);
-
-            config.UpdateVideoSettings([new_audio_delay](AppSettings &settings)
-                                       { settings.audiodelay = new_audio_delay; });
-            config.SaveVideo();
-
-            return true;
-        }
-        case SDLK_LEFT:
-        case SDLK_RIGHT:
-        {
-            double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
-            if (key == SDLK_LEFT)
-                step = -step;
-            
-            double speed = 1.0;
-            if(auto* state = player->GetState()){
-                state->ReadPlayback([&speed](PlaybackModel const& m){
-                speed = m.config.speed;
-                });
-            }
-
-            double newspeed = std::clamp(speed + step, 0.2, 3.0);
-            if (auto* playercommand = player->GetCommander())
-                playercommand->SetSpeed(newspeed);
-
-            config.UpdateVideoSettings([newspeed](AppSettings &settings)
-                                       { settings.playbackSpeed = newspeed; });
-            config.SaveVideo();
-
-            return true;
-        }
-        default:
-            return false;
-        }
-    }
-
-    // --- HOTKEY THƯỜNG (KHÔNG CÓ CTRL) --- //
-    bool isPlayable = true;
-    if(auto* state = player->GetState()){
-        state->ReadPlayback([&isPlayable](PlaybackModel const& m){
-        isPlayable = m.state == PlaybackState::Playing || m.state == PlaybackState::Paused;
-        });
-    }
-
-    if (isPlayable)
-    {
-        switch (key)
-        {
-        case SDLK_SPACE:{
-
-            auto* playercommand = player->GetCommander();
-
-            bool isPaused = false;
-            if (auto* state = player->GetState()){
-                state->ReadPlayback([&isPaused](PlaybackModel const& m){
-                isPaused = m.flags.isPaused;
-                });
-            }
-
-            if (isPaused)
+            if (state[SDL_SCANCODE_UP] && state[SDL_SCANCODE_DOWN])
             {
-                if (playercommand)
-                    playercommand->Play();
+                // 👉 Thực hiện hành động đặc biệt, ví dụ reset audio delay:
+                double resetDelay = 0.0;
+                if (auto *commander = player->GetCommander())
+                    commander->SetAudioDelay(resetDelay);
+                else
+                    return false;
+                config.UpdateVideoSettings([resetDelay](AppSettings &settings)
+                                           { settings.audiodelay = resetDelay; });
+                config.SaveVideo();
+                return true;
             }
-            else
+            if (state[SDL_SCANCODE_LEFT] && state[SDL_SCANCODE_RIGHT])
             {
-                if (playercommand)
-                    playercommand->Pause();
+                // 👉 Thực hiện hành động đặc biệt, ví dụ reset speed:
+                double resetspeed = 1.0;
+                if (auto *commander = player->GetCommander())
+                    commander->SetSpeed(resetspeed);
+                else
+                    return false;
+                config.UpdateVideoSettings([resetspeed](AppSettings &settings)
+                                           { settings.playbackSpeed = resetspeed; });
+                config.SaveVideo();
+                return true;
             }
 
-            return true;
+            switch (key)
+            {
+            case SDLK_UP:
+            case SDLK_DOWN:
+            {
+                double step = (mod & KMOD_SHIFT) ? 0.5 : 0.1;
+                if (key == SDLK_DOWN)
+                    step = -step;
+
+                double audio_delay = 0.0;
+                if (auto *state = player->GetState())
+                    state->ReadAudio([&audio_delay](auto const &m)
+                                     { audio_delay = m.codec.audio_delay; });
+                else
+                    return false;
+
+                double new_audio_delay = std::clamp(audio_delay + step, -10.0, 10.0);
+                if (auto *playercommand = player->GetCommander())
+                    playercommand->SetAudioDelay(new_audio_delay);
+                else
+                    return false;
+
+                config.UpdateVideoSettings([new_audio_delay](AppSettings &settings)
+                                           { settings.audiodelay = new_audio_delay; });
+                config.SaveVideo();
+
+                return true;
+            }
+            case SDLK_LEFT:
+            case SDLK_RIGHT:
+            {
+                double step = (mod & KMOD_SHIFT) ? 1.0 : 0.1;
+                if (key == SDLK_LEFT)
+                    step = -step;
+
+                double speed = 1.0;
+                if (auto *state = player->GetState())
+                    state->ReadPlayback([&speed](PlaybackModel const &m)
+                                        { speed = m.config.speed; });
+                else
+                    return false;
+
+                double newspeed = std::clamp(speed + step, 0.2, 3.0);
+                if (auto *playercommand = player->GetCommander())
+                    playercommand->SetSpeed(newspeed);
+                else
+                    return false;
+
+                config.UpdateVideoSettings([newspeed](AppSettings &settings)
+                                           { settings.playbackSpeed = newspeed; });
+                config.SaveVideo();
+
+                return true;
+            }
+            default:
+                return false;
+            }
         }
 
-        case SDLK_LEFT:
-        case SDLK_RIGHT:
+        // --- HOTKEY THƯỜNG (KHÔNG CÓ CTRL) --- //
+        bool isPlayable = true;
+        if (auto *state = player->GetState())
         {
-            double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
-            if (key == SDLK_LEFT)
-                step = -step;
-                
-            double playbackTime = 0.0;
-            double duration = 0.0;
-            if (auto* state = player->GetState()){
-                state->ReadPlayback([&playbackTime, &duration](PlaybackModel const& m){
-                playbackTime = m.timing.playbackTime;
-                duration = m.timing.duration;
-                });
-            }
-            
-            float targetthime = (float)playbackTime + step;
-            if (auto* playercommand = player->GetCommander())
-                playercommand->Seek(targetthime, (float)duration);
-
-            return true;
+            state->ReadPlayback([&isPlayable](PlaybackModel const &m)
+                                { isPlayable = m.state == PlaybackState::Playing || m.state == PlaybackState::Paused; });
         }
-        case SDLK_DOWN:
-        case SDLK_UP:
+
+        if (isPlayable)
         {
-            float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
+            switch (key)
+            {
+            case SDLK_SPACE:
+            {
 
-            if (key == SDLK_DOWN)
-                step = -step;
+                auto *playercommand = player->GetCommander();
 
-            int volume = 100; 
-            if(auto* state = player->GetState()){
-                state->ReadAudio([&volume](auto const& m){
-                volume = m.volume.volume;
-                });
+                bool isPaused = false;
+                if (auto *state = player->GetState())
+                {
+                    state->ReadPlayback([&isPaused](PlaybackModel const &m)
+                                        { isPaused = m.flags.isPaused; });
+                }
+                else
+                {
+                    return false;
+                }
+
+                if (isPaused)
+                {
+                    if (playercommand)
+                        playercommand->Play();
+                    else
+                        return false;
+                }
+                else
+                {
+                    if (playercommand)
+                        playercommand->Pause();
+                    else
+                        return false;
+                }
+
+                return true;
             }
 
-            int newVol = (int)std::clamp(volume + step, 0.0f, 130.0f);
-            if (auto* playercommand = player->GetCommander()){
-                playercommand->SetVolume(newVol);
+            case SDLK_LEFT:
+            case SDLK_RIGHT:
+            {
+                double step = (mod & KMOD_SHIFT) ? 20.0f : 10.0f;
+                if (key == SDLK_LEFT)
+                    step = -step;
+
+                double playbackTime = 0.0;
+                double duration = 0.0;
+                if (auto *state = player->GetState())
+                {
+                    state->ReadPlayback([&playbackTime, &duration](PlaybackModel const &m)
+                                        {
+                    playbackTime = m.timing.playbackTime;
+                    duration = m.timing.duration; });
+                }
+                else
+                {
+                    return false;
+                }
+
+                float targetthime = (float)playbackTime + step;
+                if (auto *playercommand = player->GetCommander())
+                {
+                    playercommand->Seek(targetthime, (float)duration);
+                }
+                else
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            case SDLK_DOWN:
+            case SDLK_UP:
+            {
+                float step = (mod & KMOD_SHIFT) ? 15.0f : 5.0f;
+
+                if (key == SDLK_DOWN)
+                    step = -step;
+
+                int volume = 100;
+                if (auto *state = player->GetState())
+                {
+                    state->ReadAudio([&volume](auto const &m)
+                                     { volume = m.volume.volume; });
+                }
+                else
+                {
+                    return false;
+                }
+
+                int newVol = (int)std::clamp(volume + step, 0.0f, 130.0f);
+                if (auto *playercommand = player->GetCommander())
+                {
+                    playercommand->SetVolume(newVol);
+                }
+                else
+                {
+                    return false;
+                }
+
+                config.UpdateVideoSettings([newVol](AppSettings &settings)
+                                           { settings.defaultVolume = newVol; });
+                config.SaveVideo();
+
+                return true;
             }
 
-            config.UpdateVideoSettings([newVol](AppSettings &settings)
-                                    { settings.defaultVolume = newVol; });
-            config.SaveVideo();
-            
-            return true;
-        }
+            case SDLK_m:
+            {
+                bool isMuted = false;
+                if (auto *state = player->GetState())
+                {
+                    state->ReadAudio([&isMuted](auto const &m)
+                                     { isMuted = m.volume.isMuted; });
+                }
+                else
+                {
+                    return false;
+                };
 
-        case SDLK_m:
-        {
-            bool isMuted = false;
-            if(auto* state = player->GetState()){
-                state->ReadAudio([&isMuted](auto const& m){
-                isMuted = m.volume.isMuted;
-                });
-            };
-            player->GetCommander()->SetMute(!isMuted);
- 
-            return true;
-        }
-        default:
-            break;
+                if (auto *commander = player->GetCommander())
+                {
+                    commander->SetMute(!isMuted);
+                }
+                else
+                {
+                    return false;
+                }
+
+                return true;
+            }
+            default:
+                break;
+            }
         }
     }
 
@@ -244,7 +296,6 @@ bool HandleBasicHotkeys(const SDL_Event *e, WindowRuntime *runtime)
         runtime->properties.Set<bool>("TriggerToggleFullscreen", true);
         return true;
     }
-
     return false;
 }
 

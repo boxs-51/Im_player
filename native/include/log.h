@@ -14,6 +14,42 @@
 #include <unordered_set>
 #include <condition_variable>
 #include <iomanip>
+#include <algorithm>
+
+// =================== Hệ thống quản lý Log History ===================
+struct LogMessage {
+    std::chrono::system_clock::time_point timestamp;
+    std::string message;
+    std::string key;
+};
+
+class LogHistoryManager {
+public:
+    static LogHistoryManager& GetInstance() {
+        static LogHistoryManager instance;
+        return instance;
+    }
+
+    void AddLog(const std::string& key, const std::string& message) {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_logs.push_back({std::chrono::system_clock::now(), message, key});
+        if (m_logs.size() > MAX_LOGS) {
+            m_logs.erase(m_logs.begin());
+        }
+    }
+
+    std::vector<LogMessage> GetRecentLogs() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        return m_logs;
+    }
+
+private:
+    LogHistoryManager() = default;
+    static const size_t MAX_LOGS = 200;
+    std::vector<LogMessage> m_logs;
+    std::mutex m_mutex;
+};
+
 
 
 static HANDLE hConsole = nullptr;
@@ -60,6 +96,9 @@ static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, con
 
     entry.last = now;
     entry.lastMessage = message;
+
+    // Thêm log vào hệ thống quản lý history
+    LogHistoryManager::GetInstance().AddLog(key, message);
 
     WORD color = GetLogColor(message);
     SetConsoleTextAttribute(hConsole, color);
@@ -125,13 +164,22 @@ std::string CaptureAndMirror(F&& func)
 }
 
 // =================== Macro chính ===================
-#ifndef RATE_LIMITED_COUT
-#define RATE_LIMITED_COUT(key, interval_ms, expr)                             \
-    do {                                                                      \
-        std::string _msg_##key = CaptureAndMirror([&]() { expr; });           \
-        RateLimitedLogOverwrite(#key, interval_ms, _msg_##key);               \
+// =================== Macro chính (Hỗ trợ key tùy chọn) ===================
+#define STRINGIZE_DETAIL(x) #x
+#define STRINGIZE(x) STRINGIZE_DETAIL(x)
+
+#define LOG(key, interval_ms, expr) \
+    do { \
+        std::string _msg_##key = CaptureAndMirror([&]() { expr; }); \
+        RateLimitedLogOverwrite(#key, interval_ms, _msg_##key); \
     } while (0)
-#endif
+
+#define LOG_NO_KEY(interval_ms, expr) \
+    do { \
+        static const char* _dynamic_key = __FILE__ ":" STRINGIZE(__LINE__); \
+        std::string _msg_dynamic = CaptureAndMirror([&]() { expr; }); \
+        RateLimitedLogOverwrite(_dynamic_key, interval_ms, _msg_dynamic); \
+    } while (0)
 
 // ------------------------- Ctrl Handler -------------------------
 static BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
@@ -141,13 +189,13 @@ static BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
     case CTRL_CLOSE_EVENT:
         if (g_blockConsoleClose)
         {
-            RATE_LIMITED_COUT(system_console_close_blocked, 1,std::cout << "[WARNING] [System] Console close event blocked. Use command or hotkey to close.");
+            LOG(system_console_close_blocked, 1,std::cout << "[WARNING] [System] Console close event blocked. Use command or hotkey to close.");
             return TRUE;
         }
         break;
 
     case CTRL_C_EVENT:
-        RATE_LIMITED_COUT(system_ctrl_c_pressed, 1,std::cout << "[WARNING] [System] Ctrl+C pressed — ignored (app still running)");
+        LOG(system_ctrl_c_pressed, 1,std::cout << "[WARNING] [System] Ctrl+C pressed — ignored (app still running)");
         return TRUE;
 
     default:
@@ -227,13 +275,13 @@ inline void InitConsoleSystem()
     {
         g_consoleAttached = true;
         g_consoleWindowCreated = false;
-        RATE_LIMITED_COUT(system_console_attached, 1,std::cout << "[DEBUG] [WARNING] [System] Attached to parent console.\n");
+        LOG(system_console_attached, 1,std::cout << "[DEBUG] [WARNING] [System] Attached to parent console.\n");
     }
     else
     {
         g_consoleAttached = false;
         g_consoleWindowCreated = false;
-        RATE_LIMITED_COUT(system_console_not_attached, 1,std::cout << "[DEBUG] [WARNING] [System] No parent console found. Console output disabled.");
+        LOG(system_console_not_attached, 1,std::cout << "[DEBUG] [WARNING] [System] No parent console found. Console output disabled.");
     }
 
     SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
@@ -366,11 +414,11 @@ static void MpvErrorThreadFunc() {
             combined += msg + "\n\n";
 
             if (level == "warn") {
-                RATE_LIMITED_COUT(mpv_warn_error, 1,
+                LOG(mpv_warn_error, 1,
                     std::cout << "[DEBUG] [WARNING] " << msg << std::endl);
             } 
             else if (level == "error") {
-                RATE_LIMITED_COUT(mpv_error_error, 1,
+                LOG(mpv_error_error, 1,
                     std::cout << "[DEBUG] [ERROR] " << msg << std::endl);
             } 
             else {

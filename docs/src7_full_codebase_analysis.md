@@ -81,7 +81,7 @@ Application
     │       ├── Player -> mpv_handle
     │       ├── PlayBackRender -> mpv_render_context
     │       ├── PlaybackObserver
-    │       ├── PlaybackCommandDispatcher
+    │       ├── PlaybackCommand
     │       ├── PlayBackProperty
     │       ├── PlayerStateSystem
     │       ├── AudioFilterManager
@@ -314,7 +314,7 @@ PlayerSession
 ├── Player
 ├── PlayBackRender
 ├── PlaybackObserver
-├── PlaybackCommandDispatcher
+├── PlaybackCommand
 ├── PlayBackProperty
 ├── PlayerStateSystem
 ├── AudioFilterManager
@@ -799,7 +799,7 @@ Về lâu dài có thể chuyển sang immutable snapshot/versioning để giả
 
 ---
 
-# 19. PlaybackCommandDispatcher
+# 19. PlaybackCommand
 
 API khá rõ.
 
@@ -826,7 +826,7 @@ Không cho subsystem bất kỳ gọi `mpv_*` tùy ý.
 Hiện nhiều subsystem dùng MPV:
 
 ```text
-PlaybackCommandDispatcher
+PlaybackCommand
 PlaybackObserver
 PlayBackProperty
 AudioFilterManager
@@ -1286,7 +1286,7 @@ Nên chuẩn hóa thành một convention, ví dụ:
 ```text
 PlaybackRender
 PlaybackProperty
-PlaybackCommandDispatcher
+PlaybackCommand
 PlaybackSession
 ```
 

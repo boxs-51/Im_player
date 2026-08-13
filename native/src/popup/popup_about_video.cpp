@@ -13,7 +13,6 @@
 #include "windows/WindowRuntime.h"
 
 #include "WindowManager.h"
-#include "MainWindowState.h"
 
 
 #include <imgui.h>
@@ -25,6 +24,7 @@ void ShowMediaInfo(WindowRuntime* runtime) {
     static bool showFullUrl = false;
 
     auto* player_session = runtime->resource.GetPlayerSession();
+    if (!player_session) return;
     auto* state = player_session->GetState();
     if (!state) return;
 
@@ -77,6 +77,7 @@ void ShowMediaInfo(WindowRuntime* runtime) {
 
 void ShowVideoInfo(WindowRuntime* runtime) {
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     auto* state = player_session->GetState();
     if (!state) return;
     auto video = state->GetVideoModel();
@@ -178,6 +179,7 @@ void ShowVideoInfo(WindowRuntime* runtime) {
 void ShowAudioInfo(WindowRuntime* runtime) {
 
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     auto* state = player_session->GetState();
     if (!state) return;
 
@@ -188,7 +190,7 @@ void ShowAudioInfo(WindowRuntime* runtime) {
 
         if (CSImGui::ModernCollapsingHeader("Audio Devices",ImGuiTreeNodeFlags_DefaultOpen)) {
             // 1. Định nghĩa cấu trúc bảng
-            std::vector <CSImGui::TableCol> cols = {
+            std::vector <TableCol> cols = {
                 {"Device Name", 180.0f},
                 {"Description", 0.0f},   // Stretch
                 {"Status", 80.0f}
@@ -266,6 +268,7 @@ void ShowAudioInfo(WindowRuntime* runtime) {
 void ShowTrackInfo(WindowRuntime* runtime) {
 
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     auto* state = player_session->GetState();
     if (!state) return;
 
@@ -370,8 +373,8 @@ void ShowTrackInfo(WindowRuntime* runtime) {
 void ShowPlaybackInfo(WindowRuntime* runtime) {
 
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     auto* state = player_session->GetState();
-
     if (!state) return;
 
     auto playback = state->GetPlaybackModel();
@@ -437,6 +440,7 @@ void ShowPlaybackInfo(WindowRuntime* runtime) {
 
 void ShowMetadata(WindowRuntime* runtime) {
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     if(auto* state = player_session->GetState()) {
         state->ReadMedia([](auto const& m) {
             if (m.metadata.empty()) {
@@ -453,8 +457,8 @@ void ShowMetadata(WindowRuntime* runtime) {
 void ShowNetworkInfo(WindowRuntime* runtime) {
 
     auto* player_session = runtime->resource.GetPlayerSession();
+    if(!player_session) return;
     auto* state = player_session->GetState();
-
     if (!state) return;
 
     auto network = state->GetNetworkModel();

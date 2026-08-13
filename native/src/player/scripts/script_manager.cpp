@@ -2,8 +2,8 @@
 
 #include <log.h>
 
-//#undef RATE_LIMITED_COUT
-//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+//#undef LOG
+//#define LOG(key, interval_ms, expr) do {} while(0)
 
 namespace fs = std::filesystem;
 
@@ -41,9 +41,9 @@ void ScriptManager::LoadScriptFromFolder(const std::vector<std::string>& folders
                     m_scripts[fullPath] = info;
                     
                     if (info.isLoaded) {
-                        RATE_LIMITED_COUT(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << fullPath << " (Command result: " << res << ")\n");
+                        LOG(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << fullPath << " (Command result: " << res << ")\n");
                     } else {
-                        RATE_LIMITED_COUT(load_script_error, 1,std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << fullPath << " (Error code: " << res << ")\n");
+                        LOG(load_script_error, 1,std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << fullPath << " (Error code: " << res << ")\n");
                     }
                 }
             }
@@ -70,9 +70,9 @@ void ScriptManager::LoadScript(const std::vector<std::string>& scriptPaths) {
             m_scripts[info.path] = info;
 
             if (info.isLoaded) {
-                RATE_LIMITED_COUT(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << info.path << " (Command result: " << res << ")\n");
+                LOG(load_script, 1,std::cout << "[DEBUG] [INFO] Loaded script: " << info.path << " (Command result: " << res << ")\n");
             } else {
-                RATE_LIMITED_COUT(load_script_error, 1,std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << info.path << " (Error code: " << res << ")\n");
+                LOG(load_script_error, 1,std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << info.path << " (Error code: " << res << ")\n");
             }
         }
     }

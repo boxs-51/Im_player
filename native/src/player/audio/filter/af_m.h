@@ -75,6 +75,7 @@ public:
     bool m_autoMode;                 // Chế độ Auto của AI toàn cục
     bool m_enableOuterStabilizer;    // Quản lý riêng bộ Ổn định ngoại vi (f_out_compressor & f_out_limiter)
     bool m_enableOuterBooster;       // Quản lý riêng bộ Tăng cường âm lượng ngoài (f_vol_booster)
+    SpecializedFilterState m_specializedFilterState; // Quản lý trạng thái các bộ lọc chuyên biệt
 
     void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
     const std::vector<LogEntry>& GetLogs();
@@ -88,8 +89,8 @@ private:
 private:
     PlayerStateSystem* m_stateSystem = nullptr;
 
-    void AddFilter(const std::string& id, const std::string& name, const std::string& group);
-    void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def);
+    void AddFilter(const std::string& id, const std::string& name, const std::string& group, const std::string& description, bool ai_controllable);
+    void RegisterParam(const std::string& id, const std::string& key, float min, float max, float def, bool ai_controllable);
     
     void EvaluateSystemSafety();
     void SyncAll();

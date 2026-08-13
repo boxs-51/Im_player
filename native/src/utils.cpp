@@ -26,18 +26,18 @@
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
-//#undef RATE_LIMITED_COUT
-//#define RATE_LIMITED_COUT(key, interval_ms, expr) do {} while(0)
+//#undef LOG
+//#define LOG(key, interval_ms, expr) do {} while(0)
 #include <log.h>
 using json = nlohmann::json;
 
 void TerminateHandler() {
-    RATE_LIMITED_COUT(terminate_handler, 1,std::cout << "[DEBUG] [WARNING] Terminate handler called. Cleaning up");
+    LOG(terminate_handler, 1,std::cout << "[DEBUG] [WARNING] Terminate handler called. Cleaning up");
     StopService();
     std::abort();  // Kết thúc app
 }
 void SignalHandler(int signal) {
-    RATE_LIMITED_COUT(signal_handler, 1,std::cout << "[DEBUG] [WARNING] Signal " << signal << " received. Cleaning up.");
+    LOG(signal_handler, 1,std::cout << "[DEBUG] [WARNING] Signal " << signal << " received. Cleaning up.");
     StopService();
     std::_Exit(signal);  // Kết thúc app ngay, tránh gọi các destructor
 }

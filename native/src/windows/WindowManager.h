@@ -129,8 +129,6 @@ public:
         if (runtime && runtime->resource.sdlWindow)
         {
             SDL_HideWindow(runtime->resource.sdlWindow);
-            //        runtime->state.isShown = false;
-            //        runtime->isTemporarilyHidden = true; // Đánh dấu là chỉ ẩn tạm thời
         }
     }
 
@@ -140,8 +138,6 @@ public:
         if (runtime && runtime->resource.sdlWindow)
         {
             SDL_ShowWindow(runtime->resource.sdlWindow);
-            //        runtime->state.isShown = true;
-            //        runtime->isTemporarilyHidden = false;
         }
     }
 
