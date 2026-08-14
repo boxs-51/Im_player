@@ -2,6 +2,7 @@
 #include <fstream>
 #include <iostream>
 #include <algorithm>
+#include "log.h"
 
 FontManager& FontManager::Instance() {
     static FontManager inst;
@@ -66,7 +67,9 @@ void FontManager::ScanDirectories(const std::vector<std::string>& dirs) {
             m_fontList.push_back(desc);
         }
     }
-    std::cout << "[FontManager] Scanned " << m_fontList.size() << " fonts metadata (0 MB RAM used).\n";
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, 
+        std::cout << "[FontManager] Scanned " << m_fontList.size() << " fonts metadata (0 MB RAM used).\n";
+    );
 }
 
 // Hàm bổ sung: Lazy load dữ liệu nhị phân khi thực sự cần dùng
@@ -92,7 +95,9 @@ bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
     fi.read(reinterpret_cast<char*>(desc->fileData->data()), sz);
     fi.close();
 
-    std::cout << "[FontManager] Lazy-loaded font data: " << desc->id << " (" << (sz / 1024) << " KB)\n";
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, 
+        std::cout << "[FontManager] Lazy-loaded font data: " << desc->id << " (" << (sz / 1024) << " KB)\n";
+    );
     return true;
 }
 

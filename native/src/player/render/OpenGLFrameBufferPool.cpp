@@ -105,7 +105,7 @@ int OpenGLFrameBufferPool::AcquireFreeBuffer() {
                     if (m_frames[i].state.compare_exchange_strong(expected, BufferState::RENDERING, std::memory_order_acq_rel)) {
                         return i;
                     } else {
-                        LOG_NO_KEY(1, std::cout << "[AFB] ABNORMAL: Failed to acquire DISPLAYING buffer " << i << " after fence signaled (state changed by another thread?).");
+                        LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, std::cout << "[AFB] ABNORMAL: Failed to acquire DISPLAYING buffer " << i << " after fence signaled (state changed by another thread?).");
                     }
                 }
             }
@@ -115,7 +115,7 @@ int OpenGLFrameBufferPool::AcquireFreeBuffer() {
     }
 
     // Nếu sau tất cả các lần thử vẫn không thành công, ghi log và bỏ qua frame này.
-    LOG_NO_KEY(1, "[AFB] ABNORMAL: Failed to acquire any buffer after multiple attempts. Dropping frame.");
+    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, std::cout << "[AFB] ABNORMAL: Failed to acquire any buffer after multiple attempts. Dropping frame.");
 
     return -1;
 }
@@ -138,7 +138,7 @@ FrameTextureInfo OpenGLFrameBufferPool::GetStableFrame() {
     if (newReadyIndex != -1) {
         BufferState expected = BufferState::READY;
         if (!m_frames[newReadyIndex].state.compare_exchange_strong(expected, BufferState::DISPLAYING, std::memory_order_acq_rel)) {
-            LOG_NO_KEY(1, "[GSF] ABNORMAL: Failed to transition buffer %d from READY to DISPLAYING (state changed by another thread?).", newReadyIndex);
+            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, std::cout << "[GSF] ABNORMAL: Failed to transition buffer " << newReadyIndex << " from READY to DISPLAYING (state changed by another thread?).");
             // Frame đã bị luồng khác chiếm mất, bỏ qua lần này
             // Điều này có thể xảy ra nếu GetStableFrame được gọi nhiều lần rất nhanh và một lần gọi khác đã lấy frame này.
             newReadyIndex = -1;
@@ -153,7 +153,7 @@ FrameTextureInfo OpenGLFrameBufferPool::GetStableFrame() {
             GLenum waitResult = glClientWaitSync(sync, GL_SYNC_FLUSH_COMMANDS_BIT, 16000000); // 16ms
 
             if (waitResult == GL_WAIT_FAILED || waitResult == GL_TIMEOUT_EXPIRED) {
-                LOG_NO_KEY(1, "[GSF] ABNORMAL: Producer fence wait FAILED/TIMEOUT for buffer %d. Reverting to READY.", newReadyIndex);
+                LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, std::cout << "[GSF] ABNORMAL: Producer fence wait FAILED/TIMEOUT for buffer " << newReadyIndex << ". Reverting to READY.");
                 // Nếu chờ thất bại, hoàn lại trạng thái READY
                 m_frames[newReadyIndex].state.store(BufferState::READY, std::memory_order_release);
                 newReadyIndex = -1;

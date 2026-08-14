@@ -11,6 +11,30 @@
 #include <iomanip>
 #include <cmath>
 #include <cstdlib> // Cần cho hàm rand() mô phỏng noise floor
+#include "log.h"
+
+// Helper để chuyển enum thành chuỗi
+const char* LogLevelToString(LogLevel level) {
+    switch (level) {
+        case LogLevel::Info:     return "Info";
+        case LogLevel::Warning:  return "Warning";
+        case LogLevel::Error:    return "Error";
+        case LogLevel::Debug:    return "Debug";
+        case LogLevel::Critical: return "Critical";
+        default:                 return "Unknown";
+    }
+}
+
+std::string LogCategoryToString(LogCategory category) {
+    if (category == LogCategory::None) return "None";
+    std::string result;
+    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::System))) result += "System ";
+    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::AI))) result += "AI ";
+    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::Audio))) result += "Audio ";
+    // Thêm các category khác nếu cần
+    if (!result.empty()) result.pop_back();
+    return result;
+}
 
 // Cấu trúc Logger Realtime để theo dõi sự kiện nội bộ UI
 struct LocalLogger {
@@ -26,6 +50,23 @@ struct LocalLogger {
 
     void Draw() {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "--- Nhật ký gọi lệnh & Hệ thống AI (Realtime Logs) ---");
+
+        // --- BỘ LỌC CATEGORY ---
+        static uint32_t category_mask = static_cast<uint32_t>(LogCategory::All);
+        ImGui::Text("Filter by Category: ");
+        ImGui::SameLine();
+        ImGui::CheckboxFlags("Sys", &category_mask, static_cast<uint32_t>(LogCategory::System)); ImGui::SameLine();
+        ImGui::CheckboxFlags("AI", &category_mask, static_cast<uint32_t>(LogCategory::AI)); ImGui::SameLine();
+        ImGui::CheckboxFlags("Audio", &category_mask, static_cast<uint32_t>(LogCategory::Audio)); ImGui::SameLine();
+        ImGui::CheckboxFlags("Render", &category_mask, static_cast<uint32_t>(LogCategory::Render)); ImGui::SameLine();
+        ImGui::CheckboxFlags("UI", &category_mask, static_cast<uint32_t>(LogCategory::UI)); ImGui::SameLine();
+        ImGui::CheckboxFlags("Sync", &category_mask, static_cast<uint32_t>(LogCategory::Sync)); ImGui::SameLine();
+        ImGui::CheckboxFlags("Safety", &category_mask, static_cast<uint32_t>(LogCategory::Safety));
+        if (ImGui::Button("All")) category_mask = static_cast<uint32_t>(LogCategory::All);
+        ImGui::SameLine();
+        if (ImGui::Button("None")) category_mask = static_cast<uint32_t>(LogCategory::None);
+
+
         ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 180), true, ImGuiWindowFlags_HorizontalScrollbar);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
         
@@ -45,27 +86,33 @@ struct LocalLogger {
         }
 
         // 2. LẤY REAL-TIME LOGS TỪ LÕI MANAGER (Đã sửa lỗi đồng bộ, lấy trực tiếp trong frame vẽ)
-        if(auto* window = WindowManager::GetInstance().GetMainWindow()) {
-            if(auto* session = window->resource.GetPlayerSession()) {
-                if(auto* fillter = session->GetAudioFilterManager()) {
-                    auto& core_logs = fillter->GetLogs();
-                    if(!core_logs.empty()) {
-                        for (const auto& log : core_logs) {
-                            ImVec4 text_color;
-                            switch (log.level) {
-                                case LogLevel::Warning:   text_color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break; 
-                                case LogLevel::Error:     text_color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break; 
-                                case LogLevel::AI_Action: text_color = ImVec4(0.2f, 0.8f, 1.0f, 1.0f); break; 
-                                case LogLevel::Info:
-                                default:                  text_color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break; 
-                            }
-
-                            ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", log.timestamp.c_str());
-                            ImGui::SameLine();
-                            ImGui::TextColored(text_color, "%s", log.message.c_str());
-                        }
-                    }
+        auto& logManager = LogHistoryManager::GetInstance();
+        auto core_logs = logManager.GetRecentLogs(static_cast<LogCategory>(category_mask));
+        if(!core_logs.empty()) {
+            for (const auto& log : core_logs) {
+                ImVec4 color;
+                switch (log.level) {
+                    case LogLevel::Warning:  color = ImVec4(1.0f, 0.8f, 0.0f, 1.0f); break;
+                    case LogLevel::Error:    color = ImVec4(1.0f, 0.2f, 0.2f, 1.0f); break;
+                    case LogLevel::Critical: color = ImVec4(1.0f, 0.0f, 0.0f, 1.0f); break;
+                    case LogLevel::Debug:    color = ImVec4(0.5f, 0.5f, 1.0f, 1.0f); break;
+                    default:                 color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break;
                 }
+
+                // Chuyển đổi timestamp sang định dạng giờ:phút:giây
+                auto time_t_now = std::chrono::system_clock::to_time_t(log.timestamp);
+                std::tm buf;
+                localtime_s(&buf, &time_t_now);
+                std::ostringstream time_ss;
+                time_ss << std::put_time(&buf, "%H:%M:%S");
+
+                ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", time_ss.str().c_str());
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.6f, 0.6f, 1.0f, 1.0f), "[%s]", LogLevelToString(log.level));
+                ImGui::SameLine();
+                ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.6f, 1.0f), "[%s]", LogCategoryToString(log.category).c_str());
+                ImGui::SameLine();
+                ImGui::TextColored(color, "%s", log.message.c_str());
             }
         }
         if (ScrollToBottom) { 
@@ -759,7 +806,6 @@ void DrawLogTab(AudioFilterManager& manager)
     if (ImGui::Button("Clear Logs"))
     {
         g_PopupLogger.Clear();
-        manager.ClearLogs();
     }
 }
 

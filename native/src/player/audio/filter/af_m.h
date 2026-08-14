@@ -1,5 +1,6 @@
 #pragma once
 #include "af_m_types.h"
+#include "audio_capture_engine.h"
 #include "utils.h"
 
 #include <client.h>
@@ -77,15 +78,6 @@ public:
     bool m_enableOuterBooster;       // Quản lý riêng bộ Tăng cường âm lượng ngoài (f_vol_booster)
     SpecializedFilterState m_specializedFilterState; // Quản lý trạng thái các bộ lọc chuyên biệt
 
-    void AddLog(const std::string& message, LogLevel level = LogLevel::Info);
-    const std::vector<LogEntry>& GetLogs();
-    void ClearLogs();
-
-private:
-    std::vector<LogEntry> m_logs;
-    std::mutex m_logMutex;
-    const size_t MAX_LOG_SIZE = 100;
-    
 private:
     PlayerStateSystem* m_stateSystem = nullptr;
 

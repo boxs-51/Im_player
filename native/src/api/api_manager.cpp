@@ -10,7 +10,7 @@ APIManager::~APIManager() {
     Shutdown();
 }
 void APIManager::InitConfigs(const std::string& configFilePath) {
-    LOG(init_api_manager, 1, std::cout << "[APIManager] Đang khởi tạo các dịch vụ từ: " << configFilePath << "\n");
+    LOG(init_api_manager, 1, LogLevel::Info, LogCategory::System, std::cout << "[APIManager] Đang khởi tạo các dịch vụ từ: " << configFilePath << "\n");
     
     // 1. Đọc toàn bộ key từ file
     auto keys = LoadKeysFromFile(configFilePath);
@@ -22,7 +22,7 @@ void APIManager::InitConfigs(const std::string& configFilePath) {
             // Mặc định để Paused cho an toàn, bạn sẽ bật Active từ UI
             gemini->SetState(ProviderState::Paused); 
             RegisterProvider("gemini", gemini);
-            LOG(api_gemini, 1, std::cout << " -> Đã đăng ký dịch vụ: Gemini\n");
+            LOG(api_gemini, 1, LogLevel::Info,LogCategory::System, std::cout << " -> Đã đăng ký dịch vụ: Gemini\n");
         }
     }
 
@@ -33,13 +33,13 @@ void APIManager::InitConfigs(const std::string& configFilePath) {
         // gpt->Initialize(keys["OPENAI_API_KEY"]);
         // gpt->SetState(ProviderState::Paused);
         // RegisterProvider("gpt", gpt);
-        LOG(api_gpt, 1, std::cout << " -> Đã đăng ký dịch vụ: GPT\n");
+        LOG(api_gpt, 1, LogLevel::Info, LogCategory::System, std::cout << " -> Đã đăng ký dịch vụ: GPT\n");
     }
 
     // 4. Đăng ký YouTube API nếu tìm thấy key
     if (keys.find("YOUTUBE_API_KEY") != keys.end()) {
         // Khởi tạo YouTubeProvider...
-        LOG(api_youtube, 1, std::cout << " -> Đã đăng ký dịch vụ: YouTube\n");
+        LOG(api_youtube, 1, LogLevel::Info, LogCategory::System, std::cout << " -> Đã đăng ký dịch vụ: YouTube\n");
     }
     
     // Lưu ý bảo mật: Bạn có thể code thêm logic để xóa biến `keys` khỏi RAM sau khi gán xong.

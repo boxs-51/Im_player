@@ -1,13 +1,33 @@
 #include "af_m.h"
 
-AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const AudioContext& ctx) 
-{   
+AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const AudioContext& ctx)
+{
     AdaptiveTargets targets;
-    
+
+    // =========================================================================
+    // 0. AI TỰ ĐỘNG DỰ ĐOÁN PRESET (AUTO PRESET CLASSIFIER)
+    // =========================================================================
+    AudioPreset activePreset = m_currentPreset; // Bắt đầu với preset do người dùng chọn
+
+    // Chỉ kích hoạt bộ phân loại nếu người dùng đang ở preset "Flat" (mặc định)
+    // Điều này cho phép người dùng ghi đè lên AI bằng cách chủ động chọn một preset khác.
+    if (m_currentPreset == AudioPreset::Flat) {
+        if (!ctx.is_audio_only && ctx.loudness_range > 8.0 && ctx.channel_count >= 2) {
+            activePreset = AudioPreset::Movie_Cinema;
+        }
+        else if (ctx.loudness_range > 14.0) {
+            activePreset = AudioPreset::Classical;
+        }
+        else if (ctx.loudness_range < 6.0 && ctx.loudness_integrated > -12.0) {
+            // Nhạc bị nén mạnh, âm lượng trung bình lớn -> Pop hoặc EDM
+            activePreset = AudioPreset::Pop;
+        }
+    }
+
     // =========================================================================
     // 1. KHỞI TẠO CẤU HÌNH PRESET CƠ BẢN (EQUALIZER GAINS)
     // =========================================================================
-    switch (m_currentPreset) {
+    switch (activePreset) { // Sử dụng preset đã được AI quyết định
         case AudioPreset::Pop:          targets.eq_gains = { -2.0f, -1.0f, 0.0f, 2.0f, 3.0f, 4.0f, 5.0f, 4.0f, 3.0f, 2.0f, 1.0f, 0.0f }; break;
         case AudioPreset::Rock:         targets.eq_gains = { 5.0f, 6.0f, 5.0f, 3.0f, -1.0f, -3.0f, -2.0f, 0.0f, 2.0f, 4.0f, 5.0f, 4.0f }; break;
         case AudioPreset::EDM_Dance:    targets.eq_gains = { 6.0f, 8.0f, 7.0f, 4.0f, 1.0f, -1.0f, 0.0f, 2.0f, 4.0f, 5.0f, 6.0f, 5.0f }; break;
@@ -57,7 +77,7 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
     }
 
     if (ctx.loudness_integrated > -13.0) {
-        float penalty = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.90f : 0.70f;
+        float penalty = (activePreset == AudioPreset::Deep_Bass) ? 0.90f : 0.70f;
         for (float& gain : targets.eq_gains) { if (gain > 0.0f) gain *= penalty; }
     }
 
@@ -84,7 +104,7 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
         targets.eq_gains[0] += 4.0f; targets.eq_gains[9] += 3.0f; 
         targets.comp_enabled = true; targets.comp_th = -22.0f; targets.comp_rt = 1.8f;
     } else if (ctx.volume > 85.0) {
-        float vol_scale = (m_currentPreset == AudioPreset::Deep_Bass) ? 0.75f : 0.40f;
+        float vol_scale = (activePreset == AudioPreset::Deep_Bass) ? 0.75f : 0.40f;
         for (float& gain : targets.eq_gains) { if (gain > 1.0f) gain *= vol_scale; }
         targets.comp_enabled = true; targets.comp_th = -5.0f; targets.comp_rt = 4.0f;
     }
@@ -94,6 +114,37 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
         targets.eq_gains[5] += std::min(2.0f, recommended_vocal_boost * 0.8f);
         targets.eq_gains[6] += recommended_vocal_boost; 
         targets.eq_gains[7] += std::min(2.0f, recommended_vocal_boost * 0.8f);
+    }
+
+    // =========================================================================
+    // 4. LOGIC AI ĐIỀU CHỈNH EQ THÍCH ỨNG (ADAPTIVE EQ)
+    // =========================================================================
+    // Logic này sẽ tinh chỉnh các giá trị EQ từ preset dựa trên đặc tính của bản nhạc.
+
+    // Phân tích 1: Dải động (Loudness Range)
+    // Nếu dải động rất thấp (nhạc bị nén mạnh, "loudness war"), giảm nhẹ bass và treble để đỡ mỏi tai.
+    if (ctx.loudness_range > 0.1 && ctx.loudness_range < 5.0) {
+        float reduction_factor = 0.85f;
+        targets.eq_gains[0] *= reduction_factor; // Sub-bass
+        targets.eq_gains[1] *= reduction_factor;
+        targets.eq_gains[10] *= reduction_factor; // Treble
+        targets.eq_gains[11] *= reduction_factor;
+    }
+    // Nếu dải động rất cao (nhạc giao hưởng, acoustic), tăng nhẹ dải trung để làm rõ các chi tiết.
+    else if (ctx.loudness_range > 14.0) {
+        targets.eq_gains[5] += 1.0f; // 500 Hz
+        targets.eq_gains[6] += 1.5f; // 1000 Hz
+        targets.eq_gains[7] += 1.0f; // 1500 Hz
+    }
+
+    // Phân tích 2: Độ lớn tích hợp (Integrated Loudness)
+    // Nếu bản nhạc vốn đã rất to, giảm bớt các dải tần được boost để tránh vỡ tiếng.
+    if (ctx.loudness_integrated > -10.0) {
+        for (float& gain : targets.eq_gains) {
+            if (gain > 0) {
+                gain *= 0.7f; // Giảm 30% gain dương
+            }
+        }
     }
 
     // =========================================================================
@@ -113,7 +164,7 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
             float base_max_makeup = 2.0f;
             float step_modifier   = 1.0f;   
 
-            switch (m_currentPreset) {
+            switch (activePreset) { // Sử dụng preset đã được AI quyết định
                 case AudioPreset::Classical:
                 case AudioPreset::Acoustic:
                     base_comp_th = -6.0f; base_max_makeup = 1.0f; step_modifier = 0.5f; break;
@@ -178,7 +229,7 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
 
             // --- PHÂN LỚP E: BỘ LỌC CHỐNG PUMPING VÙNG CAO TRÀO (ANTI-PUMPING ENFORCEMENT) ---
             if (m_smoothedShortTerm >= (ctx.loudness_lra_high - 2.0)) {
-                float safe_floor = (m_currentPreset == AudioPreset::Classical || m_currentPreset == AudioPreset::Acoustic) ? -5.0f : -8.0f;
+                float safe_floor = (activePreset == AudioPreset::Classical || activePreset == AudioPreset::Acoustic) ? -5.0f : -8.0f;
                 targets.out_comp_threshold = std::max(targets.out_comp_threshold, safe_floor);
                 if (targets.out_comp_makeup > 1.0f) {
                     targets.out_comp_makeup *= 0.97f; 
@@ -247,10 +298,10 @@ AdaptiveTargets AudioFilterManager::AnalyzeContextAndCalculateTargets(const Audi
     }
 
     // Xử lý đặc biệt cho preset Karaoke (kích hoạt Vocal Remover)
-    if (m_currentPreset == AudioPreset::Karaoke) {
+    if (activePreset == AudioPreset::Karaoke) {
         targets.vocal_remover_enabled = true;
     }
-    if (m_currentPreset == AudioPreset::Audio_Restoration) {
+    if (activePreset == AudioPreset::Audio_Restoration) {
         targets.audio_restoration_enabled = true;
     }
 

@@ -38,6 +38,8 @@ add_executable(Im_player WIN32
     native/src/player/audio/filter/af_m_context.cpp
     native/src/player/audio/filter/af_m_dispatcher.cpp
     native/src/player/audio/filter/af_m_engine.cpp
+    native/src/player/audio/audio_capture_engine.cpp
+    native/src/player/audio/AudioCaptureManager.cpp
     #
     native/src/player/video/filter/video_filter_manager.cpp
     #

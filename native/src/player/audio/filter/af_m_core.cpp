@@ -1,11 +1,12 @@
 #include "af_m.h"
 #include "af_m_log.h"
-
 #include <iostream>
 
 AudioFilterManager::AudioFilterManager() 
     : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), 
-      m_enableOuterStabilizer(true), m_enableOuterBooster(true) {}
+      m_enableOuterStabilizer(true), m_enableOuterBooster(true) {
+        SyncAll();
+      }
 
 AudioFilterManager::~AudioFilterManager() {
     DetachPlayer();
@@ -143,7 +144,7 @@ AudioFilter* AudioFilterManager::FindFilter(const std::string& id) {
 void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
     auto* f = FindFilter(id);
     if (enabled && f->isFailed) {
-        AddLog("[Architecture] Cannot enable " + id + " because it was isolated due to a critical error.", LogLevel::Warning);
+        LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System, std::cout << "Cannot enable " + id + " because it was isolated due to a critical error.");
         return; 
     }
     if (!f || f->enabled == enabled) return;
@@ -154,12 +155,12 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
         if (id == "f_out_compressor") comp->enabled = enabled;
         if (id == "f_out_limiter") lim->enabled = enabled;
         m_enableOuterStabilizer = comp->enabled && lim->enabled;
-        AddLog("[Sync] Outer Stabilizer State updated -> " + std::string(enabled ? "ON" : "OFF"), LogLevel::Info);
+        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << " Outer Stabilizer State updated -> " + std::string(enabled ? "ON" : "OFF"));
     } 
     else if (id == "f_vol_booster") {
         m_enableOuterBooster = enabled;
         f->enabled = enabled;
-        AddLog("[Sync] Outer Booster State updated -> " + std::string(enabled ? "ON" : "OFF"), LogLevel::Info);
+        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << "Outer Booster State updated -> " + std::string(enabled ? "ON" : "OFF"));
     } 
     else {
         f->enabled = enabled;
@@ -173,13 +174,14 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
             for (auto& other : m_filters) {
                 if (other.id != id && other.group == f->group && other.enabled && !other.isBypassManagement) {
                     other.enabled = false;
-                    AddLog("[Conflict Managed] Auto-disabled " + other.id, LogLevel::Warning);
+                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::AI, std::cout << "Auto-disabled " + other.id);
                 }
             }
         }
     }
     EvaluateSystemSafety();
     SyncAll(); 
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << "Toggled filter '" + id + "' -> " + (enabled ? "ON" : "OFF"));
 }
 
 bool AudioFilterManager::IsFilterEnabled(const std::string& id) {
@@ -194,7 +196,7 @@ void AudioFilterManager::RecoverFailedFilter(const std::string& id) {
         if (f->isFailed) {
             f->isFailed = false;
             f->enabled = true; // Thử bật lại
-            AddLog("[Architecture] Attempting to recover and reinstall filter: " + id, LogLevel::Info);
+            LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, std::cout << "Attempting to recover and reinstall filter: " + id);
             SyncAll();
         }
     }
@@ -224,35 +226,4 @@ void AudioFilterManager::SetChannelMode(const std::string& mode) {
         }
         SyncAll();
     }
-}
-
-void AudioFilterManager::AddLog(const std::string& message, LogLevel level) {
-    std::lock_guard<std::mutex> lock(m_logMutex);
-    auto now = std::chrono::system_clock::now();
-    auto time_t_now = std::chrono::system_clock::to_time_t(now);
-    struct tm buf;
-#ifdef _WIN32
-    localtime_s(&buf, &time_t_now);
-#else
-    localtime_r(&time_t_now, &buf);
-#endif
-    std::ostringstream ss;
-    ss << std::put_time(&buf, "%H:%M:%S");
-
-    LogEntry entry{ ss.str(), message, level };
-    m_logs.push_back(entry);
-
-    if (m_logs.size() > MAX_LOG_SIZE) {
-        m_logs.erase(m_logs.begin());
-    }
-    std::cout << "[" << entry.timestamp << "] " << message << "\n";
-}
-const std::vector<LogEntry>& AudioFilterManager::GetLogs() {
-    std::lock_guard<std::mutex> lock(m_logMutex);
-    return m_logs; 
-}
-
-void AudioFilterManager::ClearLogs() {
-    std::lock_guard<std::mutex> lock(m_logMutex);
-    m_logs.clear();
 }

@@ -56,6 +56,9 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
     m_audioFilterManager = std::make_unique<AudioFilterManager>();
     m_audioFilterManager->Init(m_player->GetHandle(), m_state.get());
 
+    m_audioCaptureManager = std::make_unique<AudioCaptureManager>();
+    m_audioCaptureManager->Init(m_player->GetHandle(), m_state.get());
+
     m_shaderManager = std::make_unique<ShaderManager>();
     m_shaderManager->Init(m_player->GetHandle());
 
@@ -69,6 +72,9 @@ void PlayerSession::Shutdown() {
     // Shutdown m_renderer trước, m_renderer sẽ tự Stop và delete PlayBackRenderThread an toàn
     if (m_renderer) m_renderer->Shutdown();
     m_renderer.reset();
+
+    if (m_audioCaptureManager) m_audioCaptureManager->Shutdown();
+    m_audioCaptureManager.reset();
 
     m_observer.reset();
     m_commander.reset();

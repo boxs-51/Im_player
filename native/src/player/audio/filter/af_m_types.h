@@ -19,13 +19,13 @@ enum class AudioPreset {
     Audio_Restoration // Phục hồi âm thanh từ các bản ghi cũ, loại bỏ tiếng lách tách
 };
 
-enum class LogLevel { Info, Warning, Error, AI_Action };
+//enum class LogLevel { Info, Warning, Error, AI_Action };
 
-struct LogEntry {
-    std::string timestamp;
-    std::string message;
-    LogLevel level;
-};
+//struct LogEntry {
+//    std::string timestamp;
+//    std::string message;
+//    LogLevel level;
+//};
 
 struct FilterParam {
     float current;     // Giá trị thời gian thực hiện tại (AI có thể thay đổi liên tục)

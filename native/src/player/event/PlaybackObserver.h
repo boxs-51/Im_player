@@ -7,11 +7,13 @@
 class Player; // Forward declaration
 class PlayerStateSystem;
 class PlaybackCommand;
+class AudioCaptureManager;
 
 struct VideoInfoResult;
 struct ResolutionOption;
 struct FormatGroup;
 struct MediaFormatsModel;
+
 
 class PlaybackObserver {
 public:

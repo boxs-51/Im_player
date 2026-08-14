@@ -5,9 +5,9 @@
 #include <iomanip>
 
 void AudioFilterManager::SyncAll() {
-    if (!mpv) return;
+    if (!mpv) return; 
 
-    LOG(sync_all_trace, 500, std::cout << "[DEBUG] [AudioFilter] Syncing filter chain..." << std::endl);
+    LOG(sync_all_trace, 500, LogLevel::Info, LogCategory::Audio, std::cout << "[DEBUG] [AudioFilter] Syncing filter chain..." << std::endl);
 
     std::string full_af = "";
 
@@ -23,6 +23,7 @@ void AudioFilterManager::SyncAll() {
             full_af += init_str;
         }
     };
+    
 
     for (auto& f : m_filters) {
         if (f.id == "f_vol_booster" || f.id == "f_out_compressor" || f.id == "f_out_limiter" || 
@@ -51,6 +52,7 @@ void AudioFilterManager::SyncAll() {
         append_filter(vol_boost);
     }
 
+
     auto* out_comp = FindFilter("f_out_compressor");
     auto* out_lim = FindFilter("f_out_limiter");
     if (m_enableOuterStabilizer) {
@@ -70,24 +72,31 @@ void AudioFilterManager::SyncAll() {
     // CƠ CHẾ KIỂM TRA LỖI VÀ PHỤC HỒI (FALLBACK CRITICAL)
     // =================================================================
     
+    LOG(af_apply_info, 500, LogLevel::Info, LogCategory::Sync, std::cout << "[DEBUG] [Sync] Applying filter chain: " + (full_af.empty() ? "<empty>" : full_af));
+
     // Thử áp dụng chuỗi filter đầy đủ lên MPV
     int error_code = mpv_set_property_string(mpv, "af", full_af.c_str());
 
     if (error_code < 0) { 
         // Lỗi xảy ra! Tiến hành cô lập filter lỗi.
-        AddLog("[Architecture] Failed to apply full filter chain. Error code: " + std::to_string(error_code) + ". Initiating isolation...", LogLevel::Error);
+        LOG(af_apply_error, 1, LogLevel::Error, LogCategory::Sync, std::cout << "[ERROR] [Architecture] Failed to apply full filter chain. Error code: " << error_code << ". Initiating isolation...");
 
+        // Cố gắng cô lập f_ebur_measurer trước tiên vì nó thường là nguyên nhân gây lỗi khởi tạo
         if (ebur && ebur->enabled && !ebur->isFailed) {
             ebur->isFailed = true;
             ebur->enabled = false;
-            AddLog("[Architecture] Isolated 'f_ebur_measurer' due to initialization failure.", LogLevel::Warning);
-            LOG(af_apply_error, 1000, std::cout << "[ERROR] [AudioFilter] Failed to apply chain. MPV Error: " << error_code << std::endl);
+            LOG(af_isolate_ebur, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [Architecture] Isolated 'f_ebur_measurer' due to initialization failure.");
+            LOG(af_apply_error_detail, 1, LogLevel::Error, LogCategory::Audio, std::cout << "[ERROR] [AudioFilter] Failed to apply chain. MPV Error: " << error_code);
             SyncAll();
             return;
         }
         
-        AddLog("[Architecture] Critical failure in standard filters. Clearing entire filter string to save core audio.", LogLevel::Error);
-        mpv_set_property_string(mpv, "af", ""); 
+        // Nếu không phải do ebur, có thể là một filter khác.
+        // Để an toàn, ta sẽ xóa toàn bộ chuỗi filter để cứu vãn âm thanh.
+        LOG(af_critical_failure, 1, LogLevel::Critical, LogCategory::System, std::cout << "[CRITICAL] [Architecture] Critical failure detected. Clearing entire filter string to restore audio.");
+        if (mpv_set_property_string(mpv, "af", "") < 0) {
+            LOG(af_clear_failed, 1, LogLevel::Critical, LogCategory::System, std::cout << "[CRITICAL] [Architecture] CRITICAL: Failed even to clear the filter chain. Audio system may be unstable.");
+        }
     }
 }
 
@@ -183,7 +192,7 @@ void AudioFilterManager::SetAllFiltersState(bool enabled) {
     }
     SetAdaptiveMode(enabled, m_currentPreset);
     if (changed) { 
-        LOG(filter_state_change, 500, std::cout << "[INFO] [AudioFilter] All filters enabled: " << (enabled ? "TRUE" : "FALSE") << std::endl);
+        LOG(filter_state_change, 500, LogLevel::Info, LogCategory::Audio, std::cout << "[INFO] [AudioFilter] All filters enabled: " << (enabled ? "TRUE" : "FALSE") << std::endl);
         EvaluateSystemSafety(); 
         SyncAll(); 
     }

@@ -16,12 +16,46 @@
 #include <iomanip>
 #include <algorithm>
 
+// =================== Hệ thống phân loại Log ===================
+
+enum class LogLevel {
+    Info,
+    Warning,
+    Error,
+    Debug,
+    Critical
+};
+
+// Sử dụng bitmask để có thể lọc theo nhiều danh mục
+enum class LogCategory : uint32_t {
+    None      = 0,
+    System    = 1 << 0,  // Các sự kiện hệ thống chung, core
+    AI        = 1 << 1,  // Hoạt động của trợ lý AI
+    Audio     = 1 << 2,  // Các sự kiện từ AudioFilterManager, EBU-R128
+    Render    = 1 << 3,  // Luồng render, shader, FBO
+    UI        = 1 << 4,  // Tương tác người dùng, popup
+    Network   = 1 << 5,  // yt-dlp, streaming, cache
+    Config    = 1 << 6,  // Lưu/tải file cấu hình
+    Sync      = 1 << 7,  // Đồng bộ filter, pipeline
+    Safety    = 1 << 8,  // Hệ thống an toàn
+    Bypass    = 1 << 9,  // Các sự kiện bypass
+    All       = 0xFFFFFFFF // Mask để lấy tất cả
+};
+
+inline LogCategory operator|(LogCategory a, LogCategory b) {
+    return static_cast<LogCategory>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
+}
+
 // =================== Hệ thống quản lý Log History ===================
 struct LogMessage {
     std::chrono::system_clock::time_point timestamp;
     std::string message;
     std::string key;
+    LogLevel level;
+    LogCategory category;
 };
+
+
 
 class LogHistoryManager {
 public:
@@ -30,17 +64,26 @@ public:
         return instance;
     }
 
-    void AddLog(const std::string& key, const std::string& message) {
+    void AddLog(const std::string& key, const std::string& message, LogLevel level = LogLevel::Info, LogCategory category = LogCategory::System) {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_logs.push_back({std::chrono::system_clock::now(), message, key});
+        m_logs.push_back({std::chrono::system_clock::now(), message, key, level, category});
         if (m_logs.size() > MAX_LOGS) {
             m_logs.erase(m_logs.begin());
         }
     }
 
-    std::vector<LogMessage> GetRecentLogs() {
+    std::vector<LogMessage> GetRecentLogs(LogCategory category_mask = LogCategory::All) {
         std::lock_guard<std::mutex> lock(m_mutex);
-        return m_logs;
+        if (category_mask == LogCategory::All) {
+            return m_logs;
+        }
+        std::vector<LogMessage> filtered_logs;
+        for (const auto& log : m_logs) {
+            if ((static_cast<uint32_t>(log.category) & static_cast<uint32_t>(category_mask)) != 0) {
+                filtered_logs.push_back(log);
+            }
+        }
+        return filtered_logs;
     }
 
 private:
@@ -59,20 +102,17 @@ static bool g_blockConsoleClose = true;
 static bool g_enableSingleLinePerKey = false;
 
 // =================== Màu cho từng nhóm tag ===================
-static WORD GetLogColor(const std::string& text) {
-    if (text.find("[ERROR]")                != std::string::npos) return FOREGROUND_RED   | FOREGROUND_INTENSITY;
-    if (text.find("Error")                  != std::string::npos) return FOREGROUND_RED   | FOREGROUND_INTENSITY;
-    if (text.find("[WARNING]")              != std::string::npos) return FOREGROUND_RED   | FOREGROUND_GREEN        |FOREGROUND_INTENSITY;
-    if (text.find("Warning")                != std::string::npos) return FOREGROUND_RED   | FOREGROUND_GREEN        |FOREGROUND_INTENSITY;
-    if (text.find("[INFO]")                 != std::string::npos) return FOREGROUND_GREEN | FOREGROUND_BLUE         | FOREGROUND_INTENSITY;
-    if (text.find("Info")                   != std::string::npos) return FOREGROUND_GREEN | FOREGROUND_BLUE         | FOREGROUND_INTENSITY;
-    //if (text.find("[DEBUG]")                != std::string::npos) return FOREGROUND_BLUE  | FOREGROUND_INTENSITY;
-    //if (text.find("Debug")                  != std::string::npos) return FOREGROUND_BLUE  | FOREGROUND_INTENSITY;
-    return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; // trắng mặc định
+static WORD GetLogColor(const LogLevel& lv) {
+    if (lv == LogLevel::Critical)           return BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Error)              return FOREGROUND_RED | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Warning)            return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Info)               return FOREGROUND_GREEN | FOREGROUND_BLUE         | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Debug)              return FOREGROUND_BLUE  | FOREGROUND_INTENSITY;
+    return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; 
 }
 
 // =================== Ghi đè có giới hạn ===================
-static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, const std::string& message)
+static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, const std::string& message, LogLevel level, LogCategory category)
 {
     struct LogEntry {
         std::chrono::steady_clock::time_point last;
@@ -98,9 +138,9 @@ static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, con
     entry.lastMessage = message;
 
     // Thêm log vào hệ thống quản lý history
-    LogHistoryManager::GetInstance().AddLog(key, message);
+    LogHistoryManager::GetInstance().AddLog(key, message, level, category);
 
-    WORD color = GetLogColor(message);
+    WORD color = GetLogColor(level);
     SetConsoleTextAttribute(hConsole, color);
 
     // =============================
@@ -168,17 +208,17 @@ std::string CaptureAndMirror(F&& func)
 #define STRINGIZE_DETAIL(x) #x
 #define STRINGIZE(x) STRINGIZE_DETAIL(x)
 
-#define LOG(key, interval_ms, expr) \
+#define LOG(key, interval_ms, level, category, expr) \
     do { \
         std::string _msg_##key = CaptureAndMirror([&]() { expr; }); \
-        RateLimitedLogOverwrite(#key, interval_ms, _msg_##key); \
+        RateLimitedLogOverwrite(#key, interval_ms, _msg_##key, level, category); \
     } while (0)
 
-#define LOG_NO_KEY(interval_ms, expr) \
+#define LOG_NO_KEY(interval_ms, level, category, expr) \
     do { \
         static const char* _dynamic_key = __FILE__ ":" STRINGIZE(__LINE__); \
         std::string _msg_dynamic = CaptureAndMirror([&]() { expr; }); \
-        RateLimitedLogOverwrite(_dynamic_key, interval_ms, _msg_dynamic); \
+        RateLimitedLogOverwrite(_dynamic_key, interval_ms, _msg_dynamic, level, category); \
     } while (0)
 
 // ------------------------- Ctrl Handler -------------------------
@@ -189,13 +229,13 @@ static BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
     case CTRL_CLOSE_EVENT:
         if (g_blockConsoleClose)
         {
-            LOG(system_console_close_blocked, 1,std::cout << "[WARNING] [System] Console close event blocked. Use command or hotkey to close.");
+            LOG(system_console_close_blocked, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] Console close event blocked. Use command or hotkey to close.");
             return TRUE;
         }
         break;
 
     case CTRL_C_EVENT:
-        LOG(system_ctrl_c_pressed, 1,std::cout << "[WARNING] [System] Ctrl+C pressed — ignored (app still running)");
+        LOG(system_ctrl_c_pressed, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] Ctrl+C pressed — ignored (app still running)");
         return TRUE;
 
     default:
@@ -275,13 +315,13 @@ inline void InitConsoleSystem()
     {
         g_consoleAttached = true;
         g_consoleWindowCreated = false;
-        LOG(system_console_attached, 1,std::cout << "[DEBUG] [WARNING] [System] Attached to parent console.\n");
+        LOG(system_console_attached, 1, LogLevel::Info, LogCategory::System, std::cout << "[INFO] [System] Attached to parent console.\n");
     }
     else
     {
         g_consoleAttached = false;
         g_consoleWindowCreated = false;
-        LOG(system_console_not_attached, 1,std::cout << "[DEBUG] [WARNING] [System] No parent console found. Console output disabled.");
+        LOG(system_console_not_attached, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] No parent console found. Console output disabled.");
     }
 
     SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
@@ -293,11 +333,12 @@ inline void InitConsoleSystem()
 inline bool OpenConsoleWindow()
 {
     if (g_consoleAttached || g_consoleWindowCreated){
-        std::cout << "[System] Console window has been initialized or Attached \n";
+        LOG(system_console_already_active, 1, LogLevel::Info, LogCategory::System, std::cout << "[INFO] [System] Console window has been initialized or Attached \n");
         return false;
     }
 
     if (!AllocConsole())
+        LOG(system_console_alloc_failed, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] [System] Failed to allocate console. Error Code: " << GetLastError() << std::endl);
         return false;
 
     FILE* fDummy;
@@ -414,11 +455,11 @@ static void MpvErrorThreadFunc() {
             combined += msg + "\n\n";
 
             if (level == "warn") {
-                LOG(mpv_warn_error, 1,
+                LOG(mpv_warn_error, 1, LogLevel::Warning, LogCategory::Network,
                     std::cout << "[DEBUG] [WARNING] " << msg << std::endl);
             } 
             else if (level == "error") {
-                LOG(mpv_error_error, 1,
+                LOG(mpv_error_error, 1, LogLevel::Error, LogCategory::Network,
                     std::cout << "[DEBUG] [ERROR] " << msg << std::endl);
             } 
             else {
@@ -497,4 +538,3 @@ inline void SetLoggingEnabled(bool enabled) {
     std::lock_guard<std::mutex> lock(g_ErrorMutex);
     g_EnableLog = enabled;
 }
-
