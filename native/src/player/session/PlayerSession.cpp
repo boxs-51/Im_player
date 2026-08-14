@@ -50,14 +50,16 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
 #endif
 
     m_state = std::make_unique<PlayerStateSystem>();
+
+    m_audio = std::make_unique<Audio>();
+    m_audio->Init(m_player->GetHandle(), m_state.get());
+
     m_commander = std::make_unique<PlaybackCommand>(*m_player);
     m_property = std::make_unique<PlayBackProperty>(*m_player);
 
     m_audioFilterManager = std::make_unique<AudioFilterManager>();
     m_audioFilterManager->Init(m_player->GetHandle(), m_state.get());
 
-    m_audioCaptureManager = std::make_unique<AudioCaptureManager>();
-    m_audioCaptureManager->Init(m_player->GetHandle(), m_state.get());
 
     m_shaderManager = std::make_unique<ShaderManager>();
     m_shaderManager->Init(m_player->GetHandle());
@@ -73,8 +75,8 @@ void PlayerSession::Shutdown() {
     if (m_renderer) m_renderer->Shutdown();
     m_renderer.reset();
 
-    if (m_audioCaptureManager) m_audioCaptureManager->Shutdown();
-    m_audioCaptureManager.reset();
+    if (m_audio) m_audio->Shutdown();
+    m_audio.reset();
 
     m_observer.reset();
     m_commander.reset();

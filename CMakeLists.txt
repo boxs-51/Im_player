@@ -120,6 +120,11 @@ add_executable(Im_player WIN32
     native/src/gui/widgets/gui_tooltip.cpp
     native/src/windows/Evevnt.cpp
     native/src/windows/RuntimeFontController.cpp
+
+    native/src/player/audio/AudioOutputWorker.cpp
+    native/src/player/audio/Audio.cpp
+    native/src/player/audio/AudioProcessor.cpp
+    native/src/player/audio/SdlAudioDevice.cpp
     
     
 )

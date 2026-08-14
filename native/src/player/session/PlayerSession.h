@@ -8,9 +8,9 @@
 #include "player/property/PlayBackProperty.h"
 #include "player/PlayerStateSystem.h"
 #include "player/audio/filter/af_m.h"
-#include "player/audio/AudioCaptureManager.h"
 #include "player/video/filter/video_filter_manager.h"
 #include "player/shaders/shaders_manager.h"
+#include "player/audio/Audio.h"
 
 
 #include <memory>
@@ -43,8 +43,9 @@ public:
     }
 
     AudioFilterManager* GetAudioFilterManager() const { return m_audioFilterManager.get(); }
-    AudioCaptureManager* GetAudioCaptureManager() const { return m_audioCaptureManager.get(); }
+    
     VideoFilterManager* GetVideoFilterManager() const { return m_videoFilterManager.get(); }
+    Audio* GetAudio() const { return m_audio.get(); }
 
     ShaderManager* GetShaderManager() const { return m_shaderManager.get(); }
 
@@ -70,7 +71,7 @@ private:
     std::unique_ptr<PlayerStateSystem> m_state;
 
     std::unique_ptr<AudioFilterManager> m_audioFilterManager;
-    std::unique_ptr<AudioCaptureManager> m_audioCaptureManager;
+    std::unique_ptr<Audio> m_audio;
     std::unique_ptr<VideoFilterManager> m_videoFilterManager;
 
     std::unique_ptr<ShaderManager> m_shaderManager;

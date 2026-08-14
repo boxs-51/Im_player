@@ -1,33 +1,40 @@
 #pragma once
 
+#include <Windows.h>
 #include <client.h>
 #include <thread>
 #include <functional>
 #include <atomic>
-#include <mutex>
 #include <vector>
-#include "threads/thread_id.h"
-#include "ring_buffer.h"
+#include <string>
 
-static const char* RAW_AUDIO_CAPTURE_FILTER_NAME = "implayer-raw-capture";
+#include "threads/thread_id.h"
+#include "AudioTypes.h"
+#include "SpscRingBuffer.h"
+
 // Forward declaration
 class PlayerStateSystem;
 
 /**
+ * @struct AudioFormatCache
+ * @brief Cache local lưu cấu hình audio hiện tại để tránh lock PlayerStateSystem liên tục
+ */
+struct AudioFormatCache {
+    uint32_t sampleRate = 48000;
+    uint8_t channels = 2;
+    AudioSampleFormat format = AudioSampleFormat::Float32;
+};
+
+/**
  * @class AudioCaptureManager
- * @brief Chịu trách nhiệm lấy dữ liệu âm thanh thô (PCM) trực tiếp từ pipeline của MPV.
- *
- * Lớp này hoạt động trên một luồng riêng, sử dụng các hook của MPV để "tap" vào
- * luồng audio, sau đó đẩy dữ liệu vào một ring buffer an toàn luồng. Các thành phần
- * khác (như bộ phân tích, visualizer) có thể đọc dữ liệu từ buffer này mà không
- * làm ảnh hưởng đến luồng render chính của MPV.
+ * @brief Quản lý lấy dữ liệu PCM từ MPV qua Named Pipe, xử lý Overlapped I/O không gây nghẽn,
+ * hỗ trợ tự động Reconnect và chuyển giao Lock-free sang SPSC RingBuffer.
  */
 class AudioCaptureManager {
 public:
     AudioCaptureManager();
     ~AudioCaptureManager();
 
-    // Cấm sao chép để đảm bảo ownership duy nhất
     AudioCaptureManager(const AudioCaptureManager&) = delete;
     AudioCaptureManager& operator=(const AudioCaptureManager&) = delete;
 
@@ -37,13 +44,21 @@ public:
     void StartCapture();
     void StopCapture();
 
-    // Hàm được gọi từ callback của MPV để xử lý dữ liệu audio
-    void OnAudioData(void* mpv_data);
+    // Tín hiệu khi Seek / Đổi track
+    void NotifySeekOrTrackChange();
+
+    std::string GetPipeName() const;
+
+    SpscRingBuffer<AudioBlock>& GetRawStream() { return m_rawAudioBuffer; }
+    AudioPipelineMetrics GetMetrics() const { return m_metrics; }
 
 private:
     void CaptureLoop();
+    HANDLE CreateAudioPipe();
+    void ClosePipeHandle(HANDLE hPipe);
+    void UpdateFormatCacheFromState();
 
-    // --- Thành viên quản lý luồng và trạng thái ---
+    // --- References & Handles ---
     mpv_handle* m_mpv = nullptr;
     PlayerStateSystem* m_stateSystem = nullptr;
 
@@ -52,13 +67,17 @@ private:
     std::atomic<bool> m_isCapturing{false};
     ThreadID m_threadId;
 
-    std::mutex m_mutex;
-    std::condition_variable m_cv;
+    // Lock-free Atomic Handle giúp UI Thread cancel I/O tức thì không cần Mutex
+    std::atomic<HANDLE> m_atomicPipeHandle{INVALID_HANDLE_VALUE};
+    std::string m_pipeName;
 
-    // --- Bộ đệm dữ liệu ---
-    // Dữ liệu âm thanh gốc, trước khi qua các bộ lọc của AudioFilterManager
-    ThreadSafeRingBuffer<float> m_preFilterBuffer;
+    // --- Local Caching & Metrics ---
+    AudioFormatCache m_formatCache;
+    std::atomic<uint64_t> m_currentGeneration{0};
+    uint64_t m_sequence = 0;
+    double m_currentPts = 0.0;
+    AudioPipelineMetrics m_metrics;
 
-    // Dữ liệu âm thanh đã được xử lý, sau khi qua các bộ lọc
-    ThreadSafeRingBuffer<float> m_postFilterBuffer;
+    // --- Lock-free SPSC RingBuffer ---
+    SpscRingBuffer<AudioBlock> m_rawAudioBuffer;
 };

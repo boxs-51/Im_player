@@ -101,6 +101,8 @@ static bool g_consoleWindowCreated = false;
 static bool g_blockConsoleClose = true;
 static bool g_enableSingleLinePerKey = false;
 
+static std::mutex g_logConsoleMutex;
+
 // =================== Màu cho từng nhóm tag ===================
 static WORD GetLogColor(const LogLevel& lv) {
     if (lv == LogLevel::Critical)           return BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
@@ -122,6 +124,8 @@ static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, con
         DWORD consolePosY = 0;
         int linesNeeded = 1;
     };
+
+    std::lock_guard<std::mutex> lock(g_logConsoleMutex);
 
     static std::unordered_map<std::string, LogEntry> logs;
     static std::vector<std::string> g_keyOrder;
