@@ -2,6 +2,7 @@
 #include "SdlAudioDevice.h"
 #include "log.h"
 #include "threads/thread_manager.h"
+
 #include <iostream>
 #include <vector>
 #include <cmath>
@@ -18,27 +19,35 @@ std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(Audio
     switch (type) {
         case AudioBackendType::SDL2:
             return std::make_unique<SdlAudioDevice>();
+            
         case AudioBackendType::WASAPI:
             LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
-                std::cout << "[AudioOutputWorker] WASAPI not implemented, fallback to SDL2");
+                std::cout << "[AudioOutputWorker] WASAPI backend not yet implemented, fallback to SDL2.");
             return std::make_unique<SdlAudioDevice>();
+            
         default:
+            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
+                std::cout << "[AudioOutputWorker] Unknown backend type, fallback to SDL2.");
             return std::make_unique<SdlAudioDevice>();
     }
 }
 
-bool AudioOutputWorker::Init(SpscRingBuffer<AudioBlock>* processedStream, PlayerStateSystem* stateSystem, AudioBackendType backend) {
-    if (!processedStream) return false;
+bool AudioOutputWorker::Init(SpscRingBuffer<AudioBlock>* processedStream, AudioBackendType backend) {
+    if (!processedStream) {
+        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+            std::cout << "[AudioOutputWorker] Init failed: processedStream pointer is null.");
+        return false;
+    }
 
     m_processedStream = processedStream;
-    m_stateSystem = stateSystem;
     m_threadId = "AudioOutputWorker_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
     m_currentBackendType = backend;
     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
 
     if (!m_audioDevice || !m_audioDevice->Open(48000, 2)) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, std::cout << "[AudioOutputWorker] Failed to open Audio Device Backend.");
+        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+            std::cout << "[AudioOutputWorker] Failed to open Audio Device Backend.");
         return false;
     }
 
@@ -46,7 +55,7 @@ bool AudioOutputWorker::Init(SpscRingBuffer<AudioBlock>* processedStream, Player
 }
 
 bool AudioOutputWorker::SwitchBackend(AudioBackendType newBackend) {
-    bool wasRunning = m_isRunning.load();
+    bool wasRunning = m_isRunning.load(std::memory_order_relaxed);
     
     if (wasRunning) {
         Stop();
@@ -63,15 +72,15 @@ bool AudioOutputWorker::SwitchBackend(AudioBackendType newBackend) {
 }
 
 void AudioOutputWorker::Start() {
-    if (m_isRunning) return;
+    if (m_isRunning.load(std::memory_order_relaxed)) return;
 
-    m_isRunning = true;
+    m_isRunning.store(true, std::memory_order_release);
     m_workerThread = std::thread(&AudioOutputWorker::OutputLoop, this);
     GetThreadManager().Register(m_threadId, &m_workerThread);
 }
 
 void AudioOutputWorker::Stop() {
-    if (!m_isRunning.exchange(false)) return;
+    if (!m_isRunning.exchange(false, std::memory_order_acq_rel)) return;
 
     if (m_workerThread.joinable()) {
         m_workerThread.join();
@@ -84,12 +93,11 @@ void AudioOutputWorker::Stop() {
     }
 
     m_processedStream = nullptr;
-    m_stateSystem = nullptr;
 }
 
 void AudioOutputWorker::OutputLoop() {
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
-        std::cout << "[AudioOutputWorker] Resilient Output Loop started with Safe Pointer & Hardware Recovery.");
+        std::cout << "[AudioOutputWorker] Resilient Output Loop started with Safe Single-Consumer Pattern.");
 
     std::vector<float> volumeAdjustedBuffer;
     uint32_t deviceErrorCount = 0;
@@ -97,7 +105,7 @@ void AudioOutputWorker::OutputLoop() {
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
         try {
-            if (!m_processedStream || !m_isRunning.load()) break;
+            if (!m_processedStream || !m_isRunning.load(std::memory_order_relaxed)) break;
 
             // =========================================================================
             // 1. TỰ KHÔI PHỤC THIẾT BỊ PHẦN CỨNG (HARDWARE RECOVERY / AUTO-REINIT)
@@ -110,10 +118,9 @@ void AudioOutputWorker::OutputLoop() {
                         std::cout << "[AudioOutputWorker] Audio device unavailable. Attempting auto-recovery...");
 
                     if (m_audioDevice) {
-                        m_audioDevice->Shutdown();
+                        m_audioDevice->Close();
                     }
 
-                    // Gọi đúng tên hàm CreateDeviceBackend
                     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
                     if (m_audioDevice && m_audioDevice->Open(48000, 2)) {
                         LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
@@ -125,6 +132,7 @@ void AudioOutputWorker::OutputLoop() {
                     }
                 }
 
+                // Xóa bớt block tồn đọng duy nhất từ luồng OutputWorker khi mất thiết bị
                 if (const AudioBlock* dummy = m_processedStream->acquire_read()) {
                     m_processedStream->release_read();
                 }
@@ -133,51 +141,8 @@ void AudioOutputWorker::OutputLoop() {
             }
 
             // =========================================================================
-            // 2. ĐỌC VÀ TỰ XỬ LÝ TRẠNG THÁI m_stateSystem
+            // 3. TRUY CẤP RINGBUFFER DÀNH RIÊNG CHO CONSUMER & XỬ LÝ GENERATION (SEEK)
             // =========================================================================
-            bool shouldSilence = false;
-            bool isMuted = false;
-            float currentVol = 1.0f;
-            double currentPTS = 0.0;
-            double audioDelay = 0.0;
-            double playbackSpeed = 1.0;
-
-            if (m_stateSystem) {
-
-                m_stateSystem->ReadPlayback([&shouldSilence,&currentPTS,&playbackSpeed](const PlaybackModel& model) {
-                    if(model.flags.isPaused || model.flags.isSeeking
-                        || model.flags.eofReached || model.flags.isCoreIdle
-                        || model.flags.isIdleActive)
-                        shouldSilence = true;
-
-                    currentPTS = model.timing.timePos;
-                    playbackSpeed = (model.config.speed > 0.0) ? model.config.speed : 1.0;
-                });
-                m_stateSystem->ReadAudio([&isMuted,&currentVol,&audioDelay](const AudioModel& model) {
-                    isMuted       = model.volume.isMuted;
-                    currentVol    = static_cast<float>(model.volume.volume) / 100.0f;
-                    audioDelay    = model.codec.audio_delay;
-                });
-            }
-
-            if (shouldSilence) {
-                if (m_audioDevice) {
-                    m_audioDevice->FlushBuffers();
-                }
-                std::this_thread::sleep_for(std::chrono::milliseconds(5));
-                continue;
-            }
-
-            // =========================================================================
-            // 3. AN TOÀN TRUY CẬP RINGBUFFER & BLOCK VALIDATION
-            // =========================================================================
-            if (m_processedStream->occupancy() > 25) {
-                for (int i = 0; i < 5; ++i) {
-                    if (const AudioBlock* stale = m_processedStream->acquire_read()) {
-                        m_processedStream->release_read();
-                    }
-                }
-            }
             const AudioBlock* block = m_processedStream->acquire_read();
 
             if (!block) {
@@ -190,67 +155,33 @@ void AudioOutputWorker::OutputLoop() {
                 continue;
             }
 
-            // --- KIỂM TRA GENERATION (SEEK SPAM PROTECTION) ---
+            // --- KIỂM TRA GENERATION KHI SEEK (SINGLE-CONSUMER DRAIN) ---
             if (block->generation < m_lastGeneration) {
+                // Bỏ qua block lỗi thời tạo ra trước thời điểm Seek
                 m_processedStream->release_read();
                 continue;
             }
             if (block->generation > m_lastGeneration) {
+                // Phát hiện Seek mới -> Cập nhật Generation và xả sạch phần cứng âm thanh ngay lập tức
                 m_lastGeneration = block->generation;
                 
                 if (m_audioDevice) {
-                    m_audioDevice->FlushBuffers(); // Clear thiết bị phần cứng lập tức
+                    m_audioDevice->FlushBuffers();
                 }
-            }
-
-            if (isMuted) {
-                m_processedStream->release_read();
-                continue;
-            }
-
-            // =========================================================================
-            // 4. KIỂM TRA AV-SYNC / PTS DRIFT
-            // =========================================================================
-            if (currentPTS > 0.0 && block->pts > 0.0) {
-                double targetPTS = currentPTS + audioDelay;
-                double drift = std::abs(block->pts - targetPTS);
-
-                // Nới lỏng ngưỡng drift nếu cần, 0.3s là khoảng an toàn chuẩn
-                if (drift > 0.3) {
-                    m_processedStream->release_read();
-                    continue;
-                }
-            }
-
-            // =========================================================================
-            // 5. GHI ÂM THANH RA PHẦN CỨNG & AN TOÀN BỘ NHỚ
-            // =========================================================================
-            const size_t sampleCount = block->sample_count();
-            const float* outputData = block->samples.data();
-
-            if (std::abs(currentVol - 1.0f) > 0.001f) {
-                volumeAdjustedBuffer.resize(sampleCount);
-                for (size_t i = 0; i < sampleCount; ++i) {
-                    volumeAdjustedBuffer[i] = block->samples[i] * currentVol;
-                }
-                outputData = volumeAdjustedBuffer.data();
             }
 
             bool writePerformed = false;
             if (m_audioDevice && m_audioDevice->IsReady()) {
-                const uint32_t baseMaxQueuedBytes = static_cast<uint32_t>(48000 * 2 * sizeof(float) * 0.025f);
-                const uint32_t adjustedMaxQueuedBytes = static_cast<uint32_t>(baseMaxQueuedBytes * playbackSpeed);
 
-                while (m_isRunning && m_audioDevice->GetQueuedSizeBytes() > adjustedMaxQueuedBytes) {
-                    if (m_processedStream->peek_generation() > m_lastGeneration) {
-                        break;
-                    }
-                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
-                }
+                //while (m_isRunning.load(std::memory_order_relaxed)) {
+                //    if (m_processedStream->peek_generation() > m_lastGeneration) {
+                //        break;
+                //    }
+                //    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                //}
 
-                if (m_isRunning) {
-                    // Tùy theo return type của Write (void hay bool)
-                    m_audioDevice->Write(outputData, sampleCount);
+                if (m_isRunning.load(std::memory_order_relaxed)) {
+                    m_audioDevice->Write(block->samples.data(), block->sample_count());
                     writePerformed = true;
                 }
             }

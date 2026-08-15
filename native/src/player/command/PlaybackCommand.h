@@ -4,6 +4,7 @@
 #include <string>
 #include <SDL_stdinc.h>
 #include <vector>
+#include <mutex>
 
 class Player; // Forward declaration
 
@@ -40,6 +41,8 @@ private:
 private:
 
     Player& m_player;
+
+    std::mutex m_commandMutex;
 
     bool m_isSeekPending = false;
     float m_seekTargetTime = -1.0f;

@@ -3,6 +3,7 @@
 #include "log.h"
 #include "threads/thread_manager.h"
 #include <iostream>
+#include <algorithm>
 
 AudioCaptureManager::AudioCaptureManager() 
     : m_threadId(""), m_rawAudioBuffer(8)
@@ -16,17 +17,29 @@ std::string AudioCaptureManager::GetPipeName() const {
     return m_pipeName; 
 }
 
+void AudioCaptureManager::NotifySeekOrTrackChange() {
+    // Tăng đếm generation request - an toàn tuyệt đối khi gọi từ UI/Control thread
+    m_generationRequest.fetch_add(1, std::memory_order_acq_rel);
+}
+
 void AudioCaptureManager::UpdateFormatCacheFromState() {
     if (!m_stateSystem) return;
 
-    int sampleRate;
-    int channel_count;
-    m_stateSystem->ReadAudio([&sampleRate,&channel_count](const AudioModel& model) {
-        if(model.params.asamplerate)
+    // Khởi tạo mặc định hợp lệ tránh giá trị rác
+    int sampleRate = 48000;
+    int channel_count = 2;
+
+    m_stateSystem->ReadAudio([&sampleRate, &channel_count](const AudioModel& model) {
+        if (model.params.asamplerate > 0)
             sampleRate = model.params.asamplerate;
-        if(model.params.channel_count)
+        if (model.params.channel_count > 0)
             channel_count = model.params.channel_count;
     });
+
+    // Clamp giá trị đảm bảo nằm trong khoảng an toàn cho stereo pipeline
+    sampleRate = std::clamp(sampleRate, 8000, 192000);
+    channel_count = std::clamp(channel_count, 1, static_cast<int>(kMaxAudioChannels));
+
     m_formatCache.sampleRate = static_cast<uint32_t>(sampleRate);
     m_formatCache.channels = static_cast<uint8_t>(channel_count);
 }
@@ -43,7 +56,7 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
 }
 
 bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
-    if(!mpv || !stateSystem) return false;
+    if (!mpv || !stateSystem) return false;
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Initializing...");
     
     m_mpv = mpv;
@@ -79,7 +92,7 @@ void AudioCaptureManager::StartCapture() {
     m_sequence = 0;
     m_currentPts = 0.0;
     m_activeGeneration = 0;
-
+    m_generationRequest.store(0, std::memory_order_release);
 
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
@@ -205,9 +218,15 @@ void AudioCaptureManager::CaptureLoop() {
                 if (m_isCapturing) {
                     UpdateFormatCacheFromState();
 
-                    // KIỂM TRA THAY ĐỔI GENERATION KHI SEEK/TRACK CHANGE
+                    // KIỂM TRA THAY ĐỔI GENERATION KHI SEEK/TRACK CHANGE TRÊN CAPTURE THREAD
+                    uint64_t reqGen = m_generationRequest.load(std::memory_order_acquire);
+                    if (reqGen != m_activeGeneration) {
+                        m_activeGeneration = reqGen;
+                        m_sequence = 0;
+                        m_currentPts = 0.0;
+                    }
 
-                    double timepos;
+                    double timepos = 0.0; // Khởi tạo an toàn
                     if (m_stateSystem) {
                         m_stateSystem->ReadPlayback([&timepos](const PlaybackModel& model) {
                             timepos = model.timing.timePos;
@@ -215,19 +234,24 @@ void AudioCaptureManager::CaptureLoop() {
                     }
                     m_currentPts = timepos;
                     
-                    const uint32_t sampleCount = bytesRead / sizeof(float);
-                    const uint32_t channels = (m_formatCache.channels > 0) ? m_formatCache.channels : 2;
+                    const uint32_t sampleCount = bytesRead / static_cast<uint32_t>(sizeof(float));
+                    
+                    // Giới hạn channel tối đa kMaxAudioChannels (2)
+                    uint32_t channels = m_formatCache.channels;
+                    if (channels == 0 || channels > kMaxAudioChannels) {
+                        channels = 2;
+                    }
+                    
                     const uint32_t sampleRate = (m_formatCache.sampleRate > 0) ? m_formatCache.sampleRate : 48000;
 
                     writeSlot->format.sampleRate = sampleRate;
-                    writeSlot->format.channels = channels;
+                    writeSlot->format.channels = static_cast<uint8_t>(channels);
                     writeSlot->format.format = m_formatCache.format;
 
                     writeSlot->frames = sampleCount / channels;
                     writeSlot->sequence = m_sequence++;
                     writeSlot->generation = m_activeGeneration;
                     
-                    // PTS giờ đây đã bám sát timePos thực tế của media!
                     writeSlot->pts = m_currentPts;
 
                     double blockDuration = static_cast<double>(writeSlot->frames) / static_cast<double>(sampleRate);

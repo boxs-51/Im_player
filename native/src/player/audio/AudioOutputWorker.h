@@ -1,9 +1,11 @@
 #pragma once
 
-#include "AudioProcessor.h"
+#include "AudioTypes.h"
+#include "SpscRingBuffer.h"
 #include "PlayerStateSystem.h"
 #include "IAudioOutputDevice.h"
 #include "threads/thread_id.h"
+
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -17,8 +19,9 @@ enum class AudioBackendType {
 
 /**
  * @class AudioOutputWorker
- * @brief Thread CONSUMER cuối cùng trong pipeline: Nhận data từ AudioProcessor 
- *        và xuất ra thiết bị phần cứng (SDL2 / WASAPI).
+ * @brief Thread CONSUMER cuối cùng trong pipeline âm thanh: 
+ *        Đọc dữ liệu từ SpscRingBuffer<AudioBlock> (đã qua xử lý) 
+ *        và xuất trực tiếp ra phần cứng (SDL2 / WASAPI).
  */
 class AudioOutputWorker {
 public:
@@ -28,24 +31,37 @@ public:
     AudioOutputWorker(const AudioOutputWorker&) = delete;
     AudioOutputWorker& operator=(const AudioOutputWorker&) = delete;
 
-    // Thay đổi tham chiếu đầu vào sang AudioProcessor để nhận stream đã qua xử lý
-    bool Init(SpscRingBuffer<AudioBlock>* processedStream, PlayerStateSystem* stateSystem, AudioBackendType backend = AudioBackendType::SDL2);
+    /**
+     * @brief Khởi tạo Worker với RingBuffer và StateSystem
+     */
+    bool Init(SpscRingBuffer<AudioBlock>* processedStream,
+              AudioBackendType backend = AudioBackendType::SDL2);
+
     void Start();
     void Stop();
 
-    // Cho phép chuyển đổi linh hoạt Backend âm thanh lúc runtime
+    /**
+     * @brief Chuyển đổi linh hoạt Backend âm thanh ngay tại Runtime
+     */
     bool SwitchBackend(AudioBackendType newBackend);
+
+    /**
+     * @brief Kiểm tra xem Worker có đang chạy hay không
+     */
+    bool IsRunning() const { return m_isRunning.load(std::memory_order_relaxed); }
 
 private:
     void OutputLoop();
     std::unique_ptr<IAudioOutputDevice> CreateDeviceBackend(AudioBackendType type);
 
+    // --- References & Streams ---
     SpscRingBuffer<AudioBlock>* m_processedStream = nullptr;
-    PlayerStateSystem*   m_stateSystem = nullptr;
 
+    // --- Audio Backend ---
     std::unique_ptr<IAudioOutputDevice> m_audioDevice;
     AudioBackendType m_currentBackendType = AudioBackendType::SDL2;
 
+    // --- Thread Control ---
     std::thread m_workerThread;
     std::atomic<bool> m_isRunning{false};
     uint64_t m_lastGeneration = 0;

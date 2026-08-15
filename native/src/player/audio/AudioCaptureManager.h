@@ -56,7 +56,7 @@ public:
     void StartCapture();
     void StopCapture();
 
-    // Tín hiệu khi Seek / Đổi track (Được gọi từ UI/Control plane)
+    // Tín hiệu khi Seek / Đổi track (Thread-safe, gọi từ UI/Control plane)
     void NotifySeekOrTrackChange();
 
     std::string GetPipeName() const;
@@ -86,10 +86,13 @@ private:
     std::atomic<HANDLE> m_atomicPipeHandle{INVALID_HANDLE_VALUE};
     std::string m_pipeName;
 
+    // Yêu cầu chuyển generation từ UI thread (Thread-safe trigger)
+    std::atomic<uint64_t> m_generationRequest{0};
+
     // --- Local Caching & Metrics ---
     AudioFormatCache m_formatCache;
 
-    // CHỈ CaptureThread được phép đọc/ghi các biến state này!
+    // CHỈ CaptureThread được phép đọc/ghi các biến state nội bộ này!
     uint64_t m_activeGeneration = 0;
     uint64_t m_sequence = 0;
     double m_currentPts = 0.0;
@@ -97,6 +100,6 @@ private:
     AudioPipelineMetricsAtomic m_metrics;
 
     // --- Lock-free SPSC RingBuffer ---
-    // Dung lượng Ring buffer từ 32 tối ưu xuống 8 blocks để giảm latency
+    // Dung lượng Ring buffer 8 blocks để giảm latency
     SpscRingBuffer<AudioBlock> m_rawAudioBuffer{8};
 };
