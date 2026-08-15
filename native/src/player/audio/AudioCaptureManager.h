@@ -17,7 +17,7 @@ class PlayerStateSystem;
 
 /**
  * @struct AudioFormatCache
- * @brief Cache local lưu cấu hình audio hiện tại để tránh lock PlayerStateSystem liên tục
+ * @brief Cache local lưu cấu hình audio hiện tại
  */
 struct AudioFormatCache {
     uint32_t sampleRate = 48000;
@@ -26,9 +26,21 @@ struct AudioFormatCache {
 };
 
 /**
+ * @struct AudioPipelineMetricsAtomic
+ * @brief Metrics được atomic hóa để UI Thread có thể đọc an toàn
+ */
+struct AudioPipelineMetricsAtomic {
+    std::atomic<uint64_t> blocksReceived{0};
+    std::atomic<uint64_t> blocksDropped{0};
+    std::atomic<uint64_t> bytesReceived{0};
+    std::atomic<uint64_t> ringOverflows{0};
+    std::atomic<uint64_t> lastSequence{0};
+    std::atomic<double> lastPTS{0.0};
+};
+
+/**
  * @class AudioCaptureManager
- * @brief Quản lý lấy dữ liệu PCM từ MPV qua Named Pipe, xử lý Overlapped I/O không gây nghẽn,
- * hỗ trợ tự động Reconnect và chuyển giao Lock-free sang SPSC RingBuffer.
+ * @brief Thread duy nhất sở hữu Capture Data Plane (Read Pipe -> Produce Raw Ring Buffer)
  */
 class AudioCaptureManager {
 public:
@@ -38,19 +50,22 @@ public:
     AudioCaptureManager(const AudioCaptureManager&) = delete;
     AudioCaptureManager& operator=(const AudioCaptureManager&) = delete;
 
-    void Init(mpv_handle* mpv, PlayerStateSystem* stateSystem);
+    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem);
     void Shutdown();
 
     void StartCapture();
     void StopCapture();
 
-    // Tín hiệu khi Seek / Đổi track
+    // Tín hiệu khi Seek / Đổi track (Được gọi từ UI/Control plane)
     void NotifySeekOrTrackChange();
 
     std::string GetPipeName() const;
 
+    // SPSC Ring Buffer: CaptureManager đóng vai trò PRODUCER duy nhất
     SpscRingBuffer<AudioBlock>& GetRawStream() { return m_rawAudioBuffer; }
-    AudioPipelineMetrics GetMetrics() const { return m_metrics; }
+    
+    // Đọc Snapshot Metrics thread-safe
+    AudioPipelineMetrics GetMetrics() const;
 
 private:
     void CaptureLoop();
@@ -67,17 +82,21 @@ private:
     std::atomic<bool> m_isCapturing{false};
     ThreadID m_threadId;
 
-    // Lock-free Atomic Handle giúp UI Thread cancel I/O tức thì không cần Mutex
+    // Handle pipe được quản lý an toàn qua CancelIoEx
     std::atomic<HANDLE> m_atomicPipeHandle{INVALID_HANDLE_VALUE};
     std::string m_pipeName;
 
     // --- Local Caching & Metrics ---
     AudioFormatCache m_formatCache;
-    std::atomic<uint64_t> m_currentGeneration{0};
+
+    // CHỈ CaptureThread được phép đọc/ghi các biến state này!
+    uint64_t m_activeGeneration = 0;
     uint64_t m_sequence = 0;
     double m_currentPts = 0.0;
-    AudioPipelineMetrics m_metrics;
+
+    AudioPipelineMetricsAtomic m_metrics;
 
     // --- Lock-free SPSC RingBuffer ---
-    SpscRingBuffer<AudioBlock> m_rawAudioBuffer;
+    // Dung lượng Ring buffer từ 32 tối ưu xuống 8 blocks để giảm latency
+    SpscRingBuffer<AudioBlock> m_rawAudioBuffer{8};
 };

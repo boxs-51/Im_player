@@ -1,8 +1,9 @@
 #pragma once
 
-#include "AudioCaptureManager.h"
+#include "AudioProcessor.h"
 #include "PlayerStateSystem.h"
 #include "IAudioOutputDevice.h"
+#include "threads/thread_id.h"
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -14,23 +15,32 @@ enum class AudioBackendType {
     ASIO
 };
 
+/**
+ * @class AudioOutputWorker
+ * @brief Thread CONSUMER cuối cùng trong pipeline: Nhận data từ AudioProcessor 
+ *        và xuất ra thiết bị phần cứng (SDL2 / WASAPI).
+ */
 class AudioOutputWorker {
 public:
     AudioOutputWorker();
     ~AudioOutputWorker();
 
-    bool Init(AudioCaptureManager* captureManager, PlayerStateSystem* stateSystem, AudioBackendType backend = AudioBackendType::SDL2);
+    AudioOutputWorker(const AudioOutputWorker&) = delete;
+    AudioOutputWorker& operator=(const AudioOutputWorker&) = delete;
+
+    // Thay đổi tham chiếu đầu vào sang AudioProcessor để nhận stream đã qua xử lý
+    bool Init(SpscRingBuffer<AudioBlock>* processedStream, PlayerStateSystem* stateSystem, AudioBackendType backend = AudioBackendType::SDL2);
     void Start();
     void Stop();
 
-    // Cho phép đổi Backend linh hoạt lúc đang chạy (Runtime Backend Switching)
+    // Cho phép chuyển đổi linh hoạt Backend âm thanh lúc runtime
     bool SwitchBackend(AudioBackendType newBackend);
 
 private:
     void OutputLoop();
     std::unique_ptr<IAudioOutputDevice> CreateDeviceBackend(AudioBackendType type);
 
-    AudioCaptureManager* m_captureManager = nullptr;
+    SpscRingBuffer<AudioBlock>* m_processedStream = nullptr;
     PlayerStateSystem*   m_stateSystem = nullptr;
 
     std::unique_ptr<IAudioOutputDevice> m_audioDevice;
@@ -39,5 +49,5 @@ private:
     std::thread m_workerThread;
     std::atomic<bool> m_isRunning{false};
     uint64_t m_lastGeneration = 0;
-    std::string m_threadId;
+    ThreadID m_threadId;
 };

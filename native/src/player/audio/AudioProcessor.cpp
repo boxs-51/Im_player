@@ -31,13 +31,16 @@ void AudioProcessor::Stop() {
 }
 
 bool AudioProcessor::GetLatestVisualizerData(AudioVisualizerFrame& outFrame) {
-    std::lock_guard<std::mutex> lock(m_visualizerMutex);
-    outFrame = m_latestVisualizerFrame;
+    // Đọc Lock-free snapshot mới nhất
+    int activeIdx = m_writeIndex.load(std::memory_order_relaxed);
+    outFrame = m_visualizerFrames[activeIdx];
     return true;
 }
 
 void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
-    AudioVisualizerFrame frame;
+    int targetIdx = 1 - m_writeIndex.load(std::memory_order_relaxed);
+    AudioVisualizerFrame& frame = m_visualizerFrames[targetIdx];
+
     frame.sequence = block.sequence;
     frame.pts = block.pts;
 
@@ -46,19 +49,31 @@ void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
     float maxL = 0.0f;
     float maxR = 0.0f;
 
-    size_t frames = block.frames;
+    const size_t frames = block.frames;
+    const uint8_t channels = block.format.channels > 0 ? block.format.channels : 2;
+
     if (frames == 0) return;
 
-    // Duyệt qua các mẫu âm thanh để tính toán RMS và Peak
-    for (size_t i = 0; i < frames; ++i) {
-        float sampleL = block.samples[i * 2];
-        float sampleR = block.samples[i * 2 + 1];
+    // Duyệt mẫu an toàn theo kênh thực tế
+    if (channels >= 2) {
+        for (size_t i = 0; i < frames; ++i) {
+            float sampleL = block.samples[i * channels];
+            float sampleR = block.samples[i * channels + 1];
 
-        sumSqL += sampleL * sampleL;
-        sumSqR += sampleR * sampleR;
+            sumSqL += sampleL * sampleL;
+            sumSqR += sampleR * sampleR;
 
-        maxL = std::max(maxL, std::abs(sampleL));
-        maxR = std::max(maxR, std::abs(sampleR));
+            maxL = std::max(maxL, std::abs(sampleL));
+            maxR = std::max(maxR, std::abs(sampleR));
+        }
+    } else { // Mono fallback
+        for (size_t i = 0; i < frames; ++i) {
+            float sample = block.samples[i];
+            sumSqL += sample * sample;
+            maxL = std::max(maxL, std::abs(sample));
+        }
+        sumSqR = sumSqL;
+        maxR = maxL;
     }
 
     frame.rmsLeft = std::sqrt(sumSqL / frames);
@@ -66,39 +81,39 @@ void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
     frame.peakLeft = maxL;
     frame.peakRight = maxR;
 
-    // Điền dữ liệu giả lập/phân đoạn phổ tần số cơ bản (có thể thay thế bằng FFT chuyên sâu sau)
+    // Phân tích dải phổ giả lập / FFT
     for (size_t b = 0; b < kSpectrumBins; ++b) {
         float factor = static_cast<float>(b + 1) / kSpectrumBins;
         frame.spectrum[b] = (frame.rmsLeft + frame.rmsRight) * 0.5f * (1.0f - 0.3f * std::abs(factor - 0.5f));
     }
 
-    // Cập nhật snapshot cho UI
-    {
-        std::lock_guard<std::mutex> lock(m_visualizerMutex);
-        m_latestVisualizerFrame = frame;
-    }
+    // Swapping index không dùng Lock
+    m_writeIndex.store(targetIdx, std::memory_order_release);
 }
 
 void AudioProcessor::ProcessLoop() {
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioProcessor] Processing thread started.");
 
-    AudioBlock block;
     while (m_isRunning) {
-        // Lấy block từ input stream (từ CaptureManager)
-        if (m_inputStream->try_pop(block)) {
-            
-            // 1. Phân tích dữ liệu âm thanh cho Visualizer / UI
-            AnalyzeBlock(block);
-
-            // 2. [Mở rộng tương lai]: Chèn các bộ lọc Equalizer / Effects tại đây nếu cần
-
-            // 3. Đẩy block sang output stream để AudioOutputWorker tiêu thụ phát ra loa
-            while (m_isRunning && !m_outputStream->try_push(std::move(block))) {
-                std::this_thread::sleep_for(std::chrono::milliseconds(1));
-            }
-        } else {
-            std::this_thread::sleep_for(std::chrono::milliseconds(2));
+        // ZERO-COPY READ TỪ CAPTURE RING BUFFER
+        const AudioBlock* inSlot = m_inputStream->acquire_read();
+        if (!inSlot) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
         }
+
+        // 1. Phân tích dữ liệu âm thanh cho UI / Visualizer
+        AnalyzeBlock(*inSlot);
+
+        // 2. ZERO-COPY WRITE SANG OUTPUT WORKER RING BUFFER
+        AudioBlock* outSlot = m_outputStream->acquire_write();
+        if (outSlot) {
+            *outSlot = *inSlot; // Direct Memory Copy vào Ring Buffer Slot mới
+            m_outputStream->commit_write();
+        }
+
+        // 3. Giải phóng Read Slot ở Input Stream
+        m_inputStream->release_read();
     }
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioProcessor] Processing thread finished.");

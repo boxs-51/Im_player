@@ -5,13 +5,14 @@
 SdlAudioDevice::SdlAudioDevice() = default;
 
 SdlAudioDevice::~SdlAudioDevice() {
-    Close();
+    Shutdown();
 }
 
 bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     std::lock_guard<std::mutex> lock(m_lifecycleMutex);
 
-    if (m_deviceId.load() != 0) {
+    if (m_deviceId.load(std::memory_order_relaxed) != 0) {
+        m_isReady.store(true, std::memory_order_release);
         return true; // Đã mở rồi
     }
 
@@ -20,10 +21,11 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
             LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
                 std::cout << "[SdlAudioDevice] Failed to init SDL Audio Subsystem: " << SDL_GetError());
+            m_isReady.store(false, std::memory_order_release);
             return false;
         }
     }
-    m_isSdlAudioInitialized.store(true);
+    m_isSdlAudioInitialized.store(true, std::memory_order_relaxed);
 
     // 2. Cấu hình thông số Audio Spec
     SDL_AudioSpec desiredSpec{};
@@ -40,14 +42,16 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     if (devId == 0) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
             std::cout << "[SdlAudioDevice] Failed to open default audio device: " << SDL_GetError());
+        m_isReady.store(false, std::memory_order_release);
         return false;
     }
 
     // Unpause thiết bị
     SDL_PauseAudioDevice(devId, 0);
 
-    // Atomic store để luồng Worker thấy Device ID mới
+    // Atomic store để luồng Worker thấy Device ID và trạng thái sẵn sàng
     m_deviceId.store(devId, std::memory_order_release);
+    m_isReady.store(true, std::memory_order_release);
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio,
         std::cout << "[SdlAudioDevice] Opened SDL Audio Device. ID: " << devId
@@ -58,6 +62,8 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
 
 void SdlAudioDevice::Close() {
     std::lock_guard<std::mutex> lock(m_lifecycleMutex);
+
+    m_isReady.store(false, std::memory_order_release);
 
     // Nhát cắt Atomic: Đặt m_deviceId = 0 trước. 
     // Mọi lệnh Write/GetQueued từ Worker thread gọi vào sau thời điểm này sẽ lập tức return safe!
@@ -70,22 +76,36 @@ void SdlAudioDevice::Close() {
             std::cout << "[SdlAudioDevice] Audio device closed.");
     }
 
-    if (m_isSdlAudioInitialized.exchange(false)) {
+    if (m_isSdlAudioInitialized.exchange(false, std::memory_order_relaxed)) {
         SDL_QuitSubSystem(SDL_INIT_AUDIO);
     }
+}
+
+void SdlAudioDevice::Shutdown() {
+    Close();
+}
+
+bool SdlAudioDevice::IsReady() const {
+    return m_isReady.load(std::memory_order_acquire) && (m_deviceId.load(std::memory_order_relaxed) != 0);
+}
+
+void SdlAudioDevice::SetReady(bool ready) {
+    m_isReady.store(ready, std::memory_order_release);
 }
 
 void SdlAudioDevice::Write(const float* samples, size_t sampleCount) {
     if (!samples || sampleCount == 0) return;
 
     SDL_AudioDeviceID devId = m_deviceId.load(std::memory_order_acquire);
-    if (devId == 0) return; // An toàn tuyệt đối, không crash
+    if (devId == 0 || !m_isReady.load(std::memory_order_relaxed)) return; // An toàn tuyệt đối, không crash
 
     const uint32_t bytesToWrite = static_cast<uint32_t>(sampleCount * sizeof(float));
     
     if (SDL_QueueAudio(devId, samples, bytesToWrite) < 0) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
             std::cout << "[SdlAudioDevice] SDL_QueueAudio failed: " << SDL_GetError());
+        // Đánh dấu thiết bị lỗi để Worker biết và kích hoạt Auto-Recovery
+        m_isReady.store(false, std::memory_order_release);
     }
 }
 

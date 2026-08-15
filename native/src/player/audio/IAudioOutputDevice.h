@@ -15,4 +15,8 @@ public:
     virtual void Write(const float* samples, size_t sampleCount) = 0;
     virtual void FlushBuffers() = 0; // Clear hardware queued audio khi seek / state change
     virtual uint32_t GetQueuedSizeBytes() const = 0;
+
+    virtual bool IsReady() const = 0;
+    virtual void SetReady(bool ready) = 0;
+    virtual void Shutdown() = 0;
 };

@@ -1,46 +1,70 @@
 #include "Audio.h"
+#include "PlayerStateSystem.h"
 
-void Audio::Init(mpv_handle* m_mpv, PlayerStateSystem* m_state) {
-    // 1. Khởi tạo MPV & StateSystem như bình thường
+Audio::Audio() = default;
 
-    // 2. Khởi tạo Capture Manager (Tạo Pipe + Set option cho MPV)
-    m_audioCapture.Init(m_mpv, m_state);
+Audio::~Audio() {
+    Shutdown();
+}
 
-    // 3. Khởi tạo Audio Processor (Kết nối Raw Stream -> Processed Stream)
-    m_audioProcessor.Init(&m_audioCapture.GetRawStream(), &m_processedAudioBuffer);
+bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
+    if (!mpv || !stateSystem) return false;
 
-    // 4. Khởi tạo Audio Output Worker (Đọc dữ liệu từ Processed Stream)
-    m_audioOutput.Init(&m_audioCapture, m_state); // Khởi tạo phần cứng SDL
-    // Truyền buffer đã qua xử lý cho Output Worker
-    // (Lưu ý: Bạn có thể cập nhật AudioOutputWorker::Init để nhận pointer đến m_processedAudioBuffer)
+    // 1. Khởi tạo Capture Manager (Đăng ký Pipe / MPV audio filter stream)
+    if (!m_audioCapture.Init(mpv, stateSystem)) {
+        return false;
+    }
 
-    // 5. Khai hỏa tất cả Worker Threads
+    // 2. Kết nối Audio Processor: Raw Stream (Capture) -> Processed Stream
+    if (!m_audioProcessor.Init(&m_audioCapture.GetRawStream(), &m_processedAudioBuffer)) {
+        m_audioCapture.Shutdown();
+        return false;
+    }
+
+    // 3. Kết nối Output Worker: Processed Stream -> Output Hardware Device (SDL2)
+    if (!m_audioOutput.Init(&m_processedAudioBuffer, stateSystem, AudioBackendType::SDL2)) {
+        m_audioProcessor.Stop();
+        m_audioCapture.Shutdown();
+        return false;
+    }
+
+    // 4. Khai hỏa các Worker Threads
     m_audioProcessor.Start();
     m_audioOutput.Start();
+
+    return true;
 }
 
 void Audio::OnUserSeek() {
-    // Tăng generation ID & clear capture buffer
+    // Tăng Generation ID để báo cho Output Worker xả phần cứng
     m_audioCapture.NotifySeekOrTrackChange(); 
 
-    // Clear buffer trung gian
-    //m_processedAudioBuffer.clear();
+    // Xả sạch tất cả các block rác còn tồn trong RingBuffer trung gian
+    const AudioBlock* slot = nullptr;
+    while ((slot = m_processedAudioBuffer.acquire_read()) != nullptr) {
+        m_processedAudioBuffer.release_read();
+    }
+}
 
+bool Audio::GetVisualizerData(AudioVisualizerFrame& outFrame) {
+    return m_audioProcessor.GetLatestVisualizerData(outFrame);
 }
 
 void Audio::Shutdown() {
-    // 1. Dừng Output Worker (Consumer)
+    // Dừng theo thứ tự ngược lại của Pipeline: Consumer -> Intermediate -> Producer
+    
+    // 1. Dừng Output Worker
     m_audioOutput.Stop();
 
-    // 2. Dừng Processor (Intermediate)
+    // 2. Dừng Processor
     m_audioProcessor.Stop();
 
-    // 3. Dừng Capture Manager (Producer)
+    // 3. Dừng Capture Manager
     m_audioCapture.Shutdown();
 
-    // 4. Reset/Clear sạch dữ liệu đệm dở dang trong RingBuffer
-    AudioBlock dummyBlock;
-    while (m_processedAudioBuffer.try_pop(dummyBlock)) {
-        // Pop hết block thừa để giải phóng std::vector<float> samples bên trong
+    // 4. Dọn dẹp sạch RingBuffer đệm dở dang
+    const AudioBlock* slot = nullptr;
+    while ((slot = m_processedAudioBuffer.acquire_read()) != nullptr) {
+        m_processedAudioBuffer.release_read();
     }
 }

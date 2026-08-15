@@ -5,7 +5,7 @@
 #include <iostream>
 
 AudioCaptureManager::AudioCaptureManager() 
-    : m_threadId(""), m_rawAudioBuffer(32)
+    : m_threadId(""), m_rawAudioBuffer(8)
 {}
 
 AudioCaptureManager::~AudioCaptureManager() {
@@ -19,45 +19,48 @@ std::string AudioCaptureManager::GetPipeName() const {
 void AudioCaptureManager::UpdateFormatCacheFromState() {
     if (!m_stateSystem) return;
 
-    // Đọc thông số Audio từ State System (Snapshot)
-    AudioModel audio = m_stateSystem->GetAudioModel();
-    if (audio.params.asamplerate > 0) {
-        m_formatCache.sampleRate = static_cast<uint32_t>(audio.params.asamplerate);
-    }
-    if (audio.params.channel_count > 0) {
-        m_formatCache.channels = static_cast<uint8_t>(audio.params.channel_count);
-    }
+    int sampleRate;
+    int channel_count;
+    m_stateSystem->ReadAudio([&sampleRate,&channel_count](const AudioModel& model) {
+        if(model.params.asamplerate)
+            sampleRate = model.params.asamplerate;
+        if(model.params.channel_count)
+            channel_count = model.params.channel_count;
+    });
+    m_formatCache.sampleRate = static_cast<uint32_t>(sampleRate);
+    m_formatCache.channels = static_cast<uint8_t>(channel_count);
 }
 
-void AudioCaptureManager::NotifySeekOrTrackChange() {
-    m_currentGeneration.fetch_add(1, std::memory_order_relaxed);
-    
-    // Đánh dấu lại timeline PTS
-    m_currentPts = 0.0;
-
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
-        std::cout << "[AudioCaptureManager] Seek/Track change notified. Generation: " 
-                  << m_currentGeneration.load());
+AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
+    AudioPipelineMetrics snapshot;
+    snapshot.blocksReceived = m_metrics.blocksReceived.load(std::memory_order_relaxed);
+    snapshot.blocksDropped = m_metrics.blocksDropped.load(std::memory_order_relaxed);
+    snapshot.bytesReceived = m_metrics.bytesReceived.load(std::memory_order_relaxed);
+    snapshot.ringOverflows = m_metrics.ringOverflows.load(std::memory_order_relaxed);
+    snapshot.lastSequence = m_metrics.lastSequence.load(std::memory_order_relaxed);
+    snapshot.lastPTS = m_metrics.lastPTS.load(std::memory_order_relaxed);
+    return snapshot;
 }
 
-void AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
+bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
+    if(!mpv || !stateSystem) return false;
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Initializing...");
     
     m_mpv = mpv;
     m_stateSystem = stateSystem;
     m_threadId = "AudioCapture_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
-    // Tạo Unique Pipe Name cho Instance này
     m_pipeName = "\\\\.\\pipe\\mpv_pcm_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
-    // Cập nhật cache định dạng ban đầu từ State
     UpdateFormatCacheFromState();
 
-    // Đăng ký AO PCM với MPV xuất ra Named Pipe (Không ép samplerate/channels cố định)
+    // Đảm bảo MPV xuất chính xác float32le pcm
     mpv_set_option_string(m_mpv, "ao", "pcm");
     mpv_set_option_string(m_mpv, "ao-pcm-file", m_pipeName.c_str());
+    mpv_set_option_string(m_mpv, "ao-pcm-format", "f32le");
 
     StartCapture();
+    return true;
 }
 
 void AudioCaptureManager::Shutdown() {
@@ -75,7 +78,9 @@ void AudioCaptureManager::StartCapture() {
     m_isCapturing = true;
     m_sequence = 0;
     m_currentPts = 0.0;
-    
+    m_activeGeneration = 0;
+
+
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
 }
@@ -87,12 +92,9 @@ void AudioCaptureManager::StopCapture() {
 
     m_isCapturing = false;
 
-    // --- KHÔNG DÙNG MUTEX: Cancel I/O tức thì từ UI Thread ---
-    HANDLE hPipe = m_atomicPipeHandle.exchange(INVALID_HANDLE_VALUE);
+    HANDLE hPipe = m_atomicPipeHandle.load();
     if (hPipe != INVALID_HANDLE_VALUE) {
         CancelIoEx(hPipe, NULL);
-        DisconnectNamedPipe(hPipe);
-        CloseHandle(hPipe);
     }
 
     if (m_captureThread.joinable()) {
@@ -130,26 +132,22 @@ void AudioCaptureManager::CaptureLoop() {
     OVERLAPPED overlapped = { 0 };
     overlapped.hEvent = hEvent;
 
-    AudioBlock block;
-
     while (m_isRunning) {
-        // 1. Khởi tạo Pipe Handle cho luồng kết nối mới
         HANDLE currentPipe = CreateAudioPipe();
         if (currentPipe == INVALID_HANDLE_VALUE) {
-            std::this_thread::sleep_for(std::chrono::milliseconds(100));
+            std::this_thread::sleep_for(std::chrono::milliseconds(50));
             continue;
         }
 
         m_atomicPipeHandle.store(currentPipe);
 
-        // 2. Chờ MPV kết nối tới Pipe (Non-blocking Connect)
         ResetEvent(hEvent);
         BOOL connected = ConnectNamedPipe(currentPipe, &overlapped);
         if (!connected) {
             DWORD err = GetLastError();
             if (err == ERROR_IO_PENDING) {
                 while (m_isRunning) {
-                    DWORD waitResult = WaitForSingleObject(hEvent, 50); // Timeout ngắn 50ms
+                    DWORD waitResult = WaitForSingleObject(hEvent, 30);
                     if (waitResult == WAIT_OBJECT_0) {
                         connected = TRUE;
                         break;
@@ -160,23 +158,29 @@ void AudioCaptureManager::CaptureLoop() {
             }
         }
 
-        // 3. Vòng lặp Đọc dữ liệu PCM Stream
         if (connected && m_isRunning) {
             LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] MPV connected to pipe.");
 
-            // Cập nhật lại Cache định dạng khi MPV vừa kết nối
             UpdateFormatCacheFromState();
-
             const DWORD maxBytesToRead = static_cast<DWORD>(kMaxAudioSamples * sizeof(float));
 
+            m_currentPts = 0.0;
+
             while (m_isRunning) {
+                AudioBlock* writeSlot = m_rawAudioBuffer.acquire_write();
+                if (!writeSlot) {
+                    m_metrics.ringOverflows.fetch_add(1, std::memory_order_relaxed);
+                    m_metrics.blocksDropped.fetch_add(1, std::memory_order_relaxed);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                    continue;
+                }
+
                 DWORD bytesRead = 0;
                 ResetEvent(hEvent);
 
-                // Đọc trực tiếp vào Buffer cố định của AudioBlock
                 BOOL success = ReadFile(
                     currentPipe,
-                    block.samples.data(),
+                    writeSlot->samples.data(),
                     maxBytesToRead,
                     &bytesRead,
                     &overlapped
@@ -184,7 +188,7 @@ void AudioCaptureManager::CaptureLoop() {
 
                 if (!success && GetLastError() == ERROR_IO_PENDING) {
                     while (m_isRunning) {
-                        DWORD waitRes = WaitForSingleObject(hEvent, 20); // Poll 20ms cực mượt
+                        DWORD waitRes = WaitForSingleObject(hEvent, 10);
                         if (waitRes == WAIT_OBJECT_0) {
                             success = GetOverlappedResult(currentPipe, &overlapped, &bytesRead, FALSE);
                             break;
@@ -192,46 +196,54 @@ void AudioCaptureManager::CaptureLoop() {
                     }
                 }
 
-                // Xử lý khi mất kết nối / MPV Pause / EOF
                 if (!m_isRunning || !success || bytesRead == 0) {
                     LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
-                        std::cout << "[AudioCaptureManager] Pipe disconnected or stream read ended. Reconnecting...");
+                        std::cout << "[AudioCaptureManager] Pipe disconnected or stream read ended.");
                     break; 
                 }
 
-                // 4. Đóng gói AudioBlock & Đẩy vào RingBuffer
                 if (m_isCapturing) {
-                    const uint32_t sampleCount = bytesRead / sizeof(float);
+                    UpdateFormatCacheFromState();
+
+                    // KIỂM TRA THAY ĐỔI GENERATION KHI SEEK/TRACK CHANGE
+
+                    double timepos;
+                    if (m_stateSystem) {
+                        m_stateSystem->ReadPlayback([&timepos](const PlaybackModel& model) {
+                            timepos = model.timing.timePos;
+                        });
+                    }
+                    m_currentPts = timepos;
                     
-                    block.format.sampleRate = m_formatCache.sampleRate;
-                    block.format.channels = m_formatCache.channels;
-                    block.format.format = m_formatCache.format;
+                    const uint32_t sampleCount = bytesRead / sizeof(float);
+                    const uint32_t channels = (m_formatCache.channels > 0) ? m_formatCache.channels : 2;
+                    const uint32_t sampleRate = (m_formatCache.sampleRate > 0) ? m_formatCache.sampleRate : 48000;
 
-                    block.frames = sampleCount / block.format.channels;
-                    block.sequence = m_sequence++;
-                    block.generation = m_currentGeneration.load(std::memory_order_relaxed);
-                    block.pts = m_currentPts;
+                    writeSlot->format.sampleRate = sampleRate;
+                    writeSlot->format.channels = channels;
+                    writeSlot->format.format = m_formatCache.format;
 
-                    // Tính toán timeline PTS chính xác dựa trên lượng mẫu thực tế đọc được
-                    double blockDuration = static_cast<double>(block.frames) / block.format.sampleRate;
+                    writeSlot->frames = sampleCount / channels;
+                    writeSlot->sequence = m_sequence++;
+                    writeSlot->generation = m_activeGeneration;
+                    
+                    // PTS giờ đây đã bám sát timePos thực tế của media!
+                    writeSlot->pts = m_currentPts;
+
+                    double blockDuration = static_cast<double>(writeSlot->frames) / static_cast<double>(sampleRate);
                     m_currentPts += blockDuration;
 
-                    // Metrics tracking
-                    m_metrics.blocksReceived++;
-                    m_metrics.bytesReceived += bytesRead;
-                    m_metrics.lastSequence = block.sequence;
-                    m_metrics.lastPTS = block.pts;
+                    // Metrics Tracking
+                    m_metrics.blocksReceived.fetch_add(1, std::memory_order_relaxed);
+                    m_metrics.bytesReceived.fetch_add(bytesRead, std::memory_order_relaxed);
+                    m_metrics.lastSequence.store(writeSlot->sequence, std::memory_order_relaxed);
+                    m_metrics.lastPTS.store(writeSlot->pts, std::memory_order_relaxed);
 
-                    // Đẩy dữ liệu sang SPSC RingBuffer (Lock-free)
-                    if (!m_rawAudioBuffer.try_push(block)) {
-                        m_metrics.blocksDropped++;
-                        m_metrics.ringOverflows++;
-                    }
+                    m_rawAudioBuffer.commit_write();
                 }
             }
         }
 
-        // 5. Cleanup Pipe hiện tại để chuẩn bị cho chu kỳ Reconnect tiếp theo
         HANDLE hPipeToClose = m_atomicPipeHandle.exchange(INVALID_HANDLE_VALUE);
         ClosePipeHandle(hPipeToClose);
     }

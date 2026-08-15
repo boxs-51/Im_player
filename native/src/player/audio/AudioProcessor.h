@@ -5,8 +5,12 @@
 #include "AudioVisualizerData.h"
 #include <atomic>
 #include <thread>
-#include <mutex>
 
+/**
+ * @class AudioProcessor
+ * @brief Thread duy nhất nhận Raw Audio từ CaptureManager, phân tích Visualizer 
+ *        và chuyển giao Zero-Copy dữ liệu sang OutputWorker.
+ */
 class AudioProcessor {
 public:
     AudioProcessor();
@@ -19,7 +23,7 @@ public:
     void Start();
     void Stop();
 
-    // UI Thread gọi hàm này để lấy snapshot dữ liệu visualizer mới nhất (thread-safe)
+    // UI Thread gọi hàm này để lấy snapshot dữ liệu visualizer (HOÀN TOÀN LOCK-FREE)
     bool GetLatestVisualizerData(AudioVisualizerFrame& outFrame);
 
 private:
@@ -32,7 +36,8 @@ private:
     std::thread m_processThread;
     std::atomic<bool> m_isRunning{false};
 
-    // Dữ liệu visualizer chia sẻ với UI thread (bảo vệ bằng mutex nhẹ hoặc lock-free snapshot)
-    AudioVisualizerFrame m_latestVisualizerFrame;
-    std::mutex m_visualizerMutex;
+    // --- LOCK-FREE VISUALIZER SNAPSHOT (Atomic Exchange Double/Triple Buffering) ---
+    AudioVisualizerFrame m_visualizerFrames[2];
+    std::atomic<int> m_writeIndex{0};
+    std::atomic<uint64_t> m_visualizerSequence{0};
 };
