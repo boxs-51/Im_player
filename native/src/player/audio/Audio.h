@@ -28,11 +28,6 @@ public:
     bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem);
     
     /**
-     * @brief Xử lý sự kiện Seek hoặc đổi track từ phía người dùng
-     */
-    void OnUserSeek();
-
-    /**
      * @brief Dừng và giải phóng toàn bộ tài nguyên pipeline
      */
     void Shutdown();
@@ -57,10 +52,6 @@ private:
      * @brief Xả sạch tất cả các block tồn đọng trong RingBuffer trung gian
      */
     void FlushProcessedBuffer();
-
-    // Buffer trung gian giữa Processor (Producer) và OutputWorker (Consumer)
-    // Capacity = 32 blocks (~1.36s đệm tối đa ở 48kHz, 2048 samples/block)
-    SpscRingBuffer<AudioBlock> m_processedAudioBuffer{32};
 
     AudioCaptureManager m_audioCapture;
     AudioProcessor      m_audioProcessor;

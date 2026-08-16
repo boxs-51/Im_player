@@ -23,23 +23,30 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
         return false;
     }
 
-    // 1. Khởi tạo Capture Manager
-    if (!m_audioCapture.Init(mpv, stateSystem)) {
+    // 1. Tạo Ring Buffers và tách cặp Producer/Consumer
+    // Raw Stream: 8 blocks
+    auto [rawProducer, rawConsumer] = make_spsc_ring_buffer<AudioBlock>(8);
+    
+    // Processed Stream: 32 blocks
+    auto [procProducer, procConsumer] = make_spsc_ring_buffer<AudioBlock>(32);
+
+    // 2. Kết nối Audio Capture Manager (Chỉ cấp quyền GHI vào Raw Stream)
+    if (!m_audioCapture.Init(mpv, stateSystem, std::move(rawProducer))) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
             std::cout << "[Audio] Failed to initialize AudioCaptureManager.");
         return false;
     }
 
-    // 2. Kết nối Audio Processor: Raw Stream (Capture) -> Processed Stream
-    if (!m_audioProcessor.Init(&m_audioCapture.GetRawStream(), &m_processedAudioBuffer)) {
+    // 3. Kết nối Audio Processor (ĐỌC từ Raw Stream, GHI vào Processed Stream)
+    if (!m_audioProcessor.Init(std::move(rawConsumer), std::move(procProducer))) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
             std::cout << "[Audio] Failed to initialize AudioProcessor.");
         m_audioCapture.Shutdown();
         return false;
     }
 
-    // 3. Kết nối Output Worker: Processed Stream -> Output Hardware Device (SDL2)
-    if (!m_audioOutput.Init(&m_processedAudioBuffer, AudioBackendType::SDL2)) {
+    // 4. Kết nối Output Worker (Chỉ cấp quyền ĐỌC từ Processed Stream)
+    if (!m_audioOutput.Init(std::move(procConsumer), AudioBackendType::SDL2)) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
             std::cout << "[Audio] Failed to initialize AudioOutputWorker.");
         m_audioProcessor.Stop();
@@ -56,14 +63,6 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
         std::cout << "[Audio] Pipeline successfully initialized and started.");
 
     return true;
-}
-
-void Audio::OnUserSeek() {
-    if (!m_isInitialized.load(std::memory_order_relaxed)) return;
-
-    // Tăng Generation ID. AudioOutputWorker & AudioCaptureManager sẽ tự dọn dẹp nội bộ
-    // tuyệt đối KHÔNG can thiệp trực tiếp vào m_processedAudioBuffer tại đây.
-    m_audioCapture.NotifySeekOrTrackChange(); 
 }
 
 bool Audio::GetVisualizerData(AudioVisualizerFrame& outFrame) {

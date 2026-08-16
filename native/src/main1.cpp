@@ -122,7 +122,7 @@ int main(int argc, char **argv)
             s.geometry.minWidth = 720;
             s.geometry.minHeight = 360; })
             .WithBackend<OpenGLBackend>()
-            .WithLoop(60)
+            .WithLoop(90)
             .WithRenderer<MainWindowRenderer>()
             .Register(registry, "VideoPlayerMain");
 

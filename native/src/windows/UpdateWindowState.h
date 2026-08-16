@@ -163,7 +163,7 @@ inline void AdjustWindowFrameRates(WindowRuntime* runtime) {
                         switch (state)
                         {
                         case PlaybackState::Playing:
-                            runtime->windowloop->setTargetFPS(60);
+                            runtime->windowloop->setTargetFPS(90);
                             break;
                         
                         case PlaybackState::Loading:

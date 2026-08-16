@@ -7,6 +7,7 @@
 #include <atomic>
 #include <vector>
 #include <string>
+#include <optional>
 
 #include "threads/thread_id.h"
 #include "AudioTypes.h"
@@ -50,20 +51,15 @@ public:
     AudioCaptureManager(const AudioCaptureManager&) = delete;
     AudioCaptureManager& operator=(const AudioCaptureManager&) = delete;
 
-    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem);
+    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer);
     void Shutdown();
 
     void StartCapture();
     void StopCapture();
 
-    // Tín hiệu khi Seek / Đổi track (Thread-safe, gọi từ UI/Control plane)
-    void NotifySeekOrTrackChange();
 
     std::string GetPipeName() const;
 
-    // SPSC Ring Buffer: CaptureManager đóng vai trò PRODUCER duy nhất
-    SpscRingBuffer<AudioBlock>& GetRawStream() { return m_rawAudioBuffer; }
-    
     // Đọc Snapshot Metrics thread-safe
     AudioPipelineMetrics GetMetrics() const;
 
@@ -80,7 +76,7 @@ private:
     std::thread m_captureThread;
     std::atomic<bool> m_isRunning{false};
     std::atomic<bool> m_isCapturing{false};
-    ThreadID m_threadId;
+    ThreadID m_threadId = "";
 
     // Handle pipe được quản lý an toàn qua CancelIoEx
     std::atomic<HANDLE> m_atomicPipeHandle{INVALID_HANDLE_VALUE};
@@ -96,10 +92,10 @@ private:
     uint64_t m_activeGeneration = 0;
     uint64_t m_sequence = 0;
     double m_currentPts = 0.0;
+    bool m_wasSeeking = false;
 
     AudioPipelineMetricsAtomic m_metrics;
 
-    // --- Lock-free SPSC RingBuffer ---
-    // Dung lượng Ring buffer 8 blocks để giảm latency
-    SpscRingBuffer<AudioBlock> m_rawAudioBuffer{8};
+    // Handle ghi dữ liệu duy nhất
+    std::optional<SpscProducer<AudioBlock>> m_producer;
 };

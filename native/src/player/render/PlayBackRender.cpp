@@ -140,7 +140,7 @@ void PlayBackRender::Render(const ImVec2 &size, IGraphicsBackend *backend)
         {
             // Cảnh báo: GetStableFrame trả về cùng một frame. Điều này có thể xảy ra
             // nếu UI render nhanh hơn video FPS, không phải lỗi nghiêm trọng.
-            // RATE_LIMITED_PRINTF_NO_KEY(1, "[RenderUI] DEBUG: GetStableFrame returned the same frameId (%llu).", newFrame.frameId);
+            // LOG_NO_KEY(1, "[RenderUI] DEBUG: GetStableFrame returned the same frameId (%llu).", newFrame.frameId);
         }
         else if (newFrame.frameId > 0 && newFrame.frameId < m_lastDisplayedFrame.frameId)
         {

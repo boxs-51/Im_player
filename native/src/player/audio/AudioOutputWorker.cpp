@@ -9,7 +9,7 @@
 #include <chrono>
 
 AudioOutputWorker::AudioOutputWorker()
-    : m_threadId("") {}
+{}
 
 AudioOutputWorker::~AudioOutputWorker() {
     Stop();
@@ -32,14 +32,15 @@ std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(Audio
     }
 }
 
-bool AudioOutputWorker::Init(SpscRingBuffer<AudioBlock>* processedStream, AudioBackendType backend) {
-    if (!processedStream) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[AudioOutputWorker] Init failed: processedStream pointer is null.");
-        return false;
-    }
+bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBackendType backend) {
 
-    m_processedStream = processedStream;
+    //if (!processedStream) {
+    //    LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+    //        std::cout << "[AudioOutputWorker] Init failed: processedStream pointer is null.");
+    //    return false;
+    //}
+
+    m_processedStream.emplace(std::move(processedStream));
     m_threadId = "AudioOutputWorker_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
     m_currentBackendType = backend;
@@ -91,8 +92,6 @@ void AudioOutputWorker::Stop() {
     if (m_audioDevice) {
         m_audioDevice->Close();
     }
-
-    m_processedStream = nullptr;
 }
 
 void AudioOutputWorker::OutputLoop() {
@@ -105,7 +104,7 @@ void AudioOutputWorker::OutputLoop() {
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
         try {
-            if (!m_processedStream || !m_isRunning.load(std::memory_order_relaxed)) break;
+            if (/*!m_processedStream ||*/ !m_isRunning.load(std::memory_order_relaxed)) break;
 
             // =========================================================================
             // 1. TỰ KHÔI PHỤC THIẾT BỊ PHẦN CỨNG (HARDWARE RECOVERY / AUTO-REINIT)

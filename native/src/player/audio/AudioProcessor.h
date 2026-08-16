@@ -5,6 +5,7 @@
 #include "AudioVisualizerData.h"
 #include "threads/thread_id.h"
 
+#include <optional>
 #include <atomic>
 #include <thread>
 
@@ -24,7 +25,7 @@ public:
     /**
      * @brief Khởi tạo Processor với các RingBuffer đầu vào và đầu ra
      */
-    bool Init(SpscRingBuffer<AudioBlock>* inputStream, SpscRingBuffer<AudioBlock>* outputStream);
+    bool Init(SpscConsumer<AudioBlock> inputStream, SpscProducer<AudioBlock> outputStream);
     
     void Start();
     void Stop();
@@ -44,13 +45,13 @@ private:
     void AnalyzeBlock(const AudioBlock& block);
 
     // --- Stream Interfaces ---
-    SpscRingBuffer<AudioBlock>* m_inputStream = nullptr;
-    SpscRingBuffer<AudioBlock>* m_outputStream = nullptr;
+    std::optional<SpscConsumer<AudioBlock>> m_inputStream;
+    std::optional<SpscProducer<AudioBlock>> m_outputStream;
 
     // --- Thread Control ---
     std::thread m_processThread;
     std::atomic<bool> m_isRunning{false};
-    ThreadID m_threadId;
+    ThreadID m_threadId = "";
 
     // --- LOCK-FREE VISUALIZER SNAPSHOT (Double Buffering) ---
     AudioVisualizerFrame m_visualizerFrames[2];

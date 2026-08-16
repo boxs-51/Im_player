@@ -8,21 +8,21 @@
 #include <chrono>
 
 AudioProcessor::AudioProcessor()
-    : m_threadId("") {}
+{}
 
 AudioProcessor::~AudioProcessor() {
     Stop();
 }
 
-bool AudioProcessor::Init(SpscRingBuffer<AudioBlock>* inputStream, SpscRingBuffer<AudioBlock>* outputStream) {
-    if (!inputStream || !outputStream) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[AudioProcessor] Init failed: input or output stream pointer is null.");
-        return false;
-    }
+bool AudioProcessor::Init(SpscConsumer<AudioBlock> inputStream, SpscProducer<AudioBlock> outputStream) {
+    //if (!inputStream || !outputStream) {
+    //    LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+    //        std::cout << "[AudioProcessor] Init failed: input or output stream pointer is null.");
+    //    return false;
+    //}
 
-    m_inputStream = inputStream;
-    m_outputStream = outputStream;
+    m_inputStream.emplace(std::move(inputStream));
+    m_outputStream.emplace(std::move(outputStream));
     m_threadId = "AudioProcessor_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
     return true;
@@ -45,8 +45,8 @@ void AudioProcessor::Stop() {
 
     GetThreadManager().Unregister(m_threadId);
 
-    m_inputStream = nullptr;
-    m_outputStream = nullptr;
+    //m_inputStream-> = nullptr;
+    //m_outputStrea-> = nullptr;
 }
 
 bool AudioProcessor::GetLatestVisualizerData(AudioVisualizerFrame& outFrame) {
@@ -134,7 +134,7 @@ void AudioProcessor::ProcessLoop() {
         std::cout << "[AudioProcessor] Processing thread started.");
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
-        if (!m_inputStream || !m_outputStream) break;
+        //if (!m_inputStream-> || !m_outputStrea->) break;
 
         // 1. ĐỌC TỪ CAPTURE RING BUFFER (Input Stream)
         const AudioBlock* inSlot = m_inputStream->acquire_read();
@@ -151,7 +151,7 @@ void AudioProcessor::ProcessLoop() {
         AudioBlock* outSlot = m_outputStream->acquire_write();
         int retryCount = 0;
         
-        while (!outSlot && m_isRunning.load(std::memory_order_relaxed) && retryCount < 5) {
+        while (!outSlot && m_isRunning.load(std::memory_order_relaxed) && retryCount < 10) {
             std::this_thread::sleep_for(std::chrono::microseconds(500));
             outSlot = m_outputStream->acquire_write();
             retryCount++;

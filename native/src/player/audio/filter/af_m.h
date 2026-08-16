@@ -1,6 +1,5 @@
 #pragma once
 #include "af_m_types.h"
-#include "audio_capture_engine.h"
 #include "utils.h"
 
 #include <client.h>
@@ -10,9 +9,6 @@
 #include <condition_variable>
 #include <queue>
 #include <vector>
-#ifdef _WIN32
-#include <windows.h>
-#endif
 
 class PlayerStateSystem;
 class AudioFilterManager {

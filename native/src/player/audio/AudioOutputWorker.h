@@ -6,6 +6,7 @@
 #include "IAudioOutputDevice.h"
 #include "threads/thread_id.h"
 
+#include <optional>
 #include <memory>
 #include <thread>
 #include <atomic>
@@ -34,7 +35,7 @@ public:
     /**
      * @brief Khởi tạo Worker với RingBuffer và StateSystem
      */
-    bool Init(SpscRingBuffer<AudioBlock>* processedStream,
+    bool Init(SpscConsumer<AudioBlock> processedStream,
               AudioBackendType backend = AudioBackendType::SDL2);
 
     void Start();
@@ -55,7 +56,7 @@ private:
     std::unique_ptr<IAudioOutputDevice> CreateDeviceBackend(AudioBackendType type);
 
     // --- References & Streams ---
-    SpscRingBuffer<AudioBlock>* m_processedStream = nullptr;
+    std::optional<SpscConsumer<AudioBlock>> m_processedStream;
 
     // --- Audio Backend ---
     std::unique_ptr<IAudioOutputDevice> m_audioDevice;
@@ -65,5 +66,5 @@ private:
     std::thread m_workerThread;
     std::atomic<bool> m_isRunning{false};
     uint64_t m_lastGeneration = 0;
-    ThreadID m_threadId;
+    ThreadID m_threadId = "";
 };
