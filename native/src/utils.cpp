@@ -32,12 +32,12 @@
 using json = nlohmann::json;
 
 void TerminateHandler() {
-    LOG(terminate_handler, 1, LogLevel::Warning,LogCategory::System, std::cout << "Terminate handler called. Cleaning up");
+    LOG(terminate_handler, 1, LogLevel::Warning,LogCategory::System, "Terminate handler called. Cleaning up");
     StopService();
     std::abort();  // Kết thúc app
 }
 void SignalHandler(int signal) {
-    LOG(signal_handler, 1, LogLevel::Warning,LogCategory::System, std::cout << "Signal " << signal << " received. Cleaning up.");
+    LOG(signal_handler, 1, LogLevel::Warning,LogCategory::System,  "Signal %d received. Cleaning up.", signal);
     StopService();
     std::_Exit(signal);  // Kết thúc app ngay, tránh gọi các destructor
 }

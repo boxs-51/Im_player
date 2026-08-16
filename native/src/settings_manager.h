@@ -115,9 +115,17 @@ public:
 
 private:
     void Notify(ConfigGroup group) {
-        std::shared_lock lock(rwMutex);
-        for (const auto& callback : listeners) {
-            if (callback) callback(group);
+        std::vector<ConfigChangedCallback> callbacks;
+
+        {
+            std::shared_lock lock(rwMutex);
+            callbacks = listeners;
+        }
+
+        for (auto& callback : callbacks) {
+            if (callback) {
+                callback(group);
+            }
         }
     }
 };

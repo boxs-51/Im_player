@@ -52,7 +52,7 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
 
 bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer) {
     if (!mpv || !stateSystem) return false;
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Initializing...");
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Initializing...");
     
     m_producer.emplace(std::move(producer));
     m_mpv = mpv;
@@ -63,18 +63,17 @@ bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, 
 
     UpdateFormatCacheFromState();
 
-    // Đảm bảo MPV xuất chính xác float32le pcm
+    StartCapture();
+
     mpv_set_property_string(m_mpv, "ao", "pcm");
     mpv_set_property_string(m_mpv, "ao-pcm-file", m_pipeName.c_str());
-    
 
-    StartCapture();
     return true;
 }
 
 void AudioCaptureManager::Shutdown() {
     StopCapture();
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Shutdown complete.");
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Shutdown complete.");
 }
 
 void AudioCaptureManager::StartCapture() {
@@ -135,7 +134,7 @@ void AudioCaptureManager::ClosePipeHandle(HANDLE hPipe) {
 }
 
 void AudioCaptureManager::CaptureLoop() {
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Capture thread started.");
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread started.");
 
     
     //HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -180,7 +179,7 @@ void AudioCaptureManager::CaptureLoop() {
         }
 
         if (connected && m_isRunning) {
-            LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] MPV connected to pipe.");
+            LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
 
             UpdateFormatCacheFromState();
             const DWORD maxBytesToRead = static_cast<DWORD>(kMaxAudioSamples * sizeof(float));
@@ -219,7 +218,7 @@ void AudioCaptureManager::CaptureLoop() {
 
                 if (!m_isRunning || !success || bytesRead == 0) {
                     LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
-                        std::cout << "[AudioCaptureManager] Pipe disconnected or stream read ended.");
+                        "[AudioCaptureManager] Pipe disconnected or stream read ended.");
                     break; 
                 }
 
@@ -280,5 +279,5 @@ void AudioCaptureManager::CaptureLoop() {
     }
 
     CloseHandle(hEvent);
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[AudioCaptureManager] Capture thread finished.");
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread finished.");
 }

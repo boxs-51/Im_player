@@ -144,7 +144,7 @@ AudioFilter* AudioFilterManager::FindFilter(const std::string& id) {
 void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
     auto* f = FindFilter(id);
     if (enabled && f->isFailed) {
-        LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System, std::cout << "Cannot enable " + id + " because it was isolated due to a critical error.");
+        LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System, "Cannot enable %s because it was isolated due to a critical error.", id);
         return; 
     }
     if (!f || f->enabled == enabled) return;
@@ -155,12 +155,12 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
         if (id == "f_out_compressor") comp->enabled = enabled;
         if (id == "f_out_limiter") lim->enabled = enabled;
         m_enableOuterStabilizer = comp->enabled && lim->enabled;
-        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << " Outer Stabilizer State updated -> " + std::string(enabled ? "ON" : "OFF"));
+        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, " Outer Stabilizer State updated -> %s", enabled ? "ON" : "OFF");
     } 
     else if (id == "f_vol_booster") {
         m_enableOuterBooster = enabled;
         f->enabled = enabled;
-        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << "Outer Booster State updated -> " + std::string(enabled ? "ON" : "OFF"));
+        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, "Outer Booster State updated -> %s" + enabled ? "ON" : "OFF");
     } 
     else {
         f->enabled = enabled;
@@ -174,14 +174,14 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
             for (auto& other : m_filters) {
                 if (other.id != id && other.group == f->group && other.enabled && !other.isBypassManagement) {
                     other.enabled = false;
-                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::AI, std::cout << "Auto-disabled " + other.id);
+                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::AI, "Auto-disabled %s", other.id);
                 }
             }
         }
     }
     EvaluateSystemSafety();
     SyncAll(); 
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, std::cout << "Toggled filter '" + id + "' -> " + (enabled ? "ON" : "OFF"));
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, "Toggled filter '%s' -> %s" ,id, enabled ? "ON" : "OFF");
 }
 
 bool AudioFilterManager::IsFilterEnabled(const std::string& id) {
@@ -196,7 +196,7 @@ void AudioFilterManager::RecoverFailedFilter(const std::string& id) {
         if (f->isFailed) {
             f->isFailed = false;
             f->enabled = true; // Thử bật lại
-            LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, std::cout << "Attempting to recover and reinstall filter: " + id);
+            LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, "Attempting to recover and reinstall filter: %s", id);
             SyncAll();
         }
     }

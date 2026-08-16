@@ -73,8 +73,7 @@ add_executable(Im_player WIN32
     native/src/windows/WindowRelation.cpp
     native/src/windows/NativeWindowRegistrar.cpp
     #
-    native/src/gui/gui.cpp
-    native/src/gui/gui_widgets.cpp
+
     #
     native/imgui/imgui.cpp
     native/imgui/imgui_draw.cpp
@@ -124,6 +123,7 @@ add_executable(Im_player WIN32
     native/src/player/audio/Audio.cpp
     native/src/player/audio/AudioProcessor.cpp
     native/src/player/audio/SdlAudioDevice.cpp
+    native/src/gui/widgets/gui_status.cpp
     
     
 )

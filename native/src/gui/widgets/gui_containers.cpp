@@ -1,68 +1,13 @@
 #include "gui_containers.h"
 #include "../core/gui_theme.h"
+
 #include <cstdarg>
 #include <cstdio>
 #include <imgui_internal.h>
 #include "utils.h"
 
-void CSImGui::InfoRow(const char* label, const char* fmt, ...) {
-    va_list args;
-    va_start(args, fmt);
-    
-    char buf[1024];
-    int len = vsnprintf(buf, sizeof(buf), fmt, args);
-    va_end(args);
 
-    bool isEmpty = (len <= 0 || buf[0] == '\0');
-    ImGui::Spacing();
-    ImGui::TableNextRow(ImGuiTableRowFlags_None, 24.0f);
 
-    ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding();
-    ImGui::TextDisabled("%s", label);
-
-    ImGui::TableNextColumn();
-    ImGui::AlignTextToFramePadding();
-
-    if (isEmpty) {
-        ImGui::TextDisabled("None"); 
-    } else {
-        ImGui::TextUnformatted(buf);
-    }
-    ImGui::Spacing();
-}
-
-bool CSImGui::BeginInfoTable(const char* id, int column_count, float first_col_width, ImGuiTableFlags extra_flags) {
-    ImGuiTableFlags flags = ImGuiTableFlags_SizingFixedFit | 
-                            ImGuiTableFlags_RowBg | 
-                            ImGuiTableFlags_NoSavedSettings | 
-                            ImGuiTableFlags_NoBordersInBody | 
-                            extra_flags;
-
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(8.0f, 4.0f));
-    ImGui::Spacing();
-    if (ImGui::BeginTable(id, column_count, flags)) {
-        ImGui::TableSetupColumn("##Label", ImGuiTableColumnFlags_WidthFixed, first_col_width);
-        for (int i = 1; i < column_count; i++) {
-            ImGui::TableSetupColumn("##Value", ImGuiTableColumnFlags_WidthStretch);
-        }
-
-        ImGui::PushStyleColor(ImGuiCol_TableRowBg,    GetColors(Col_TableRowBg));
-        ImGui::PushStyleColor(ImGuiCol_TableRowBgAlt, GetColors(Col_TableRowBgAlt)); 
-        
-        return true;
-    }
-    
-    ImGui::PopStyleVar();
-    return false;
-}
-
-void CSImGui::EndInfoTable() {
-    ImGui::EndTable();
-    ImGui::Spacing();
-    ImGui::PopStyleColor(2);
-    ImGui::PopStyleVar();
-}
 
 bool CSImGui::BeginCard() {
     ImGui::PushStyleColor(ImGuiCol_ChildBg, GetColors(Col_ChildBg)); 
@@ -218,54 +163,7 @@ void CSImGui::PopModernWindowStyle() {
     ImGui::PopStyleVar(5);
 }
 
-bool CSImGui::BeginListTable(const char* id, const std::vector<TableCol>& cols, ImGuiTableFlags extra_flags) {
-    ImGuiTableFlags flags = ImGuiTableFlags_RowBg | 
-                            ImGuiTableFlags_SizingFixedFit | 
-                            ImGuiTableFlags_NoSavedSettings | 
-                            ImGuiTableFlags_BordersInnerV | 
-                            extra_flags;
 
-    ImGui::PushStyleVar(ImGuiStyleVar_CellPadding, ImVec2(10, 8));
-
-    if (ImGui::BeginTable(id, (int)cols.size(), flags)) {
-        for (const auto& col : cols) {
-            ImGuiTableColumnFlags c_flags = (col.width > 0.0f) ? ImGuiTableColumnFlags_WidthFixed : ImGuiTableColumnFlags_WidthStretch;
-            ImGui::TableSetupColumn(col.name, c_flags, col.width);
-        }
-
-        ImGui::PushStyleColor(ImGuiCol_TableHeaderBg, GetColors(Col_TableHeaderBg));
-        ImGui::PushStyleColor(ImGuiCol_HeaderActive,  GetColors(Col_HeaderActive));
-        ImGui::PushStyleColor(ImGuiCol_HeaderHovered, GetColors(Col_HeaderHovered));
-        ImGui::PushStyleColor(ImGuiCol_Text,          GetColors(Col_Text));
-        ImGui::TableHeadersRow();
-        ImGui::PopStyleColor(4);
-
-        return true;
-    }
-    
-    ImGui::PopStyleVar();
-    return false;
-}
-
-void CSImGui::EndListTable() {
-    ImGui::EndTable();
-    ImGui::PopStyleVar();
-}
-
-bool CSImGui::BeginListRow(float height) {
-    ImGui::TableNextRow(ImGuiTableRowFlags_None, height);
-    ImGui::TableNextColumn(); 
-    ImGui::PushID(ImGui::GetCursorPosY());
-    return true; 
-}
-
-void CSImGui::EndListRow() {
-    ImGui::PopID();
-}
-
-bool CSImGui::IsRowClicked() {
-    return ImGui::IsItemHovered(ImGuiHoveredFlags_AllowWhenOverlapped) && ImGui::IsMouseReleased(0);
-}
 
 bool CSImGui::ModernCollapsingHeader(const char* id, ImGuiTreeNodeFlags flags) {
     ImGui::PushStyleVar(ImGuiStyleVar_FrameRounding, 4.0f);

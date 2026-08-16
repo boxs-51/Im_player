@@ -13,13 +13,13 @@ Audio::~Audio() {
 bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
     if (m_isInitialized.load(std::memory_order_relaxed)) {
         LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
-            std::cout << "[Audio] System is already initialized.");
+            "[Audio] System is already initialized.");
         return true;
     }
 
     if (!mpv || !stateSystem) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[Audio] Init failed: mpv_handle or PlayerStateSystem is null.");
+            "[Audio] Init failed: mpv_handle or PlayerStateSystem is null.");
         return false;
     }
 
@@ -33,14 +33,14 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
     // 2. Kết nối Audio Capture Manager (Chỉ cấp quyền GHI vào Raw Stream)
     if (!m_audioCapture.Init(mpv, stateSystem, std::move(rawProducer))) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[Audio] Failed to initialize AudioCaptureManager.");
+             "[Audio] Failed to initialize AudioCaptureManager.");
         return false;
     }
 
     // 3. Kết nối Audio Processor (ĐỌC từ Raw Stream, GHI vào Processed Stream)
     if (!m_audioProcessor.Init(std::move(rawConsumer), std::move(procProducer))) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[Audio] Failed to initialize AudioProcessor.");
+            "[Audio] Failed to initialize AudioProcessor.");
         m_audioCapture.Shutdown();
         return false;
     }
@@ -48,7 +48,7 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
     // 4. Kết nối Output Worker (Chỉ cấp quyền ĐỌC từ Processed Stream)
     if (!m_audioOutput.Init(std::move(procConsumer), AudioBackendType::SDL2)) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
-            std::cout << "[Audio] Failed to initialize AudioOutputWorker.");
+            "[Audio] Failed to initialize AudioOutputWorker.");
         m_audioProcessor.Stop();
         m_audioCapture.Shutdown();
         return false;
@@ -60,7 +60,7 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
 
     m_isInitialized.store(true, std::memory_order_release);
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
-        std::cout << "[Audio] Pipeline successfully initialized and started.");
+        "[Audio] Pipeline successfully initialized and started.");
 
     return true;
 }
@@ -81,7 +81,7 @@ void Audio::Shutdown() {
     }
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
-        std::cout << "[Audio] Shutting down pipeline...");
+        "[Audio] Shutting down pipeline...");
 
     // Dừng theo thứ tự ngược lại của Pipeline: Consumer -> Intermediate -> Producer
     
@@ -97,5 +97,5 @@ void Audio::Shutdown() {
     // Sau khi toàn bộ các worker threads đã dừng (join), buffer an toàn để bỏ qua/hoàn tất mà không bị Data Race.
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
-        std::cout << "[Audio] Pipeline safely shutdown.");
+        "[Audio] Pipeline safely shutdown.");
 }

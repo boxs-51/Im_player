@@ -63,8 +63,11 @@ int PlaybackCommand::DoSeek(float targetTime) {
     snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
     const char* cmd[] = { "seek", buffer, "absolute", nullptr };
     int ret = Exec(cmd);
-    m_lastSeekRequestTime = SDL_GetTicks64();
-    m_isSeekPending = false;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        m_lastSeekRequestTime = SDL_GetTicks64();
+        m_isSeekPending = false;
+    }
     return ret;
 }
 
@@ -72,9 +75,19 @@ int PlaybackCommand::Seek(float targetTime, float duration, const std::string& m
     if (!m_player.GetHandle() || duration <= 0.0f) return - 1;
     targetTime = std::clamp(targetTime, 0.0f, std::max(duration - 0.05f, 0.0f));
     
-    if (SDL_GetTicks64() - m_lastSeekRequestTime < SEEK_DELAY_MS) {
+    Uint64 now = SDL_GetTicks64();
+    Uint64 lastSeekRequestTime = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        lastSeekRequestTime = m_lastSeekRequestTime;
+    }
+    if (now - lastSeekRequestTime < SEEK_DELAY_MS) {
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
         m_seekTargetTime = targetTime;
         m_isSeekPending = true;
+    }
+
     } else {
         return DoSeek(targetTime);
     }
@@ -83,8 +96,18 @@ int PlaybackCommand::Seek(float targetTime, float duration, const std::string& m
 }
 
 void PlaybackCommand::Update() {
-    if (m_isSeekPending && (SDL_GetTicks64() - m_lastSeekRequestTime >= SEEK_DELAY_MS)) {
-        DoSeek(m_seekTargetTime);
+    float seekTargetTime = 0.0f;
+    bool isSeekPending = false;
+    bool lastSeekRequestTime = false;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        seekTargetTime = m_seekTargetTime;
+        isSeekPending = m_isSeekPending;
+        lastSeekRequestTime = m_lastSeekRequestTime;
+    }
+    
+    if (isSeekPending && (SDL_GetTicks64() - lastSeekRequestTime >= SEEK_DELAY_MS)) {
+        DoSeek(seekTargetTime);
     }
 }
 

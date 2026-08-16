@@ -18,4 +18,5 @@
 #include "widgets/gui_tooltip.h"
 #include "widgets/gui_text.h"
 #include "widgets/gui_containers.h"
-
+#include "widgets/gui_status.h"
+#include "widgets/gui_table.h"

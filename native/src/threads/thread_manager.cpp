@@ -9,8 +9,8 @@ void ThreadManager::Run(ThreadID id, std::function<void()> task, bool allowDupli
         std::lock_guard<std::mutex> lock(mutex_);
         if (!allowDuplicate && (activeIDs_.count(id) > 0 || registeredThreads_.count(id) > 0)) {
             LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System,
-                std::cout << "[⚠️] Thread [" << id.ToString() << "] is already active/registered.\n";
-            );
+                "[⚠️] Thread [%s] is already active/registered.\n", id.ToString());
+
             return;
         }
         activeIDs_.insert(id);
@@ -18,24 +18,29 @@ void ThreadManager::Run(ThreadID id, std::function<void()> task, bool allowDupli
 
     std::thread t([this, id, task = std::move(task)]() {
         LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-            std::cout << "🧵 Start dynamic thread [" << id.ToString() << "]\n";
+            "🧵 Start dynamic thread [%s]", id.ToString().c_str()
         );
+
         try {
             task();
         } catch (const std::exception& e) {
             LOG_NO_KEY(1, LogLevel::Error, LogCategory::System,
-                std::cout << "[❌] Exception in [" << id.ToString() << "]: " << e.what() << "\n";
+                "[❌] Exception in [%s]: %s", id.ToString().c_str(), e.what()
             );
         } catch (...) {
             LOG_NO_KEY(1, LogLevel::Error, LogCategory::System,
-                std::cout << "[❌] Unknown exception in [" << id.ToString() << "]\n";
+                "[❌] Unknown exception in [%s]", id.ToString().c_str()
             );
         }
 
-        std::lock_guard<std::mutex> lock(mutex_);
-        activeIDs_.erase(id);
+        {
+            std::lock_guard<std::mutex> lock(mutex_);
+            activeIDs_.erase(id);
+        }
+
+        // Sửa: Đã xóa dấu ';' thừa
         LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-            std::cout << "✅ Finished dynamic thread [" << id.ToString() << "]\n";
+            "✅ Finished dynamic thread [%s]", id.ToString().c_str()
         );
     });
 
@@ -53,7 +58,7 @@ void ThreadManager::Register(ThreadID id, std::thread* thread) {
 
     registeredThreads_[id] = info;
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-        std::cout << "📌 Registered manual thread [" << id.ToString() << "] (Native ID: " << info.nativeId << ")\n";
+        "📌 Registered manual thread [%s] (Native ID: %d", id.ToString() ,info.nativeId
     );
 }
 
@@ -61,11 +66,11 @@ void ThreadManager::Unregister(ThreadID id) {
     std::lock_guard<std::mutex> lock(mutex_);
     if (registeredThreads_.erase(id) > 0) {
         LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-            std::cout << "🗑️ Unregistered thread [" << id.ToString() << "]\n";
+            "🗑️ Unregistered thread [%s]", id.ToString()
         );
     } else {
         LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System,
-            std::cout << "[⚠️] Attempted to unregister unregistered thread [" << id.ToString() << "]\n";
+            "[⚠️] Attempted to unregister unregistered thread [%s]", id.ToString()
         );
     }
 }
@@ -118,20 +123,33 @@ bool ThreadManager::JoinRegistered(ThreadID id) {
 }
 
 void ThreadManager::JoinAllRegistered() {
-    std::lock_guard<std::mutex> lock(mutex_);
+    std::vector<std::thread*> threads;
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-        std::cout << "🧹 Cleaning up all registered threads...\n";
+        "🧹 Cleaning up all registered threads..."
     );
 
-    for (auto& [id, info] : registeredThreads_) {
-        if (info.threadPtr && info.threadPtr->joinable()) {
-            LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
-                std::cout << "⏳ Waiting for thread [" << id.ToString() << "] to finish...\n";
-            );
-            info.threadPtr->join();
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+
+        for (auto& [id, info] : registeredThreads_) {
+            if (info.threadPtr && info.threadPtr->joinable()) {
+                LOG_NO_KEY(1, LogLevel::Info, LogCategory::System,
+                    "⏳ Waiting for thread [%s] to finish...", id.ToString().c_str()
+                );
+                threads.push_back(info.threadPtr);
+            }
         }
     }
-    registeredThreads_.clear();
+
+    for (auto* thread : threads) {
+        if (thread && thread->joinable()) {
+            thread->join();
+        }
+    }
+    {
+        std::lock_guard<std::mutex> lock(mutex_);
+        registeredThreads_.clear();
+    }
 }
 
 ThreadManager& GetThreadManager() {

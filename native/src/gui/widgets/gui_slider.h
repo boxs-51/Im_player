@@ -167,6 +167,69 @@ struct SliderSeekResult {
     float value = 0.0f;
 };
 
+
+
+enum ProgressBarFlags_ {
+    ProgressBarFlags_None               = 0,
+    ProgressBarFlags_Ease               = 1 << 0, // Animation mượt cho tiến trình & hover
+    ProgressBarFlags_ShowPercentage     = 1 << 1, // Hiển thị % văn bản ở giữa
+    ProgressBarFlags_ShowValue          = 1 << 2, // Hiển thị giá trị dạng (v / v_max)
+    ProgressBarFlags_EnableBuffer       = 1 << 3, // Hiển thị thanh đệm (buffering progress)
+    ProgressBarFlags_Interactive        = 1 << 4, // Cho phép click/drag tương tác đổi giá trị
+    ProgressBarFlags_Default            = ProgressBarFlags_Ease | ProgressBarFlags_ShowPercentage
+};
+typedef int ProgressBarFlags;
+
+
+struct ProgressBarRenderData {
+    ImVec2 track_p1, track_p2;
+    ImVec2 fill_p2;
+    float  height = 0.0f;
+    float  value = 0.0f, buffer_value = 0.0f;
+    float  t = 0.0f, visual_t = 0.0f, buffer_t = 0.0f;
+    
+    bool   hovered = false;
+    bool   active = false;
+
+    ImVec4 col_track;
+    ImVec4 col_fill;
+    ImVec4 col_buffer;
+    ImVec4 col_border;
+    ImVec4 col_text;
+
+    struct AnimState {
+        float  speedease = 12.0f;
+        float  hover = 0.0f;
+        float  active = 0.0f;
+        float  visual_t = 0.0f;
+        float  buffer_t = 0.0f;
+        ImVec4 col_track, col_fill, col_buffer, col_border, col_text;
+    } *anim = nullptr;
+};
+
+// State lưu trong Storage
+struct ProgressBarState {
+    ImGuiID       id = 0;
+    ImGuiContext* g = nullptr;
+    ImDrawList*   draw_list = nullptr;
+    ImFont*       font = nullptr;
+    float         fontsize = 0.0f;
+    
+    ImVec2        pos, size;
+    float         width = 0.0f, height = 0.0f;
+    float         v_min = 0.0f, v_max = 100.0f;
+    float         range = 100.0f;
+    float         t = 0.0f, anim_t = 0.0f;
+    float         dt = 0.0f;
+
+    bool          hovered = false;
+    bool          active = false;
+    ImVec2        mouse;
+
+    ImGuiID       render_data_id = 0;
+    ImGuiID       anim_id = 0;
+};
+
 using SliderRenderCallback = std::function<void(Phase phase, Slot slot, SliderState *state, SliderRenderData *data, ImDrawList *draw_list)>;
 using SliderTooltipCallback = std::function<void(Phase phase, Slot slot, TooltipData *data, ImDrawList *draw_list)>;
 using SliderSeekCallback = std::function<SliderSeekResult(const SliderSeekRequest *)>;
@@ -186,4 +249,11 @@ namespace CSImGui {
                            float height = 4.0f, float grab_radius = 8.0f,
                            const char *format = "%.3f", float custom_width = -1.0f,
                            SliderFlags flags = SliderFlags_None);
+
+    bool ModernProgressBar(const char* label, float progress, float height = 4.0f, const char* overlay = nullptr, float custom_width = -1.0f, ProgressBarFlags flags = ProgressBarFlags_None);
+
+    bool ModernProgressBarEx(const char* label, float* v, float buffer_v = 0.0f,
+                         float v_min = 0.0f, float v_max = 100.0f,
+                         float height = 4.0f, const char* overlay_text = nullptr,
+                         float custom_width = -1.0f, ProgressBarFlags flags = ProgressBarFlags_None);
 }

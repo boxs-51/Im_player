@@ -86,13 +86,6 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
 
 void PlayBackRender::Shutdown()
 {
-    if (m_render_ctx)
-    {
-        // TẮT CALLBACK MPV TRƯỚC HẾT để ngắt kết nối với luồng
-        mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);
-        mpv_render_context_free(m_render_ctx);
-        m_render_ctx = nullptr;
-    }
 
 #ifdef RENDER_MPV_THREAD
     // Tự dọn dẹp Luồng Render do mình sở hữu
@@ -102,6 +95,16 @@ void PlayBackRender::Shutdown()
         m_renderThread.reset(); // Xóa hoàn toàn instance
     }
 #endif
+
+    if (m_render_ctx)
+    {
+        // TẮT CALLBACK MPV TRƯỚC HẾT để ngắt kết nối với luồng
+        mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);
+        mpv_render_context_free(m_render_ctx);
+        m_render_ctx = nullptr;
+    }
+
+
 }
 
 void PlayBackRender::SetAudioVisualizerEnabled(bool enable)
@@ -146,7 +149,7 @@ void PlayBackRender::Render(const ImVec2 &size, IGraphicsBackend *backend)
         {
             // Cảnh báo nghiêm trọng: GetStableFrame trả về một frame CŨ HƠN.
             // Điều này cho thấy có thể có lỗi logic trong việc chọn frame mới nhất trong FBO pool.
-            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, std::cout << "[RenderUI] CRITICAL WARN: GetStableFrame returned an OLDER frameId (" << newFrame.frameId << ") than currently displayed (" << m_lastDisplayedFrame.frameId << ").");
+            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, "[RenderUI] CRITICAL WARN: GetStableFrame returned an OLDER frameId (%d) than currently displayed (%d).", newFrame.frameId, m_lastDisplayedFrame.frameId);
         }
     }
 
@@ -157,7 +160,7 @@ void PlayBackRender::Render(const ImVec2 &size, IGraphicsBackend *backend)
     // Nếu không có frame mới trong hơn 500ms, coi như video đã dừng/lỗi và xóa frame cũ.
     if (m_lastDisplayedFrame.texID != nullptr && elapsed.count() > 500)
     {
-        LOG_NO_KEY(500, LogLevel::Info, LogCategory::Render, std::cout << "[RenderUI] INFO: Stale frame timeout. Clearing last displayed frame (ID: " << m_lastDisplayedFrame.frameId << ").");
+        LOG_NO_KEY(500, LogLevel::Info, LogCategory::Render, "[RenderUI] INFO: Stale frame timeout. Clearing last displayed frame (ID: %d).", m_lastDisplayedFrame.frameId);
     }
 
     // Luôn vẽ frame cuối cùng hợp lệ, dù nó là frame mới hay frame cũ từ lần trước.

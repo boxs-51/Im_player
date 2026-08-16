@@ -45,7 +45,7 @@ void AudioFilterManager::EvaluateSystemSafety() {
             
             if (std::abs(vol_node->params["volume"].current - targetVol) > 0.05f) {
                 vol_node->params["volume"].current = targetVol;
-                LOG_NO_KEY(1, LogLevel::Error, LogCategory::Safety, std::cout << "Danger! Accumulated Gain reached " + std::to_string(static_cast<int>(totalGainAccumulation)) + "dB. Limiting Master to: " + std::to_string(targetVol) + "dB");
+                LOG_NO_KEY(1, LogLevel::Error, LogCategory::Safety, "Danger! Accumulated Gain reached %.2f dB. Limiting Master to: %.2f dB", totalGainAccumulation, targetVol);
             }
         } else {
             if (vol_node->params["volume"].current < userTarget) {
@@ -57,7 +57,7 @@ void AudioFilterManager::EvaluateSystemSafety() {
 
                 vol_node->params["volume"].current = recoveryVol; 
                 if (recoveryVol == userTarget) {
-                    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, std::cout << "System stabilized. Master Node returned to normal.");
+                    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, "System stabilized. Master Node returned to normal.");
                 }
             }
         }
@@ -68,7 +68,7 @@ void AudioFilterManager::SetOuterStabilizerEnabled(bool enabled) {
     m_enableOuterStabilizer = enabled;
     if (auto* comp = FindFilter("f_out_compressor")) comp->enabled = enabled;
     if (auto* lim = FindFilter("f_out_limiter")) lim->enabled = enabled;
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, std::cout << "Outer Safety System changed to -> " + std::string(enabled ? "ON" : "OFF"));
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, "Outer Safety System changed to -> %s", enabled ? "ON" : "OFF");
     EvaluateSystemSafety();
     SyncAll();
 }
@@ -76,7 +76,7 @@ void AudioFilterManager::SetOuterStabilizerEnabled(bool enabled) {
 void AudioFilterManager::SetOuterBoosterEnabled(bool enabled) {
     m_enableOuterBooster = enabled;
     if (auto* boost = FindFilter("f_vol_booster")) boost->enabled = enabled;
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, std::cout << "Outer Volume Booster changed to -> " + std::string(enabled ? "ON" : "OFF"));
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Safety, "Outer Volume Booster changed to -> ", enabled ? "ON" : "OFF");
     EvaluateSystemSafety();
     SyncAll();
 }
@@ -84,7 +84,7 @@ void AudioFilterManager::SetOuterBoosterEnabled(bool enabled) {
 void AudioFilterManager::SetFilterBypassMode(const std::string& id, bool bypassState) {
     if (auto* f = FindFilter(id)) {
         f->isBypassManagement = bypassState;
-        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Bypass, std::cout << "Filter " + id + " set Bypass Mode -> " + (bypassState ? "ON" : "OFF"));
+        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Bypass, "Filter %s set Bypass Mode -> %s", id, bypassState ? "ON" : "OFF");
         EvaluateSystemSafety();
         SyncAll();
     }
@@ -97,7 +97,7 @@ bool AudioFilterManager::IsFilterBypassMode(const std::string& id) {
 
 void AudioFilterManager::SetGlobalBypassMode(bool bypassState) {
     m_globalBypass = bypassState;
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Bypass, std::cout << "GLOBAL Bypass Manager set -> " + std::string(bypassState ? "ENABLED" : "DISABLED"));
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Bypass, "GLOBAL Bypass Manager set -> ", bypassState ? "ENABLED" : "DISABLED");
     if (m_globalBypass) {
         m_autoMode = false; 
         SetAdaptiveMode(m_autoMode, m_currentPreset);

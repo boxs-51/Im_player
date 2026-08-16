@@ -1,5 +1,6 @@
 // main.cpp
 #define _CRTDBG_MAP_ALLOC
+
 #include <stdlib.h>
 #include <crtdbg.h>
 
@@ -67,6 +68,9 @@ void Cleanup() {}
 int main(int argc, char **argv)
 {
 
+    LOG_NO_KEY(1, LogLevel::Info, LogCategory::None, 
+        "test"
+    );
     HANDLE hMutex = CreateMutexA(NULL, TRUE, "Global\\MyUniqueApp_MutexID");
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
@@ -82,7 +86,6 @@ int main(int argc, char **argv)
         GetThreadManager().Run("PipeServer", [=]()
                                { PipeServerThread(); });
         SDL_SetMainReady();
-        InitConsoleSystem();
         StartRuntimeServices();
         std::set_terminate(TerminateHandler);
 
@@ -142,9 +145,8 @@ int main(int argc, char **argv)
 
         // Khởi tạo và nạp thẳng đối tượng thiết lập đồ họa trừu tượng (OpenGL) vào cửa sổ[cite: 20]
 
-        winManager.QueueCreateWindow("VideoPlayerMain");
-        winManager.ProcessCreationQueue(); // Xử lý ngay để có mainWin
-        WindowRuntime *mainWin = winManager.GetMainWindow();
+        WindowRuntime *mainWin = winManager.CreateWindowSync("VideoPlayerMain");
+
         if (!mainWin)
         { // Kiểm tra xem mainWin đã được tạo thành công chưa
             // Dọn dẹp trước khi thoát

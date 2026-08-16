@@ -72,7 +72,7 @@ try {
     }
 
     if (!this->state.graphicsBackend->MakeCurrent(this->state.window, this->state.graphicsContext)) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Render, std::cout << "[RenderThread] ERROR: Failed to bind MPV Sub-Context to Render Thread!");
+        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Render, "[RenderThread] ERROR: Failed to bind MPV Sub-Context to Render Thread!");
         state.hasExited = true;
         return;
     }
@@ -149,7 +149,7 @@ try {
         if (index == -1) {
             m_droppedFrames.fetch_add(1, std::memory_order_relaxed);
             // Log này rất quan trọng để biết tại sao video bị đứng
-            LOG_NO_KEY(100, LogLevel::Warning, LogCategory::Render, std::cout << "[RenderThread] WARN: Failed to acquire buffer, dropping frame. Total dropped: " << m_droppedFrames.load());
+            LOG_NO_KEY(100, LogLevel::Warning, LogCategory::Render, "[RenderThread] WARN: Failed to acquire buffer, dropping frame. Total dropped: %d", m_droppedFrames.load());
             framerender.endFrame();
             continue; 
         }
@@ -194,8 +194,8 @@ try {
     if (this->state.fboPool) this->state.fboPool->Shutdown();
     state.hasExited = true;
 } catch (const std::exception& e) {
-    LOG_NO_KEY(1, LogLevel::Critical, LogCategory::Render, std::cout << "[RenderThread] CRITICAL ERROR: Exception in PlayBackRenderThread: " << e.what());
+    LOG_NO_KEY(1, LogLevel::Critical, LogCategory::Render, "[RenderThread] CRITICAL ERROR: Exception in PlayBackRenderThread: %s", e.what());
 } catch (...) {
-    LOG_NO_KEY(1, LogLevel::Critical, LogCategory::Render, std::cout << "[RenderThread] CRITICAL ERROR: Unknown exception in PlayBackRenderThread.");
+    LOG_NO_KEY(1, LogLevel::Critical, LogCategory::Render, "[RenderThread] CRITICAL ERROR: Unknown exception in PlayBackRenderThread.");
 }
 }

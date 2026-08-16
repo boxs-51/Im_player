@@ -421,14 +421,7 @@ bool HandleExtersionHotkeys(const SDL_Event *e)
         uiState.show_settings = !uiState.show_settings;
         return true;
     }
-    case SDLK_F1:
-    {
-        if (IsConsoleVisible())
-            CloseConsoleWindow();
-        else
-            OpenConsoleWindow();
-        return true;
-    }
+
     default:
         break;
     }

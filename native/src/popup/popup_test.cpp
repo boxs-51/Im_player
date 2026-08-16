@@ -2,6 +2,7 @@
 
 #include "WindowManager.h"
 
+#include "gui.h"
 #include "player/session/PlayerSession.h"
 #include "windows/WindowRuntime.h"
 #include <imgui.h>
@@ -35,18 +36,12 @@ std::string LogCategoryToString(LogCategory category) {
     if (!result.empty()) result.pop_back();
     return result;
 }
-
+auto& logManager = LogHistoryManager::GetInstance();
 // Cấu trúc Logger Realtime để theo dõi sự kiện nội bộ UI
 struct LocalLogger {
-    std::vector<std::string> Items;
     bool ScrollToBottom = false;
-    
-    void Log(const std::string& text) {
-        Items.push_back(text);
-        ScrollToBottom = true;
-    }
 
-    void Clear() { Items.clear(); }
+    void Clear() {logManager.Clear();}
 
     void Draw() {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "--- Nhật ký gọi lệnh & Hệ thống AI (Realtime Logs) ---");
@@ -70,23 +65,7 @@ struct LocalLogger {
         ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 180), true, ImGuiWindowFlags_HorizontalScrollbar);
         ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
         
-        // 1. Render Logs cục bộ của giao diện UI tạo ra
-        for (const auto& item : Items) {
-            if (item.find("[SAFETY]") != std::string::npos || item.find("[FAIL]") != std::string::npos) {
-                ImGui::TextColored(ImVec4(1.0f, 0.3f, 0.3f, 1.0f), "%s", item.c_str()); 
-            } else if (item.find("[ADAPTIVE AI]") != std::string::npos) {
-                ImGui::TextColored(ImVec4(0.0f, 0.9f, 1.0f, 1.0f), "%s", item.c_str());  
-            } else if (item.find("[BYPASS]") != std::string::npos) {
-                ImGui::TextColored(ImVec4(1.0f, 0.6f, 0.0f, 1.0f), "%s", item.c_str());  
-            } else if (item.find("[PASS]") != std::string::npos || item.find("Thành công") != std::string::npos) {
-                ImGui::TextColored(ImVec4(0.4f, 1.0f, 0.4f, 1.0f), "%s", item.c_str());  
-            } else {
-                ImGui::TextUnformatted(item.c_str()); 
-            }
-        }
-
         // 2. LẤY REAL-TIME LOGS TỪ LÕI MANAGER (Đã sửa lỗi đồng bộ, lấy trực tiếp trong frame vẽ)
-        auto& logManager = LogHistoryManager::GetInstance();
         auto core_logs = logManager.GetRecentLogs(static_cast<LogCategory>(category_mask));
         if(!core_logs.empty()) {
             for (const auto& log : core_logs) {
@@ -126,92 +105,328 @@ struct LocalLogger {
 
 static LocalLogger g_PopupLogger;
 
+static void DrawAudioVisualizer(
+    PlayerSession &session)
+{
+    AudioVisualizerFrame frame;
+    session.GetAudio()->GetVisualizerData(frame);
+    CSImGui::ModernHeader("Realtime Audio Visualizer");
+
+    if (CSImGui::BeginCard()){
+
+        CSImGui::ModernHeader("Signal Level");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Peak L: %.4f",
+            frame.peakLeft
+        );
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Peak R: %.4f",
+            frame.peakRight
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "RMS L: %.4f",
+            frame.rmsLeft
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "RMS R: %.4f",
+            frame.rmsRight
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Crest Factor L: %.3f",
+            frame.crestFactorLeft
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Crest Factor R: %.3f",
+            frame.crestFactorRight
+        );
+
+        CSImGui::EndCard();
+    }
+
+    if (CSImGui::BeginCard())
+    {
+        CSImGui::ModernHeader("Loudness & Dynamic Range");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Short-term LUFS: %.2f",
+            frame.shortTermLUFS
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Dynamic Range: %.2f dB",
+            frame.dynamicRange
+        );
+
+        CSImGui::EndCard();
+    }
+
+    if (CSImGui::BeginCard())
+    {
+        CSImGui::ModernHeader("Signal Integrity");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Clipping Left: %s",
+            frame.isClippingLeft ? "YES" : "NO"
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Clipping Right: %s",
+            frame.isClippingRight ? "YES" : "NO"
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Clip Count: %u",
+            frame.clipCount
+        );
+
+        CSImGui::EndCard();
+    }
+
+    if (CSImGui::BeginCard())
+    {
+        CSImGui::ModernHeader("Frequency Energy");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Sub Bass 20-60 Hz: %.4f",
+            frame.subBassEnergy
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Bass 60-250 Hz: %.4f",
+            frame.bassEnergy
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Mid 250-4k Hz: %.4f",
+            frame.midEnergy
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Treble 4k-20k Hz: %.4f",
+            frame.trebleEnergy
+        );
+
+        CSImGui::EndCard();
+    }
+
+
+    if (CSImGui::BeginCard())
+    {
+        CSImGui::ModernHeader("Stereo / Phase");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Phase Correlation: %.4f",
+            frame.phaseCorrelation
+        );
+
+        CSImGui::EndCard();
+    }
+
+    if (CSImGui::BeginCard())
+    {
+        CSImGui::ModernHeader("Sync Metadata");
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "PTS: %.6f",
+            frame.pts
+        );
+
+        CSImGui::ModernTextEffectFmt(
+            TextEffectStyle{},
+            "Sequence: %llu",
+            static_cast<unsigned long long>(frame.sequence)
+        );
+
+        CSImGui::EndCard();
+    }
+}
+
 void DrawCoreMonitor(
     AudioFilterManager& manager,
     const AudioContext& ctx)
 {
-    if (ImGui::CollapsingHeader("1. Giám sát hệ thống Core & Phân tích Track Audio", ImGuiTreeNodeFlags_DefaultOpen)) {
-        ImGui::Columns(4, "TrackAnalysisColumns", false);
-        ImGui::Text("Volume: %.1f %", ctx.volume); ImGui::NextColumn();
-        ImGui::Text("Sample Rate: %lld Hz", ctx.sample_rate); ImGui::NextColumn();
-        ImGui::Text("Số Kênh: %lld Ch", ctx.channel_count); ImGui::NextColumn();
-        ImGui::Text("Bitrate: %.1f kbps", ctx.bitrate_kbps);
-        ImGui::Columns(1);
-        
-        ImGui::Separator();
-        ImGui::Spacing();
-
-        ImGui::Columns(3, "GlobalStateColumns", false);
-        ImGui::Text("Kênh Output: %s", manager.GetChannelMode().c_str()); ImGui::NextColumn();
-        ImGui::Text("Filter Hoạt Động: %d", manager.GetActiveFilterCount()); ImGui::NextColumn();
-        ImGui::Text("Quản Lý An Toàn: %s", manager.IsGlobalBypassEnabled() ? "BYPASS" : "ACTIVE");
-        ImGui::Columns(1);
-        
-        ImGui::Spacing();
-
-        // Bảng kết xuất cấu trúc ma trận filter nội bộ
-        static ImGuiTableFlags flags = ImGuiTableFlags_Borders | ImGuiTableFlags_RowBg | ImGuiTableFlags_Resizable | ImGuiTableFlags_Reorderable;
-        if (ImGui::BeginTable("ManagerInternalTable", 5, flags)) {
-            ImGui::TableSetupColumn("ID Node", ImGuiTableColumnFlags_WidthFixed, 110.0f);
-            ImGui::TableSetupColumn("Bộ Lọc FFmpeg", ImGuiTableColumnFlags_WidthFixed, 100.0f);
-            ImGui::TableSetupColumn("Nhóm", ImGuiTableColumnFlags_WidthFixed, 120.0f);
-            ImGui::TableSetupColumn("Trạng Thái", ImGuiTableColumnFlags_WidthFixed, 140.0f);
-            ImGui::TableSetupColumn("Giá Trị Bộ Nhớ Realtime (Key: Value)");
-            ImGui::TableHeadersRow();
-
-            for (const auto& f : manager.GetFilters()) {
-                ImGui::TableNextRow();
-                
-                ImGui::TableSetColumnIndex(0);
-                ImGui::Text("%s", f.id.c_str());
-
-                ImGui::TableSetColumnIndex(1);
-                ImGui::TextUnformatted(f.name.c_str());
-
-                ImGui::TableSetColumnIndex(2);
-                ImGui::TextDisabled("%s", f.group.empty() ? "None" : f.group.c_str());
-
-                ImGui::TableSetColumnIndex(3);
-                if (f.enabled) {
-                    ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.0f, 1.0f), "● ENABLED");
-                } else {
-                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "○ DISABLED");
-                }
-                if (f.isBypassManagement) {
-                    ImGui::SameLine();
-                    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.0f, 1.0f), "[BYPASS]");
-                }
-
-                ImGui::TableSetColumnIndex(4);
-                if (f.params.empty()) {
-                    ImGui::TextDisabled("Không cấu hình tham số.");
-                } else {
-                    std::string param_dump = "";
-                    for (const auto& [key, p] : f.params) {
-                        std::ostringstream ss;
-                        ss << key << ": [" << std::fixed << std::setprecision(2) << p.current << "]  ";
-                        param_dump += ss.str();
-                    }
-                    ImGui::TextWrapped("%s", param_dump.c_str());
-                }
-            }
-            ImGui::EndTable();
-        }
+    if (!CSImGui::ModernCollapsingHeader(
+            "1. Giám sát hệ thống Core & Phân tích Track Audio",
+            ImGuiTreeNodeFlags_DefaultOpen))
+    {
+        return;
     }
+    // ============================================================
+
+    if (CSImGui::BeginInfoTable(
+            "TrackAnalysisInfo",
+            2,
+            140.0f))
+    {
+        CSImGui::InfoRow(
+            "Volume",
+            "%.1f%%",
+            ctx.volume);
+
+        CSImGui::InfoRow(
+            "Sample Rate",
+            "%lld Hz",
+            ctx.sample_rate);
+
+        CSImGui::InfoRow(
+            "Số Kênh",
+            "%lld Ch",
+            ctx.channel_count);
+
+        CSImGui::InfoRow(
+            "Bitrate",
+            "%.1f kbps",
+            ctx.bitrate_kbps);
+
+        CSImGui::EndInfoTable();
+    }
+
+
+    // ============================================================
+    // 2. Global Audio Filter State
+    // ============================================================
+
+    if (CSImGui::BeginInfoTable(
+            "GlobalAudioState",
+            2,
+            140.0f))
+    {
+        CSImGui::InfoRow(
+            "Kênh Output",
+            "%s",
+            manager.GetChannelMode().c_str());
+
+        CSImGui::InfoRow(
+            "Filter Hoạt Động",
+            "%d",
+            manager.GetActiveFilterCount());
+
+        CSImGui::InfoRow(
+            "Quản Lý An Toàn",
+            "%s",
+            manager.IsGlobalBypassEnabled()
+                ? "BYPASS"
+                : "ACTIVE");
+
+        CSImGui::EndInfoTable();
+    }
+
+
+    // ============================================================
+    // 3. Filter Matrix
+    // ============================================================
+
+    const std::vector<TableCol> columns = {
+        { "ID Node",                         110.0f },
+        { "Bộ Lọc FFmpeg",                  140.0f },
+        { "Nhóm",                            120.0f },
+        { "Trạng Thái",                     150.0f },
+        { "Giá Trị Bộ Nhớ Realtime (Key: Value)", 0.0f }
+    };
+
+    if (!CSImGui::BeginListTable(
+            "ManagerInternalTable",
+            columns))
+    {
+        return;
+    }
+
+
+    // ============================================================
+    // 4. Filter Rows
+    // ============================================================
+
+    for (const auto& f : manager.GetFilters())
+    {
+        bool is_row_selected = false; // Hoặc bind với biến state của bạn
+
+        if (!CSImGui::BeginListRow(f.id.c_str(), is_row_selected))
+        {
+            continue;
+        }
+
+        // Cột 1: ID Node (Đã ở TableNextColumn() sẵn trong BeginListRow)
+        ImGui::TextUnformatted(f.id.c_str());
+
+        // Cột 2: Bộ Lọc FFmpeg
+        CSImGui::TableText(f.name.c_str());
+
+        // Cột 3: Nhóm
+        if (f.group.empty()) {
+            CSImGui::TableTextDisabled("None");
+        } else {
+            CSImGui::TableText(f.group.c_str());
+        }
+
+        // Cột 4: Trạng Thái
+        if (f.enabled) {
+            CSImGui::TableStatus("ENABLED", StatusType::Success);
+        } else {
+            CSImGui::TableStatus("DISABLED", StatusType::Disabled); // Hoặc StatusType::None / Error tùy bạn định nghĩa
+        }
+
+        // Nếu có bypass management, vẽ Badge phụ hoặc tag ngay kế bên
+        if (f.isBypassManagement) {
+            ImGui::SameLine();
+            CSImGui::WarningBadge("BYPASS");
+        }
+
+        // Cột 5: Realtime Params
+        ImGui::TableNextColumn();
+        if (f.params.empty()) {
+            ImGui::TextDisabled("Không cấu hình tham số.");
+        } else {
+            std::string param_dump;
+            for (const auto& [key, p] : f.params) {
+                std::ostringstream ss;
+                ss << key << ": [" << std::fixed << std::setprecision(2) << p.current << "]  ";
+                param_dump += ss.str();
+            }
+            ImGui::TextWrapped("%s", param_dump.c_str());
+        }
+
+        CSImGui::EndListRow();
+    }
+
+    // ============================================================
+    // 5. End Table
+    // ============================================================
+    CSImGui::EndListTable();
 }
 
 void DrawAdaptiveControl(
     AudioFilterManager& manager,
     const AudioContext& ctx)
-{
-    if (ImGui::CollapsingHeader("2. Trợ lý AI & Điều khiển Vượt tuyến (Adaptive Matrix)", ImGuiTreeNodeFlags_DefaultOpen)) {
+{   
+    if (CSImGui::ModernCollapsingHeader("2. Trợ lý AI & Điều khiển Vượt tuyến (Adaptive Matrix)")) {
         
         // --- KHỐI ĐIỀU KHIỂN BIÊN ĐỘ QUẢN LÝ (GLOBAL BYPASS) ---
         bool globalBypass = manager.IsGlobalBypassEnabled();
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(1.0f, 0.4f, 0.0f, 0.4f));
         if (ImGui::Checkbox("HỦY BỎ TOÀN BỘ HỆ THỐNG QUẢN LÝ (Global Bypass Security & Conflicts)", &globalBypass)) {
             manager.SetGlobalBypassMode(globalBypass);
-            g_PopupLogger.Log(std::string("[BYPASS] Thay đổi trạng thái Global Bypass Manager -> ") + (globalBypass ? "ENABLED (Tự do ép xung)" : "DISABLED (Kích hoạt bảo vệ)"));
         }
         ImGui::PopStyleColor();
         
@@ -223,7 +438,6 @@ void DrawAdaptiveControl(
         
         if (ImGui::Checkbox("Kích hoạt bộ Ổn định ngoại vi độc lập (f_out_compressor & f_out_limiter)", &manager.m_enableOuterStabilizer)) {
             manager.SetOuterStabilizerEnabled(manager.m_enableOuterStabilizer);
-            g_PopupLogger.Log(std::string("[SYSTEM] Bộ bảo vệ màng loa ngoại vi -> ") + (manager.m_enableOuterStabilizer ? "BẬT" : "TẮT"));
         }
         
         ImGui::SameLine();
@@ -231,7 +445,6 @@ void DrawAdaptiveControl(
 
         if (ImGui::Checkbox("Kích hoạt mạch Kích âm độc lập (f_vol_booster)", &manager.m_enableOuterBooster)) {
             manager.SetOuterBoosterEnabled(manager.m_enableOuterBooster);
-            g_PopupLogger.Log(std::string("[SYSTEM] Mạch tăng cường âm Booster ngoại vi -> ") + (manager.m_enableOuterBooster ? "BẬT" : "TẮT"));
         }
         ImGui::Unindent(10.0f);
 
@@ -250,7 +463,6 @@ void DrawAdaptiveControl(
 
         if (ImGui::Checkbox("KÍCH HOẠT ĐIỀU CHỈNH CHẤT ÂM TỰ ĐỘNG (Adaptive AI Engine)", &autoMode)) {
             manager.SetAdaptiveMode(autoMode, manager.GetCurrentPreset());
-            g_PopupLogger.Log(std::string("[ADAPTIVE AI] Trạng thái bộ máy điều tiết tự động -> ") + (autoMode ? "BẬT" : "TẮT (Trả cấu hình mộc)"));
         }
 
         if (wasAutoMode) {
@@ -275,14 +487,11 @@ void DrawAdaptiveControl(
             ImGui::SetNextItemWidth(280.0f);
             if (ImGui::Combo("Phong cách âm nhạc chủ đạo", &currentPresetIdx, presetNames, IM_ARRAYSIZE(presetNames))) {
                 manager.SetCurrentPreset(static_cast<AudioPreset>(currentPresetIdx));
-                g_PopupLogger.Log(std::string("[ADAPTIVE AI] Chuyển đổi Profile đáp tuyến tần số: ") + presetNames[currentPresetIdx]);
             }
             
             // Ghi Log tự động ra Monitor nếu có sự biến động lớn từ track
             static double last_logged_vol = 0.0;
             if (std::abs(ctx.volume - last_logged_vol) > 15.0) {
-                if (ctx.volume < 30.0) g_PopupLogger.Log("[ADAPTIVE AI] Phát hiện âm lượng nhỏ. Đang bù gain dải tần hình chữ V (Loudness Equalization).");
-                else if (ctx.volume > 80.0) g_PopupLogger.Log("[SAFETY] Phát hiện âm lượng vượt ngưỡng an toàn phần cứng. Tự động ép nén phẳng EQ để bảo vệ loa chống rách màng.");
                 last_logged_vol = ctx.volume;
             }
             ImGui::Unindent(25.0f);
@@ -295,12 +504,10 @@ void DrawAdaptiveControl(
         // --- DANH SÁCH CHI TIẾT TỪNG FILTER VÀ CÁC NÚT KHÓA TAY TỪNG PHẦN ---
         if (ImGui::Button("Bật toàn bộ hệ thống")) {
             manager.SetAllFiltersState(true);
-            g_PopupLogger.Log("Người dùng ép bật thủ công toàn bộ các Node Filter.");
         }
         ImGui::SameLine();
         if (ImGui::Button("Tắt toàn bộ hệ thống")) {
             manager.SetAllFiltersState(false);
-            g_PopupLogger.Log("Người dùng ép tắt thủ công toàn bộ các Node Filter.");
         }
 
         ImGui::Spacing();
@@ -315,7 +522,6 @@ void DrawAdaptiveControl(
             bool isEnabled = f->enabled;
             if (ImGui::Checkbox("##toggle", &isEnabled)) {
                 manager.ToggleFilter(f->id, isEnabled);
-                g_PopupLogger.Log("Thao tác thủ công: Thay đổi Node " + f->id + " -> " + (isEnabled ? "BẬT" : "TẮT"));
             }
             
             ImGui::SameLine();
@@ -325,13 +531,11 @@ void DrawAdaptiveControl(
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
                 if (ImGui::Button("Mở Khóa AI")) {
                     manager.SetFilterBypassMode(f->id, false);
-                    g_PopupLogger.Log("[BYPASS] Trả lại quyền quản lý Node " + f->id + " cho Hệ thống Tự động.");
                 }
                 ImGui::PopStyleColor();
             } else {
                 if (ImGui::Button(" Khóa Tay ")) {
                     manager.SetFilterBypassMode(f->id, true);
-                    g_PopupLogger.Log("[BYPASS] Tách biệt thành công Node " + f->id + " khỏi sự quản lý của AI.");
                 }
             }
 
@@ -362,7 +566,6 @@ void DrawAdaptiveControl(
 
                     if (ImGui::SliderFloat(label.c_str(), &val, param.min, param.max, format)) {
                         manager.UpdateParam(f->id, key, val);
-                        g_PopupLogger.Log("Cập nhật tham số " + f->id + " -> " + key + ": " + std::to_string(val));
                     }
                 }
 
@@ -372,7 +575,7 @@ void DrawAdaptiveControl(
                     ImGui::SameLine();
                     if (ImGui::Button("Reset Node")) {
                         manager.ResetFilter(f->id);
-                        g_PopupLogger.Log("Đã khôi phục mặc định thông số cho riêng Node: " + f->id);
+
                     }
                 }
                 ImGui::Unindent(35.0f);
@@ -389,7 +592,6 @@ void DrawAdaptiveControl(
         for (int n = 0; n < 3; n++) {
             if (ImGui::Button(modes[n])) {
                 manager.SetChannelMode(modes[n]);
-                g_PopupLogger.Log(std::string("Thiết lập lại cấu hình ma trận kênh -> ") + modes[n]);
             }
             if (n < 2) ImGui::SameLine();
         }
@@ -397,12 +599,10 @@ void DrawAdaptiveControl(
         ImGui::Spacing();
         if (ImGui::Button("Lưu Cấu Hình (Save To Disk)")) {
             manager.SaveToFile();
-            g_PopupLogger.Log("[PASS] Toàn bộ trạng thái phần cứng, Preset, cấu hình Bypass đã ghi xuống file JSON.");
         }
         ImGui::SameLine();
         if (ImGui::Button("Tải Cấu Hình (Load From Disk)")) {
             manager.LoadFromFile();
-            g_PopupLogger.Log("[PASS] Đã đồng bộ ngược trạng thái hoạt động từ file lưu trữ hệ thống.");
         }
     }
 }
@@ -427,49 +627,7 @@ void DrawEBUR128Monitor(
         }
         bool current_hot_state = (ctx.loudness_shortterm > -5.0);
 
-        // CHỈ PHÁT LOG KHI CÓ SỰ CHUYỂN ĐỔI TRẠNG THÁI (EDGE TRIGGERING)
-        if (current_peak_state != last_peak_state) {
-            std::ostringstream ss;
-            if (current_peak_state == PeakState::CLIPPING) {
-                ss << "[CRITICAL] !!! HARD CLIPPING !!! Tín hiệu vượt ngưỡng vật lý (L: " 
-                   << ctx.true_peak_ch0 << " | R: " << ctx.true_peak_ch1 << "). Âm thanh đang bị méo dạng!";
-                g_PopupLogger.Log(ss.str());
-            } 
-            else if (current_peak_state == PeakState::WARNING) {
-                ss << "[WARNING] Tín hiệu lọt vào vùng đỏ nguy hiểm (>0.95). Kiểm tra lại gain của nguồn phát.";
-                g_PopupLogger.Log(ss.str());
-            } 
-            else if (current_peak_state == PeakState::SAFE && last_peak_state != PeakState::SAFE) {
-                ss << "[SYSTEM] Tín hiệu đỉnh sóng đã hạ nhiệt và quay trở về vùng an toàn.";
-                g_PopupLogger.Log(ss.str());
-            }
-            last_peak_state = current_peak_state; // Cập nhật trạng thái nền
-        }
 
-        if (current_hot_state != last_hot_state) {
-            if (current_hot_state) {
-                std::ostringstream ss;
-                ss << "[AUDIO HOT] Tai người nghe có nguy cơ bị chói tai! Short-term Loudness quá cao: " << ctx.loudness_shortterm << " LUFS.";
-                g_PopupLogger.Log(ss.str());
-            }
-            last_hot_state = current_hot_state;
-        }
-
-        // Luồng ghi log dữ liệu chi tiết định kỳ (Giữ nguyên hẹn giờ vì bản chất nó là log tiến trình)
-        double currentTime = ImGui::GetTime();
-        static double lastPeriodicLogTime = 0.0;
-        const double PERIODIC_LOG_INTERVAL = 3.0; 
-        static bool enablePeriodicDataLog = false;
-
-        if (enablePeriodicDataLog && (currentTime - lastPeriodicLogTime > PERIODIC_LOG_INTERVAL)) {
-            std::ostringstream data_ss;
-            data_ss << "[DIAGNOSTICS] Snapshot (" << ctx.codec << " @" << ctx.bitrate_kbps << "kbps) "
-                    << "| Integrated: " << std::fixed << std::setprecision(1) << ctx.loudness_integrated << " LUFS "
-                    << "| LRA: " << ctx.loudness_range << " LU "
-                    << "| Peak L/R: " << std::setprecision(3) << ctx.true_peak_ch0 << "/" << ctx.true_peak_ch1;
-            g_PopupLogger.Log(data_ss.str());
-            lastPeriodicLogTime = currentTime;
-        }
 
         // --- THỐNG KÊ METADATA CƠ BẢN ---
         ImGui::Columns(3, "EbuMetaGrid", false);
@@ -777,21 +935,6 @@ void DrawEBUR128Monitor(
         ImGui::Spacing();
         ImGui::Separator();
 
-        // --- TIỆN ÍCH TRÍCH XUẤT VÀ KIỂM SOÁT LOG TẠI CHỖ ---
-        ImGui::TextColored(ImVec4(0.0f, 1.0f, 0.8f, 1.0f), "Bảng tương tác Nhật ký luồng tin:");
-        ImGui::Checkbox("Tự động bơm Log dữ liệu chi tiết (Mỗi 3 giây)", &enablePeriodicDataLog);
-        
-        ImGui::SameLine(); ImGui::Spacing(); ImGui::SameLine();
-        
-        if (ImGui::Button("Xuất Báo Cáo Tức Thời (Dump Snapshot)")) {
-            std::ostringstream ss;
-            ss << "[MANUAL DUMP] ---- THÔNG SỐ ĐỘNG LỰC HỌC AUDIO ----\n"
-               << " > Codec: " << (ctx.codec.empty() ? "N/A" : ctx.codec) << " | Bitrate: " << ctx.bitrate_kbps << " kbps\n"
-               << " > Loudness Track -> M: " << ctx.loudness_momentary << " | S: " << ctx.loudness_shortterm << " | I: " << ctx.loudness_integrated << " LUFS\n"
-               << " > Loudness Range (LRA): " << ctx.loudness_range << " LU (Vùng: " << ctx.loudness_lra_low << " -> " << ctx.loudness_lra_high << ")\n"
-               << " > True Peak Max: " << ctx.true_peak << " (L: " << ctx.true_peak_ch0 << " / R: " << ctx.true_peak_ch1 << ")";
-            g_PopupLogger.Log(ss.str());
-        }
     }
 }
 
@@ -810,9 +953,8 @@ void DrawLogTab(AudioFilterManager& manager)
 }
 
 
-void ShowTestPopup(bool& closePopup_Test)
+void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
 {
-    auto* window = WindowManager::GetInstance().GetMainWindow();
     if (!window) return;
     auto* session = window->resource.GetPlayerSession();
     if (!session) return;
@@ -821,33 +963,39 @@ void ShowTestPopup(bool& closePopup_Test)
 
     AudioContext ctx = manager->GetCurrentContext();
 
-    if (ImGui::BeginTabBar("##DebugTabs"))
+    if (CSImGui::BeginModernTabBar("##DebugTabs"))
     {
-        if (ImGui::BeginTabItem("Core"))
+        if (CSImGui::ModernTabItem("Core"))
         {
             DrawCoreMonitor(*manager, ctx);
-            ImGui::EndTabItem();
+            CSImGui::EndModernTabItem();
         }
 
-        if (ImGui::BeginTabItem("Adaptive"))
+        if (CSImGui::ModernTabItem("Adaptive"))
         {
             DrawAdaptiveControl(*manager, ctx);
-            ImGui::EndTabItem();
+            CSImGui::EndModernTabItem();
         }
 
-        if (ImGui::BeginTabItem("EBU R128"))
+        if (CSImGui::ModernTabItem("EBU R128"))
         {
             DrawEBUR128Monitor(*manager, ctx);
-            ImGui::EndTabItem();
+            CSImGui::EndModernTabItem();
         }
 
-        if (ImGui::BeginTabItem("Logs"))
+        if (CSImGui::ModernTabItem("Visualizer"))
+        {
+            DrawAudioVisualizer(*session);
+            CSImGui::EndModernTabItem();
+        }
+
+        if (CSImGui::ModernTabItem("Logs"))
         {
             DrawLogTab(*manager);
-            ImGui::EndTabItem();
+            CSImGui::EndModernTabItem();
         }
 
-        ImGui::EndTabBar();
+        CSImGui::EndModernTabBar();
     }
 
     ImGui::Separator();
@@ -858,7 +1006,7 @@ void ShowTestPopup(bool& closePopup_Test)
 
 void OpenTestPopup(ReusablePopup& popup) {
     popup.Open("Audio Filter & Advanced Diagnostics Engine Dashboard", [](WindowRuntime* runtime, bool& closePopup_Test) {
-        ShowTestPopup(closePopup_Test);  
+        ShowTestPopup(closePopup_Test, runtime);  
     });
 }
 

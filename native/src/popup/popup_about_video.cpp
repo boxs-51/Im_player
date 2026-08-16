@@ -202,28 +202,21 @@ void ShowAudioInfo(WindowRuntime* runtime) {
                 for (auto& dev : audio.device.audioDevices) {
                     bool active = (dev.name == audio.device.audio_device);
 
-                    // 3. Bắt đầu hàng
-                    CSImGui::BeginListRow();
 
-                    // Cột 1 (Đã tự động chuyển Column ở BeginListRow)
+                    CSImGui::BeginListRow("audio_devices_v2_row");
+
                     if (active) ImGui::TextColored(ImVec4(0.2f, 0.6f, 1.0f, 1.0f), "● %s", dev.name.c_str());
                     else ImGui::Text("%s", dev.name.c_str());
 
-                    // Cột 2
                     ImGui::TableNextColumn();
                     ImGui::TextWrapped("%s", dev.description.empty() ? "N/A" : dev.description.c_str());
 
-                    // Cột 3
                     ImGui::TableNextColumn();
                     if (active) ImGui::TextColored(ImVec4(0.3f, 1.0f, 0.3f, 1.0f), "Active");
                     else ImGui::TextDisabled("Idle");
 
-                    // 4. Xử lý click cho toàn bộ hàng
                     if (ImGui::IsItemHovered()) ImGui::SetMouseCursor(ImGuiMouseCursor_Hand);
-                    //if (IsRowClicked()) {
-                    //    g_videoInfo.audio_device = dev.name;
-                        // Thực hiện lệnh đổi thiết bị tại đây
-                    //}
+          
 
                     CSImGui::EndListRow();
                 }
@@ -491,17 +484,18 @@ void ShowNetworkInfo(WindowRuntime* runtime) {
     ImGui::ProgressBar(bufferRatio, ImVec2(-1, 8));
 
 }
-void ShowDuBugInFo(WindowRuntime* runtime){
+void ShowDuBugInFo(WindowRuntime* window){
        
+    if (window) return;
     ImGui::TextWrapped("=== Debug Info ===");
     // WinAPI
     RECT rcWin, rcClient;
-    auto& window = *WindowManager::GetInstance().GetMainWindow();
+
     //auto& 
-    GetWindowRect(window.resource.hwnd, &rcWin);
-    GetClientRect(window.resource.hwnd, &rcClient);
+    GetWindowRect(window->resource.hwnd, &rcWin);
+    GetClientRect(window->resource.hwnd, &rcClient);
     POINT pt = { rcClient.left, rcClient.top };
-    ClientToScreen(window.resource.hwnd, &pt);
+    ClientToScreen(window->resource.hwnd, &pt);
     OffsetRect(&rcClient, pt.x, pt.y);
 
     ImGui::Separator();
@@ -520,8 +514,8 @@ void ShowDuBugInFo(WindowRuntime* runtime){
 
     // SDL window info
     Uint32 sdlFlags = 0;
-    sdlFlags = SDL_GetWindowFlags(window.resource.sdlWindow);
-    auto layout = window.properties.GetValue<WindowLayout>("Layout");
+    sdlFlags = SDL_GetWindowFlags(window->resource.sdlWindow);
+    auto layout = window->properties.GetValue<WindowLayout>("Layout");
 
     ImGui::TextWrapped("SDL Client: %dx%d", layout.WinW, layout.WinH);
     ImGui::TextWrapped("SDL Position: X:%d Y:%d", layout.WinX, layout.WinY);
@@ -532,10 +526,10 @@ void ShowDuBugInFo(WindowRuntime* runtime){
     ImGui::TextWrapped("Client Size: %dx%d", (int)layout.ClientSize.x, (int)layout.ClientSize.y);
 
     ImGui::Separator();
-    ImGui::TextWrapped("IsMaximized: %s", window.state.display.isMaximized ? "Yes" : "No");
-    ImGui::TextWrapped("IsFullscreen: %s", window.state.display.isFullscreen ? "Yes" : "No");
+    ImGui::TextWrapped("IsMaximized: %s", window->state.display.isMaximized ? "Yes" : "No");
+    ImGui::TextWrapped("IsFullscreen: %s", window->state.display.isFullscreen ? "Yes" : "No");
     ImGui::Separator();
-    ImGui::TextWrapped("HitTest Zone: %s", window.state.input.hittestname.c_str());
+    ImGui::TextWrapped("HitTest Zone: %s", window->state.input.hittestname.c_str());
     ImGui::Separator();
 
     // Lấy danh sách script dưới dạng struct (Giả sử bạn dùng GetAllScripts trả về vector hoặc map)

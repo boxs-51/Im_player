@@ -24,7 +24,7 @@
 static int g_CurrentIndex = -1;
 static std::function<void(int)> g_OnVideoSelected;
 
-void RenderVideoItem(VideoItem &v, float listWidth)
+void RenderVideoItem(VideoItem &v, float listWidth, WindowRuntime *runtime)
 {
     ImGui::BeginChild(v.id.c_str(), ImVec2(listWidth, 140), false, ImGuiWindowFlags_NoScrollbar);
 
@@ -235,7 +235,7 @@ void RenderVideoItem(VideoItem &v, float listWidth)
 
     if (v.hoverAnim > 0.01f && isClicked)
     {
-        if (auto *commander = WindowManager::GetInstance().GetMainWindow()->resource.GetPlayerSession()->GetCommander())
+        if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
             commander->LoadFile(v.link.c_str());
         UpdateVideoData(VideoSource::Watched, v.link.c_str());
     }
@@ -256,7 +256,7 @@ void RenderVideoItem(VideoItem &v, float listWidth)
 
         if (ImGui::MenuItem("App List MPV"))
         {
-            if (auto *commander = WindowManager::GetInstance().GetMainWindow()->resource.GetPlayerSession()->GetCommander())
+            if (auto *commander = runtime->resource.GetPlayerSession()->GetCommander())
                 commander->LoadFile(v.link.c_str());
             UpdateVideoData(VideoSource::Watched, v.link.c_str());
         }
@@ -368,7 +368,7 @@ struct KeywordItemState
     bool selected = false;  // đang được chọn bằng ↑↓
     bool clicking = false;  // đang nhấn chuột
 };
-void RenderVideoList()
+void RenderVideoList(WindowRuntime *runtime)
 {
     bool canHover =
         ImGui::IsWindowHovered(ImGuiHoveredFlags_RootAndChildWindows) ||
@@ -744,7 +744,7 @@ void RenderVideoList()
                       ImGuiWindowFlags_HorizontalScrollbar);
 
     for (auto &v : g_videoList)
-        RenderVideoItem(v, ImGui::GetContentRegionAvail().x - 20);
+        RenderVideoItem(v, ImGui::GetContentRegionAvail().x - 20, runtime);
 
     if (ImGui::GetScrollY() + ImGui::GetWindowHeight() >=
             ImGui::GetScrollMaxY() - 50 &&
@@ -905,7 +905,7 @@ void ShowSidarBarPopup(WindowRuntime *runtime, bool &closePopup_siderbar)
         ImGui::PushStyleColor(ImGuiCol_TabActive, ImVec4(0.3f, 0.6f, 1.0f, 1.0f));
         if (ImGui::BeginTabItem("Youtube"))
         {
-            RenderVideoList();
+            RenderVideoList(runtime);
             ImGui::EndTabItem();
         }
         if (ImGui::BeginTabItem("ListMPV"))

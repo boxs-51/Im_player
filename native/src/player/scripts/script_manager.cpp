@@ -41,9 +41,9 @@ void ScriptManager::LoadScriptFromFolder(const std::vector<std::string>& folders
                     m_scripts[fullPath] = info;
                     
                     if (info.isLoaded) {
-                        LOG(load_script, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] Loaded script: " << fullPath << " (Command result: " << res << ")\n");
+                        LOG(load_script, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] Loaded script: %s (Command result: %d)", fullPath, res);
                     } else {
-                        LOG(load_script_error, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << fullPath << " (Error code: " << res << ")\n");
+                        LOG(load_script_error, 1, LogLevel::Error, LogCategory::System, "[ERROR] [MPV ERROR] Failed to load script: %s (Error code: %d)", fullPath, res);
                     }
                 }
             }
@@ -70,9 +70,9 @@ void ScriptManager::LoadScript(const std::vector<std::string>& scriptPaths) {
             m_scripts[info.path] = info;
 
             if (info.isLoaded) {
-                LOG(load_script, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] Loaded script: " << info.path << " (Command result: " << res << ")\n");
+                LOG(load_script, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] Loaded script: %s (Command result: %d)", info.path, res);
             } else {
-                LOG(load_script_error, 1,  LogLevel::Error, LogCategory::System, std::cout << "[ERROR] [MPV ERROR] Failed to load script: " << info.path << " (Error code: " << res << ")\n");
+                LOG(load_script_error, 1,  LogLevel::Error, LogCategory::System, "[ERROR] [MPV ERROR] Failed to load script: %s (Error code: %d)", info.path, res);
             }
         }
     }

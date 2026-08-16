@@ -1,20 +1,21 @@
 #include "globals.h"
+
+#include <windows.h>
+
 #include <iostream>
 #include <chrono>
 #include <string>
-#include <sstream>
-#include <windows.h>
-#include <windows.h>
-#include <cstdio>
+#include <string_view>
 #include <vector>
 #include <thread>
 #include <mutex>
 #include <atomic>
 #include <unordered_map>
-#include <unordered_set>
-#include <condition_variable>
 #include <iomanip>
 #include <algorithm>
+#include <cstdint>
+#include <utility>
+#include <type_traits>
 
 // =================== Hệ thống phân loại Log ===================
 
@@ -26,7 +27,6 @@ enum class LogLevel {
     Critical
 };
 
-// Sử dụng bitmask để có thể lọc theo nhiều danh mục
 enum class LogCategory : uint32_t {
     None      = 0,
     System    = 1 << 0,  // Các sự kiện hệ thống chung, core
@@ -46,7 +46,85 @@ inline LogCategory operator|(LogCategory a, LogCategory b) {
     return static_cast<LogCategory>(static_cast<uint32_t>(a) | static_cast<uint32_t>(b));
 }
 
+// =================== Cơ chế Bảo vệ & Định dạng Chuỗi An toàn (C++17) ===================
+
+namespace Detail {
+
+    // 1. Chuyển đổi tham số sang dạng an toàn cho snprintf
+    template <typename T>
+    decltype(auto) ConvertArg(T&& arg) {
+        using Decayed = std::decay_t<T>;
+        
+        if constexpr (std::is_same_v<Decayed, std::string>) {
+            return arg.c_str();
+        } 
+        else if constexpr (std::is_same_v<Decayed, std::string_view>) {
+            return arg.data();
+        }
+        else if constexpr (std::is_pointer_v<Decayed> && std::is_same_v<std::remove_cv_t<std::remove_pointer_t<Decayed>>, char>) {
+            // Xử lý con trỏ char* bị nullptr
+            const char* p = static_cast<const char*>(arg);
+            return p ? p : "(null)";
+        }
+        else {
+            return std::forward<T>(arg);
+        }
+    }
+
+    // 2. Hàm gọi snprintf được bọc trong SEH của Windows để bắt lỗi Access Violation tại runtime
+    inline int SafeSnprintf(char* buf, size_t count, const char* fmt, ...) {
+        int result = -1;
+        va_list args;
+        va_start(args, fmt);
+
+        __try {
+            result = vsnprintf(buf, count, fmt, args);
+        }
+        __except (EXCEPTION_EXECUTE_HANDLER) {
+            // Bắt lỗi Access Violation (0xC0000005) nếu truyền sai định dạng %s với kiểu số
+            result = -2;
+        }
+
+        va_end(args);
+        return result;
+    }
+}
+
+template <typename... Args>
+std::string FormatString(const char* fmt, Args&&... args) {
+    if (!fmt) return "[LOG ERROR: null format string]";
+
+    if constexpr (sizeof...(Args) == 0) {
+        return std::string(fmt);
+    } else {
+        // Lần 1: Xác định độ dài chuỗi bằng SEH wrapper
+        int size_s = Detail::SafeSnprintf(nullptr, 0, fmt, Detail::ConvertArg(std::forward<Args>(args))...);
+        
+        // Nếu SEH bắt được lỗi crash do sai định dạng %s với kiểu dữ liệu
+        if (size_s == -2) {
+            char errBuf[512];
+            sprintf_s(errBuf, "[LOG FMT ERROR] Bad format specifier or type mismatch in fmt: \"%s\"", fmt);
+            OutputDebugStringA(errBuf);
+            return std::string(errBuf);
+        }
+
+        if (size_s <= 0) return std::string();
+
+        size_t size = static_cast<size_t>(size_s);
+        std::string buf(size, '\0');
+        
+        // Lần 2: Ghi dữ liệu thực tế
+        int write_res = Detail::SafeSnprintf(&buf[0], size + 1, fmt, Detail::ConvertArg(std::forward<Args>(args))...);
+        if (write_res == -2) {
+            return "[LOG FMT ERROR: Access Violation during formatting]";
+        }
+
+        return buf;
+    }
+}
+
 // =================== Hệ thống quản lý Log History ===================
+
 struct LogMessage {
     std::chrono::system_clock::time_point timestamp;
     std::string message;
@@ -55,8 +133,6 @@ struct LogMessage {
     LogCategory category;
 };
 
-
-
 class LogHistoryManager {
 public:
     static LogHistoryManager& GetInstance() {
@@ -64,9 +140,22 @@ public:
         return instance;
     }
 
-    void AddLog(const std::string& key, const std::string& message, LogLevel level = LogLevel::Info, LogCategory category = LogCategory::System) {
+    void AddLog(
+        const std::string& key,
+        const std::string& message,
+        LogLevel level = LogLevel::Info,
+        LogCategory category = LogCategory::System)
+    {
         std::lock_guard<std::mutex> lock(m_mutex);
-        m_logs.push_back({std::chrono::system_clock::now(), message, key, level, category});
+
+        m_logs.push_back({
+            std::chrono::system_clock::now(),
+            message,
+            key,
+            level,
+            category
+        });
+
         if (m_logs.size() > MAX_LOGS) {
             m_logs.erase(m_logs.begin());
         }
@@ -86,6 +175,11 @@ public:
         return filtered_logs;
     }
 
+    void Clear() {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        m_logs.clear();
+    }
+
 private:
     LogHistoryManager() = default;
     static const size_t MAX_LOGS = 200;
@@ -93,312 +187,181 @@ private:
     std::mutex m_mutex;
 };
 
-
+// =================== State variables ===================
 
 static HANDLE hConsole = nullptr;
-static bool g_consoleAttached = false;
-static bool g_consoleWindowCreated = false;
-static bool g_blockConsoleClose = true;
 static bool g_enableSingleLinePerKey = false;
 
+static std::mutex g_logStateMutex;
 static std::mutex g_logConsoleMutex;
 
+// =================== Helper ghi Console thuần Windows API ===================
+
+static void DirectConsoleWrite(HANDLE hCon, const std::string& text) {
+    if (text.empty()) return;
+    DWORD written = 0;
+    WriteConsoleA(hCon, text.c_str(), static_cast<DWORD>(text.size()), &written, nullptr);
+}
+
 // =================== Màu cho từng nhóm tag ===================
+
 static WORD GetLogColor(const LogLevel& lv) {
-    if (lv == LogLevel::Critical)           return BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
-    if (lv == LogLevel::Error)              return FOREGROUND_RED | FOREGROUND_INTENSITY;
-    if (lv == LogLevel::Warning)            return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
-    if (lv == LogLevel::Info)               return FOREGROUND_GREEN | FOREGROUND_BLUE         | FOREGROUND_INTENSITY;
-    if (lv == LogLevel::Debug)              return FOREGROUND_BLUE  | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Critical)   return BACKGROUND_RED | FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Error)      return FOREGROUND_RED | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Warning)    return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Info)       return FOREGROUND_GREEN | FOREGROUND_BLUE | FOREGROUND_INTENSITY;
+    if (lv == LogLevel::Debug)      return FOREGROUND_BLUE | FOREGROUND_INTENSITY;
     return FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE; 
 }
 
-// =================== Ghi đè có giới hạn ===================
-static void RateLimitedLogOverwrite(const std::string& key, int interval_ms, const std::string& message, LogLevel level, LogCategory category)
+// =================== Ghi đè có giới hạn (Console Output) ===================
+
+static void RateLimitedLogOverwrite(
+    const std::string& key,
+    int interval_ms,
+    const std::string& message,
+    LogLevel level,
+    LogCategory category)
 {
     struct LogEntry {
-        std::chrono::steady_clock::time_point last;
+        std::chrono::steady_clock::time_point last{};
         std::string lastMessage;
         size_t lastLength = 0;
         bool printedOnce = false;
         DWORD consolePosY = 0;
-        int linesNeeded = 1;
     };
 
-    std::lock_guard<std::mutex> lock(g_logConsoleMutex);
-
     static std::unordered_map<std::string, LogEntry> logs;
-    static std::vector<std::string> g_keyOrder;
     static std::string lastKey;
+
+    bool printedOnce = false;
+    DWORD consolePosY = 0;
+    size_t lastLength = 0;
+
+    {
+        std::lock_guard<std::mutex> lock(g_logStateMutex);
+
+        auto& entry = logs[key];
+
+        const auto now = std::chrono::steady_clock::now();
+        const auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - entry.last).count();
+
+        if (elapsed < interval_ms || message == entry.lastMessage) {
+            return;
+        }
+
+        entry.last = now;
+        entry.lastMessage = message;
+
+        printedOnce = entry.printedOnce;
+        consolePosY = entry.consolePosY;
+        lastLength = entry.lastLength;
+    }
+
+    LogHistoryManager::GetInstance().AddLog(key, message, level, category);
+
+    const auto waitStart = std::chrono::steady_clock::now();
+
+    std::unique_lock<std::mutex> consoleLock(g_logConsoleMutex);
+
+    const auto acquired = std::chrono::steady_clock::now();
+    const auto waitUs = std::chrono::duration_cast<std::chrono::microseconds>(acquired - waitStart).count();
+
     hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
 
-    auto& entry = logs[key];
-    auto now = std::chrono::steady_clock::now();
-    auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(now - entry.last).count();
-    if (elapsed < interval_ms || message == entry.lastMessage)
+    if (hConsole == nullptr || hConsole == INVALID_HANDLE_VALUE) {
         return;
-
-    entry.last = now;
-    entry.lastMessage = message;
-
-    // Thêm log vào hệ thống quản lý history
-    LogHistoryManager::GetInstance().AddLog(key, message, level, category);
+    }
 
     WORD color = GetLogColor(level);
     SetConsoleTextAttribute(hConsole, color);
 
-    // =============================
-    // 🔀 Hai chế độ hiển thị
-    // =============================
-    if (g_enableSingleLinePerKey)
-    {
-        // --- Chế độ "mỗi key = 1 dòng" ---
-        CONSOLE_SCREEN_BUFFER_INFO info;
+    if (g_enableSingleLinePerKey) {
+        CONSOLE_SCREEN_BUFFER_INFO info{};
         GetConsoleScreenBufferInfo(hConsole, &info);
 
-        if (!entry.printedOnce)
-        {
-            std::cout << message << std::endl;
-            entry.consolePosY = info.dwCursorPosition.Y; // lưu dòng hiện tại
-            entry.printedOnce = true;
-        }
-        else
-        {
-            COORD pos = { 0, static_cast<SHORT>(entry.consolePosY) };
+        if (!printedOnce) {
+            DirectConsoleWrite(hConsole, message + "\n");
+            consolePosY = info.dwCursorPosition.Y;
+            printedOnce = true;
+        } else {
+            COORD pos = { 0, static_cast<SHORT>(consolePosY) };
             SetConsoleCursorPosition(hConsole, pos);
-            std::cout << "\r" << message;
 
-            if (message.size() < entry.lastLength)
-                std::cout << std::string(entry.lastLength - message.size(), ' ');
+            std::string out = "\r" + message;
+            if (message.size() < lastLength) {
+                out.append(lastLength - message.size(), ' ');
+            }
+            DirectConsoleWrite(hConsole, out);
+        }
+    } else {
+        if (key == lastKey) {
+            std::string out = "\r" + message;
+            if (message.size() < lastLength) {
+                out.append(lastLength - message.size(), ' ');
+            }
+            DirectConsoleWrite(hConsole, out);
+        } else {
+            std::string out;
+            if (!lastKey.empty()) {
+                out += "\n";
+            }
+            out += message;
+            DirectConsoleWrite(hConsole, out);
 
-            std::cout << std::flush;
-        }
-    }
-    else
-    {
-        // --- Chế độ ghi đè kiểu cũ ---
-        if (key == lastKey)
-        {
-            std::cout << "\r" << message;
-            if (message.size() < entry.lastLength)
-                std::cout << std::string(entry.lastLength - message.size(), ' ');
-            std::cout << std::flush;
-        }
-        else
-        {
-            if (!lastKey.empty()) std::cout << std::endl;
-            std::cout << message << std::flush;
             lastKey = key;
         }
     }
 
-    entry.lastLength = message.size();
+    {
+        std::lock_guard<std::mutex> lock(g_logStateMutex);
+
+        auto it = logs.find(key);
+        if (it != logs.end()) {
+            it->second.lastLength = message.size();
+            it->second.printedOnce = printedOnce;
+            it->second.consolePosY = consolePosY;
+        }
+    }
+
     SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
+
+    const auto released = std::chrono::steady_clock::now();
+    const auto holdUs = std::chrono::duration_cast<std::chrono::microseconds>(released - acquired).count();
+
+    if (waitUs >= 1000 || holdUs >= 5000) {
+        char buffer[1024];
+        sprintf_s(
+            buffer,
+            "[LOG-PERF] tid=%lu key=%s wait=%lld us hold=%lld us\n",
+            static_cast<unsigned long>(GetCurrentThreadId()),
+            key.c_str(),
+            static_cast<long long>(waitUs),
+            static_cast<long long>(holdUs)
+        );
+        OutputDebugStringA(buffer);
+    }
 }
 
-// =================== Helper ghi song song ra 2 stream ===================
-template<typename F>
-std::string CaptureAndMirror(F&& func)
-{
-    std::ostringstream oss;
-    auto old_buf = std::cout.rdbuf(oss.rdbuf());  // redirect cout tạm thời sang oss
-    func();                                       // chạy biểu thức std::cout << ...
-    std::cout.rdbuf(old_buf);                     // khôi phục lại cout
-    return oss.str();
-}
+// =================== Macros chính hỗ trợ fmt ===================
 
-// =================== Macro chính ===================
-// =================== Macro chính (Hỗ trợ key tùy chọn) ===================
 #define STRINGIZE_DETAIL(x) #x
 #define STRINGIZE(x) STRINGIZE_DETAIL(x)
 
-#define LOG(key, interval_ms, level, category, expr) \
+#define LOG(key, interval_ms, level, category, fmt_str, ...) \
     do { \
-        std::string _msg_##key = CaptureAndMirror([&]() { expr; }); \
+        std::string _msg_##key = FormatString(fmt_str, ##__VA_ARGS__); \
         RateLimitedLogOverwrite(#key, interval_ms, _msg_##key, level, category); \
     } while (0)
 
-#define LOG_NO_KEY(interval_ms, level, category, expr) \
+#define LOG_NO_KEY(interval_ms, level, category, fmt_str, ...) \
     do { \
         static const char* _dynamic_key = __FILE__ ":" STRINGIZE(__LINE__); \
-        std::string _msg_dynamic = CaptureAndMirror([&]() { expr; }); \
+        std::string _msg_dynamic = FormatString(fmt_str, ##__VA_ARGS__); \
         RateLimitedLogOverwrite(_dynamic_key, interval_ms, _msg_dynamic, level, category); \
     } while (0)
-
-// ------------------------- Ctrl Handler -------------------------
-static BOOL WINAPI ConsoleCtrlHandler(DWORD dwCtrlType)
-{
-    switch (dwCtrlType)
-    {
-    case CTRL_CLOSE_EVENT:
-        if (g_blockConsoleClose)
-        {
-            LOG(system_console_close_blocked, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] Console close event blocked. Use command or hotkey to close.");
-            return TRUE;
-        }
-        break;
-
-    case CTRL_C_EVENT:
-        LOG(system_ctrl_c_pressed, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] Ctrl+C pressed — ignored (app still running)");
-        return TRUE;
-
-    default:
-        break;
-    }
-    return FALSE;
-}
-
-// ------------------------- Config Output/Input -------------------------
-static void ConfigureConsoleOutputMode()
-{
-    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole == INVALID_HANDLE_VALUE) return;
-
-    DWORD mode = 0;
-    if (GetConsoleMode(hConsole, &mode))
-    {
-        mode |= ENABLE_PROCESSED_OUTPUT             |//Xử lý các ký tự điều khiển như Ctrl+C, LF, CR, Backspace.
-                ENABLE_WRAP_AT_EOL_OUTPUT           |//Khi tới cuối dòng, tự động xuống dòng.
-                ENABLE_VIRTUAL_TERMINAL_PROCESSING  |//Cho phép ANSI escape sequences (màu sắc, cursor control, text formatting).
-                DISABLE_NEWLINE_AUTO_RETURN         |//Dòng mới (LF) không ép con trỏ về cột 0.
-                ENABLE_LVB_GRID_WORLDWIDE;           //Hỗ trợ hiển thị các ký tự double-byte, grid characters quốc tế.
-
-
-        SetConsoleMode(hConsole, mode);
-    }
-}
-
-static void ConfigureConsoleInputMode()
-{
-    hConsole = GetStdHandle(STD_INPUT_HANDLE);
-    if (hConsole == INVALID_HANDLE_VALUE) return;
-
-    DWORD mode = 0;
-    if (GetConsoleMode(hConsole, &mode))
-    {
-        mode |= ENABLE_EXTENDED_FLAGS   | //Cho phép cấu hình nâng cao.
-                ENABLE_PROCESSED_INPUT  | //Xử lý các ký tự điều khiển như Ctrl+C.
-                ENABLE_WINDOW_INPUT     | //Bắt sự kiện thay đổi kích thước cửa sổ console.
-                ENABLE_QUICK_EDIT_MODE  | //Cho phép người dùng chọn văn bản trong console (nhưng có thể gây freeze).
-                ENABLE_MOUSE_INPUT      | //Bắt sự kiện chuột.
-                ENABLE_AUTO_POSITION;     //Tự động đặt con trỏ vào vị trí nhập liệu.
-
-        SetConsoleMode(hConsole, mode);
-    }
-}
-
-// ------------------------- Thử attach vào console cha -------------------------
-static bool TryAttachToParentConsole()
-{
-    // Nếu đã có console (VD: chạy từ cmd hoặc VS terminal)
-    if (GetConsoleWindow() != nullptr)
-        return true;
-
-    if (AttachConsole(ATTACH_PARENT_PROCESS))
-    {
-        FILE* fDummy;
-        freopen_s(&fDummy, "CONOUT$", "w", stdout);
-        freopen_s(&fDummy, "CONOUT$", "w", stderr);
-        freopen_s(&fDummy, "CONIN$",  "r", stdin);
-        std::ios::sync_with_stdio(true);
-        std::cout.clear();
-        std::cerr.clear();
-        ConfigureConsoleOutputMode();
-        ConfigureConsoleInputMode();
-        return true;
-    }
-    return false;
-}
-
-// ================================================================
-// ✅ GIAI ĐOẠN 1: KHỞI TẠO
-// ================================================================
-inline void InitConsoleSystem()
-{
-    if (TryAttachToParentConsole())
-    {
-        g_consoleAttached = true;
-        g_consoleWindowCreated = false;
-        LOG(system_console_attached, 1, LogLevel::Info, LogCategory::System, std::cout << "[INFO] [System] Attached to parent console.\n");
-    }
-    else
-    {
-        g_consoleAttached = false;
-        g_consoleWindowCreated = false;
-        LOG(system_console_not_attached, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [System] No parent console found. Console output disabled.");
-    }
-
-    SetConsoleCtrlHandler(ConsoleCtrlHandler, TRUE);
-}
-
-// ================================================================
-// ✅ GIAI ĐOẠN 2: MỞ / TẮT CONSOLE RIÊNG
-// ================================================================
-inline bool OpenConsoleWindow()
-{
-    if (g_consoleAttached || g_consoleWindowCreated){
-        LOG(system_console_already_active, 1, LogLevel::Info, LogCategory::System, std::cout << "[INFO] [System] Console window has been initialized or Attached \n");
-        return false;
-    }
-
-    if (!AllocConsole())
-        LOG(system_console_alloc_failed, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] [System] Failed to allocate console. Error Code: " << GetLastError() << std::endl);
-        return false;
-
-    FILE* fDummy;
-    freopen_s(&fDummy, "CONOUT$", "w", stdout);
-    freopen_s(&fDummy, "CONOUT$", "w", stderr);
-    freopen_s(&fDummy, "CONIN$",  "r", stdin);
-
-    std::ios::sync_with_stdio(true);
-    std::cout.clear();
-    std::cerr.clear();
-
-    // ✅ phải gọi sau freopen
-    ConfigureConsoleOutputMode();
-    ConfigureConsoleInputMode();
-
-    SetConsoleTitleA("Debug Console");
-
-    hConsole = GetStdHandle(STD_OUTPUT_HANDLE);
-    if (hConsole != INVALID_HANDLE_VALUE)
-        SetConsoleTextAttribute(hConsole, FOREGROUND_RED | FOREGROUND_GREEN | FOREGROUND_BLUE);
     
-    std::cout << "======================== Debug Console Created ======================\n";
-    
-    g_consoleWindowCreated = true;
-    return true;
-}
-
-inline bool CloseConsoleWindow()
-{
-    if (g_consoleAttached)
-    {
-        std::cout << "[System] Cannot close attached console (parent terminal)\n";
-        return false;
-    }
-
-    if (!g_consoleWindowCreated)
-    {
-        std::cout << "[System] Console Windown Cannot created \n";
-        return false;
-    }
-
-    std::cout << "======================== Debug Console Closed ======================\n";
-    std::cout.flush();
-    FreeConsole();
-    g_consoleWindowCreated = false;
-    return true;
-}
-
-// ================================================================
-// ✅ TRẠNG THÁI
-// ================================================================
-inline bool IsConsoleVisible()
-{
-    return (g_consoleAttached || g_consoleWindowCreated);
-}
-
+#include <unordered_set>
 // =========================================================
 // 🔹 Globals
 // ==========================================================
@@ -460,14 +423,14 @@ static void MpvErrorThreadFunc() {
 
             if (level == "warn") {
                 LOG(mpv_warn_error, 1, LogLevel::Warning, LogCategory::Network,
-                    std::cout << "[DEBUG] [WARNING] " << msg << std::endl);
+                    "[DEBUG] [WARNING] %s", msg );
             } 
             else if (level == "error") {
                 LOG(mpv_error_error, 1, LogLevel::Error, LogCategory::Network,
-                    std::cout << "[DEBUG] [ERROR] " << msg << std::endl);
+                    "[DEBUG] [ERROR] %s", msg );
             } 
             else {
-                std::cout << "[" << level << "] " << msg << std::endl;
+                "[ << %s << ] ", msg;
             }
         }
         // ✅ Bỏ qua nếu đang tắt log cảnh báo

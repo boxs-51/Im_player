@@ -157,7 +157,7 @@ void ShaderSettingsPage(WindowRuntime* runtime) {
                 
                 if (CSImGui::BeginListTable("ShaderListTable", cols, ImGuiTableFlags_ScrollY)) {
                     for (auto& [name, shader] : sm.GetShaders()) {
-                        CSImGui::BeginListRow();
+                        CSImGui::BeginListRow("ShaderListTable_row");
                         
                         bool enabled = shader.enabled;
                         if (CSImGui::ModernCheckbox(("##cb_" + name).c_str(), &enabled)) {

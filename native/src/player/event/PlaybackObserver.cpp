@@ -25,9 +25,9 @@ void PlaybackObserver::ObserveProps(const std::vector<std::pair<const char*, mpv
     for (const auto& [name, fmt] : props) {
         int ret = mpv_observe_property(m_mpv, 0, name, fmt);
         if (ret < 0) {
-            LOG(observeprops, 1, LogLevel::Warning, LogCategory::System, std::cerr << "[MPV] Failed to observe " << name << " (" << groupName << "): " << mpv_error_string(ret) << "\n");
+            LOG(observeprops, 1, LogLevel::Warning, LogCategory::System, "[MPV] Failed to observe %s (%s): %s", name ,groupName ,mpv_error_string(ret));
         } else {
-            LOG(observeprops, 1, LogLevel::Info, LogCategory::System, std::cout << " [MPV] Observing " << name << " (" << groupName << ")" << "\n");
+            LOG(observeprops, 1, LogLevel::Info, LogCategory::System, " [MPV] Observing %s (%s)", name ,groupName);
         }
     }
 }
@@ -35,7 +35,7 @@ void PlaybackObserver::ObserveProps(const std::vector<std::pair<const char*, mpv
 void PlaybackObserver::Init() {
     if (!m_mpv) return;
 
-    LOG(initPlaybackObservers_start, 1, LogLevel::Info, LogCategory::System, std::cout << "=================== [MPV] Initializing observers ===================");
+    LOG(initPlaybackObservers_start, 1, LogLevel::Info, LogCategory::System, "=================== [MPV] Initializing observers ===================");
 
     ObserveProps({
         {"duration", MPV_FORMAT_DOUBLE}, {"pause", MPV_FORMAT_FLAG}, {"playback-time", MPV_FORMAT_DOUBLE},
@@ -96,7 +96,7 @@ void PlaybackObserver::Init() {
     }, "Advanced");
     mpv_observe_property(m_mpv, 0, "af-metadata/ebur_measurer", MPV_FORMAT_NODE);
 
-    LOG(initPlaybackObservers_complete, 1, LogLevel::Info, LogCategory::System, std::cout << "=================== [MPV] Observer registration complete ===================");
+    LOG(initPlaybackObservers_complete, 1, LogLevel::Info, LogCategory::System, "=================== [MPV] Observer registration complete ===================");
 }
 
 void PlaybackObserver::HandleMpvError(int err , const char* msgText)
@@ -107,32 +107,32 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
         case MPV_ERROR_EVENT_QUEUE_FULL:    
         case MPV_ERROR_PROPERTY_UNAVAILABLE:
         {
-            if  (err == MPV_ERROR_EVENT_QUEUE_FULL)             LOG(mpv_error_event_queue_full, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_EVENT_QUEUE_FULL..."); 
-            else if (err == MPV_ERROR_PROPERTY_UNAVAILABLE)     LOG(mpv_error_property_unavailable, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_PROPERTY_UNAVAILABLE..."); 
+            if  (err == MPV_ERROR_EVENT_QUEUE_FULL)             LOG(mpv_error_event_queue_full, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_EVENT_QUEUE_FULL..."); 
+            else if (err == MPV_ERROR_PROPERTY_UNAVAILABLE)     LOG(mpv_error_property_unavailable, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_PROPERTY_UNAVAILABLE..."); 
             break;
         }
         case MPV_ERROR_PROPERTY_FORMAT:     
         case MPV_ERROR_OPTION_FORMAT:       
         case MPV_ERROR_UNKNOWN_FORMAT:      
         {
-            if(err == MPV_ERROR_PROPERTY_FORMAT)                LOG(mpv_error_property_format, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_PROPERTY_FORMAT..."); 
-            else if (err == MPV_ERROR_OPTION_FORMAT)            LOG(mpv_error_option_format, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_OPTION_FORMAT...");
-            else if (err == MPV_ERROR_UNKNOWN_FORMAT)           LOG(mpv_error_unknown_format, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_UNKNOWN_FORMAT...");
+            if(err == MPV_ERROR_PROPERTY_FORMAT)                LOG(mpv_error_property_format, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_PROPERTY_FORMAT..."); 
+            else if (err == MPV_ERROR_OPTION_FORMAT)            LOG(mpv_error_option_format, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_OPTION_FORMAT...");
+            else if (err == MPV_ERROR_UNKNOWN_FORMAT)           LOG(mpv_error_unknown_format, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_UNKNOWN_FORMAT...");
 
             auto& Cfg = ConfigManager::Instance();
             auto videoCfg = Cfg.GetVideoSettings();
             const char* chosenFormat = videoCfg.selectedResolution.c_str();
             m_commander.SetPropertyString("ytdl-format", chosenFormat);
-            LOG(mpv_error_loading_failed_ytdl_format_reset, 1, LogLevel::Error, LogCategory::System, std::cout << "[WARNING] [MPV] Reset ytdl-format to default and retrying...");
+            LOG(mpv_error_loading_failed_ytdl_format_reset, 1, LogLevel::Error, LogCategory::System, "[WARNING] [MPV] Reset ytdl-format to default and retrying...");
             break;
         }
         case MPV_ERROR_GENERIC:             
         case MPV_ERROR_LOADING_FAILED:      
         case MPV_ERROR_NOTHING_TO_PLAY :  
         {
-            if(err == MPV_ERROR_GENERIC)                        LOG(mpv_error_generic, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_GENERIC...");
-            else if (err == MPV_ERROR_LOADING_FAILED)           LOG(mpv_error_loading_failed, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_LOADING_FAILED...");
-            else if (err == MPV_ERROR_NOTHING_TO_PLAY)          LOG(mpv_error_nothing_to_play, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_NOTHING_TO_PLAY...");
+            if(err == MPV_ERROR_GENERIC)                        LOG(mpv_error_generic, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_GENERIC...");
+            else if (err == MPV_ERROR_LOADING_FAILED)           LOG(mpv_error_loading_failed, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_LOADING_FAILED...");
+            else if (err == MPV_ERROR_NOTHING_TO_PLAY)          LOG(mpv_error_nothing_to_play, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_NOTHING_TO_PLAY...");
             
             int PlayingIndex = -1;
             m_state.ReadPlaylist([&PlayingIndex](auto const& m){
@@ -157,7 +157,7 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
                 }
 
                 if (doRetry) {
-                    LOG(mpv_generic_error_retry, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [MPV] Retrying playback for index " << idx << "...");
+                    LOG(mpv_generic_error_retry, 1, LogLevel::Warning, LogCategory::System,"[WARNING] [MPV] Retrying playback for index %d...", idx);
                     auto* commanderPtr = &m_commander;
                     std::thread([idx,commanderPtr]() {
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -166,7 +166,7 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
                         commanderPtr->Exec(args); 
                     }).detach();
                 } else {
-                    LOG(mpv_generic_error_max_retries, 1, LogLevel::Warning, LogCategory::System, std::cout << "[WARNING] [MPV] Max retries reached for index " << idx << ", removing from playlist.");
+                    LOG(mpv_generic_error_max_retries, 1, LogLevel::Warning, LogCategory::System, "[WARNING] [MPV] Max retries reached for index %d, removing from playlist.", idx);
                     std::string idx_str = std::to_string(idx);
                     const char* args[] = { "playlist-remove", idx_str.c_str(), nullptr };
                     m_commander.Exec(args); 
@@ -189,18 +189,18 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
         case MPV_ERROR_INVALID_PARAMETER:   
         case MPV_ERROR_UNINITIALIZED: 
         { 
-            if(err == MPV_ERROR_PROPERTY_ERROR)                 LOG(mpv_error_property_error, 1,LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_PROPERTY_ERROR..."); 
-            else if(err == MPV_ERROR_COMMAND)                   LOG(mpv_error_command, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_COMMAND..."); 
-            else if(err == MPV_ERROR_PROPERTY_NOT_FOUND)        LOG(mpv_error_property_not_found, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_PROPERTY_NOT_FOUND..."); 
-            else if(err == MPV_ERROR_OPTION_ERROR)              LOG(mpv_error_option_error, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_OPTION_ERROR..."); 
-            else if(err == MPV_ERROR_OPTION_NOT_FOUND)          LOG(mpv_error_option_not_found, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_OPTION_NOT_FOUND..."); 
-            else if(err == MPV_ERROR_UNSUPPORTED)               LOG(mpv_error_unsupported, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_UNSUPPORTED..."); 
-            else if(err == MPV_ERROR_NOT_IMPLEMENTED)           LOG(mpv_error_not_implemented, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_NOT_IMPLEMENTED..."); 
-            else if(err == MPV_ERROR_AO_INIT_FAILED)            LOG(mpv_error_ao_init_failed, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_AO_INIT_FAILED..."); 
-            else if(err == MPV_ERROR_VO_INIT_FAILED)            LOG(mpv_error_vo_init_failed, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_VO_INIT_FAILED..."); 
-            else if(err == MPV_ERROR_NOMEM)                     LOG(mpv_error_nOMEM, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_NOMEM..."); 
-            else if(err == MPV_ERROR_INVALID_PARAMETER)         LOG(mpv_error_invalid_parameter, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_INVALID_PARAMETER..."); 
-            else if(err == MPV_ERROR_UNINITIALIZED)             LOG(mpv_error_uninitialized, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] MPV_ERROR_UNINITIALIZED...");
+            if(err == MPV_ERROR_PROPERTY_ERROR)                 LOG(mpv_error_property_error, 1,LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_PROPERTY_ERROR..."); 
+            else if(err == MPV_ERROR_COMMAND)                   LOG(mpv_error_command, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_COMMAND..."); 
+            else if(err == MPV_ERROR_PROPERTY_NOT_FOUND)        LOG(mpv_error_property_not_found, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_PROPERTY_NOT_FOUND..."); 
+            else if(err == MPV_ERROR_OPTION_ERROR)              LOG(mpv_error_option_error, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_OPTION_ERROR..."); 
+            else if(err == MPV_ERROR_OPTION_NOT_FOUND)          LOG(mpv_error_option_not_found, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_OPTION_NOT_FOUND..."); 
+            else if(err == MPV_ERROR_UNSUPPORTED)               LOG(mpv_error_unsupported, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_UNSUPPORTED..."); 
+            else if(err == MPV_ERROR_NOT_IMPLEMENTED)           LOG(mpv_error_not_implemented, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_NOT_IMPLEMENTED..."); 
+            else if(err == MPV_ERROR_AO_INIT_FAILED)            LOG(mpv_error_ao_init_failed, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_AO_INIT_FAILED..."); 
+            else if(err == MPV_ERROR_VO_INIT_FAILED)            LOG(mpv_error_vo_init_failed, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_VO_INIT_FAILED..."); 
+            else if(err == MPV_ERROR_NOMEM)                     LOG(mpv_error_nOMEM, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_NOMEM..."); 
+            else if(err == MPV_ERROR_INVALID_PARAMETER)         LOG(mpv_error_invalid_parameter, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_INVALID_PARAMETER..."); 
+            else if(err == MPV_ERROR_UNINITIALIZED)             LOG(mpv_error_uninitialized, 1, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_UNINITIALIZED...");
              
             int PlayingIndex = -1;
             m_state.ReadPlaylist([&PlayingIndex](auto const& m){
@@ -217,7 +217,7 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
 
         // ===== Lỗi khác (bỏ qua) =====
         default:
-            LOG(mpv_error_other, 1, LogLevel::Error, LogCategory::System, std::cout << "[ERROR] Other MPV error code: " << err << "";);
+            LOG(mpv_error_other, 1, LogLevel::Error, LogCategory::System,  "[ERROR] Other MPV error code: %d", err);
             break;
         break;
     }
@@ -370,7 +370,7 @@ void PlaybackObserver::UpdateTrackList(const mpv_node* node) {
 
         tmp.push_back(std::move(track));
     }
-    LOG(track_list, 1, LogLevel::Info, LogCategory::System, std::cout << "Total tracks: " << tmp.size() << "\n";);
+    LOG(track_list, 1, LogLevel::Info, LogCategory::System, "Total tracks: %d",tmp.size());
 
     // Cập nhật vào State System mới
     m_state.WriteTrack([&](TrackModel& m) { m.tracks = tmp; });
@@ -395,9 +395,7 @@ void PlaybackObserver::UpdateAudioDeviceList(const mpv_node* node) {
         if ((n = mpv_node_dict_find_local(&entry, "name")) && n->format == MPV_FORMAT_STRING)dev.name = n->u.string;
         if ((n = mpv_node_dict_find_local(&entry, "description")) && n->format == MPV_FORMAT_STRING)dev.description = n->u.string;
         LOG(audio_device, 1, LogLevel::Info, LogCategory::Audio,
-            std::cout << "[DEBUG] [INFO] [Audio Device] " 
-                      << dev.name << " (" << dev.description << ")"
-                      << "\n";);
+            "[DEBUG] [INFO] [Audio Device] %s (%s)", dev.name, dev.description);
 
         tmp.push_back(dev);
     }
@@ -426,7 +424,7 @@ void PlaybackObserver::UpdateChapterList(const mpv_node* node) {
         if ((n = mpv_node_dict_find_local(&entry, "title")) && n->format == MPV_FORMAT_STRING) {dev.title = n->u.string;}
 
         tmp.push_back({dev});
-        LOG(fetch_chapter_list, 1, LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [Chapters] Chapter found: " << dev.title << " at " << dev.time << " seconds.";);
+        LOG(fetch_chapter_list, 1, LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [Chapters] Chapter found: %s at %f seconds.", dev.title , dev.time);
     }
 
     // Cập nhật vào State System mới
@@ -452,14 +450,14 @@ void PlaybackObserver::UpdatePlaylist(const mpv_node* node) {
         if ((n = mpv_node_dict_find_local(entry, "title")) && n->format == MPV_FORMAT_STRING) dev.title = n->u.string;
 
         LOG(playlist_item, 1,  LogLevel::Info, LogCategory::System,
-            std::cout << "[Playlist] Entry " << i
-                    << " Filename: " << dev.filename
-                    << " Title: " << dev.title
-                    << " Current: " << (dev.current ? "True" : "False")
-                    << " Playing: " << (dev.playing ? "True" : "False")
-                    << " ID: " << dev.id
-                    << std::endl;
-        );
+            "[Playlist] Entry: %d Filename: %s Title: %s Current: %s Playing: %s ID: %d", 
+            i, 
+            dev.filename, 
+            dev.title, 
+            (dev.current ? "True" : "False"), 
+            (dev.playing ? "True" : "False"), 
+            dev.id);
+
             
         tmp.push_back(dev);
     }
@@ -485,8 +483,7 @@ void PlaybackObserver::UpdateMetadata(const mpv_node* node) {
             tmp[key] = value.u.string;
 
             LOG(fetch_metadata, 1,  LogLevel::Info, LogCategory::System,
-                std::cout << "[Metadata] "
-                          << key << " = " << value.u.string << "\n");
+                "[Metadata] %s = %s", key, value.u.string);
         }
     }
 
@@ -535,7 +532,7 @@ void PlaybackObserver::ProcessEvents() {
         switch (event->event_id) {
 
         case MPV_EVENT_SHUTDOWN: {
-            LOG(mpv_shutdown, 1, LogLevel::Info, LogCategory::System, std::cout << "[MPV] MPV is shutting down."); 
+            LOG(mpv_shutdown, 1, LogLevel::Info, LogCategory::System, "[MPV] MPV is shutting down."); 
             break;
         }
         case MPV_EVENT_LOG_MESSAGE: {
@@ -551,7 +548,7 @@ void PlaybackObserver::ProcessEvents() {
                                                 std::string(msg->prefix) == "af"
                 ))
                 {
-                    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, std::cout << "[" << msg->prefix << "] " << msg->text;);
+                    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[ %s ] %s", msg->prefix , msg->text);
                 }
                 
                 if (msg && msg->level && (strcmp(msg->level, "error")  == 0 ||
@@ -580,7 +577,7 @@ void PlaybackObserver::ProcessEvents() {
             // --- Phát hết file bình thường ---
             case MPV_END_FILE_REASON_EOF: 
 
-                LOG(end_of_file, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] Playback reached end of file.");
+                LOG(end_of_file, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Playback reached end of file.");
                 break;
             
             // --- Lỗi trong quá trình phát / load ---
@@ -591,23 +588,23 @@ void PlaybackObserver::ProcessEvents() {
                 });
                 int err = data->error;
                 std::string errStr = mpv_error_string(err);
-                LOG(mpv_end_file_error, 1,  LogLevel::Info, LogCategory::System, std::cout << "[ERROR] [MPV ERROR] Playback error occurred: " << errStr << "";);
+                LOG(mpv_end_file_error, 1,  LogLevel::Info, LogCategory::System,  "[ERROR] [MPV ERROR] Playback error occurred: %s", errStr);
                 HandleMpvError(err, errStr.c_str());
                 break;
             }
 
             // --- Dừng thủ công ---
             case MPV_END_FILE_REASON_STOP:
-                LOG(manual_stop, 1, LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] Playback stopped manually.");
+                LOG(manual_stop, 1, LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Playback stopped manually.");
                 break;
 
             // --- Redirect URL ---
             case MPV_END_FILE_REASON_REDIRECT:
-                LOG(redirect, 1,  LogLevel::Warning, LogCategory::System, std::cout << "[DEBUG] [WARNING] [MPV] Playback ended due to redirect.");
+                LOG(redirect, 1,  LogLevel::Warning, LogCategory::System, "[DEBUG] [WARNING] [MPV] Playback ended due to redirect.");
                 break;
 
             default:
-                LOG(unknown_end_file_reason, 1,  LogLevel::Warning, LogCategory::System, std::cout << "[DEBUG] [WARNING] [MPV] Playback ended for unknown reason: " << data->reason << ".");
+                LOG(unknown_end_file_reason, 1,  LogLevel::Warning, LogCategory::System, "[DEBUG] [WARNING] [MPV] Playback ended for unknown reason: %d.", data->reason);
                 break;
             }
 
@@ -630,17 +627,17 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_IDLE: {
-            LOG(mpv_idle, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] MPV is now idle."); 
+            LOG(mpv_idle, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] MPV is now idle."); 
             break;
         }
         case MPV_EVENT_TICK: break;
         case MPV_EVENT_CLIENT_MESSAGE: break;
         case MPV_EVENT_VIDEO_RECONFIG: {
-            LOG(video_reconfig, 1, LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [VIDEO RECONFIG] Video configuration changed."); 
+            LOG(video_reconfig, 1, LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [VIDEO RECONFIG] Video configuration changed."); 
             break;
         }
         case MPV_EVENT_AUDIO_RECONFIG: {
-            LOG(audio_reconfig, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [AUDIO RECONFIG] Audio configuration changed.");
+            LOG(audio_reconfig, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [AUDIO RECONFIG] Audio configuration changed.");
             break;
         }
         case MPV_EVENT_SEEK:{
@@ -648,7 +645,7 @@ void PlaybackObserver::ProcessEvents() {
 //            m_state.WritePlayback([&](auto& m) {
 //                m.flags.isSeeking = true;
 //            });
-            LOG(mpv_seek, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] Seek operation started."); 
+            LOG(mpv_seek, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
         case MPV_EVENT_PLAYBACK_RESTART: 
@@ -672,10 +669,10 @@ void PlaybackObserver::ProcessEvents() {
                         m_commander.Seek(targetSeek, duration);
                     }
                 });
-                LOG(playback_restart_seek, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] Performing pending seek to " << targetSeek << " seconds.\n");
+                LOG(playback_restart_seek, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Performing pending seek to %.2f seconds", targetSeek);
             }
 
-            LOG(playback_restart, 1,  LogLevel::Info, LogCategory::System, std::cout << "[DEBUG] [INFO] [MPV] Playback restarted.\n");
+            LOG(playback_restart, 1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Playback restarted.");
             break;
         }
         case MPV_EVENT_PROPERTY_CHANGE: {

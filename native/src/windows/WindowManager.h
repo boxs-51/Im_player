@@ -85,8 +85,10 @@ public:
             auto* runtime = factory->Create(templateName, parent);
             if (runtime) {
                 WindowId newId = runtime->info.id;
-                std::lock_guard<std::mutex> lock(m_windowsMutex);
-                windows[newId] = std::unique_ptr<WindowRuntime>(runtime);
+                {
+                    std::lock_guard<std::mutex> lock(m_windowsMutex);
+                    windows[newId] = std::unique_ptr<WindowRuntime>(runtime);
+                }
 
                 if (parent) {
                     runtime->relation.parent = parent;

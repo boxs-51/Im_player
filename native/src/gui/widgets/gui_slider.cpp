@@ -397,3 +397,156 @@ bool CSImGui::ModernSliderFloat(const char* label, float* v,
     ImGui::PopStyleColor(11);
     return s;
 }
+
+bool CSImGui::ModernProgressBarEx(const char* label, float* v, float buffer_v,
+                         float v_min, float v_max,
+                         float height, const char* overlay_text,
+                         float custom_width, ProgressBarFlags flags) 
+{
+    ImGuiWindow* window = ImGui::GetCurrentWindow();
+    if (window->SkipItems) return false;
+
+    ImGuiID id = window->GetID(label);
+    ProgressBarState* state = (ProgressBarState*)window->StateStorage.GetVoidPtr(id);
+    if (!state) {
+        state = (ProgressBarState*)IM_ALLOC(sizeof(ProgressBarState));
+        IM_PLACEMENT_NEW(state) ProgressBarState();
+        window->StateStorage.SetVoidPtr(id, state);
+        state->id = id;
+    }
+
+    state->g = GImGui;
+    state->draw_list = window->DrawList;
+    state->font = ImGui::GetFont();
+    state->fontsize = ImGui::GetFontSize();
+    state->dt = state->g->IO.DeltaTime;
+    state->v_min = v_min;
+    state->v_max = v_max;
+    state->range = (v_max - v_min > 0.0f) ? (v_max - v_min) : 1.0f;
+
+    state->width = (custom_width > 0.0f) ? custom_width : ImGui::CalcItemWidth();
+    state->height = height;
+
+    ImVec2 pos = window->DC.CursorPos;
+    ImVec2 size(state->width, state->height);
+    state->pos = pos;
+    state->size = size;
+
+    ImRect bb(pos, pos + size);
+    ImGui::ItemSize(bb);
+    if (!ImGui::ItemAdd(bb, state->id)) return false;
+
+    bool is_disabled = (state->g->CurrentItemFlags & ImGuiItemFlags_Disabled) != 0;
+    
+    // Tương tác Mouse nếu bật ProgressBarFlags_Interactive
+    bool is_interactive = (flags & ProgressBarFlags_Interactive) && !is_disabled;
+    state->hovered = !is_disabled && ImGui::ItemHoverable(bb, state->id, ImGuiItemFlags_None);
+    
+    bool changed = false;
+    if (is_interactive) {
+        if (state->hovered && ImGui::IsMouseClicked(0)) {
+            ImGui::SetActiveID(state->id, window);
+            ImGui::FocusWindow(window);
+        }
+
+        state->active = (state->g->ActiveId == state->id);
+        if (state->active) {
+            if (ImGui::IsMouseDown(0)) {
+                float mouse_x = state->g->IO.MousePos.x;
+                float t = ImClamp((mouse_x - pos.x) / size.x, 0.0f, 1.0f);
+                float new_v = v_min + t * state->range;
+                if (*v != new_v) {
+                    *v = new_v;
+                    changed = true;
+                }
+            } else {
+                ImGui::ClearActiveID();
+            }
+        }
+    } else {
+        state->active = false;
+    }
+
+    // Animation & Lerp Progress
+    state->t = ImClamp((*v - v_min) / state->range, 0.0f, 1.0f);
+    float buffer_t = ImClamp((buffer_v - v_min) / state->range, 0.0f, 1.0f);
+
+    if (flags & ProgressBarFlags_Ease) {
+        state->anim_t = ImLerp(state->anim_t, state->t, ImClamp(12.0f * state->dt, 0.0f, 1.0f));
+    } else {
+        state->anim_t = state->t;
+    }
+
+    // Allocation Render Data
+    state->render_data_id = ImHashData(&state->id, sizeof(ImGuiID), 0x87654321);
+    ProgressBarRenderData* rd = (ProgressBarRenderData*)window->StateStorage.GetVoidPtr(state->render_data_id);
+    if (!rd) {
+        rd = (ProgressBarRenderData*)IM_ALLOC(sizeof(ProgressBarRenderData));
+        IM_PLACEMENT_NEW(rd) ProgressBarRenderData();
+        window->StateStorage.SetVoidPtr(state->render_data_id, rd);
+    }
+
+    if (flags & ProgressBarFlags_Ease) {
+        state->anim_id = ImHashData(&state->render_data_id, sizeof(ImGuiID), 0x12345678);
+        rd->anim = (ProgressBarRenderData::AnimState*)window->StateStorage.GetVoidPtr(state->anim_id);
+        if (!rd->anim) {
+            rd->anim = (ProgressBarRenderData::AnimState*)IM_ALLOC(sizeof(ProgressBarRenderData::AnimState));
+            IM_PLACEMENT_NEW(rd->anim) ProgressBarRenderData::AnimState();
+            window->StateStorage.SetVoidPtr(state->anim_id, rd->anim);
+        }
+        rd->anim->buffer_t = ImLerp(rd->anim->buffer_t, buffer_t, ImClamp(12.0f * state->dt, 0.0f, 1.0f));
+        buffer_t = rd->anim->buffer_t;
+    }
+
+    // Render Setup
+    ImVec2 p1 = pos;
+    ImVec2 p2 = ImVec2(pos.x + size.x, pos.y + size.y);
+    ImVec2 fill_p2 = ImVec2(p1.x + state->anim_t * size.x, p2.y);
+    ImVec2 buffer_p2 = ImVec2(p1.x + buffer_t * size.x, p2.y);
+
+    ImVec4 col_track  = GetColors(Col_FrameBg);
+    ImVec4 col_buffer = GetColors(Col_PopupBg);
+    ImVec4 col_fill   = GetColors(state->active ? Col_PlotHistogramActive : Col_PlotHistogram);
+    ImVec4 col_border = GetColors(Col_Border);
+    ImVec4 col_text   = GetColors(Col_Text);
+
+    // 1. Track (Nền)
+    state->draw_list->AddRectFilled(p1, p2, ImGui::ColorConvertFloat4ToU32(col_track), height * 0.5f);
+
+    // 2. Buffer (Thanh đệm)
+    if ((flags & ProgressBarFlags_EnableBuffer) && buffer_t > 0.0f) {
+        state->draw_list->AddRectFilled(p1, buffer_p2, ImGui::ColorConvertFloat4ToU32(col_buffer), height * 0.5f);
+    }
+
+    // 3. Fill (Tiến trình chính)
+    state->draw_list->AddRectFilled(p1, fill_p2, ImGui::ColorConvertFloat4ToU32(col_fill), height * 0.5f);
+
+    // 4. Border (Viền)
+    state->draw_list->AddRect(p1, p2, ImGui::ColorConvertFloat4ToU32(col_border), height * 0.5f);
+
+    // 5. Render Text Overlay
+    char buf[64];
+    const char* text_to_render = overlay_text;
+    if (!text_to_render) {
+        if (flags & ProgressBarFlags_ShowPercentage) {
+            snprintf(buf, sizeof(buf), "%d%%", (int)(state->t * 100.0f));
+            text_to_render = buf;
+        } else if (flags & ProgressBarFlags_ShowValue) {
+            snprintf(buf, sizeof(buf), "%.1f / %.1f", *v, v_max);
+            text_to_render = buf;
+        }
+    }
+
+    if (text_to_render && text_to_render[0] != '\0') {
+        ImVec2 text_size = state->font->CalcTextSizeA(state->fontsize, FLT_MAX, 0.0f, text_to_render);
+        ImVec2 text_pos = ImVec2(p1.x + (size.x - text_size.x) * 0.5f, p1.y + (size.y - text_size.y) * 0.5f);
+        state->draw_list->AddText(state->font, state->fontsize, text_pos, ImGui::ColorConvertFloat4ToU32(col_text), text_to_render);
+    }
+
+    return changed;
+}
+
+bool CSImGui::ModernProgressBar(const char* label, float progress, float height, const char* overlay, float width, ProgressBarFlags flags) {
+    float v = progress;
+    return ModernProgressBarEx(label, &v, 0.0f, 0.0f, 1.0f, height, overlay, width, flags);
+}

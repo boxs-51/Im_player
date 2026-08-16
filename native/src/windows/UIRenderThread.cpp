@@ -128,7 +128,7 @@ void UIRenderThread::Run()
 
             {
     
-                std::lock_guard<std::mutex> lock(m_ownerRuntime->frameSyncMutex);
+                //std::lock_guard<std::mutex> lock(m_ownerRuntime->frameSyncMutex);
                 std::shared_ptr<const WindowSnapshot> snapshot = m_ownerRuntime->CaptureSnapshot();
  
                 m_ownerRuntime->windowloop->startFrame();

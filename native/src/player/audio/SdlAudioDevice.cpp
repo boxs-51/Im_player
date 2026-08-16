@@ -20,7 +20,7 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     if (SDL_WasInit(SDL_INIT_AUDIO) == 0) {
         if (SDL_InitSubSystem(SDL_INIT_AUDIO) < 0) {
             LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
-                std::cout << "[SdlAudioDevice] Failed to init SDL Audio Subsystem: " << SDL_GetError());
+                "[SdlAudioDevice] Failed to init SDL Audio Subsystem: %s", SDL_GetError());
             m_isReady.store(false, std::memory_order_release);
             return false;
         }
@@ -41,7 +41,7 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
 
     if (devId == 0) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
-            std::cout << "[SdlAudioDevice] Failed to open default audio device: " << SDL_GetError());
+            "[SdlAudioDevice] Failed to open default audio device: %S", SDL_GetError());
         m_isReady.store(false, std::memory_order_release);
         return false;
     }
@@ -54,8 +54,7 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     m_isReady.store(true, std::memory_order_release);
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio,
-        std::cout << "[SdlAudioDevice] Opened SDL Audio Device. ID: " << devId
-                  << " (" << obtainedSpec.freq << "Hz, " << (int)obtainedSpec.channels << "ch)");
+        "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch)", devId, obtainedSpec.freq, obtainedSpec.channels);
 
     return true;
 }
@@ -73,7 +72,7 @@ void SdlAudioDevice::Close() {
         SDL_ClearQueuedAudio(devId);
         SDL_CloseAudioDevice(devId);
         LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio,
-            std::cout << "[SdlAudioDevice] Audio device closed.");
+            "[SdlAudioDevice] Audio device closed.");
     }
 
     if (m_isSdlAudioInitialized.exchange(false, std::memory_order_relaxed)) {
@@ -103,7 +102,7 @@ void SdlAudioDevice::Write(const float* samples, size_t sampleCount) {
     
     if (SDL_QueueAudio(devId, samples, bytesToWrite) < 0) {
         LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio,
-            std::cout << "[SdlAudioDevice] SDL_QueueAudio failed: " << SDL_GetError());
+            "[SdlAudioDevice] SDL_QueueAudio failed: %s", SDL_GetError());
         // Đánh dấu thiết bị lỗi để Worker biết và kích hoạt Auto-Recovery
         m_isReady.store(false, std::memory_order_release);
     }

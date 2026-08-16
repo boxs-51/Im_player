@@ -68,7 +68,7 @@ void FontManager::ScanDirectories(const std::vector<std::string>& dirs) {
         }
     }
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, 
-        std::cout << "[FontManager] Scanned " << m_fontList.size() << " fonts metadata (0 MB RAM used).\n";
+        "[FontManager] Scanned %d fonts metadata (0 MB RAM used).", m_fontList.size()
     );
 }
 
@@ -96,7 +96,7 @@ bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
     fi.close();
 
     LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, 
-        std::cout << "[FontManager] Lazy-loaded font data: " << desc->id << " (" << (sz / 1024) << " KB)\n";
+        "[FontManager] Lazy-loaded font data: %d (%d KB)", desc->id ,sz / 1024
     );
     return true;
 }
