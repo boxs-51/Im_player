@@ -12,18 +12,20 @@ AudioFilterManager::~AudioFilterManager() {
     DetachPlayer();
 }
 
-void AudioFilterManager::AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem) {
+void AudioFilterManager::AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem, Audio* audio) {
     mpv = h;
+    m_audio = audio;
     m_stateSystem = stateSystem;
 }
 
 void AudioFilterManager::DetachPlayer() {
     mpv = nullptr;
     m_stateSystem = nullptr;
+    m_audio = nullptr;
 }
 
-void AudioFilterManager::Init(mpv_handle* h, PlayerStateSystem* stateSystem) { 
-    AttachPlayer(h, stateSystem);
+void AudioFilterManager::Init(mpv_handle* h, PlayerStateSystem* stateSystem, Audio* audio) { 
+    AttachPlayer(h, stateSystem, audio);
     path = AutoPath<std::string>("%ROOT%", "data", "audio_filter.json");
     m_channelMode = "stereo";
     m_autoMode = false;
@@ -124,8 +126,6 @@ void AudioFilterManager::Init(mpv_handle* h, PlayerStateSystem* stateSystem) {
     RegisterParam("f_out_limiter", "release", 10.0f, 1000.0f, 100.0f, false);
     RegisterParam("f_out_limiter", "makeup", 1.0f, 64.0f, 1.0f, false);     
 
-    AddFilter("f_ebur_measurer", "lavfi", "system_internal", "Bộ đo lường âm lượng EBU R128 (chỉ dùng nội bộ)", false);
-
 }
 
 void AudioFilterManager::AddFilter(const std::string& id, const std::string& name, const std::string& group, const std::string& description, bool ai_controllable) {
@@ -144,7 +144,7 @@ AudioFilter* AudioFilterManager::FindFilter(const std::string& id) {
 void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
     auto* f = FindFilter(id);
     if (enabled && f->isFailed) {
-        LOG_NO_KEY(1, LogLevel::Warning, LogCategory::System, "Cannot enable %s because it was isolated due to a critical error.", id);
+        LOG(1, LogLevel::Warning, LogCategory::System, "Cannot enable %s because it was isolated due to a critical error.", id);
         return; 
     }
     if (!f || f->enabled == enabled) return;
@@ -155,12 +155,12 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
         if (id == "f_out_compressor") comp->enabled = enabled;
         if (id == "f_out_limiter") lim->enabled = enabled;
         m_enableOuterStabilizer = comp->enabled && lim->enabled;
-        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, " Outer Stabilizer State updated -> %s", enabled ? "ON" : "OFF");
+        LOG(1, LogLevel::Info, LogCategory::Sync, " Outer Stabilizer State updated -> %s", enabled ? "ON" : "OFF");
     } 
     else if (id == "f_vol_booster") {
         m_enableOuterBooster = enabled;
         f->enabled = enabled;
-        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, "Outer Booster State updated -> %s" + enabled ? "ON" : "OFF");
+        LOG(1, LogLevel::Info, LogCategory::Sync, "Outer Booster State updated -> %s" + enabled ? "ON" : "OFF");
     } 
     else {
         f->enabled = enabled;
@@ -174,14 +174,14 @@ void AudioFilterManager::ToggleFilter(const std::string& id, bool enabled) {
             for (auto& other : m_filters) {
                 if (other.id != id && other.group == f->group && other.enabled && !other.isBypassManagement) {
                     other.enabled = false;
-                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::AI, "Auto-disabled %s", other.id);
+                    LOG(1, LogLevel::Warning, LogCategory::AI, "Auto-disabled %s", other.id);
                 }
             }
         }
     }
     EvaluateSystemSafety();
     SyncAll(); 
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Sync, "Toggled filter '%s' -> %s" ,id, enabled ? "ON" : "OFF");
+    LOG(1, LogLevel::Info, LogCategory::Sync, "Toggled filter '%s' -> %s" ,id, enabled ? "ON" : "OFF");
 }
 
 bool AudioFilterManager::IsFilterEnabled(const std::string& id) {
@@ -196,7 +196,7 @@ void AudioFilterManager::RecoverFailedFilter(const std::string& id) {
         if (f->isFailed) {
             f->isFailed = false;
             f->enabled = true; // Thử bật lại
-            LOG_NO_KEY(1, LogLevel::Info, LogCategory::System, "Attempting to recover and reinstall filter: %s", id);
+            LOG(1, LogLevel::Info, LogCategory::System, "Attempting to recover and reinstall filter: %s", id);
             SyncAll();
         }
     }

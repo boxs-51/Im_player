@@ -11,10 +11,31 @@
 #include <sstream>
 #include <iomanip>
 #include <cmath>
-#include <cstdlib> // Cần cho hàm rand() mô phỏng noise floor
+#include <cstdlib> 
+#include <chrono>
+#include <type_traits>
 #include "log.h"
 
-// Helper để chuyển enum thành chuỗi
+
+std::string CleanLocationString(const std::string& raw_loc) {
+    if (raw_loc.empty()) return "";
+    
+    // Tách phần tên file/dòng kẻ trước khoảng trắng (bỏ phần tên hàm dài phía sau)
+    std::string path_and_line = raw_loc;
+    size_t space_pos = raw_loc.find(' ');
+    if (space_pos != std::string::npos) {
+        path_and_line = raw_loc.substr(0, space_pos);
+    }
+
+    // Lấy tên file ở cuối đường dẫn (hỗ trợ cả slash '/' lẫn '\\')
+    size_t last_slash = path_and_line.find_last_of("/\\");
+    if (last_slash != std::string::npos) {
+        return path_and_line.substr(last_slash + 1);
+    }
+    return path_and_line;
+}
+
+// Helper chuyển enum thành chuỗi
 const char* LogLevelToString(LogLevel level) {
     switch (level) {
         case LogLevel::Info:     return "Info";
@@ -28,20 +49,42 @@ const char* LogLevelToString(LogLevel level) {
 
 std::string LogCategoryToString(LogCategory category) {
     if (category == LogCategory::None) return "None";
+    if (category == LogCategory::All)  return "All";
+
     std::string result;
-    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::System))) result += "System ";
-    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::AI))) result += "AI ";
-    if ((static_cast<uint32_t>(category) & static_cast<uint32_t>(LogCategory::Audio))) result += "Audio ";
-    // Thêm các category khác nếu cần
-    if (!result.empty()) result.pop_back();
-    return result;
+    uint32_t mask = static_cast<uint32_t>(category);
+
+    auto appendIfMatch = [&result, mask](LogCategory cat, const char* name) {
+        if ((mask & static_cast<uint32_t>(cat)) != 0) {
+            result += name;
+            result += " ";
+        }
+    };
+
+    appendIfMatch(LogCategory::System,  "System");
+    appendIfMatch(LogCategory::AI,      "AI");
+    appendIfMatch(LogCategory::Audio,   "Audio");
+    appendIfMatch(LogCategory::Render,  "Render");
+    appendIfMatch(LogCategory::UI,      "UI");
+    appendIfMatch(LogCategory::Network, "Network");
+    appendIfMatch(LogCategory::Config,  "Config");
+    appendIfMatch(LogCategory::Sync,    "Sync");
+    appendIfMatch(LogCategory::Safety,  "Safety");
+    appendIfMatch(LogCategory::Bypass,  "Bypass");
+
+    if (!result.empty()) {
+        result.pop_back();
+    }
+
+    return result.empty() ? "Unknown" : result;
 }
+
 auto& logManager = LogHistoryManager::GetInstance();
-// Cấu trúc Logger Realtime để theo dõi sự kiện nội bộ UI
+
 struct LocalLogger {
     bool ScrollToBottom = false;
 
-    void Clear() {logManager.Clear();}
+    void Clear() { logManager.Clear(); }
 
     void Draw() {
         ImGui::TextColored(ImVec4(0.0f, 1.0f, 1.0f, 1.0f), "--- Nhật ký gọi lệnh & Hệ thống AI (Realtime Logs) ---");
@@ -57,17 +100,18 @@ struct LocalLogger {
         ImGui::CheckboxFlags("UI", &category_mask, static_cast<uint32_t>(LogCategory::UI)); ImGui::SameLine();
         ImGui::CheckboxFlags("Sync", &category_mask, static_cast<uint32_t>(LogCategory::Sync)); ImGui::SameLine();
         ImGui::CheckboxFlags("Safety", &category_mask, static_cast<uint32_t>(LogCategory::Safety));
+        
         if (ImGui::Button("All")) category_mask = static_cast<uint32_t>(LogCategory::All);
         ImGui::SameLine();
         if (ImGui::Button("None")) category_mask = static_cast<uint32_t>(LogCategory::None);
 
+        // --- KHUNG LOG TO & RỘNG ---
+        ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 350), true, ImGuiWindowFlags_HorizontalScrollbar);
+        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 3));
 
-        ImGui::BeginChild("LogScrollingRegion", ImVec2(0, 180), true, ImGuiWindowFlags_HorizontalScrollbar);
-        ImGui::PushStyleVar(ImGuiStyleVar_ItemSpacing, ImVec2(4, 2));
-        
-        // 2. LẤY REAL-TIME LOGS TỪ LÕI MANAGER (Đã sửa lỗi đồng bộ, lấy trực tiếp trong frame vẽ)
         auto core_logs = logManager.GetRecentLogs(static_cast<LogCategory>(category_mask));
-        if(!core_logs.empty()) {
+        if (!core_logs.empty()) {
+            int index = 0;
             for (const auto& log : core_logs) {
                 ImVec4 color;
                 switch (log.level) {
@@ -78,26 +122,78 @@ struct LocalLogger {
                     default:                 color = ImVec4(0.9f, 0.9f, 0.9f, 1.0f); break;
                 }
 
-                // Chuyển đổi timestamp sang định dạng giờ:phút:giây
-                auto time_t_now = std::chrono::system_clock::to_time_t(log.timestamp);
-                std::tm buf;
-                localtime_s(&buf, &time_t_now);
-                std::ostringstream time_ss;
-                time_ss << std::put_time(&buf, "%H:%M:%S");
+                // Format timestamp
+                auto time_first = std::chrono::system_clock::to_time_t(log.timestamp);
+                auto time_last  = std::chrono::system_clock::to_time_t(log.last_updated);
+                
+                std::tm buf_first, buf_last;
+                localtime_s(&buf_first, &time_first);
+                localtime_s(&buf_last, &time_last);
 
+                std::ostringstream time_ss, time_last_ss;
+                time_ss << std::put_time(&buf_first, "%H:%M:%S");
+                time_last_ss << std::put_time(&buf_last, "%H:%M:%S");
+
+                // Lấy vị trí gọi ngắn gọn (vd: "main.cpp:42")
+                std::string short_loc = CleanLocationString(log.location);
+
+                ImGui::PushID(index++);
+
+                // Bật TextWrapPos cho TOÀN BỘ dòng để tự động xuống dòng nguyên khối
+                ImGui::PushTextWrapPos(ImGui::GetContentRegionAvail().x);
+
+                // --- 1. TIMESTAMP & REPEAT COUNT ---
                 ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[%s]", time_ss.str().c_str());
                 ImGui::SameLine();
+
+                if (log.repeat_count > 1) {
+                    ImGui::TextColored(ImVec4(1.0f, 0.5f, 0.2f, 1.0f), "(x%u)", log.repeat_count);
+                    ImGui::SameLine();
+                    ImGui::TextColored(ImVec4(0.5f, 0.5f, 0.5f, 1.0f), "[last: %s]", time_last_ss.str().c_str());
+                    ImGui::SameLine();
+                }
+
+                // --- 2. TAGS & SHORT LOCATION ---
                 ImGui::TextColored(ImVec4(0.6f, 0.6f, 1.0f, 1.0f), "[%s]", LogLevelToString(log.level));
                 ImGui::SameLine();
                 ImGui::TextColored(ImVec4(0.4f, 0.9f, 0.6f, 1.0f), "[%s]", LogCategoryToString(log.category).c_str());
                 ImGui::SameLine();
+
+                if (!short_loc.empty()) {
+                    ImGui::TextColored(ImVec4(0.7f, 0.7f, 0.3f, 1.0f), "[%s]", short_loc.c_str());
+                    ImGui::SameLine();
+                }
+
+                // --- 3. NỘI DUNG LOG ---
                 ImGui::TextColored(color, "%s", log.message.c_str());
+
+                ImGui::PopTextWrapPos();
+
+                // --- BẮT SỰ KIỆN COPY (Chỉ copy nội dung message) ---
+                if (ImGui::IsItemHovered() || ImGui::IsItemFocused()) {
+                    // Nhấn Ctrl+C khi hover vào dòng log
+                    if (ImGui::IsKeyPressed(ImGuiKey_C) && ImGui::GetIO().KeyCtrl) {
+                        ImGui::SetClipboardText(log.message.c_str());
+                    }
+                }
+
+                // Context menu chuột phải để copy nhanh
+                if (ImGui::BeginPopupContextItem("LogItemContextMenu")) {
+                    if (ImGui::MenuItem("Copy Message Only")) {
+                        ImGui::SetClipboardText(log.message.c_str());
+                    }
+                    ImGui::EndPopup();
+                }
+
+                ImGui::PopID();
             }
         }
+
         if (ScrollToBottom) { 
             ImGui::SetScrollHereY(1.0f); 
             ScrollToBottom = false; 
         }
+
         ImGui::PopStyleVar();
         ImGui::EndChild();
     }
@@ -471,22 +567,31 @@ void DrawAdaptiveControl(
 
         if (autoMode) {
             ImGui::Indent(25.0f);
-            const char* presetNames[] = { 
-                "Cân bằng Studio (Flat)", 
-                "Nhạc Trẻ / Pop Vocal", 
-                "Heavy Rock / Metal", 
-                "EDM / Dance Floor", 
-                "Cổ điển / Classical",
-                "Nhạc Mộc / Acoustic Guitar",
-                "Chế độ Gaming (FPS Footsteps)",
-                "Điện ảnh / Movie Cinema",
-                "Siêu Trầm / Deep Bass"
-            };
-            int currentPresetIdx = static_cast<int>(manager.GetCurrentPreset());
+            const auto& presets = manager.GetAudioPresetList();
+            AudioPreset currentPreset = manager.GetCurrentPreset();
+
+            // Tìm nhãn (label) của preset hiện tại để hiển thị làm preview trong Combo
+            const char* currentPresetName = "Chưa chọn";
+            for (const auto& item : presets) {
+                if (item.preset == currentPreset) {
+                    currentPresetName = item.name;
+                    break;
+                }
+            }
             
             ImGui::SetNextItemWidth(280.0f);
-            if (ImGui::Combo("Phong cách âm nhạc chủ đạo", &currentPresetIdx, presetNames, IM_ARRAYSIZE(presetNames))) {
-                manager.SetCurrentPreset(static_cast<AudioPreset>(currentPresetIdx));
+            if (ImGui::BeginCombo("Phong cách âm nhạc chủ đạo", currentPresetName)) {
+                for (const auto& item : presets) {
+                    const bool isSelected = (currentPreset == item.preset);
+                    if (ImGui::Selectable(item.name, isSelected)) {
+                        manager.SetCurrentPreset(item.preset);
+                    }
+
+                    if (isSelected) {
+                        ImGui::SetItemDefaultFocus();
+                    }
+                }
+                ImGui::EndCombo();
             }
             
             // Ghi Log tự động ra Monitor nếu có sự biến động lớn từ track
@@ -1002,6 +1107,17 @@ void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
 
     if (ImGui::Button("Thoát"))
         closePopup_Test = true;
+
+    if (CSImGui::ModernButton("Ket noi pipe audio lai")) {
+        auto* ss = window->resource.GetPlayerSession();
+        auto* a = ss->GetAudio();
+        auto* cmd = ss->GetCommander();
+        if (a && cmd ) {
+            std::string namepipe = a->GetPipeName();
+            cmd->SetPropertyString("ao", "pcm");
+            cmd->SetPropertyString("ao-pcm-file", namepipe.c_str());
+        }
+    }
 }
 
 void OpenTestPopup(ReusablePopup& popup) {

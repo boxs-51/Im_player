@@ -19,13 +19,11 @@ enum class AudioPreset {
     Audio_Restoration // Phục hồi âm thanh từ các bản ghi cũ, loại bỏ tiếng lách tách
 };
 
-//enum class LogLevel { Info, Warning, Error, AI_Action };
-
-//struct LogEntry {
-//    std::string timestamp;
-//    std::string message;
-//    LogLevel level;
-//};
+// Thông tin hiển thị cho từng Preset
+struct AudioPresetInfo {
+    AudioPreset preset;
+    const char* name;
+};
 
 struct FilterParam {
     float current;     // Giá trị thời gian thực hiện tại (AI có thể thay đổi liên tục)
@@ -51,10 +49,6 @@ struct AudioFilter {
     bool isFailed = false;
 
     std::string GetInitString() const {
-
-        if (id == "f_ebur_measurer") {
-        return "@ebur_measurer:lavfi=[ebur128=metadata=1:peak=all]";
-        }
 
         std::string res = "@" + id + ":" + name;
         if (!params.empty()) {
@@ -111,24 +105,29 @@ struct AudioContext {
     std::string codec = "";
     bool is_audio_only = false;
 
-    // --- HỆ THỐNG DỮ LIỆU ĐẦU VÀO TOÀN DIỆN TỪ EBUR128 ---
-    double loudness_momentary = 0.0f;   // lavfi.r128.M  -> Độ to tức thời (cửa sổ 400ms), nhạy bén với tiếng nổ/vocal giật mình
-    double loudness_shortterm = 0.0f;   // lavfi.r128.S  -> Độ to ngắn hạn (cửa sổ 3s), biểu thị cảm nhận âm lượng thực tế
-    double loudness_integrated = 0.0f;  // lavfi.r128.I  -> Độ to trung bình tích lũy từ đầu file đến hiện tại
-    double loudness_range = 0.0f;       // lavfi.r128.LRA -> Dải động (độ chênh lệch âm lượng giữa các phân đoạn)
-    double loudness_lra_low = 0.0f;   // lavfi.r128.LRA.low  -> Ngưỡng đáy năng lượng tích lũy (LUFS)
-    double loudness_lra_high = 0.0f;  // lavfi.r128.LRA.high -> Ngưỡng đỉnh năng lượng tích lũy (LUFS)
-    
-    double true_peak = 0.0f;            // lavfi.r128.true_peak     -> Đỉnh sóng thực cao nhất (Hệ tuyến tính 0.0 -> 1.0)
-    double true_peak_ch0 = 0.0f;        // lavfi.r128.true_peak_ch0 -> Đỉnh sóng thực kênh trái (Linear)
-    double true_peak_ch1 = 0.0f;        // lavfi.r128.true_peak_ch1 -> Đỉnh sóng thực kênh phải (Linear)
+    double loudness_momentary = 0.0f;   
+    double loudness_shortterm = 0.0f;   
+    double loudness_integrated = 0.0f;  
+    double loudness_range = 0.0f;      
+    double loudness_lra_low = 0.0f;   
+    double loudness_lra_high = 0.0f; 
+
+    double true_peak = 0.0f;        
+    double true_peak_ch0 = 0.0f;    
+    double true_peak_ch1 = 0.0f;    
 
     double sample_peak = 0.0f;
     double sample_peak_ch0 = 0.0f;
     double sample_peak_ch1 = 0.0f;
 
+    double phase_correlation = 0.0f;
+    int  clip_count = 0;
+    double sub_bass_energy = 0.0f;
+    double bass_energy = 0.0f;
+    double mid_energy = 0.0f;
+    double treble_energy = 0.0f;
+
     // THÀNH PHẦN METADATA MỚI ĐƯỢC TÍCH HỢP
-    
     std::string aformat = "";          // "s16", "f32", "fltp"
     std::string ahr_channels = "";     // Chi tiết layout: "FL FR FC LFE BL BR"
     bool is_paused = false;            // Trạng thái tạm dừng phát

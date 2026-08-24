@@ -26,18 +26,17 @@
 #ifndef GL_CLAMP_TO_EDGE
 #define GL_CLAMP_TO_EDGE 0x812F
 #endif
-//#undef LOG
-//#define LOG(key, interval_ms, expr) do {} while(0)
+
 #include <log.h>
 using json = nlohmann::json;
 
 void TerminateHandler() {
-    LOG(terminate_handler, 1, LogLevel::Warning,LogCategory::System, "Terminate handler called. Cleaning up");
+    LOG(1, LogLevel::Warning,LogCategory::System, "Terminate handler called. Cleaning up");
     StopService();
     std::abort();  // Kết thúc app
 }
 void SignalHandler(int signal) {
-    LOG(signal_handler, 1, LogLevel::Warning,LogCategory::System,  "Signal %d received. Cleaning up.", signal);
+    LOG(1, LogLevel::Warning,LogCategory::System,  "Signal %d received. Cleaning up.", signal);
     StopService();
     std::_Exit(signal);  // Kết thúc app ngay, tránh gọi các destructor
 }

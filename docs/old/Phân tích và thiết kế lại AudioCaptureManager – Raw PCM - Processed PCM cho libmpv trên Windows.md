@@ -1396,7 +1396,7 @@ thì dù các phần còn lại rất nhanh, tổng latency vẫn cao.
 Code hiện tại:
 
 ```cpp
-LOG_NO_KEY(...)
+LOG(...)
 ```
 
 nếu logger thực hiện:

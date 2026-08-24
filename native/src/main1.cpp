@@ -20,11 +20,12 @@
 #include "hotkey_handler.h"
 #include <backends/backend.h>
 #include <threads/thread_manager.h>
-#include <log.h>
 #include "notification.h"
 
 #include "windows/main/MainWindowRenderer.h"
 #include "windows/sub/MockSubWindowRenderer.h" // Thêm include cho renderer mới
+
+#include "YtDlpManager.h"
 
 #include "windows/WindowManager.h"
 #include "FontManager.h"
@@ -39,6 +40,8 @@
 // Gọi lớp trừu tượng đồ họa của bạn từ bài thiết kế trước
 #include "OpenGLBackend.h"
 #include "D3D11Backend.h" // Thêm backend mới
+
+#include <log.h>
 
 // Định nghĩa biến thread-local cho context của ImGui
 /*
@@ -68,9 +71,6 @@ void Cleanup() {}
 int main(int argc, char **argv)
 {
 
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::None, 
-        "test"
-    );
     HANDLE hMutex = CreateMutexA(NULL, TRUE, "Global\\MyUniqueApp_MutexID");
     if (GetLastError() == ERROR_ALREADY_EXISTS)
     {
@@ -162,6 +162,7 @@ int main(int argc, char **argv)
 #ifdef RENDER_MPV_THREAD
 #endif
 
+        //YtDlpManager::GetInstance().InitOrUpdateAsync();
         if (argc >= 2)
         {
             std::string Url = argv[1];

@@ -5,7 +5,7 @@
 #include <functional>
 #include <memory>
 #include <gui/gui.h>
-#include <gui/gui_widgets.h>
+
 
 // Giữ nguyên các Struct dữ liệu của bạn
 struct AppSettings {

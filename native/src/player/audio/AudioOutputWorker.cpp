@@ -21,12 +21,12 @@ std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(Audio
             return std::make_unique<SdlAudioDevice>();
             
         case AudioBackendType::WASAPI:
-            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
+            LOG(1, LogLevel::Warning, LogCategory::Audio, 
                 "[AudioOutputWorker] WASAPI backend not yet implemented, fallback to SDL2.");
             return std::make_unique<SdlAudioDevice>();
             
         default:
-            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
+            LOG(1, LogLevel::Warning, LogCategory::Audio, 
                 "[AudioOutputWorker] Unknown backend type, fallback to SDL2.");
             return std::make_unique<SdlAudioDevice>();
     }
@@ -35,7 +35,7 @@ std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(Audio
 bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBackendType backend) {
 
     //if (!processedStream) {
-    //    LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+    //    LOG(1, LogLevel::Error, LogCategory::Audio, 
     //        std::cout << "[AudioOutputWorker] Init failed: processedStream pointer is null.");
     //    return false;
     //}
@@ -47,7 +47,7 @@ bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBack
     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
 
     if (!m_audioDevice || !m_audioDevice->Open(48000, 2)) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+        LOG(1, LogLevel::Error, LogCategory::Audio, 
             "[AudioOutputWorker] Failed to open Audio Device Backend.");
         return false;
     }
@@ -95,7 +95,7 @@ void AudioOutputWorker::Stop() {
 }
 
 void AudioOutputWorker::OutputLoop() {
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
+    LOG(1, LogLevel::Info, LogCategory::Audio, 
         "[AudioOutputWorker] Resilient Output Loop started with Safe Single-Consumer Pattern.");
 
     std::vector<float> volumeAdjustedBuffer;
@@ -113,7 +113,7 @@ void AudioOutputWorker::OutputLoop() {
                 auto now = std::chrono::steady_clock::now();
                 if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastDeviceRetryTime).count() > 1000) {
                     lastDeviceRetryTime = now;
-                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
+                    LOG(1, LogLevel::Warning, LogCategory::Audio, 
                         "[AudioOutputWorker] Audio device unavailable. Attempting auto-recovery...");
 
                     if (m_audioDevice) {
@@ -122,11 +122,11 @@ void AudioOutputWorker::OutputLoop() {
 
                     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
                     if (m_audioDevice && m_audioDevice->Open(48000, 2)) {
-                        LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, 
+                        LOG(1, LogLevel::Info, LogCategory::Audio, 
                             "[AudioOutputWorker] Audio device auto-recovery SUCCESSFUL!");
                         deviceErrorCount = 0;
                     } else {
-                        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+                        LOG(1, LogLevel::Error, LogCategory::Audio, 
                             "[AudioOutputWorker] Audio device auto-recovery failed. Will retry...");
                     }
                 }
@@ -188,7 +188,7 @@ void AudioOutputWorker::OutputLoop() {
             if (!writePerformed) {
                 deviceErrorCount++;
                 if (deviceErrorCount > 10) {
-                    LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+                    LOG(1, LogLevel::Error, LogCategory::Audio, 
                         "[AudioOutputWorker] Hardware write failed repeatedly. Marking device as offline.");
                     if (m_audioDevice) {
                         m_audioDevice->SetReady(false);
@@ -201,15 +201,15 @@ void AudioOutputWorker::OutputLoop() {
             m_processedStream->release_read();
 
         } catch (const std::exception& e) {
-            LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+            LOG(1, LogLevel::Error, LogCategory::Audio, 
                 "[AudioOutputWorker] Exception caught in loop: %s", e.what());
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         } catch (...) {
-            LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, 
+            LOG(1, LogLevel::Error, LogCategory::Audio, 
                 "[AudioOutputWorker] Unknown crash prevented in loop.");
             std::this_thread::sleep_for(std::chrono::milliseconds(10));
         }
     }
 
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioOutputWorker] Output thread safely stopped.");
+    LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioOutputWorker] Output thread safely stopped.");
 }

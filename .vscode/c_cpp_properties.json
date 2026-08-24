@@ -37,10 +37,14 @@
                 "${workspaceFolder}/native/src/threads",
                 "${workspaceFolder}/native/src/backends",
                 "${workspaceFolder}/native/src/gui", 
+                "${workspaceFolder}/native/include/pffft",
+                "${workspaceFolder}/native/include/pffft/simd",
                 
-                "${workspaceFolder}/native/imgui/misc/freetype",
-                "${workspaceFolder}/native/imgui/backends",
-                "${workspaceFolder}/native/imgui"
+                "${workspaceFolder}/native/include/imgui/misc/freetype",
+                "${workspaceFolder}/native/include/imgui/backends",
+                "${workspaceFolder}/native/include/imgui"
+
+
             ],
             "defines": [
                 "UNICODE",

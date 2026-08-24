@@ -8,6 +8,9 @@
 #include <optional>
 #include <atomic>
 #include <thread>
+#include <deque>
+
+#include "pffft/pffft.h"
 
 /**
  * @class AudioProcessor
@@ -52,6 +55,28 @@ private:
     std::thread m_processThread;
     std::atomic<bool> m_isRunning{false};
     ThreadID m_threadId = "";
+
+    // Context & Buffers của PFFFT
+    PFFFT_Setup* m_pffftSetup = nullptr;
+    float* m_fftInput = nullptr;
+    float* m_fftOutput = nullptr;
+    float* m_fftWork = nullptr;
+
+    // Ring buffer tích lũy samples PCM mono cho FFT
+    std::vector<float> m_fftBuffer;
+    size_t m_fftBufferPos = 0;
+
+    // Sliding Window Buffers cho Loudness Metrics (giả định 48kHz, ~100 blocks/sec)
+    std::deque<float> m_momentaryWindow; // ~400ms (chứa khoảng 40 blocks)
+    std::deque<float> m_shortTermWindow; // ~3.0s (chứa khoảng 300 blocks)
+    std::vector<float> m_lraBlocks;      // Lưu trữ các block Short-Term để tính LRA
+
+    // Tích lũy cho Integrated LUFS từ đầu stream
+    float m_integratedSumSq = 0.0f;
+    uint64_t m_integratedSampleCount = 0;
+
+    // Reset lịch sử đo đạc khi chuyển bài hoặc Seek
+    void ResetLoudnessHistory();
 
     // --- LOCK-FREE VISUALIZER SNAPSHOT (Double Buffering) ---
     AudioVisualizerFrame m_visualizerFrames[2];

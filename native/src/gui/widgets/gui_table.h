@@ -4,7 +4,7 @@
 #include "gui_buttons.h"
 #include "gui_slider.h"
 #include "../core/gui_types.h"
-
+#include <imgui_internal.h>
 #include <vector>
 namespace CSImGui {
     void InfoRow(const char *label, const char *fmt, ...);

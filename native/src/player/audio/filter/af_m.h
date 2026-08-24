@@ -11,6 +11,7 @@
 #include <vector>
 
 class PlayerStateSystem;
+class Audio;
 class AudioFilterManager {
 public:
     AudioFilterManager();
@@ -19,8 +20,8 @@ public:
     AudioFilterManager(const AudioFilterManager&) = delete;
     AudioFilterManager& operator=(const AudioFilterManager&) = delete;
 
-    void Init(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr);
-    void AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr);
+    void Init(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr, Audio* audio = nullptr);
+    void AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem = nullptr, Audio* audio = nullptr);
     void DetachPlayer();
     
     void ToggleFilter(const std::string& id, bool state);
@@ -32,6 +33,23 @@ public:
     void SetAdaptiveMode(bool enabled, AudioPreset preset = AudioPreset::Flat);
     bool IsAdaptiveMode() const { return m_autoMode; }
     AudioPreset GetCurrentPreset() const { return m_currentPreset; }
+    // Hàm lấy danh sách tất cả các preset hiện có
+    static const std::vector<AudioPresetInfo>& GetAudioPresetList() {
+        static const std::vector<AudioPresetInfo> presetList = {
+            { AudioPreset::Flat,              "Cân bằng Studio (Flat)" },
+            { AudioPreset::Pop,               "Nhạc Trẻ / Pop Vocal" },
+            { AudioPreset::Rock,              "Heavy Rock / Metal" },
+            { AudioPreset::EDM_Dance,          "EDM / Dance Floor" },
+            { AudioPreset::Classical,          "Cổ điển / Classical" },
+            { AudioPreset::Acoustic,           "Nhạc Mộc / Acoustic Guitar" },
+            { AudioPreset::Gaming_FPS,         "Chế độ Gaming (FPS Footsteps)" },
+            { AudioPreset::Movie_Cinema,       "Điện ảnh / Movie Cinema" },
+            { AudioPreset::Deep_Bass,          "Siêu Trầm / Deep Bass" },
+            { AudioPreset::Karaoke,            "Tách Lời / Karaoke" },
+            { AudioPreset::Audio_Restoration,  "Phục Hồi Âm Thanh (Restoration)" }
+        };
+        return presetList;
+    }
     void SetCurrentPreset(AudioPreset preset);
 
     void UpdateAdaptiveFilters();
@@ -94,6 +112,7 @@ private:
 private:
     
     mpv_handle* mpv;
+    Audio* m_audio;
     std::string path;
     std::string m_channelMode;
     std::string m_currentAudioTrack;

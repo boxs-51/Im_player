@@ -1,4 +1,6 @@
 #include "gui_table.h"
+#include "../core/gui_theme.h"
+#include "gui_containers.h"
 
 void CSImGui::InfoRow(const char* label, const char* fmt, ...) {
     if (!label) label = "";

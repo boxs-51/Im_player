@@ -2,13 +2,25 @@
 #include <mpv/client.h>
 #include "player/PlayerStateSystem.h"
 #include <iostream>
+#include <log.h>
 
 static void SetMPVOptions(mpv_handle* mpv, const std::unordered_map<std::string, std::string>& options, bool isProperty = false) {
     for (const auto& [key, value] : options) {
-        if (isProperty)
-            mpv_set_property_string(mpv, key.c_str(), value.c_str());
-        else
-            mpv_set_option_string(mpv, key.c_str(), value.c_str());
+        if (isProperty) {
+            int err = mpv_set_property_string(mpv, key.c_str(), value.c_str());
+            if (err < 0) {
+                LOG(0, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_PROPERTY_ERROR: Key '%s', Value '%s', Error code: %s", key.c_str(), value.c_str(), mpv_error_string(err));
+            } else {
+                LOG(0, LogLevel::Info, LogCategory::System, "[SUCCESS] Set MPV Property: Key '%s' = '%s'", key.c_str(), value.c_str());
+            }
+        } else {
+            int err = mpv_set_option_string(mpv, key.c_str(), value.c_str());
+            if (err < 0) {
+                LOG(0, LogLevel::Error, LogCategory::System, "[ERROR] MPV_ERROR_OPTION_ERROR: Key '%s', Value '%s', Error code: %s", key.c_str(), value.c_str(), mpv_error_string(err));
+            } else {
+                LOG(0, LogLevel::Info, LogCategory::System, "[SUCCESS] Set MPV Option: Key '%s' = '%s'", key.c_str(), value.c_str());
+            }
+        }
     }
 }
 
@@ -16,22 +28,20 @@ inline void ApplyStaticMPVConfig(mpv_handle* mpv) {
     if (!mpv) return;
     
     SetMPVOptions(mpv, {
-        {"log-level", "v"},
-        //{"input-media-keys", "yes"},
         {"idle", "yes"},
         {"keep-open", "yes"},
-       // {"stop-screensaver", "yes"},
+        {"stop-screensaver", "yes"},
         {"vo", "libmpv"},
         {"hwdec", "auto-safe"}, // Tự động chọn giải mã phần cứng ổn định nhất
-        {"video-rotate", "no"},
-        {"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
+        //{"video-rotate", "no"},
+        //{"tls-verify", "no"},   // Hữu ích cho một số link stream https không chuẩn
         
         // Cấu hình âm thanh an toàn
         {"audio-buffer", "0.5"}, // Đơn vị giây, 0.2s là đủ mượt và không gây trễ
-        {"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
+        //{"audio-pitch-correction", "yes"}, // Giữ tone giọng khi thay đổi speed
 
         {"cookies", "yes"},
-        {"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
+        //{"ytdl-raw-options", "user-agent=Mozilla/5.0,referer=https://www.youtube.com/"},
 
     });
     

@@ -22,7 +22,7 @@ void AudioFilterManager::SaveToFile() {
             f << key << ":" << value_to_save << "\n";
         }
     }
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Config, "Successfully saved configuration.");
+    LOG(1, LogLevel::Info, LogCategory::Config, "Successfully saved configuration.");
 }
 
 void AudioFilterManager::ResetAllToDefaults() {

@@ -237,6 +237,11 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
 
 WindowRuntime::~WindowRuntime() {
     // 1. Dừng luồng Render trước
+
+    if (resource.GetPlayerSession() && resource.GetPlayerSession()->GetRenderer()) {
+        resource.GetPlayerSession()->GetRenderer()->Shutdown();
+    }
+
     if (resource.uiRenderThread) {
         resource.uiRenderThread->Stop();
     }

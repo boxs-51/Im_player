@@ -52,7 +52,7 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
 
 bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer) {
     if (!mpv || !stateSystem) return false;
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Initializing...");
+    LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Initializing...");
     
     m_producer.emplace(std::move(producer));
     m_mpv = mpv;
@@ -73,7 +73,7 @@ bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, 
 
 void AudioCaptureManager::Shutdown() {
     StopCapture();
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Shutdown complete.");
+    LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Shutdown complete.");
 }
 
 void AudioCaptureManager::StartCapture() {
@@ -134,7 +134,7 @@ void AudioCaptureManager::ClosePipeHandle(HANDLE hPipe) {
 }
 
 void AudioCaptureManager::CaptureLoop() {
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread started.");
+    LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread started.");
 
     
     //HANDLE hEvent = CreateEvent(NULL, TRUE, FALSE, NULL);
@@ -179,7 +179,7 @@ void AudioCaptureManager::CaptureLoop() {
         }
 
         if (connected && m_isRunning) {
-            LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
+            LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
 
             UpdateFormatCacheFromState();
             const DWORD maxBytesToRead = static_cast<DWORD>(kMaxAudioSamples * sizeof(float));
@@ -217,7 +217,7 @@ void AudioCaptureManager::CaptureLoop() {
                 }
 
                 if (!m_isRunning || !success || bytesRead == 0) {
-                    LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Audio, 
+                    LOG(1, LogLevel::Warning, LogCategory::Audio, 
                         "[AudioCaptureManager] Pipe disconnected or stream read ended.");
                     break; 
                 }
@@ -279,5 +279,5 @@ void AudioCaptureManager::CaptureLoop() {
     }
 
     CloseHandle(hEvent);
-    LOG_NO_KEY(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread finished.");
+    LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Capture thread finished.");
 }

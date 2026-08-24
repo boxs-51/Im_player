@@ -143,13 +143,13 @@ void PlayBackRender::Render(const ImVec2 &size, IGraphicsBackend *backend)
         {
             // Cảnh báo: GetStableFrame trả về cùng một frame. Điều này có thể xảy ra
             // nếu UI render nhanh hơn video FPS, không phải lỗi nghiêm trọng.
-            // LOG_NO_KEY(1, "[RenderUI] DEBUG: GetStableFrame returned the same frameId (%llu).", newFrame.frameId);
+            // LOG(1, "[RenderUI] DEBUG: GetStableFrame returned the same frameId (%llu).", newFrame.frameId);
         }
         else if (newFrame.frameId > 0 && newFrame.frameId < m_lastDisplayedFrame.frameId)
         {
             // Cảnh báo nghiêm trọng: GetStableFrame trả về một frame CŨ HƠN.
             // Điều này cho thấy có thể có lỗi logic trong việc chọn frame mới nhất trong FBO pool.
-            LOG_NO_KEY(1, LogLevel::Warning, LogCategory::Render, "[RenderUI] CRITICAL WARN: GetStableFrame returned an OLDER frameId (%d) than currently displayed (%d).", newFrame.frameId, m_lastDisplayedFrame.frameId);
+            LOG(1, LogLevel::Warning, LogCategory::Render, "[RenderUI] CRITICAL WARN: GetStableFrame returned an OLDER frameId (%d) than currently displayed (%d).", newFrame.frameId, m_lastDisplayedFrame.frameId);
         }
     }
 
@@ -160,7 +160,7 @@ void PlayBackRender::Render(const ImVec2 &size, IGraphicsBackend *backend)
     // Nếu không có frame mới trong hơn 500ms, coi như video đã dừng/lỗi và xóa frame cũ.
     if (m_lastDisplayedFrame.texID != nullptr && elapsed.count() > 500)
     {
-        LOG_NO_KEY(500, LogLevel::Info, LogCategory::Render, "[RenderUI] INFO: Stale frame timeout. Clearing last displayed frame (ID: %d).", m_lastDisplayedFrame.frameId);
+        LOG(500, LogLevel::Info, LogCategory::Render, "[RenderUI] INFO: Stale frame timeout. Clearing last displayed frame (ID: %d).", m_lastDisplayedFrame.frameId);
     }
 
     // Luôn vẽ frame cuối cùng hợp lệ, dù nó là frame mới hay frame cũ từ lần trước.

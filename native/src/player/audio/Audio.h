@@ -47,6 +47,8 @@ public:
      */
     bool IsInitialized() const { return m_isInitialized.load(std::memory_order_relaxed); }
 
+    std::string GetPipeName() const { return m_audioCapture.GetPipeName(); }
+
 private:
     /**
      * @brief Xả sạch tất cả các block tồn đọng trong RingBuffer trung gian

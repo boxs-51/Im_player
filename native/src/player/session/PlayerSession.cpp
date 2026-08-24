@@ -52,14 +52,14 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
     // --- KÍCH HOẠT VÀ KHỞI TẠO AUDIO PIPELINE ---
     m_audio = std::make_unique<Audio>();
     if (!m_audio->Init(m_player->GetHandle(), m_state.get())) {
-        LOG_NO_KEY(1, LogLevel::Error, LogCategory::Audio, "Cảnh báo: Không thể khởi tạo Audio Pipeline!");
+        LOG(1, LogLevel::Error, LogCategory::Audio, "Cảnh báo: Không thể khởi tạo Audio Pipeline!");
     }
 
     m_commander = std::make_unique<PlaybackCommand>(*m_player);
     m_property = std::make_unique<PlayBackProperty>(*m_player);
 
     m_audioFilterManager = std::make_unique<AudioFilterManager>();
-    m_audioFilterManager->Init(m_player->GetHandle(), m_state.get());
+    m_audioFilterManager->Init(m_player->GetHandle(), m_state.get(), m_audio.get());
 
     m_shaderManager = std::make_unique<ShaderManager>();
     m_shaderManager->Init(m_player->GetHandle());
@@ -76,6 +76,8 @@ void PlayerSession::Shutdown() {
     m_renderer.reset();
 
     // Shutdown Audio Pipeline sạch sẽ trước khi hủy Player Handle
+    m_audioFilterManager.reset();
+
     if (m_audio) m_audio->Shutdown();
     m_audio.reset();
 

@@ -18,13 +18,15 @@ add_executable(Im_player WIN32
     native/src/main1.cpp
     native/src/utils.cpp
     native/src/FontManager.cpp
-    native/src/gl3w.c
+    native/include/gl3w.c
     native/src/globals.cpp
     native/src/hotkey_handler.cpp
     native/src/notification.cpp
-    native/src/wintoastlib.cpp
+    native/include/wintoastlib.cpp
     native/src/settings_manager.cpp
-    native/src/stb_impl.cpp
+    native/include/stb_impl.cpp
+    native/include/pffft/pffft.c
+    native/include/pffft/pffft_common.c
     # 
     native/src/windows/main/mpv_ui.cpp
     native/src/windows/main/mpv_ui_settings.cpp
@@ -75,15 +77,15 @@ add_executable(Im_player WIN32
     #
 
     #
-    native/imgui/imgui.cpp
-    native/imgui/imgui_draw.cpp
-    native/imgui/imgui_tables.cpp
-    native/imgui/imgui_widgets.cpp
-    native/imgui/imgui_demo.cpp
-    native/imgui/misc/freetype/imgui_freetype.cpp
-    native/imgui/backends/imgui_impl_sdl2.cpp
-    native/imgui/backends/imgui_impl_opengl3.cpp
-    native/imgui/backends/imgui_impl_dx11.cpp
+    native/include/imgui/imgui.cpp
+    native/include/imgui/imgui_draw.cpp
+    native/include/imgui/imgui_tables.cpp
+    native/include/imgui/imgui_widgets.cpp
+    native/include/imgui/imgui_demo.cpp
+    native/include/imgui/misc/freetype/imgui_freetype.cpp
+    native/include/imgui/backends/imgui_impl_sdl2.cpp
+    native/include/imgui/backends/imgui_impl_opengl3.cpp
+    native/include/imgui/backends/imgui_impl_dx11.cpp
     #
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
@@ -116,6 +118,7 @@ add_executable(Im_player WIN32
     native/src/gui/widgets/gui_slider.cpp
     native/src/gui/widgets/gui_text.cpp
     native/src/gui/widgets/gui_tooltip.cpp
+    native/src/gui/widgets/gui_table.cpp
     native/src/windows/Evevnt.cpp
     native/src/windows/RuntimeFontController.cpp
 
@@ -139,6 +142,8 @@ target_compile_definitions(Im_player PRIVATE
     IMGUI_IMPL_OPENGL_LOADER_GLAD
     CUSTOM_TITLEBAR
     RENDER_MPV_THREAD
+    PFFFT_EXPORTS
+    ENABLE_LOG
 )
 # Include path
 target_include_directories(Im_player PRIVATE
@@ -172,6 +177,8 @@ target_include_directories(Im_player PRIVATE
     native/include/curl
     native/include/cpr
     native/include/openssl
+    native/include/pffft
+    native/include/pffft/simd
 
     native/src/windows
     native/src/windows/main
@@ -182,9 +189,9 @@ target_include_directories(Im_player PRIVATE
     native/src/backends
     native/src/common
 
-    native/imgui/misc/freetype
-    native/imgui/backends
-    native/imgui
+    native/include/imgui/misc/freetype
+    native/include/imgui/backends
+    native/include/imgui
 )
 
 target_link_libraries(Im_player PRIVATE
