@@ -121,8 +121,17 @@ public:
      */
     void DestroyWindow(WindowId id)
     {
-        std::lock_guard<std::mutex> lock(m_windowsMutex);
-        DestroyWindowInternal(id);
+        std::vector<std::unique_ptr<WindowRuntime>> detached;
+
+        {
+            std::lock_guard<std::mutex> lock(m_windowsMutex);
+            DetachWindowTreeInternal(id, detached);
+        }
+
+        // Preserve deterministic child-before-parent destruction while no
+        // manager lock is held.
+        for (auto& runtime : detached)
+            runtime.reset();
     }
 
     void HideWindow(WindowId id)
@@ -377,7 +386,9 @@ public:
     }
 
 private:
-    void DestroyWindowInternal(WindowId id)
+    void DetachWindowTreeInternal(
+        WindowId id,
+        std::vector<std::unique_ptr<WindowRuntime>>& detached)
     {
         auto it = windows.find(id);
         if (it == windows.end())
@@ -385,17 +396,21 @@ private:
 
         WindowRuntime *runtime = it->second.get();
 
-        std::vector<WindowRuntime *> childrenCopy = runtime->relation.children;
-        for (WindowRuntime *child : childrenCopy)
-        {
-            DestroyWindowInternal(child->info.id); // Gọi hàm nội bộ
+        // Detach children first so destruction order remains child -> parent.
+        std::vector<WindowId> childIds;
+        childIds.reserve(runtime->relation.children.size());
+        for (WindowRuntime *child : runtime->relation.children) {
+            if (child)
+                childIds.push_back(child->info.id);
         }
+
+        for (WindowId childId : childIds)
+            DetachWindowTreeInternal(childId, detached);
 
         if (runtime->relation.parent)
-        {
             runtime->relation.parent->relation.RemoveChild(runtime);
-        }
 
+        detached.push_back(std::move(it->second));
         windows.erase(it);
     }
 };

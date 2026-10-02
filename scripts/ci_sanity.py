@@ -34,6 +34,59 @@ def load_json(path: Path) -> dict:
         return {}
 
 
+def extract_function_body(text: str, marker: str) -> str:
+    start = text.find(marker)
+    if start < 0:
+        fail(f"BRG-4 contract marker missing: {marker}")
+        return ""
+
+    brace = text.find("{", start)
+    if brace < 0:
+        fail(f"BRG-4 contract body missing: {marker}")
+        return ""
+
+    depth = 0
+    for index in range(brace, len(text)):
+        char = text[index]
+        if char == "{":
+            depth += 1
+        elif char == "}":
+            depth -= 1
+            if depth == 0:
+                return text[brace + 1:index]
+
+    fail(f"BRG-4 contract body is unterminated: {marker}")
+    return ""
+
+
+def token_is_under_lock(body: str, token: str, lock_token: str) -> bool:
+    depth = 0
+    lock_depths: list[int] = []
+
+    for line in body.splitlines():
+        stripped = line.strip()
+
+        # Account for leading scope exits before evaluating this line.
+        leading_closes = len(stripped) - len(stripped.lstrip("}"))
+        if leading_closes:
+            depth = max(0, depth - leading_closes)
+            lock_depths = [item for item in lock_depths if item <= depth]
+
+        if lock_token in line:
+            lock_depths.append(depth)
+
+        if token in line:
+            return any(item <= depth for item in lock_depths)
+
+        # Approximate lexical scope depth. The BRG-4 target functions use
+        # ordinary block scopes without braces in strings on the target lines.
+        depth += line.count("{") - line.count("}") + leading_closes
+        lock_depths = [item for item in lock_depths if item <= depth]
+
+    fail(f"BRG-4 contract token missing: {token}")
+    return False
+
+
 required = [
     "CMakeLists.txt",
     "CMakePresets.json",
@@ -149,6 +202,83 @@ if unexpected_generated_deps:
         "generated dependency content must not be tracked: "
         + ", ".join(unexpected_generated_deps[:20])
     )
+
+# BRG-4 manager lifecycle regression contract.
+# These focused structural checks intentionally fail closed if the lock
+# boundaries are rewritten and require a fresh lifecycle audit.
+player_manager_cpp = (ROOT / "native/src/player/session/PlayerManager.cpp").read_text(
+    encoding="utf-8"
+)
+player_manager_h = (ROOT / "native/src/player/session/PlayerManager.h").read_text(
+    encoding="utf-8"
+)
+window_manager_h = (ROOT / "native/src/windows/WindowManager.h").read_text(
+    encoding="utf-8"
+)
+font_manager_cpp = (ROOT / "native/src/FontManager.cpp").read_text(encoding="utf-8")
+main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
+
+create_session_body = extract_function_body(
+    player_manager_cpp, "PlayerSession *PlayerManager::CreateSession"
+)
+destroy_session_body = extract_function_body(
+    player_manager_cpp, "void PlayerManager::DestroySession(const std::string &id)"
+)
+with_session_body = extract_function_body(
+    player_manager_h, "void WithSession(const std::string& id, Func&& func)"
+)
+destroy_window_body = extract_function_body(
+    window_manager_h, "void DestroyWindow(WindowId id)"
+)
+font_load_body = extract_function_body(
+    font_manager_cpp, "bool FontManager::EnsureFontDataLoaded"
+)
+font_shutdown_body = extract_function_body(
+    font_manager_cpp, "void FontManager::Shutdown"
+)
+
+manager_lock = "std::lock_guard<std::mutex> lock(m_sessionsMutex)"
+window_lock = "std::lock_guard<std::mutex> lock(m_windowsMutex)"
+font_lock = "std::lock_guard<std::mutex> lock(m_mutex)"
+
+if token_is_under_lock(create_session_body, "session->Init(runtime)", manager_lock):
+    fail("BRG-4: PlayerSession::Init must execute outside m_sessionsMutex")
+if token_is_under_lock(destroy_session_body, "detached.reset()", manager_lock):
+    fail("BRG-4: PlayerSession destruction must execute outside m_sessionsMutex")
+if token_is_under_lock(with_session_body, "func(*session)", manager_lock):
+    fail("BRG-4: WithSession callback must execute outside m_sessionsMutex")
+if token_is_under_lock(destroy_window_body, "runtime.reset()", window_lock):
+    fail("BRG-4: WindowRuntime destruction must execute outside m_windowsMutex")
+if token_is_under_lock(font_load_body, "std::ifstream fi(filePath", font_lock):
+    fail("BRG-4: font filesystem I/O must execute outside FontManager mutex")
+if not token_is_under_lock(
+    font_load_body, "desc->fileData = std::move(loadedData)", font_lock
+):
+    fail("BRG-4: font data publication must execute under FontManager mutex")
+if "generation = m_generation;" not in font_load_body:
+    fail("BRG-4: lazy font load must snapshot the registry generation")
+if "generation != m_generation" not in font_load_body:
+    fail("BRG-4: stale lazy font load must be rejected after lifecycle change")
+if "++m_generation;" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must invalidate in-flight lazy loads")
+if "retiredRegistry.swap(m_fontRegistry);" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must detach registry ownership under lock")
+if "retiredList.swap(m_fontList);" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must detach font-list ownership under lock")
+if "fileData->clear()" in font_shutdown_body or "fileData.reset()" in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must not mutate shared descriptor font data")
+
+destroy_all_index = main_cpp.find("PlayerManager::GetInstance().DestroyAllSessions();")
+font_shutdown_index = main_cpp.find("FontManager::Instance().Shutdown();")
+if destroy_all_index < 0 or font_shutdown_index < 0:
+    fail("BRG-4: explicit PlayerManager/FontManager shutdown markers missing")
+elif destroy_all_index > font_shutdown_index:
+    fail("BRG-4: Player sessions must be destroyed before FontManager shutdown")
+
+if "m_pendingSessionIds.erase(sessionId);" not in create_session_body:
+    fail("BRG-4: pending session reservation cleanup missing")
+
+facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
 
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],

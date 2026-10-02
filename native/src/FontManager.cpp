@@ -29,6 +29,7 @@ bool FontManager::IsEmojiFont(const std::string& family, const std::string& file
 
 void FontManager::ScanDirectories(const std::vector<std::string>& dirs) {
     std::lock_guard<std::mutex> lock(m_mutex);
+    ++m_generation;
     m_fontRegistry.clear();
     m_fontList.clear();
 
@@ -75,28 +76,59 @@ void FontManager::ScanDirectories(const std::vector<std::string>& dirs) {
 // Hàm bổ sung: Lazy load dữ liệu nhị phân khi thực sự cần dùng
 bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
     if (!desc) return false;
-    
-    //std::lock_guard<std::mutex> lock(m_mutex);
-    
-    // Nếu đã nạp rồi thì dùng lại
-    if (desc->fileData && !desc->fileData->empty()) {
-        return true;
+
+    std::string filePath;
+    std::string fontId;
+    std::uint64_t generation = 0;
+
+    // Snapshot descriptor state and registry generation under the manager lock.
+    // File I/O remains outside the mutex.
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (desc->fileData && !desc->fileData->empty()) {
+            return true;
+        }
+
+        filePath = desc->filePath;
+        fontId = desc->id;
+        generation = m_generation;
     }
 
-    // Đọc file từ đĩa
-    std::ifstream fi(desc->filePath, std::ios::binary);
+    std::ifstream fi(filePath, std::ios::binary);
     if (!fi.good()) return false;
 
     fi.seekg(0, std::ios::end);
-    size_t sz = static_cast<size_t>(fi.tellg());
+    const std::streamoff endPos = fi.tellg();
+    if (endPos <= 0) return false;
+
+    const size_t sz = static_cast<size_t>(endPos);
     fi.seekg(0, std::ios::beg);
 
-    desc->fileData = std::make_shared<std::vector<unsigned char>>(sz);
-    fi.read(reinterpret_cast<char*>(desc->fileData->data()), sz);
-    fi.close();
+    auto loadedData = std::make_shared<std::vector<unsigned char>>(sz);
+    fi.read(reinterpret_cast<char*>(loadedData->data()), static_cast<std::streamsize>(sz));
+    if (!fi) return false;
 
-    LOG(1, LogLevel::Info, LogCategory::System, 
-        "[FontManager] Lazy-loaded font data: %d (%d KB)", desc->id ,sz / 1024
+    // Another thread may have loaded the same descriptor while this thread was
+    // doing I/O. Shutdown or a rescan invalidates this load generation, so stale
+    // I/O is never published back into a retired descriptor lifecycle.
+    bool available = false;
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation) {
+            return false;
+        }
+
+        if (!desc->fileData || desc->fileData->empty()) {
+            desc->fileData = std::move(loadedData);
+        }
+        available = desc->fileData && !desc->fileData->empty();
+    }
+
+    if (!available) return false;
+
+    LOG(1, LogLevel::Info, LogCategory::System,
+        "[FontManager] Lazy-loaded font data: %s (%d KB)",
+        fontId.c_str(), static_cast<int>(sz / 1024)
     );
     return true;
 }
@@ -125,34 +157,44 @@ std::shared_ptr<FontDescriptor> FontManager::GetDefaultFont() const {
 }
 
 FontManager::SystemFontSet FontManager::GetSystemFontSet(const std::string& preferredFamily) const {
-    std::lock_guard<std::mutex> lock(m_mutex);
     SystemFontSet set;
-    
-    for (const auto& font : m_fontList) {
-        if (font->isIcon && !set.iconFont) set.iconFont = font;
-        else if (font->isEmoji && !set.emojiFont) set.emojiFont = font;
-        else if (font->isCJK && !set.cjkFont) set.cjkFont = font;
-        else if (!set.mainFont || font->family == preferredFamily) set.mainFont = font;
+
+    // Select descriptors under the registry lock, then release it before any
+    // lazy-load I/O. shared_ptr keeps selected descriptors alive.
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+
+        for (const auto& font : m_fontList) {
+            if (font->isIcon && !set.iconFont) set.iconFont = font;
+            else if (font->isEmoji && !set.emojiFont) set.emojiFont = font;
+            else if (font->isCJK && !set.cjkFont) set.cjkFont = font;
+            else if (!set.mainFont || font->family == preferredFamily) set.mainFont = font;
+        }
     }
 
-    // Đảm bảo các font được chọn đã được nạp binary vào RAM
-    const_cast<FontManager*>(this)->EnsureFontDataLoaded(set.mainFont);
-    const_cast<FontManager*>(this)->EnsureFontDataLoaded(set.cjkFont);
-    const_cast<FontManager*>(this)->EnsureFontDataLoaded(set.iconFont);
-    const_cast<FontManager*>(this)->EnsureFontDataLoaded(set.emojiFont);
+    auto* mutableThis = const_cast<FontManager*>(this);
+    mutableThis->EnsureFontDataLoaded(set.mainFont);
+    mutableThis->EnsureFontDataLoaded(set.cjkFont);
+    mutableThis->EnsureFontDataLoaded(set.iconFont);
+    mutableThis->EnsureFontDataLoaded(set.emojiFont);
 
     return set;
 }
 
 void FontManager::Shutdown() {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    for (auto& [id, desc] : m_fontRegistry) {
-        if (desc && desc->fileData) {
-            desc->fileData->clear();
-            desc->fileData->shrink_to_fit();
-            desc->fileData.reset();
-        }
+    std::unordered_map<std::string, std::shared_ptr<FontDescriptor>> retiredRegistry;
+    std::vector<std::shared_ptr<FontDescriptor>> retiredList;
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_generation;
+        retiredRegistry.swap(m_fontRegistry);
+        retiredList.swap(m_fontList);
     }
-    m_fontRegistry.clear();
-    m_fontList.clear();
+
+    // Do not mutate descriptor fileData during shutdown. External consumers may
+    // still hold shared descriptors while finishing their own teardown. The
+    // retired containers release manager ownership outside m_mutex, and the
+    // descriptor/font bytes are reclaimed naturally when the final shared
+    // owner releases them.
 }

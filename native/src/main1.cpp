@@ -303,6 +303,11 @@ int main(int argc, char **argv)
         {
             winManager.DestroyWindow(id);
         }
+        // PlayerManager owns PlayerSession objects. Destroy them explicitly
+        // while normal runtime services/singletons are still alive; never defer
+        // PlayerSession/audio/MPV teardown to static destruction.
+        PlayerManager::GetInstance().DestroyAllSessions();
+
         FontManager::Instance().Shutdown();
         // Cleanup(); // CleanupMPV is now handled by ~PlayerSession
         return 0;
