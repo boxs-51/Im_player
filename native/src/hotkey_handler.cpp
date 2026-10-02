@@ -1,6 +1,5 @@
 #include "hotkey_handler.h"
 #include "popup.h"
-#include "thread.h"
 #include "sidebar_popup.h"
 #include "player/session/PlayerSession.h"
 
