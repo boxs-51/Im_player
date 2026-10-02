@@ -1,0 +1,232 @@
+name: BRG CI
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+    inputs:
+      negative_build_test:
+        description: "Intentionally fail the Windows build to validate the CI gate"
+        required: false
+        default: false
+        type: boolean
+
+permissions:
+  contents: read
+
+concurrency:
+  group: brg-ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+env:
+  CI_EXPECTED_SHA: ${{ github.event.pull_request.head.sha || github.sha }}
+  VCPKG_BINARY_SOURCES: clear
+
+jobs:
+  static-sanity:
+    name: Static sanity
+    runs-on: ubuntu-26.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CI_EXPECTED_SHA }}
+          fetch-depth: 1
+
+      - name: Verify exact commit
+        shell: bash
+        run: |
+          set -euo pipefail
+          actual="$(git rev-parse HEAD)"
+          echo "expected=${CI_EXPECTED_SHA}"
+          echo "actual=${actual}"
+          test "${actual}" = "${CI_EXPECTED_SHA}"
+
+      - name: Run repository sanity gate
+        run: python3 scripts/ci_sanity.py
+
+      - name: Upload sanity evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brg-ci-static-${{ env.CI_EXPECTED_SHA }}
+          path: artifacts/ci/static-sanity.json
+          if-no-files-found: warn
+          retention-days: 14
+
+  windows-build:
+    name: Windows build (${{ matrix.configuration }})
+    needs: static-sanity
+    runs-on: windows-2025-vs2026
+    timeout-minutes: 60
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - configuration: Debug
+            preset: windows-msvc-x64-debug
+          - configuration: Release
+            preset: windows-msvc-x64-release
+
+    steps:
+      - name: Checkout exact commit
+        uses: actions/checkout@v5
+        with:
+          ref: ${{ env.CI_EXPECTED_SHA }}
+          fetch-depth: 1
+
+      - name: Create evidence directory
+        shell: pwsh
+        run: New-Item -ItemType Directory -Force -Path artifacts/ci | Out-Null
+
+      - name: Verify exact commit
+        shell: pwsh
+        run: |
+          $actual = (& git.exe rev-parse HEAD).Trim()
+          "expected=$env:CI_EXPECTED_SHA"
+          "actual=$actual"
+          if ($actual -ne $env:CI_EXPECTED_SHA) {
+              throw "[BRG-2] checkout SHA mismatch"
+          }
+
+      - name: Install canonical CMake 4.2.0
+        shell: pwsh
+        run: |
+          python -m pip install --disable-pip-version-check --no-cache-dir "cmake==4.2.0"
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+          $scripts = (& python -c "import sysconfig; print(sysconfig.get_path('scripts'))").Trim()
+          $scripts | Out-File -FilePath $env:GITHUB_PATH -Encoding utf8 -Append
+
+          $cmakeExe = Join-Path $scripts "cmake.exe"
+          & $cmakeExe --version
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Verify VS18 / v145 runner contract
+        shell: pwsh
+        run: |
+          $pf86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
+          $vswhere = Join-Path $pf86 "Microsoft Visual Studio\Installer\vswhere.exe"
+          if (-not (Test-Path $vswhere)) {
+              throw "[BRG-2] vswhere.exe missing"
+          }
+
+          $vs = (& $vswhere -latest -products * -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath | Select-Object -First 1)
+          if (-not $vs -or $vs -notmatch '\\18\\') {
+              throw "[BRG-2] Visual Studio 18 2026 not found: $vs"
+          }
+
+          $tool = Get-ChildItem (Join-Path $vs "VC\Tools\MSVC") -Directory |
+              Where-Object { $_.Name -like "14.5*" } |
+              Sort-Object Name -Descending |
+              Select-Object -First 1
+          if (-not $tool) {
+              throw "[BRG-2] MSVC 14.5x / v145 toolset not found"
+          }
+
+          $cmakeVersion = (& cmake.exe --version | Select-Object -First 1)
+          @(
+              "commit=$env:CI_EXPECTED_SHA"
+              "runner_os=$env:RUNNER_OS"
+              "runner_arch=$env:RUNNER_ARCH"
+              "image_os=$env:ImageOS"
+              "image_version=$env:ImageVersion"
+              "visual_studio=$vs"
+              "msvc_toolset=$($tool.Name)"
+              "cmake=$cmakeVersion"
+              "configuration=${{ matrix.configuration }}"
+          ) | Set-Content artifacts/ci/context-${{ matrix.configuration }}.txt -Encoding UTF8
+
+      - name: Fresh dependency provisioning
+        shell: pwsh
+        run: |
+          & .\scripts\bootstrap-deps.ps1 *>&1 |
+              Tee-Object -FilePath artifacts/ci/bootstrap-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Configure
+        shell: pwsh
+        run: |
+          & cmake.exe --preset windows-msvc-x64 *>&1 |
+              Tee-Object -FilePath artifacts/ci/configure-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Intentional negative canary
+        if: ${{ hashFiles('.github/ci/force-build-failure') != '' || inputs.negative_build_test }}
+        shell: pwsh
+        run: |
+          Write-Host "[BRG-2] Intentional negative build canary is active."
+          & cmake.exe --build --preset ${{ matrix.preset }} --target __brg2_intentional_missing_target__ *>&1 |
+              Tee-Object -FilePath artifacts/ci/negative-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -eq 0) {
+              throw "[BRG-2] Negative canary unexpectedly succeeded"
+          }
+          throw "[BRG-2] Intentional negative canary produced the expected build failure"
+
+      - name: Build
+        if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
+        shell: pwsh
+        run: |
+          & cmake.exe --build --preset ${{ matrix.preset }} *>&1 |
+              Tee-Object -FilePath artifacts/ci/build-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Smoke-test extension hook
+        if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
+        shell: pwsh
+        run: |
+          & .\scripts\ci-smoke-hook.ps1 -Configuration ${{ matrix.configuration }} *>&1 |
+              Tee-Object -FilePath artifacts/ci/smoke-${{ matrix.configuration }}.log
+
+      - name: Upload failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: brg-ci-failure-${{ matrix.configuration }}-${{ env.CI_EXPECTED_SHA }}
+          path: |
+            artifacts/ci
+            deps/toolchain.actual.json
+            build/windows-msvc-x64/CMakeCache.txt
+          if-no-files-found: warn
+          retention-days: 14
+
+      - name: Upload successful build evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: im-player-${{ matrix.configuration }}-${{ env.CI_EXPECTED_SHA }}
+          path: |
+            bin/${{ matrix.configuration }}
+            artifacts/ci
+            deps/toolchain.actual.json
+          if-no-files-found: error
+          retention-days: 14
+
+  brg-ci-gate:
+    name: BRG CI Gate
+    if: always()
+    needs:
+      - static-sanity
+      - windows-build
+    runs-on: ubuntu-26.04
+    timeout-minutes: 5
+
+    steps:
+      - name: Enforce required jobs
+        shell: bash
+        run: |
+          echo "Static sanity: ${{ needs.static-sanity.result }}"
+          echo "Windows matrix: ${{ needs.windows-build.result }}"
+          if [[ "${{ needs.static-sanity.result }}" != "success" ]]; then
+            exit 1
+          fi
+          if [[ "${{ needs.windows-build.result }}" != "success" ]]; then
+            exit 1
+          fi
+          echo "BRG CI Gate PASS commit=${CI_EXPECTED_SHA}"
