@@ -35,7 +35,16 @@ vcpkg is pinned to:
 
 `f05ff9f0adbd630c4fada9072b4a68eeeb7d738a`
 
-It owns SDL2, FreeType, CPR, and OpenSSL headers and binaries.
+Resolved ports at that baseline:
+
+| Port | Version |
+|---|---|
+| SDL2 | 2.32.10#1 |
+| FreeType | 2.14.3 |
+| CPR | 1.14.2 |
+| OpenSSL | 3.6.5 |
+
+vcpkg owns headers and binaries for those dependencies.
 
 libmpv is pinned to:
 
@@ -46,7 +55,7 @@ libmpv is pinned to:
 - mpv commit identity: `e470f8986e`
 - expected client API: `2.5`
 
-The bootstrap verifies the archive hash and client API. If the packae does
+The bootstrap verifies the archive hash and client API. If the package does
 not contain an MSVC import library, it deterministically creates
 `libmpv-2.dll.lib` from `libmpv-2.dll` exports using the installed v145 tools.
 
@@ -95,6 +104,9 @@ launched on Windows without missing-DLL/resource errors.
 Package include directories are prepended before `native/include`, preventing
 legacy vendored copies of mpv/SDL2/FreeType/CPR/OpenSSL from silently
 overriding the canonical packages.
+
+Both existing SDL include forms (`<SDL.h>` and `<SDL2/SDL.h>`) resolve from
+the vcpkg installation, not from the legacy vendored copy.
 
 The legacy copies are retained in BRG-1 to avoid unrelated mass cleanup.
 
