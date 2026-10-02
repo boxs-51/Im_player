@@ -1,74 +1,17 @@
 {
-    "configurations": [
-        {
-            "name": "Win32",
-            "includePath": [
-                
-                "${workspaceFolder}/native/include",  
-
-                "${workspaceFolder}/native/include/mpv",   
-
-                "${workspaceFolder}/native/src/player/shaders",      
-                "${workspaceFolder}/native/src/player/scripts", 
-                "${workspaceFolder}/native/src/player/audio/filter",
-                "${workspaceFolder}/native/src/player/audio",
-                "${workspaceFolder}/native/src/player/player",
-                "${workspaceFolder}/native/src/player/command",
-                "${workspaceFolder}/native/src/player/render",
-                "${workspaceFolder}/native/src/player/session",
-                "${workspaceFolder}/native/src/player/event",
-
-                
-
-                "${workspaceFolder}/native/include/nlohmann",  
-                "${workspaceFolder}/native/include/KHR",
-                "${workspaceFolder}/native/include/GL",
-                "${workspaceFolder}/native/include/freetype2",
-                "${workspaceFolder}/native/include/SDL2",
-                "${workspaceFolder}/native/include/compat",
-                "${workspaceFolder}/native/include/curl",
-                "${workspaceFolder}/native/include/cpr",
-                "${workspaceFolder}/native/include/openssl",
-                "${workspaceFolder}/native/src",
-                "${workspaceFolder}/native/src/windows",
-                "${workspaceFolder}/native/src/windows/main",
-                "${workspaceFolder}/native/src/windows/main/ui",
-                "${workspaceFolder}/native/src/popup",
-                "${workspaceFolder}/native/src/threads",
-                "${workspaceFolder}/native/src/backends",
-                "${workspaceFolder}/native/src/gui", 
-                "${workspaceFolder}/native/include/pffft",
-                "${workspaceFolder}/native/include/pffft/simd",
-                
-                "${workspaceFolder}/native/include/imgui/misc/freetype",
-                "${workspaceFolder}/native/include/imgui/backends",
-                "${workspaceFolder}/native/include/imgui"
-
-
-            ],
-            "defines": [
-                "UNICODE",
-                "_UNICODE",
-                "SDL_MAIN_HANDLED"
-            ],
-            "compilerPath": "",
-            "cStandard": "c11",
-            "cppStandard": "c++17",
-            "intelliSenseMode": "windows-gcc-x64"
-        },
-        {
-            "name": "UI",
-            "includePath": [
-                "${default}"
-            ],
-            "defines": [
-                "_DEBUG",
-                "UNICODE",
-                "_UNICODE"
-            ],
-            "cStandard": "c17",
-            "intelliSenseMode": "windows-gcc-x64"
-        }
-    ],
-    "version": 4
+  "configurations": [
+    {
+      "name": "Windows MSVC x64",
+      "configurationProvider": "ms-vscode.cmake-tools",
+      "defines": [
+        "UNICODE",
+        "_UNICODE",
+        "SDL_MAIN_HANDLED"
+      ],
+      "cStandard": "c17",
+      "cppStandard": "c++17",
+      "intelliSenseMode": "windows-msvc-x64"
+    }
+  ],
+  "version": 4
 }
