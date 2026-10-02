@@ -182,15 +182,19 @@ FontManager::SystemFontSet FontManager::GetSystemFontSet(const std::string& pref
 }
 
 void FontManager::Shutdown() {
-    std::lock_guard<std::mutex> lock(m_mutex);
-    ++m_generation;
-    for (auto& [id, desc] : m_fontRegistry) {
-        if (desc && desc->fileData) {
-            desc->fileData->clear();
-            desc->fileData->shrink_to_fit();
-            desc->fileData.reset();
-        }
+    std::unordered_map<std::string, std::shared_ptr<FontDescriptor>> retiredRegistry;
+    std::vector<std::shared_ptr<FontDescriptor>> retiredList;
+
+    {
+        std::lock_guard<std::mutex> lock(m_mutex);
+        ++m_generation;
+        retiredRegistry.swap(m_fontRegistry);
+        retiredList.swap(m_fontList);
     }
-    m_fontRegistry.clear();
-    m_fontList.clear();
+
+    // Do not mutate descriptor fileData during shutdown. External consumers may
+    // still hold shared descriptors while finishing their own teardown. The
+    // retired containers release manager ownership outside m_mutex, and the
+    // descriptor/font bytes are reclaimed naturally when the final shared
+    // owner releases them.
 }

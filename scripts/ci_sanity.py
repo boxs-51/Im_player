@@ -261,6 +261,12 @@ if "generation != m_generation" not in font_load_body:
     fail("BRG-4: stale lazy font load must be rejected after lifecycle change")
 if "++m_generation;" not in font_shutdown_body:
     fail("BRG-4: FontManager shutdown must invalidate in-flight lazy loads")
+if "retiredRegistry.swap(m_fontRegistry);" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must detach registry ownership under lock")
+if "retiredList.swap(m_fontList);" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must detach font-list ownership under lock")
+if "fileData->clear()" in font_shutdown_body or "fileData.reset()" in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must not mutate shared descriptor font data")
 
 destroy_all_index = main_cpp.find("PlayerManager::GetInstance().DestroyAllSessions();")
 font_shutdown_index = main_cpp.find("FontManager::Instance().Shutdown();")
