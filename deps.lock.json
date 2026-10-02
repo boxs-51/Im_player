@@ -1,0 +1,41 @@
+{
+  "schema": 1,
+  "policy": {
+    "execution": "IP-POL-001",
+    "build": "IP-BUILD-001"
+  },
+  "toolchain": {
+    "platform": "Windows",
+    "architecture": "x64",
+    "generator": "Visual Studio 18 2026",
+    "toolset": "v145",
+    "cmakeMinimum": "4.2.0",
+    "cppStandard": "17",
+    "vcpkgTriplet": "x64-windows"
+  },
+  "vcpkg": {
+    "repository": "https://github.com/microsoft/vcpkg.git",
+    "commit": "f05ff9f0adbd630c4fada9072b4a68eeeb7d738a",
+    "resolvedPorts": {
+      "sdl2": "2.32.10#1",
+      "freetype": "2.14.3",
+      "cpr": "1.14.2",
+      "openssl": "3.6.5"
+    }
+  },
+  "libmpv": {
+    "provider": "shinchiro/mpv-winbuild-cmake",
+    "release": "20260928",
+    "mpvCommit": "e470f8986e",
+    "asset": "mpv-dev-x86_64-20260928-git-e470f8986e.7z",
+    "url": "https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/20260928/mpv-dev-x86_64-20260928-git-e470f8986e.7z",
+    "sha256": "81795d759e01016f1550fd71651a1a5d59ab5c28ef31c0b6793224e9cff39459",
+    "clientApi": "2.5",
+    "runtimeDll": "libmpv-2.dll",
+    "gnuImportLibrary": "libmpv.dll.a",
+    "msvcImportLibrary": "libmpv-2.dll.lib"
+  },
+  "sourceGraph": {
+    "native/src/api/api_manager.cpp": "EXCLUDED-PROTOTYPE"
+  }
+}

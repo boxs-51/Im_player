@@ -13,6 +13,9 @@ build/
 dist/
 *.egg-info/
 
+# Canonical generated dependencies (IP-BUILD-001 / BRG-1)
+/deps/
+
 # IDE
 #.vscode/
 .vs/
@@ -26,14 +29,13 @@ Thumbs.db
 bin/
 out/
 
-#vcpkg
+# Legacy local dependency layouts (not canonical)
 vcpkg/
+libs/
 
 #videos
 videos/
 thumbnail_cache/
-
-libs/
 
 log/
 

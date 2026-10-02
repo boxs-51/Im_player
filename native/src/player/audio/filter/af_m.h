@@ -2,7 +2,7 @@
 #include "af_m_types.h"
 #include "utils.h"
 
-#include <client.h>
+#include <mpv/client.h>
 #include <unordered_map>
 #include <mutex>
 #include <thread>
