@@ -39,23 +39,25 @@ What this PR intentionally does not change:
 
 ```text
 tested_commit=<full SHA>
-configuration=<Debug|Release|both>
-toolchain=<exact>
-command_or_run=<exact command / CI run>
-result=<PASS|FAIL>
+configuration=<Debug|Release|both|N/A>
+toolchain=<exact|N/A>
+command_or_run=<exact command / CI run / static validation>
+result=<PASS|FAIL|N/A>
 artifact_or_log=<reference>
 ```
 
 ### IP-BUILD-001 gates
 
-- [ ] L0 Configure is PASS or N/A with reason.
-- [ ] L1 Debug is PASS.
-- [ ] L1 Release is PASS.
-- [ ] L2 Startup/Shutdown is PASS when runnable.
-- [ ] Required L3 functional scenarios are PASS.
-- [ ] Required L4 concurrency/lifetime stress is PASS for thread/callback/lifetime changes.
-- [ ] Required L5 specialized validation is PASS when applicable.
-- [ ] Runtime dependency closure is verified when build/runtime dependencies changed.
+For each gate, mark **PASS** or **N/A with a reason**. N/A is valid only when the PR cannot affect that layer.
+
+- [ ] L0 Configure: PASS / N/A — reason:
+- [ ] L1 Debug: PASS / N/A — reason:
+- [ ] L1 Release: PASS / N/A — reason:
+- [ ] L2 Startup/Shutdown: PASS / N/A — reason:
+- [ ] Required L3 functional scenarios: PASS / N/A — reason:
+- [ ] Required L4 concurrency/lifetime stress: PASS / N/A — reason:
+- [ ] Required L5 specialized validation: PASS / N/A — reason:
+- [ ] Runtime dependency closure: PASS / N/A — reason:
 
 ## Governance gates
 
@@ -63,7 +65,7 @@ artifact_or_log=<reference>
 - [ ] I re-read the canonical Issue and dependency/auditor updates before requesting review.
 - [ ] P0 blockers = 0.
 - [ ] P1 findings are resolved or have an explicit accepted deferral.
-- [ ] Required CI is PASS on the exact head SHA when CI is available.
+- [ ] Required CI is PASS on the exact head SHA when CI is available, or CI is explicitly NOT_AVAILABLE.
 - [ ] Dependency/stack order is valid.
 - [ ] Rollback path is documented.
 - [ ] This PR does not smuggle unrelated cleanup/refactor into the issue.
