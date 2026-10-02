@@ -28,10 +28,9 @@ Khi có xung đột, thứ tự authority là:
 
 ```text
 IP-POL-001
-    ↓
-IP-COORD-001 (cho multi-agent coordination / integration planning)
-IP-BUILD-001 (cho build/test/dependency)
-    ↓
+    ├── IP-COORD-001 (multi-agent coordination / integration planning)
+    └── IP-BUILD-001 (build/test/dependency)
+             ↓
 Canonical Issue contract + explicit owner decisions
     ↓
 Current architecture/master-plan documents
@@ -40,6 +39,8 @@ Audit/checkpoint/reference documents
     ↓
 Implementation comments / historical notes
 ```
+
+IP-COORD-001 và IP-BUILD-001 là hai domain authorities song song, cùng subordinate IP-POL-001; coordination policy không được waive build/test policy và build policy không tự cấp integration authority.
 
 Policy điều khiển **process**. Canonical Issue điều khiển **scope kỹ thuật cụ thể**. Tài liệu cũ không tự động override Issue hiện hành.
 
