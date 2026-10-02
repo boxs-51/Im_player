@@ -1,0 +1,183 @@
+name: Canonical Work Item
+description: Open a bug, feature, refactor, audit, build, CI, docs, or governance issue under IP-POL-001.
+title: "[TYPE] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Mandatory governance
+
+        Every issue is governed by **IP-POL-001 — Canonical Issue Execution & Integration Policy**:
+        https://github.com/boxs-51/Im_player/blob/main/docs/policy/PROJECT_EXECUTION_POLICY.md
+
+        Build/dependency/test work is also governed by **IP-BUILD-001**:
+        https://github.com/boxs-51/Im_player/blob/main/docs/policy/BUILD_POLICY.md
+
+        Do not mark an issue READY until the mandatory contract fields below are complete.
+
+  - type: checkboxes
+    id: policy_ack
+    attributes:
+      label: Policy acknowledgement
+      options:
+        - label: I have read and will follow IP-POL-001.
+          required: true
+        - label: I will follow IP-BUILD-001 for any build/dependency/test claims.
+          required: true
+
+  - type: dropdown
+    id: work_type
+    attributes:
+      label: Work type
+      options:
+        - BUG
+        - FEATURE
+        - REFACTOR
+        - AUDIT
+        - BUILD
+        - CI
+        - DOCS
+        - GOVERNANCE
+    validations:
+      required: true
+
+  - type: dropdown
+    id: priority
+    attributes:
+      label: Priority / Severity
+      description: Use evidence-based severity per IP-POL-001 §6.
+      options:
+        - P0 — BLOCKER
+        - P1 — HIGH
+        - P2 — NORMAL
+        - P3 — LOW
+    validations:
+      required: true
+
+  - type: input
+    id: baseline
+    attributes:
+      label: Canonical baseline
+      description: Branch and exact full commit SHA analyzed when opening this issue.
+      placeholder: "main@0123456789abcdef..."
+    validations:
+      required: true
+
+  - type: input
+    id: owner
+    attributes:
+      label: Owner
+      description: Canonical owner/implementer responsible for state transitions and evidence.
+      placeholder: "@username"
+    validations:
+      required: true
+
+  - type: textarea
+    id: problem
+    attributes:
+      label: Problem statement / Objective
+      description: State the concrete bug, requirement, or outcome.
+    validations:
+      required: true
+
+  - type: textarea
+    id: evidence
+    attributes:
+      label: Initial evidence
+      description: Code paths, logs, reproduction, audit findings, or measurements. Mark static-only evidence explicitly.
+      placeholder: |
+        Files/code paths:
+        Reproduction/log:
+        Evidence type: STATIC | RUNTIME | CI
+    validations:
+      required: true
+
+  - type: textarea
+    id: scope
+    attributes:
+      label: Scope
+      description: What this issue is allowed to change.
+    validations:
+      required: true
+
+  - type: textarea
+    id: non_goals
+    attributes:
+      label: Non-goals
+      description: Explicitly state what must not be changed in this issue.
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependencies and cross-issue impact
+      description: List inbound/outbound dependencies, parent/child issues, PRs, and main drift risks.
+      placeholder: |
+        Depends on:
+        Blocks:
+        Related:
+        Cross-issue risks:
+    validations:
+      required: true
+
+  - type: textarea
+    id: acceptance
+    attributes:
+      label: Acceptance criteria
+      description: Objective, checkable conditions required for completion.
+      placeholder: |
+        - [ ] ...
+        - [ ] ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: validation
+    attributes:
+      label: Validation plan
+      description: State required build/test/runtime/audit levels. Follow IP-BUILD-001.
+      placeholder: |
+        L0 Configure:
+        L1 Debug/Release:
+        L2 Startup/Shutdown:
+        L3 Functional:
+        L4 Concurrency/Lifetime:
+        L5 Specialized:
+    validations:
+      required: true
+
+  - type: textarea
+    id: risk
+    attributes:
+      label: Risk and rollback
+      description: Main regression/lifetime/build risks and how to back out safely.
+    validations:
+      required: true
+
+  - type: textarea
+    id: integration
+    attributes:
+      label: Integration plan
+      description: Proposed branch, PR, dependency order, and revalidation conditions.
+      placeholder: |
+        Branch:
+        Base SHA:
+        PR strategy:
+        Merge dependencies:
+    validations:
+      required: true
+
+  - type: markdown
+    attributes:
+      value: |
+        ### Completion evidence
+
+        Before READY_FOR_REVIEW / MERGE_READY / DONE, update this issue with:
+        ```
+        tested_commit=<full SHA>
+        environment=<toolchain/runtime>
+        command_or_run=<exact command or CI run>
+        result=<PASS|FAIL>
+        artifact_or_log=<reference>
+        ```
