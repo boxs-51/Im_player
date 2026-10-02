@@ -3,10 +3,12 @@
 **Canonical Issue:** Closes #
 
 **Policy:** IP-POL-001  
+**Coordination Policy:** IP-COORD-001  
 **Build Policy:** IP-BUILD-001
 
 > Required references:
 > - https://github.com/boxs-51/Im_player/blob/main/docs/policy/PROJECT_EXECUTION_POLICY.md
+> - https://github.com/boxs-51/Im_player/blob/main/docs/policy/MULTI_AGENT_COORDINATION_POLICY.md
 > - https://github.com/boxs-51/Im_player/blob/main/docs/policy/BUILD_POLICY.md
 
 ## Baseline / Lineage
@@ -15,6 +17,13 @@
 - Base SHA:
 - Head SHA:
 - Depends on Issue/PR:
+- Development base:
+- Parent head: NONE / <sha>
+- Authority scope:
+- Drift class: NON_MATERIAL / MATERIAL / UNKNOWN / N/A
+- Merge class: governance/docs / build/ci / production / high-risk / mixed
+- Wave ID: not-assigned / IW-... / N/A
+- Integration status: NOT_ENROLLED / WAVE_CANDIDATE / ENROLLED / HOLD / N/A
 
 ## Scope
 
@@ -59,6 +68,16 @@ For each gate, mark **PASS** or **N/A with a reason**. N/A is valid only when th
 - [ ] Required L5 specialized validation: PASS / N/A — reason:
 - [ ] Runtime dependency closure: PASS / N/A — reason:
 
+## Multi-agent coordination checkpoint
+
+- Cross-issue notices posted:
+- Peer candidates inspected:
+- Changed-path overlap:
+- Proposed merge order:
+- Order rationale:
+- Blocking authority/dependency dispute:
+- Authorization mode:
+
 ## Governance gates
 
 - [ ] Canonical Issue contract is still current; no unapproved scope drift.
@@ -67,6 +86,9 @@ For each gate, mark **PASS** or **N/A with a reason**. N/A is valid only when th
 - [ ] P1 findings are resolved or have an explicit accepted deferral.
 - [ ] Required CI is PASS on the exact head SHA when CI is available, or CI is explicitly NOT_AVAILABLE.
 - [ ] Dependency/stack order is valid.
+- [ ] Current drift classification is recorded; NON_MATERIAL main movement was not treated as an automatic re-anchor trigger.
+- [ ] If wave-enrolled, this PR will not merge outside the frozen Wave manifest.
+- [ ] READY/Wave enrollment has not been confused with merge authorization.
 - [ ] Rollback path is documented.
 - [ ] This PR does not smuggle unrelated cleanup/refactor into the issue.
 

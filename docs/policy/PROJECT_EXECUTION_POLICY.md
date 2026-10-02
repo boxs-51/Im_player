@@ -1,9 +1,10 @@
 # IP-POL-001 — Canonical Issue Execution & Integration Policy
 
 > **Policy ID:** IP-POL-001  
-> **Version:** 1.0.0  
+> **Version:** 1.1.0  
 > **Status:** CANONICAL after merge to `main`  
-> **Scope:** All repository Issues, implementation work, audits, Pull Requests, integration and completion claims.  
+> **Scope:** All repository Issues, implementation work, audits, multi-agent coordination, Pull Requests, integration and completion claims.  
+> **Coordination policy:** [IP-COORD-001](./MULTI_AGENT_COORDINATION_POLICY.md)  
 > **Build policy:** [IP-BUILD-001](./BUILD_POLICY.md)
 
 ## 1. Purpose
@@ -17,7 +18,9 @@ Mục tiêu:
 - không tuyên bố PASS/DONE nếu chưa có bằng chứng trên exact commit;
 - dependency và cross-issue impact phải được kiểm tra trước mọi state transition quan trọng;
 - tránh trộn scope, refactor ngoài yêu cầu và merge code chưa có gate;
-- giữ `main` là integration branch có thể kiểm chứng.
+- giữ `main` là integration branch có thể kiểm chứng;
+- cho phép nhiều owner/auditor/reviewer agent làm việc song song mà không nhập nhằng authority;
+- giảm re-anchor churn bằng stable development baseline + MATERIAL/NON_MATERIAL drift classification.
 
 ## 2. Authority hierarchy
 
@@ -26,6 +29,7 @@ Khi có xung đột, thứ tự authority là:
 ```text
 IP-POL-001
     ↓
+IP-COORD-001 (cho multi-agent coordination / integration planning)
 IP-BUILD-001 (cho build/test/dependency)
     ↓
 Canonical Issue contract + explicit owner decisions
@@ -59,6 +63,7 @@ Mọi Issue mới phải dùng Issue Template chuẩn và có tối thiểu:
 12. **Risk + rollback.**
 13. **Integration plan:** branch/PR/dependency order.
 14. **Completion evidence:** exact SHA + commands/runs/results.
+15. **Coordination checkpoint:** development baseline, parent/head dependency, drift class và wave/integration status khi có nhiều agent hoặc nhiều candidate hoạt động song song.
 
 Issue thiếu các trường bắt buộc không được chuyển sang READY.
 
@@ -105,7 +110,21 @@ Xác nhận:
 - dependency order hợp lệ;
 - PR đủ điều kiện merge.
 
-Một người có thể giữ nhiều role, nhưng evidence và gates không được bỏ qua vì role trùng nhau.
+### Wave Coordinator
+
+Chịu trách nhiệm điều phối integration giữa nhiều Issue/PR nhưng **không sở hữu technical scope** của member:
+
+- discovery các candidate và canonical owner;
+- thu thập exact HEAD/base/CI/audit/dependency state;
+- phân loại MATERIAL/NON_MATERIAL drift;
+- đề xuất order và tạo/duy trì Integration Wave;
+- phát structured cross-issue notices;
+- đưa wave tới READY khi mọi member đủ gate;
+- dừng/HOLD khi có P0/P1, authority conflict hoặc material drift.
+
+Wave Coordinator không được tự mở rộng scope member, không được biến READY thành merge authority, và không được merge production nếu chưa có authorization hợp lệ theo IP-COORD-001.
+
+Một người có thể giữ nhiều role, nhưng evidence, independent-audit requirement và authority fences không được bỏ qua vì role trùng nhau.
 
 ## 6. Severity / priority
 
@@ -229,7 +248,7 @@ audit/<number>-<short-slug>
 governance/<short-slug>
 ```
 
-Mỗi branch phải ghi nhận base SHA ban đầu trên Issue/PR.
+Mỗi branch phải ghi nhận base SHA ban đầu trên Issue/PR. Khi work có thể sống song song với lane khác, ghi thêm `DEVELOPMENT_BASE`, `PARENT_HEAD` và `AUTHORITY_SCOPE` theo IP-COORD-001.
 
 Nếu work phụ thuộc branch khác, dependency phải explicit. Không rebase/cherry-pick tùy ý làm mất lineage.
 
@@ -263,10 +282,13 @@ Stacked development được phép khi cần dependency chain, nhưng bắt bu�
 - mỗi layer có Issue/PR riêng;
 - parent/base relationship explicit;
 - không merge child trước dependency bắt buộc;
-- sau upstream merge, downstream phải re-anchor/revalidate nếu code path liên quan thay đổi;
-- evidence cũ không tự động carry-over qua head mới.
+- sau upstream merge hoặc main movement, downstream **phải classify drift trước**; re-anchor/revalidate chỉ bắt buộc khi drift là MATERIAL hoặc integration boundary thật sự yêu cầu base mới;
+- main movement NON_MATERIAL tự nó không làm invalid candidate;
+- evidence cũ không tự động carry-over qua semantic head mới.
 
 ## 11. Dependency and cross-issue rule
+
+Multi-agent/cross-issue coordination tuân theo **IP-COORD-001**. Owner/auditor/coordinator được phép chủ động đọc các active Issue/PR liên quan và gửi structured notice để xử lý dependency, drift, hold/unblock, merge-candidate hoặc order proposal. Việc trao đổi này **không chuyển technical authority** khỏi canonical Issue.
 
 Trước các transition READY, READY_FOR_REVIEW và MERGE_READY, owner phải rà:
 
@@ -318,7 +340,9 @@ Merge chỉ được phép khi:
 - dependencies đã merge hoặc gate cho phép rõ ràng;
 - review/audit blockers = 0;
 - rollback path đủ rõ;
-- branch không drift khỏi base theo cách làm invalid evidence.
+- branch không có MATERIAL drift làm invalid evidence;
+- nếu PR đã enroll trong Integration Wave thì integration phải đi qua frozen wave manifest;
+- merge dùng expected-head SHA guard để ngăn head movement ngoài audit.
 
 Sau merge phải xác nhận `main@<sha>` và required checks.
 
@@ -377,7 +401,27 @@ Mọi Issue/PR mới sau khi policy có hiệu lực phải chứa:
 
 ```text
 Policy: IP-POL-001
+Coordination Policy: IP-COORD-001
 Build Policy: IP-BUILD-001
 ```
 
+Issue/PR single-agent nhỏ vẫn phải acknowledge IP-COORD-001, nhưng có thể ghi coordination fields = N/A.
+
 Thiếu reference là contract incomplete.
+
+## 20. Multi-agent coordination and Integration Waves
+
+**IP-COORD-001** là authority phụ cho cách nhiều agent/Issue/PR tương tác và chuẩn bị integration.
+
+Các nguyên tắc bắt buộc:
+
+- canonical Issue vẫn là authority duy nhất cho scope kỹ thuật của nó;
+- owner/auditor/coordinator có thể tự động trao đổi dependency/drift và chuẩn bị merge plan mà không cần user điều phối từng bước;
+- stable development baseline được giữ cho tới khi có MATERIAL drift;
+- NON_MATERIAL main movement không bắt buộc re-anchor;
+- một candidate khi đã enroll vào Integration Wave không được merge standalone;
+- wave READY không đồng nghĩa merge-authorized;
+- production/mixed/high-risk wave chỉ được merge sau authorization hợp lệ;
+- trước từng merge phải recheck exact candidate HEAD, CI, audit, reviews, dependency và drift;
+- P0/P1, unresolved authority conflict hoặc MATERIAL drift đưa member/path về HOLD;
+- BRG #3–#9 giữ nguyên technical authority; coordination policy không tự tạo BRG PASS hoặc Phase-0 authority.

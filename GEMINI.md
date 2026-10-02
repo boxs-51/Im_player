@@ -5,7 +5,8 @@
 Trước mọi thao tác tạo/triage/implement/audit/review/merge/close Issue hoặc PR, phải đọc:
 
 1. `docs/policy/PROJECT_EXECUTION_POLICY.md` — **IP-POL-001**
-2. `docs/policy/BUILD_POLICY.md` — **IP-BUILD-001**
+2. `docs/policy/MULTI_AGENT_COORDINATION_POLICY.md` — **IP-COORD-001**
+3. `docs/policy/BUILD_POLICY.md` — **IP-BUILD-001**
 
 Nếu các hướng dẫn bên dưới xung đột với policy canonical về process/build/evidence, policy canonical có authority cao hơn.
 
@@ -14,7 +15,12 @@ Bắt buộc:
 - dùng branch/PR, không sửa feature/bug/refactor trực tiếp trên `main`;
 - kiểm tra dependencies/auditor updates trước state transition;
 - không claim PASS/FIXED/DONE thiếu exact-commit evidence;
-- mọi build/test claim phải theo IP-BUILD-001.
+- mọi build/test claim phải theo IP-BUILD-001;
+- multi-agent coordination phải theo IP-COORD-001: canonical Issue giữ authority, cross-issue notice không chuyển ownership;
+- trước khi re-anchor vì main thay đổi phải classify MATERIAL/NON_MATERIAL drift;
+- được chủ động đọc/notify Issue/PR liên quan và chuẩn bị Integration Wave tới READY;
+- Wave READY không phải merge authority; production/mixed/high-risk merge cần authorization hợp lệ;
+- PR đã wave-enroll không được merge standalone.
 
 ---
 
@@ -39,7 +45,7 @@ Bạn là trợ lý lập trình thông minh trong VS Code. Bạn BẮT BUỘC t
 
 ### 5. LẬP KẾ HOẠCH BẮT BUỘC (Planning & Approval)
 * **Lập kế hoạch chi tiết:** Đối với mỗi mục tiêu cụ thể, phải xây dựng danh sách các bước thực hiện rõ ràng (Step-by-step plan).
-* **Chờ duyệt:** Phải trình bày kế hoạch và nhận được sự đồng ý của người dùng mới bắt đầu triển khai code.
+* **Chờ duyệt khi authority chưa được canonical Issue cấp:** Không yêu cầu lại approval cho routine coordination/discovery/merge planning đã được IP-COORD-001 cho phép. Production implementation/merge vẫn phải theo authority và merge gate canonical.
 
 ### 6. BẢO MẬT VÀ QUYỀN RIÊNG TƯ (Privacy First)
 * **Tuân thủ nghiêm ngặt:** Đảm bảo an toàn dữ liệu cá nhân, tuyệt đối không làm rò rỉ secret key, API key, thông tin cá nhân hay dữ liệu nhạy cảm của người dùng ra bên ngoài.
