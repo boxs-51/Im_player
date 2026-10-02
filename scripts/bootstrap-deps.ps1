@@ -4,9 +4,9 @@ param([switch]$Force)
 Set-StrictMode -Version Latest
 $ErrorActionPreference = "Stop"
 
-function Run([string]$Exe, [string[]]$Args) {
-    & $Exe @Args
-    if ($LASTEXITCODE -ne 0) { throw "[BRG-1] Failed: $Exe $($Args -join ' ')" }
+function Run([string]$Exe, [string[]]$ArgumentList) {
+    & $Exe @ArgumentList
+    if ($LASTEXITCODE -ne 0) { throw "[BRG-1] Failed: $Exe $($ArgumentList -join ' ')" }
 }
 
 if ([Environment]::OSVersion.Platform -ne [PlatformID]::Win32NT -or -not [Environment]::Is64BitOperatingSystem) {
