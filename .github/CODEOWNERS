@@ -1,0 +1,12 @@
+# Canonical governance and integration surfaces
+/docs/policy/ @boxs-51
+/.github/ @boxs-51
+/CONTRIBUTING.md @boxs-51
+/.agents/AGENT.md @boxs-51
+/GEMINI.md @boxs-51
+
+# Build-critical surfaces governed by IP-BUILD-001
+/CMakeLists.txt @boxs-51
+/CMakePresets.json @boxs-51
+/CMakeSettings.json @boxs-51
+/vcpkg.json @boxs-51
