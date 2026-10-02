@@ -1,0 +1,147 @@
+name: Integration Wave Coordinator
+description: Coordinate one frozen multi-PR integration plan under IP-COORD-001. This issue owns integration planning only, not member technical scope.
+title: "[IW] "
+body:
+  - type: markdown
+    attributes:
+      value: |
+        ## Integration Wave governance
+
+        Governed by:
+        - IP-POL-001 — primary repository process authority
+        - IP-COORD-001 — multi-agent coordination / Integration Wave authority
+        - IP-BUILD-001 — build/test evidence authority
+
+        The Wave Coordinator may plan and move a wave through READY without a new user prompt.
+        READY is not merge authorization. Production/mixed/high-risk waves require explicit
+        `Xác nhận MERGE WAVE <WAVE_ID>`.
+
+  - type: checkboxes
+    id: policy_ack
+    attributes:
+      label: Policy acknowledgement
+      options:
+        - label: I will not change member technical scope or ownership from this coordinator issue.
+          required: true
+        - label: I will freeze exact candidate HEADs and use expected-head guards at merge.
+          required: true
+        - label: I understand READY is not merge authorization.
+          required: true
+
+  - type: input
+    id: wave_id
+    attributes:
+      label: WAVE_ID
+      placeholder: IW-YYYY-MM-DD-NN
+    validations:
+      required: true
+
+  - type: dropdown
+    id: mode
+    attributes:
+      label: Mode
+      options:
+        - SINGLE_LANE
+        - PARALLEL_LANES
+    validations:
+      required: true
+
+  - type: input
+    id: entry_main
+    attributes:
+      label: ENTRY_MAIN
+      description: Exact canonical main SHA when the wave is opened.
+      placeholder: full SHA
+    validations:
+      required: true
+
+  - type: textarea
+    id: members
+    attributes:
+      label: Frozen / provisional member manifest
+      value: |
+        1. PR #<n> @ <head sha> — Issue #<owner> — <merge class>
+        2. ...
+    validations:
+      required: true
+
+  - type: textarea
+    id: dependencies
+    attributes:
+      label: Dependency and order model
+      value: |
+        HARD_DEPENDENCIES:
+        PROPOSED_ORDER:
+        ORDER_RATIONALE:
+        PATH_OVERLAP:
+    validations:
+      required: true
+
+  - type: textarea
+    id: readiness
+    attributes:
+      label: Member readiness
+      value: |
+        PR #:
+          ISSUE_OWNER =
+          CANDIDATE_HEAD =
+          CI =
+          INDEPENDENT_AUDIT =
+          REVIEW_THREADS =
+          P0/P1 =
+          DRIFT_CLASS =
+          MERGEABLE =
+    validations:
+      required: true
+
+  - type: textarea
+    id: blockers
+    attributes:
+      label: Blockers / exclusions / next wave
+      value: |
+        BLOCKERS = NONE
+        EXCLUSIONS = NONE
+        NEXT_WAVE = NONE
+    validations:
+      required: true
+
+  - type: dropdown
+    id: wave_state
+    attributes:
+      label: WAVE_STATE
+      description: Canonical lifecycle state defined by IP-COORD-001.
+      options:
+        - DISCOVERY
+        - NEGOTIATING
+        - PLANNED
+        - READY
+        - AUTHORIZED
+        - MERGING
+        - COMPLETE
+        - HOLD
+        - CANCELLED
+    validations:
+      required: true
+
+  - type: textarea
+    id: authorization
+    attributes:
+      label: Authorization record
+      value: |
+        AUTHORIZATION_MODE = <EXPLICIT_WAVE_COMMAND | NORMAL_IP_POL_GATE | LOCAL_STRICTER_RULE | POLICY_EXCEPTION>
+        AUTHORIZATION_STATUS = <NONE | GRANTED | CONSUMED | VOID>
+        AUTHORIZED_MANIFEST = <exact member/order/head snapshot | NOT_AUTHORIZED>
+        AUTHORIZED_BY = <user | NONE>
+    validations:
+      required: true
+
+  - type: textarea
+    id: post_merge
+    attributes:
+      label: Post-member / post-wave verification
+      value: |
+        MEMBER_RESULT:
+        CANONICAL_MAIN:
+        POST_MERGE_HEALTH:
+        IN_WAVE_DRIFT_CLASS:
+        FINAL_STATE:

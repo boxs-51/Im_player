@@ -5,7 +5,8 @@
 Before creating, triaging, implementing, auditing, reviewing, merging, or closing any Issue/PR, read and follow:
 
 1. `docs/policy/PROJECT_EXECUTION_POLICY.md` — **IP-POL-001** (primary process authority)
-2. `docs/policy/BUILD_POLICY.md` — **IP-BUILD-001** (build/dependency/test authority)
+2. `docs/policy/MULTI_AGENT_COORDINATION_POLICY.md` — **IP-COORD-001** (multi-agent/cross-issue/integration-wave authority)
+3. `docs/policy/BUILD_POLICY.md` — **IP-BUILD-001** (build/dependency/test authority)
 
 Rules in these policies override local agent workflow conventions when they conflict.
 
@@ -16,7 +17,12 @@ Mandatory agent behavior:
 - never claim PASS/FIXED/DONE without exact-commit evidence;
 - never perform feature/bug/refactor work directly on `main`;
 - do not expand frozen Issue scope without updating the canonical Issue contract;
-- build/test claims must follow IP-BUILD-001.
+- build/test claims must follow IP-BUILD-001;
+- before re-anchor because main moved, classify drift under IP-COORD-001; NON_MATERIAL drift alone is not a re-anchor trigger;
+- may inspect and notify related active Issues/PRs using structured coordination notices without waiting for a new user prompt;
+- cross-issue discussion never transfers technical authority implicitly;
+- may prepare/revise an Integration Wave through READY, but READY is not merge permission;
+- if a PR is wave-enrolled, do not merge it standalone; obey the frozen manifest and expected-head guard.
 
 ---
 

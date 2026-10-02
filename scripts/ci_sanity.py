@@ -97,7 +97,11 @@ required = [
     "scripts/build.ps1",
     "docs/BUILDING.md",
     "docs/policy/PROJECT_EXECUTION_POLICY.md",
+    "docs/policy/MULTI_AGENT_COORDINATION_POLICY.md",
     "docs/policy/BUILD_POLICY.md",
+    ".github/ISSUE_TEMPLATE/canonical_work_item.yml",
+    ".github/ISSUE_TEMPLATE/integration_wave.yml",
+    ".github/pull_request_template.md",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:

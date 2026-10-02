@@ -10,6 +10,9 @@ body:
         Every issue is governed by **IP-POL-001 — Canonical Issue Execution & Integration Policy**:
         https://github.com/boxs-51/Im_player/blob/main/docs/policy/PROJECT_EXECUTION_POLICY.md
 
+        Multi-agent/cross-issue coordination is governed by **IP-COORD-001**:
+        https://github.com/boxs-51/Im_player/blob/main/docs/policy/MULTI_AGENT_COORDINATION_POLICY.md
+
         Build/dependency/test work is also governed by **IP-BUILD-001**:
         https://github.com/boxs-51/Im_player/blob/main/docs/policy/BUILD_POLICY.md
 
@@ -21,6 +24,8 @@ body:
       label: Policy acknowledgement
       options:
         - label: I have read and will follow IP-POL-001.
+          required: true
+        - label: I will follow IP-COORD-001 for multi-agent/cross-issue coordination and integration planning.
           required: true
         - label: I will follow IP-BUILD-001 for any build/dependency/test claims.
           required: true
@@ -121,6 +126,48 @@ body:
     validations:
       required: true
 
+  - type: dropdown
+    id: coordination_mode
+    attributes:
+      label: Coordination / lane mode
+      description: Select the initial integration-coordination mode under IP-COORD-001.
+      options:
+        - SINGLE_LANE
+        - PARALLEL_LANES
+        - N/A — non-integrated audit/docs task
+    validations:
+      required: true
+
+  - type: textarea
+    id: coordination_checkpoint
+    attributes:
+      label: Stable development / coordination checkpoint
+      description: Record exact baseline/parent/authority and current integration disposition.
+      value: |
+        DEVELOPMENT_BASE = <sha>
+        PARENT_HEAD = <sha | NONE>
+        AUTHORITY_SCOPE = <frozen scope summary>
+        DRIFT_CLASS = <NON_MATERIAL | MATERIAL | UNKNOWN | N/A>
+        WAVE_ID = <not-assigned | IW-... | N/A>
+        INTEGRATION_STATUS = <NOT_ENROLLED | WAVE_CANDIDATE | ENROLLED | HOLD | N/A>
+    validations:
+      required: true
+
+  - type: textarea
+    id: merge_planning
+    attributes:
+      label: Cross-issue / merge-planning context
+      description: Known peer candidates, proposed order, blockers and authorization path.
+      value: |
+        MERGE_CANDIDATE = <PR | not-yet>
+        PEER_CANDIDATES = <refs | NONE>
+        PROPOSED_ORDER = <order | unresolved>
+        ORDER_RATIONALE = <short reason>
+        BLOCKERS = <refs | NONE>
+        AUTHORIZATION_MODE = <EXPLICIT_WAVE_COMMAND | NORMAL_IP_POL_GATE | LOCAL_STRICTER_RULE | POLICY_EXCEPTION | N/A>
+    validations:
+      required: true
+
   - type: textarea
     id: acceptance
     attributes:
@@ -171,6 +218,10 @@ body:
   - type: markdown
     attributes:
       value: |
+        ### Coordination + completion evidence
+
+        Before READY / READY_FOR_REVIEW / MERGE_READY, classify dependency/drift and update Wave status when applicable. Cross-issue notices should use IP-COORD-001 prefixes.
+
         ### Completion evidence
 
         Before READY_FOR_REVIEW / MERGE_READY / DONE, update this issue with:
