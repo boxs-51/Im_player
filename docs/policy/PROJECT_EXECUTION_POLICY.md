@@ -405,9 +405,15 @@ Coordination Policy: IP-COORD-001
 Build Policy: IP-BUILD-001
 ```
 
-Issue/PR single-agent nhỏ vẫn phải acknowledge IP-COORD-001, nhưng có thể ghi coordination fields = N/A.
+Issue/PR mới sau v1.1.0 dù single-agent vẫn phải acknowledge IP-COORD-001, nhưng có thể ghi coordination fields = N/A.
 
-Thiếu reference là contract incomplete.
+### v1.0.x -> v1.1.0 compatibility
+
+Issues/PRs đã tồn tại trước khi v1.1.0 trở thành canonical được **grandfathered** về initial template/reference fields. Chúng không bị invalid, không mất READY/CI/evidence và không bắt buộc re-anchor chỉ vì policy docs thay đổi.
+
+Tại transition quan trọng tiếp theo, active work nên bổ sung coordination checkpoint nếu có cross-issue/parallel-lane relevance. Technical evidence chỉ cần refresh khi IP-COORD-001 classify drift là MATERIAL hoặc head semantics thay đổi.
+
+Với Issue/PR mới sau khi v1.1.0 canonical, thiếu mandatory references là contract incomplete.
 
 ## 20. Multi-agent coordination and Integration Waves
 

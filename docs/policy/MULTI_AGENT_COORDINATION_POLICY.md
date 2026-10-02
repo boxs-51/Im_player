@@ -294,3 +294,17 @@ Concepts in this policy were informed by the working multi-agent governance in `
 - Integration Waves.
 
 This repository intentionally keeps its own policy IDs, issue lifecycle, build gates and BRG authority.
+
+## 20. Backward-compatible adoption
+
+IP-COORD-001 v1.0.0 là additive coordination governance.
+
+- active Issues/PRs opened before this policy is canonical are grandfathered for initial template/reference fields;
+- missing historical coordination fields alone does not invalidate CLAIM/READY/CI/runtime evidence;
+- policy-doc landing with zero shared technical semantic impact should normally classify NON_MATERIAL for active production candidates;
+- active work adopts the coordination checkpoint at the next relevant state transition, refresh, dependency negotiation or Wave enrollment;
+- no existing technical authority is widened by adoption;
+- no candidate is forced to re-anchor solely to rewrite metadata;
+- future new Issues/PRs must use the current templates and references.
+
+This compatibility rule is why IP-POL-001 moves from v1.0.0 to v1.1.0 rather than a breaking major-version reset: technical authority, P0/P1 gates, exact-evidence requirements and merge safety are preserved; the change adds coordination capabilities and metadata.
