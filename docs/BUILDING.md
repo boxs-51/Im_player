@@ -96,8 +96,13 @@ deps/
 CMake explicitly copies `libmpv-2.dll` next to `Im_player.exe`.
 vcpkg uses app-local deployment for its runtime DLLs.
 
-A compile/link success is not L2 PASS. The executable must actually be
-launched on Windows without missing-DLL/resource errors.
+BRG-1 runtime-closure acceptance requires the produced executable to launch
+on Windows without missing-DLL/resource errors.
+
+This BRG-1 check is **not** a claim that full IP-BUILD-001 L2 has passed.
+Canonical L2 is Startup/Shutdown Smoke and also requires a clean exit.
+Per IP-BUILD-001 §16, #8 BRG-5 owns most baseline L2-L5 evidence; #4 only
+establishes the reproducible build/dependency contract in §§2-9.
 
 ## Header authority
 
@@ -128,11 +133,15 @@ manual toolchain definition.
 Until the fresh-clone commands are executed on the exact PR head:
 
 ```text
-L0 Configure = NEEDS-RUNTIME-PROOF
-L1 Debug     = NEEDS-RUNTIME-PROOF
-L1 Release   = NEEDS-RUNTIME-PROOF
-L2 Launch    = NEEDS-RUNTIME-PROOF
-CI           = NOT_AVAILABLE (BRG-2 #5)
+Fresh-clone configure       = NEEDS-RUNTIME-PROOF
+Debug build                 = NEEDS-RUNTIME-PROOF
+Release build               = NEEDS-RUNTIME-PROOF
+BRG-1 runtime startup closure = NEEDS-RUNTIME-PROOF
+Full L2 Startup/Shutdown    = NOT CLAIMED BY #4 (baseline owner: #8)
+CI                          = NOT_AVAILABLE (BRG-2 #5)
 ```
 
 Documentation or static review alone must not convert these statuses to PASS.
+A successful BRG-1 startup check proves dependency/runtime closure only; it
+must not be relabeled as full L2 unless clean shutdown is also proven by the
+issue that owns that validation gate.
