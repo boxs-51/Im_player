@@ -5,7 +5,6 @@
 
 
 #include <imgui_internal.h>
-#include <util.h>
 #include <string>
 #include <vector>
 #include <SDL.h>
