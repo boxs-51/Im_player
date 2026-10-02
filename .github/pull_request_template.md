@@ -76,7 +76,7 @@ For each gate, mark **PASS** or **N/A with a reason**. N/A is valid only when th
 - Proposed merge order:
 - Order rationale:
 - Blocking authority/dependency dispute:
-- Authorization mode:
+- Authorization mode: EXPLICIT_WAVE_COMMAND / NORMAL_IP_POL_GATE / LOCAL_STRICTER_RULE / POLICY_EXCEPTION / N/A
 
 ## Governance gates
 

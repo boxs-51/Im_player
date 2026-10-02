@@ -151,10 +151,11 @@ DISCOVERY
   -> MERGING
   -> COMPLETE
 
-Any non-COMPLETE state -> HOLD when a required gate fails.
-HOLD -> last valid pre-HOLD state only after blocker closure and fresh required revalidation.
-Any non-COMPLETE state -> CANCELLED by an explicit coordinator record.
-CANCELLED is terminal for that Wave ID.
+Any active state in {DISCOVERY, NEGOTIATING, PLANNED, READY, AUTHORIZED, MERGING} -> HOLD when a required gate fails.
+
+HOLD may resume only to DISCOVERY, NEGOTIATING, PLANNED or READY after blocker closure and fresh required revalidation. If HOLD was entered from AUTHORIZED or MERGING, the prior authorization must first be marked VOID and the Wave may not resume directly to AUTHORIZED/MERGING; fresh authorization is required.
+
+Any active state or HOLD -> CANCELLED by an explicit coordinator record. CANCELLED is terminal for that Wave ID.
 ```
 
 READY chỉ có nghĩa manifest/gates đã frozen/green. READY **không phải merge authority**.
@@ -210,15 +211,30 @@ Blocked independent member nên được defer/exclude thay vì freeze các READ
 
 Autonomous planning != autonomous production merge.
 
-Wave chứa production/mixed/high-risk member yêu cầu explicit authorization:
+Every Wave must record one authorization mode:
+
+```text
+AUTHORIZATION_MODE =
+  EXPLICIT_WAVE_COMMAND
+  | NORMAL_IP_POL_GATE
+  | LOCAL_STRICTER_RULE
+  | POLICY_EXCEPTION
+```
+
+Default rules:
+- any Wave containing production, mixed or high-risk member uses `EXPLICIT_WAVE_COMMAND` unless a member's canonical Issue imposes a stricter local authorization rule;
+- the explicit repository command is:
 
 ```text
 Xác nhận MERGE WAVE <WAVE_ID>
 ```
 
-Equivalent wording chỉ hợp lệ khi nêu exact Wave ID và frozen manifest.
+  Equivalent wording chỉ hợp lệ khi nêu exact Wave ID và frozen manifest;
+- governance/docs-only Waves, and build/CI-only Waves not classified high-risk, may use `NORMAL_IP_POL_GATE` only when every member canonical Issue is MERGE_READY and all IP-POL-001 merge gates are satisfied on the frozen exact heads;
+- if any member has a stricter local/manual authorization requirement, the Wave must use `LOCAL_STRICTER_RULE` and record that requirement; the stricter rule wins;
+- `POLICY_EXCEPTION` is valid only with an explicit IP-POL-001 exception record.
 
-Authorization chỉ áp dụng cho exact manifest/order/heads đã READY. Khi explicit authorization hợp lệ:
+READY never grants authorization by itself. After the applicable authorization mode is actually satisfied and rechecked:
 - `AUTHORIZATION_STATUS=GRANTED`;
 - `WAVE_STATE=AUTHORIZED`.
 

@@ -164,7 +164,7 @@ body:
         PROPOSED_ORDER = <order | unresolved>
         ORDER_RATIONALE = <short reason>
         BLOCKERS = <refs | NONE>
-        AUTHORIZATION_MODE = <wave command | manual PR | N/A>
+        AUTHORIZATION_MODE = <EXPLICIT_WAVE_COMMAND | NORMAL_IP_POL_GATE | LOCAL_STRICTER_RULE | POLICY_EXCEPTION | N/A>
     validations:
       required: true
 

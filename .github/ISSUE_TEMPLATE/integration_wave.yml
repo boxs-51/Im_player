@@ -128,7 +128,7 @@ body:
     attributes:
       label: Authorization record
       value: |
-        AUTHORIZATION_MODE = <explicit wave command | N/A>
+        AUTHORIZATION_MODE = <EXPLICIT_WAVE_COMMAND | NORMAL_IP_POL_GATE | LOCAL_STRICTER_RULE | POLICY_EXCEPTION>
         AUTHORIZATION_STATUS = <NONE | GRANTED | CONSUMED | VOID>
         AUTHORIZED_MANIFEST = <exact member/order/head snapshot | NOT_AUTHORIZED>
         AUTHORIZED_BY = <user | NONE>
