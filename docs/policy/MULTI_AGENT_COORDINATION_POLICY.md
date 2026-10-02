@@ -135,7 +135,7 @@ Trước merge authorization, owner/auditor/coordinator được phép tự đ�
 6. create/revise a Wave coordinator Issue;
 7. add/remove/defer/reorder pre-authorization members;
 8. freeze exact candidate HEADs when gates pass;
-9. move plan through DISCOVERY/NEGOTIATING/PLANNED/READY/HOLD;
+9. move plan through DISCOVERY/NEGOTIATING/PLANNED/READY/HOLD and record CANCELLED when an abandoned plan is explicitly terminated;
 10. maintain a next-wave queue.
 
 Không cần user command cho các coordination steps này.
@@ -151,10 +151,20 @@ DISCOVERY
   -> MERGING
   -> COMPLETE
 
-Any pre-COMPLETE state -> HOLD when a required gate fails.
+Any non-COMPLETE state -> HOLD when a required gate fails.
+HOLD -> last valid pre-HOLD state only after blocker closure and fresh required revalidation.
+Any non-COMPLETE state -> CANCELLED by an explicit coordinator record.
+CANCELLED is terminal for that Wave ID.
 ```
 
 READY chỉ có nghĩa manifest/gates đã frozen/green. READY **không phải merge authority**.
+
+`WAVE_STATE` là lifecycle state duy nhất của coordinator. Authorization được ghi riêng bằng `AUTHORIZATION_STATUS` để không trộn planning state với merge authority.
+
+Nếu Wave bị CANCELLED:
+- mọi authorization chưa consume trở thành VOID;
+- không member nào còn được merge dưới Wave ID đó;
+- nếu đã có partial merge, coordinator phải ghi landed members, canonical main và post-merge health trước khi đóng record.
 
 ## 10. Integration Wave manifest
 
@@ -173,10 +183,13 @@ DRIFT_CLASS             = current disposition
 BLOCKERS                = P0/P1/CI/review/authority
 EXCLUSIONS / NEXT_WAVE
 AUTHORIZATION_MODE
-AUTHORIZATION_STATE     = OPEN | READY | AUTHORIZED | MERGING | COMPLETE | HOLD
+AUTHORIZATION_STATUS    = NONE | GRANTED | CONSUMED | VOID
+WAVE_STATE              = DISCOVERY | NEGOTIATING | PLANNED | READY | AUTHORIZED | MERGING | COMPLETE | HOLD | CANCELLED
 ```
 
-Một PR đã enroll không được merge standalone cho tới khi bị explicit WAVE-EXCLUSION trước authorization hoặc Wave hoàn tất/cancel.
+Một PR đã enroll không được merge standalone cho tới khi bị explicit WAVE-EXCLUSION trước authorization hoặc Wave đạt COMPLETE/CANCELLED.
+
+Sau khi Wave ở AUTHORIZED hoặc MERGING, add/remove/reorder/exclude member có dependency significance sẽ invalidate authorization liên quan, đặt `AUTHORIZATION_STATUS=VOID` và chuyển Wave về HOLD/NEGOTIATING trước khi lập manifest mới.
 
 ## 11. Wave readiness
 
@@ -205,7 +218,17 @@ Xác nhận MERGE WAVE <WAVE_ID>
 
 Equivalent wording chỉ hợp lệ khi nêu exact Wave ID và frozen manifest.
 
-Authorization chỉ áp dụng cho exact manifest/order/heads đã READY. Semantic head change, scope expansion, dependency-significant reorder, MATERIAL drift hoặc new P0/P1 invalidates affected member authorization.
+Authorization chỉ áp dụng cho exact manifest/order/heads đã READY. Khi explicit authorization hợp lệ:
+- `AUTHORIZATION_STATUS=GRANTED`;
+- `WAVE_STATE=AUTHORIZED`.
+
+Semantic head change, scope expansion, dependency-significant reorder, MATERIAL drift hoặc new P0/P1 invalidates affected authorization:
+- `AUTHORIZATION_STATUS=VOID`;
+- affected Wave/member path chuyển HOLD cho tới khi được revalidated và authorized lại.
+
+Khi toàn bộ authorized manifest merge xong và post-wave health đạt yêu cầu:
+- `AUTHORIZATION_STATUS=CONSUMED`;
+- `WAVE_STATE=COMPLETE`.
 
 Governance/docs-only work ngoài Wave tiếp tục theo normal IP-POL-001 merge gate. Khi đã enroll, Wave trở thành integration path.
 
@@ -226,7 +249,7 @@ Independent path-disjoint members:
 - no automatic re-anchor requirement;
 - still recheck mergeability + exact-head CI/audit + cross-drift facts.
 
-Only one Wave should be AUTHORIZED/MERGING at a time unless an explicit IP-POL-001 exception exists.
+Only one Wave **MUST** be AUTHORIZED or MERGING at a time unless an explicit IP-POL-001 exception exists.
 
 ## 14. Expected-head and evidence rules
 

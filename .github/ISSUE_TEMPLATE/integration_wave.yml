@@ -106,17 +106,20 @@ body:
       required: true
 
   - type: dropdown
-    id: auth_state
+    id: wave_state
     attributes:
-      label: AUTHORIZATION_STATE
+      label: WAVE_STATE
+      description: Canonical lifecycle state defined by IP-COORD-001.
       options:
-        - OPEN
-        - HOLD
+        - DISCOVERY
+        - NEGOTIATING
         - PLANNED
         - READY
         - AUTHORIZED
         - MERGING
         - COMPLETE
+        - HOLD
+        - CANCELLED
     validations:
       required: true
 
@@ -126,6 +129,7 @@ body:
       label: Authorization record
       value: |
         AUTHORIZATION_MODE = <explicit wave command | N/A>
+        AUTHORIZATION_STATUS = <NONE | GRANTED | CONSUMED | VOID>
         AUTHORIZED_MANIFEST = <exact member/order/head snapshot | NOT_AUTHORIZED>
         AUTHORIZED_BY = <user | NONE>
     validations:
