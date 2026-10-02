@@ -2,7 +2,6 @@
 #include "utils.h"
 #include "json.hpp"
 
-#include "thread.h"
 #include "notification.h"
 #include "stb_image.h"
 #include <popup/popup.h>
