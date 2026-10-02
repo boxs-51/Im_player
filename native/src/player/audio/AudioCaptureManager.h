@@ -1,7 +1,7 @@
 #pragma once
 
 #include <Windows.h>
-#include <client.h>
+#include <mpv/client.h>
 #include <thread>
 #include <functional>
 #include <atomic>
