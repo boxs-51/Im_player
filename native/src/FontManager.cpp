@@ -29,6 +29,7 @@ bool FontManager::IsEmojiFont(const std::string& family, const std::string& file
 
 void FontManager::ScanDirectories(const std::vector<std::string>& dirs) {
     std::lock_guard<std::mutex> lock(m_mutex);
+    ++m_generation;
     m_fontRegistry.clear();
     m_fontList.clear();
 
@@ -78,9 +79,10 @@ bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
 
     std::string filePath;
     std::string fontId;
+    std::uint64_t generation = 0;
 
-    // Snapshot descriptor state under the manager lock. Do not hold the global
-    // mutex across filesystem I/O.
+    // Snapshot descriptor state and registry generation under the manager lock.
+    // File I/O remains outside the mutex.
     {
         std::lock_guard<std::mutex> lock(m_mutex);
         if (desc->fileData && !desc->fileData->empty()) {
@@ -89,6 +91,7 @@ bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
 
         filePath = desc->filePath;
         fontId = desc->id;
+        generation = m_generation;
     }
 
     std::ifstream fi(filePath, std::ios::binary);
@@ -106,13 +109,22 @@ bool FontManager::EnsureFontDataLoaded(std::shared_ptr<FontDescriptor> desc) {
     if (!fi) return false;
 
     // Another thread may have loaded the same descriptor while this thread was
-    // doing I/O. Publish only if still empty.
+    // doing I/O. Shutdown or a rescan invalidates this load generation, so stale
+    // I/O is never published back into a retired descriptor lifecycle.
+    bool available = false;
     {
         std::lock_guard<std::mutex> lock(m_mutex);
+        if (generation != m_generation) {
+            return false;
+        }
+
         if (!desc->fileData || desc->fileData->empty()) {
             desc->fileData = std::move(loadedData);
         }
+        available = desc->fileData && !desc->fileData->empty();
     }
+
+    if (!available) return false;
 
     LOG(1, LogLevel::Info, LogCategory::System,
         "[FontManager] Lazy-loaded font data: %s (%d KB)",
@@ -171,6 +183,7 @@ FontManager::SystemFontSet FontManager::GetSystemFontSet(const std::string& pref
 
 void FontManager::Shutdown() {
     std::lock_guard<std::mutex> lock(m_mutex);
+    ++m_generation;
     for (auto& [id, desc] : m_fontRegistry) {
         if (desc && desc->fileData) {
             desc->fileData->clear();

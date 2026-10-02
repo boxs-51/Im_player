@@ -233,6 +233,9 @@ destroy_window_body = extract_function_body(
 font_load_body = extract_function_body(
     font_manager_cpp, "bool FontManager::EnsureFontDataLoaded"
 )
+font_shutdown_body = extract_function_body(
+    font_manager_cpp, "void FontManager::Shutdown"
+)
 
 manager_lock = "std::lock_guard<std::mutex> lock(m_sessionsMutex)"
 window_lock = "std::lock_guard<std::mutex> lock(m_windowsMutex)"
@@ -252,6 +255,12 @@ if not token_is_under_lock(
     font_load_body, "desc->fileData = std::move(loadedData)", font_lock
 ):
     fail("BRG-4: font data publication must execute under FontManager mutex")
+if "generation = m_generation;" not in font_load_body:
+    fail("BRG-4: lazy font load must snapshot the registry generation")
+if "generation != m_generation" not in font_load_body:
+    fail("BRG-4: stale lazy font load must be rejected after lifecycle change")
+if "++m_generation;" not in font_shutdown_body:
+    fail("BRG-4: FontManager shutdown must invalidate in-flight lazy loads")
 
 destroy_all_index = main_cpp.find("PlayerManager::GetInstance().DestroyAllSessions();")
 font_shutdown_index = main_cpp.find("FontManager::Instance().Shutdown();")

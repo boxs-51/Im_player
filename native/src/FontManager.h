@@ -5,6 +5,7 @@
 #include <unordered_map>
 #include <filesystem>
 #include <mutex>
+#include <cstdint>
 
 namespace fs = std::filesystem;
 
@@ -53,4 +54,5 @@ private:
     mutable std::mutex m_mutex;
     std::unordered_map<std::string, std::shared_ptr<FontDescriptor>> m_fontRegistry;
     std::vector<std::shared_ptr<FontDescriptor>> m_fontList;
+    std::uint64_t m_generation = 0;
 };
