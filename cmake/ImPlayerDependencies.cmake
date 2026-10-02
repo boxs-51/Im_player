@@ -53,6 +53,20 @@ function(implayer_apply_dependency_includes target_name)
         message(FATAL_ERROR "Unknown target passed to implayer_apply_dependency_includes: ${target_name}")
     endif()
 
+    # Some existing source files use <SDL.h>, while one uses <SDL2/SDL.h>.
+    # Keep both forms package-owned by exposing the vcpkg include root in
+    # addition to the target's own include directory.
+    if(DEFINED VCPKG_INSTALLED_DIR)
+        set(_vcpkg_include_root
+            "${VCPKG_INSTALLED_DIR}/${VCPKG_TARGET_TRIPLET}/include"
+        )
+        if(EXISTS "${_vcpkg_include_root}")
+            target_include_directories(
+                "${target_name}" BEFORE PRIVATE "${_vcpkg_include_root}"
+            )
+        endif()
+    endif()
+
     foreach(dep_target
         mpv::mpv
         SDL2::SDL2
