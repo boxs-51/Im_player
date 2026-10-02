@@ -33,8 +33,21 @@ PlayerSession *PlayerManager::CreateSession(const std::string &id, WindowRuntime
         m_pendingSessionIds.insert(sessionId);
     }
 
-    auto session = std::make_unique<PlayerSession>(sessionId);
-    const bool initialized = session->Init(runtime);
+    std::unique_ptr<PlayerSession> session;
+    bool initialized = false;
+
+    try {
+        session = std::make_unique<PlayerSession>(sessionId);
+        initialized = session->Init(runtime);
+    }
+    catch (...) {
+        // A failed constructor/external Init must never leave the ID reserved.
+        // Cleanup is manager-state only and happens before propagating the
+        // original exception to the caller.
+        std::lock_guard<std::mutex> lock(m_sessionsMutex);
+        m_pendingSessionIds.erase(sessionId);
+        throw;
+    }
 
     {
         std::lock_guard<std::mutex> lock(m_sessionsMutex);
