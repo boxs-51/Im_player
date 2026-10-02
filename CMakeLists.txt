@@ -1,20 +1,31 @@
-cmake_minimum_required(VERSION 3.20)
-project(Im_player)
+cmake_minimum_required(VERSION 4.2)
+project(Im_player LANGUAGES C CXX)
 
-# ================== C++ CONFIG ==================
+# BRG-1 canonical build contract:
+# - Windows x64 / MSVC ABI
+# - Visual Studio 18 2026 + v145 toolset via CMakePresets.json
+# - vcpkg owns SDL2 / FreeType / CPR / OpenSSL
+# - provisioned libmpv owns mpv headers + runtime/import library
+# See docs/BUILDING.md and deps.lock.json.
+
+if(NOT WIN32)
+    message(FATAL_ERROR "Im_player BRG-1 baseline supports Windows only.")
+endif()
+
+if(NOT MSVC)
+    message(FATAL_ERROR "Im_player BRG-1 baseline requires the MSVC ABI/toolchain.")
+endif()
+
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-set(CMAKE_TOOLCHAIN_FILE ${CMAKE_SOURCE_DIR}/vcpkg/scripts/buildsystems/vcpkg.cmake)
-set(VCPKG_TARGET_TRIPLET x64-windows)
+set(CMAKE_CXX_EXTENSIONS OFF)
 
-find_package(SDL2 CONFIG REQUIRED)
-find_package(freetype CONFIG REQUIRED)
-find_package(cpr CONFIG REQUIRED)
-find_package(OpenSSL REQUIRED)
+include(cmake/ImPlayerDependencies.cmake)
 
-# ================== EXECUTABLE ==================
+# Source graph decision (BRG-1):
+# native/src/api/api_manager.cpp is intentionally EXCLUDED-PROTOTYPE.
+# Activating it requires a dedicated Issue because it changes runtime behavior.
 add_executable(Im_player WIN32
-    #
     native/src/main1.cpp
     native/src/utils.cpp
     native/src/FontManager.cpp
@@ -27,10 +38,10 @@ add_executable(Im_player WIN32
     native/include/stb_impl.cpp
     native/include/pffft/pffft.c
     native/include/pffft/pffft_common.c
-    # 
+
     native/src/windows/main/mpv_ui.cpp
     native/src/windows/main/mpv_ui_settings.cpp
-    #
+
     native/src/player/audio/filter/af_m_core.cpp
     native/src/player/audio/filter/af_m_ai.cpp
     native/src/player/audio/filter/af_m_io.cpp
@@ -41,32 +52,23 @@ add_executable(Im_player WIN32
     native/src/player/audio/filter/af_m_dispatcher.cpp
     native/src/player/audio/filter/af_m_engine.cpp
     native/src/player/audio/AudioCaptureManager.cpp
-    #
+
     native/src/player/video/filter/video_filter_manager.cpp
-    #
     native/src/player/shaders/shader_manager.cpp
-    #
     native/src/player/scripts/script_manager.cpp
-    #
     native/src/player/command/PlaybackCommand.cpp
-    #
     native/src/player/event/PlaybackObserver.cpp
     native/src/player/event/BuildFormatYTDLP.cpp
-    #
     native/src/player/player/Player.cpp
-    #
     native/src/player/property/PlayBackProperty.cpp
-    #
     native/src/player/render/PlayBackRender.cpp
     native/src/player/render/OpenGLFrameBufferPool.cpp
     native/src/player/render/PlayBackRenderThread.cpp
-    #
     native/src/player/session/PlayerSession.cpp
     native/src/player/session/PlayerManager.cpp
 
     native/src/windows/main/MainWindowRenderer.cpp
     native/src/windows/sub/MockSubWindowRenderer.cpp
-
     native/src/windows/WindowController.cpp
     native/src/windows/WindowProcHook.cpp
     native/src/windows/UIRenderThread.cpp
@@ -74,9 +76,7 @@ add_executable(Im_player WIN32
     native/src/windows/WindowInitializer.cpp
     native/src/windows/WindowRelation.cpp
     native/src/windows/NativeWindowRegistrar.cpp
-    #
 
-    #
     native/include/imgui/imgui.cpp
     native/include/imgui/imgui_draw.cpp
     native/include/imgui/imgui_tables.cpp
@@ -86,7 +86,7 @@ add_executable(Im_player WIN32
     native/include/imgui/backends/imgui_impl_sdl2.cpp
     native/include/imgui/backends/imgui_impl_opengl3.cpp
     native/include/imgui/backends/imgui_impl_dx11.cpp
-    #
+
     native/src/popup/popup_about_video.cpp
     native/src/popup/popup_setting.cpp
     native/src/popup/popup_url.cpp
@@ -94,10 +94,9 @@ add_executable(Im_player WIN32
     native/src/popup/popup_test.cpp
     native/src/popup/reusable_popup.cpp
     native/src/popup/sidebar_popup.cpp
-    #
+
     native/src/backends/client_backend.cpp
     native/src/backends/backend.cpp
-    #
     native/src/threads/thread_manager.cpp
 
     native/src/windows/main/ui/ui_controls.cpp
@@ -119,6 +118,8 @@ add_executable(Im_player WIN32
     native/src/gui/widgets/gui_text.cpp
     native/src/gui/widgets/gui_tooltip.cpp
     native/src/gui/widgets/gui_table.cpp
+    native/src/gui/widgets/gui_status.cpp
+
     native/src/windows/Evevnt.cpp
     native/src/windows/RuntimeFontController.cpp
 
@@ -126,14 +127,9 @@ add_executable(Im_player WIN32
     native/src/player/audio/Audio.cpp
     native/src/player/audio/AudioProcessor.cpp
     native/src/player/audio/SdlAudioDevice.cpp
-    native/src/gui/widgets/gui_status.cpp
-    
-    
 )
 
-# ================== WINDOWS DEFINES ==================
 target_compile_definitions(Im_player PRIVATE
-
     SDL_MAIN_HANDLED
     UNICODE
     _UNICODE
@@ -145,16 +141,20 @@ target_compile_definitions(Im_player PRIVATE
     PFFFT_EXPORTS
     ENABLE_LOG
 )
-# Include path
-target_include_directories(Im_player PRIVATE
-    native/include   
-    native/src 
 
-    native/include/mpv      
-    native/src/player  
+# Package-owned include directories are inserted BEFORE native/include so
+# vendored legacy copies cannot shadow the canonical dependency headers.
+implayer_apply_dependency_includes(Im_player)
+
+target_include_directories(Im_player PRIVATE
+    native/include
+    native/src
+
+    native/src/player
     native/src/player/shaders
     native/src/player/scripts
     native/src/player/audio
+    native/src/player/audio/filter
     native/src/player/video
     native/src/player/command
     native/src/player/event
@@ -168,15 +168,11 @@ target_include_directories(Im_player PRIVATE
     native/src/gui/widgets
     native/src/gui/draw
 
-    native/include/nlohmann  
+    native/include/nlohmann
     native/include/KHR
     native/include/GL
-    native/include/freetype2
-    native/include/SDL2
     native/include/compat
     native/include/curl
-    native/include/cpr
-    native/include/openssl
     native/include/pffft
     native/include/pffft/simd
 
@@ -197,34 +193,33 @@ target_include_directories(Im_player PRIVATE
 target_link_libraries(Im_player PRIVATE
     SDL2::SDL2
     SDL2::SDL2main
-    ${CMAKE_SOURCE_DIR}/libs/libmpv.dll.a
-    opengl32
-    winhttp
-    dwmapi
-    freetype
+    Freetype::Freetype
     cpr::cpr
     OpenSSL::Crypto
     OpenSSL::SSL
+    mpv::mpv
+    opengl32
+    winhttp
+    dwmapi
     d3d11
-    dxgi 
+    dxgi
 )
 
 set_target_properties(Im_player PROPERTIES
-    RUNTIME_OUTPUT_DIRECTORY_DEBUG   ${CMAKE_SOURCE_DIR}/bin/Debug
-    RUNTIME_OUTPUT_DIRECTORY_RELEASE ${CMAKE_SOURCE_DIR}/bin/Release
+    RUNTIME_OUTPUT_DIRECTORY_DEBUG   "${CMAKE_SOURCE_DIR}/bin/Debug"
+    RUNTIME_OUTPUT_DIRECTORY_RELEASE "${CMAKE_SOURCE_DIR}/bin/Release"
 )
 
-if(WIN32)
-    add_custom_command(TARGET Im_player POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy_if_different
-        "${CMAKE_SOURCE_DIR}/libs/libmpv-2.dll" # Copy thủ công mpv
+# libmpv is not vcpkg-managed, so make its runtime closure explicit.
+add_custom_command(TARGET Im_player POST_BUILD
+    COMMAND ${CMAKE_COMMAND} -E copy_if_different
+        "$<TARGET_FILE:mpv::mpv>"
         "$<TARGET_FILE_DIR:Im_player>"
-    )
-    
-    # Lệnh này yêu cầu vcpkg tự copy các file phụ thuộc khác
-    set_target_properties(Im_player PROPERTIES VS_USER_PROPS_CXX_DEFAULT "true")
+    COMMENT "Copying pinned libmpv runtime"
+)
 
-    set_target_properties(Im_player PROPERTIES 
-        LINK_FLAGS "/SUBSYSTEM:WINDOWS /ENTRY:mainCRTStartup"
-    )
-endif()
+# Keep the current Win32/main entry contract unchanged.
+target_link_options(Im_player PRIVATE
+    /SUBSYSTEM:WINDOWS
+    /ENTRY:mainCRTStartup
+)
