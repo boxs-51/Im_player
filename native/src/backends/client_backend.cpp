@@ -1,6 +1,7 @@
 #include "utils.h"
 #include "json.hpp"
-#include "cpr.h"
+#include <cpr/cpr.h>
+#include <cpr/util.h>
 #include "client_backend.h"
 #include "stb_image.h"
 
