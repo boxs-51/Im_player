@@ -5,6 +5,7 @@
 #include <imgui.h>
 #include <memory>
 #include <atomic>
+#include <cstdint>
 #include <any>
 #include <SDL.h>
 #include <chrono>
@@ -63,6 +64,7 @@ private:
     struct RenderUpdateCallbackState {
         RenderCallbackLifetimeGate lifetime;
         std::atomic<PlayBackRenderThread*> thread{nullptr};
+        std::atomic<std::uint64_t> acceptedCallbacks{0};
     };
 
     static void HandleRenderUpdate(void* userdata) noexcept;

@@ -2,10 +2,14 @@
 #include "WindowRuntime.h"
 #include <SDL.h>
 #include <log.h>
-PlayerSession::PlayerSession(std::string id) : m_id(std::move(id)) {}
+#include "common/LifecycleEvidence.h"
+PlayerSession::PlayerSession(std::string id) : m_id(std::move(id)) {
+    LifecycleEvidence::Emit("PlayerSession", "CREATE", m_id);
+}
 
 PlayerSession::~PlayerSession() {
     Shutdown();
+    LifecycleEvidence::Emit("PlayerSession", "DESTROY", m_id);
 }
 
 bool PlayerSession::Init(WindowRuntime* runtime) {
@@ -67,10 +71,18 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
     m_observer = std::make_unique<PlaybackObserver>(*m_player, *m_state, *m_commander);
     m_observer->Init();
 
+    LifecycleEvidence::Emit("PlayerSession", "START", m_id);
     return true;
 }
 
 void PlayerSession::Shutdown() {
+    const bool hadRuntime =
+        m_renderer || m_audioFilterManager || m_audio || m_observer ||
+        m_commander || m_property || m_player;
+    if (hadRuntime) {
+        LifecycleEvidence::Emit("PlayerSession", "STOP", m_id);
+    }
+
     // Shutdown Renderer
     if (m_renderer) m_renderer->Shutdown();
     m_renderer.reset();

@@ -1,0 +1,412 @@
+# BRG-5 Runtime Evidence Contract
+
+Canonical Issue: #8  
+Policy: IP-POL-001 v1.1.0  
+Coordination Policy: IP-COORD-001 v1.0.0  
+Build Policy: IP-BUILD-001 v1.0.0
+
+## Development checkpoint
+
+```text
+DEVELOPMENT_BASE = 3cf30a91467adf03def1f48b08c454f83e179c1d
+BRANCH           = issue/8-runtime-smoke-stress-matrix
+AUTHORITY        = BRG-5 runtime smoke/stress + lifecycle evidence only
+PHASE0_CHANGES   = FORBIDDEN
+```
+
+BRG-1 through BRG-4 are completed prerequisites. BRG-5 records executable
+baseline behavior; it does not redesign ownership, threading, render scheduling,
+audio architecture, or window/session coordination.
+
+## Lifecycle marker format
+
+BRG5-A standardizes lifecycle evidence as:
+
+```text
+[Lifecycle] phase=<PHASE> component=<COMPONENT> id=<IDENTITY> pid=<PID> tid=<TID>
+```
+
+Canonical phases:
+
+```text
+CREATE
+START
+STOP
+JOIN
+DESTROY
+```
+
+The marker records the thread that performed the lifecycle transition. The
+component identity is stable for the object's lifetime and should use the
+existing session/window/thread name when available.
+
+Required components and applicable phases:
+
+| Component | Required phases |
+| --- | --- |
+| Window | CREATE, START, STOP, DESTROY |
+| PlayerSession | CREATE, START, STOP, DESTROY |
+| MPVRenderContext | CREATE, START, STOP, DESTROY |
+| UIRenderThread | CREATE, START, STOP, JOIN, DESTROY |
+| PlayBackRenderThread | CREATE, START, STOP, JOIN, DESTROY |
+| AudioCaptureManager | CREATE, START, STOP, JOIN, DESTROY |
+| AudioProcessor | CREATE, START, STOP, JOIN, DESTROY |
+| AudioOutputWorker | CREATE, START, STOP, JOIN, DESTROY |
+
+`JOIN` is required only for components that own a worker thread. It must be
+emitted after the corresponding `std::thread::join()` returns.
+
+## Evidence sink
+
+Markers always go to `OutputDebugStringA`.
+
+For executable BRG-5 evidence, the harness sets:
+
+```powershell
+$env:IM_PLAYER_LIFECYCLE_LOG = "<absolute-path-to-log>"
+```
+
+When the variable is present, markers are also appended to that file. If the
+variable is absent, no lifecycle evidence file I/O occurs.
+
+This preserves normal runtime behavior while allowing deterministic evidence
+capture during BRG-5 runs.
+
+## Evidence rules
+
+Every BRG-5 run must record:
+
+```text
+commit=<full SHA>
+configuration=<Debug|Release>
+scenario=<scenario name>
+command=<exact command>
+result=<PASS|FAIL>
+lifecycle_log=<path>
+```
+
+Failures must include reproduction details and be classified as either:
+- BRG blocker;
+- pre-existing baseline debt;
+- Phase 0/1+ debt outside BRG authority.
+
+## Runtime lifecycle validation
+
+Each local lifecycle capture must also pass:
+
+```powershell
+python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-debug.log
+python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-release.log
+```
+
+The validator uses a **one-shot object lifecycle grammar** for each process/log.
+For every observed object identity, the complete phase sequence must exactly equal
+the component's canonical sequence listed above. Therefore the validator fails
+when:
+- a required phase is missing;
+- any phase is duplicated;
+- phase order is invalid;
+- any transition appears after DESTROY;
+- a component changes identity between lifecycle phases;
+- an unknown lifecycle component appears;
+- a smoke log contains lifecycle markers from more than one process.
+
+Restarting the same object identity after DESTROY is **not** part of the BRG-5
+baseline contract. BRG5-E repeated stress uses a fresh process and fresh
+lifecycle log for each iteration. This avoids conflating allocator/pointer reuse
+or object restart semantics with the one-shot lifecycle contract.
+
+Canonical validator self-test:
+
+```powershell
+python .\scripts\brg5_validate_lifecycle.py --self-test
+```
+
+The self-test includes a valid lifecycle plus invalid cases for duplicate
+CREATE, out-of-order phases, missing JOIN, transition after DESTROY and
+multiple-process contamination. Canonical static sanity runs this self-test
+fail-closed.
+
+## BRG5-A gate
+
+BRG5-A is complete when:
+1. all required components emit standardized lifecycle markers at their
+   existing lifecycle boundaries;
+2. each object keeps one stable identity across all applicable phases;
+3. worker JOIN is emitted only after the actual thread join returns;
+4. Debug and Release lifecycle logs pass the runtime validator;
+5. no ownership/control-flow redesign is introduced;
+6. static sanity verifies marker coverage.
+
+
+## BRG5-B startup/shutdown regression gate
+
+BRG5-B packages the baseline no-user-playback startup/clean-shutdown scenario
+with the existing BRG-3 callback lifetime regression and the BRG5-A lifecycle
+validator.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-startup-shutdown.ps1 -Configuration Debug -Iterations 1
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-startup-shutdown.ps1 -Configuration Release -Iterations 1
+```
+
+For each configuration the harness must, in order:
+
+1. run `brg3_render_callback_lifetime_gate` CTest;
+2. launch the application without user media playback;
+3. keep the process alive through the startup observation window;
+4. request normal main-window close through the existing BRG-3 harness;
+5. require `ExitCode=0`;
+6. capture lifecycle markers through `IM_PLAYER_LIFECYCLE_LOG`;
+7. validate stable identity and phase ordering;
+8. write JSON evidence under `artifacts/brg5/`.
+
+Evidence JSON records:
+
+```text
+commit
+configuration
+scenario
+iterations
+startup_seconds
+exit_timeout_seconds
+focused_brg3_regression
+lifecycle_validation
+result
+failure
+lifecycle_log
+ctest_command
+runtime_command
+validator_command
+```
+
+Hosted CI does not execute this interactive GUI scenario. It remains fail-closed
+for deterministic build/CTest/static contracts and prints the exact local
+BRG5-B command. Local interactive Windows evidence is canonical for BRG5-B.
+
+BRG5-B passes when Debug and Release both report:
+
+```text
+focused_brg3_regression = PASS
+startup/shutdown         = PASS
+lifecycle_validation     = PASS
+result                   = PASS
+```
+
+
+## BRG5-C playback/window smoke gate
+
+BRG5-C exercises the existing executable control paths without adding a
+test-only production control API.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Release
+```
+
+If `-MediaPath` is omitted, the harness generates a deterministic 60-second
+mono PCM WAV fixture under `artifacts/brg5/`. A user-supplied local media file
+may still be passed explicitly with `-MediaPath`.
+
+The application receives the resolved media path through the existing `argv[1]`
+`LoadFile()` path. The harness then exercises:
+
+```text
+local-media startup / process survival
+pause / resume through existing Space hotkey path
+seek forward / backward through existing arrow hotkey path
+rapid seek smoke
+window resize with observed geometry change
+minimize with observed iconic state
+restore with observed non-iconic state
+fullscreen enter / exit through existing F11 hotkey path
+clean main-window close with ExitCode=0
+lifecycle identity/order validation
+```
+
+The pause/resume/seek assertions in BRG5-C are smoke assertions: the injected
+input path must not crash/hang the process. They do not claim frame-accurate
+semantic playback correctness. Window operations additionally require an
+observable Win32 state/geometry change.
+
+The harness writes JSON evidence under `artifacts/brg5/` and records the exact
+commit, configuration, media path, media source (`GENERATED_PCM_WAV` or
+`USER_SUPPLIED`), per-case result, lifecycle log, overall result and failure
+message.
+
+BRG5-C passes only when both Debug and Release complete all cases and the final
+lifecycle validator passes.
+
+
+## BRG5-D multi-window baseline gate
+
+BRG5-D records the existing multi-window behavior without refactoring ownership,
+render scheduling, or window lifecycle policy.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -Configuration Release
+```
+
+The baseline harness treats the main window and `MockSubWindow` as the two
+observable windows. It exercises the existing `Ctrl+P` path and requires:
+
+The harness injects the staged Ctrl+P sequence with
+`PostMessage(WM_KEYDOWN/WM_KEYUP)` directly to the saved main HWND. Foreground
+activation is best-effort only and is not a correctness precondition because
+Windows may reject `SetForegroundWindow()` under foreground-lock policy.
+Production popup hotkeys consume the modifier snapshot attached to the SDL key
+event through `e->key.keysym.mod`, avoiding timing-dependent
+`SDL_GetModState()` sampling. Evidence JSON records
+`input_injection=POSTMESSAGE_STAGED_CTRL_P_EVENT_LOCAL_MODIFIER`.
+
+```text
+initial main window visible
+Ctrl+P -> two visible windows
+both windows remain alive during observation
+resize secondary -> secondary geometry changes
+resize secondary -> main geometry remains unchanged
+close secondary -> secondary becomes hidden
+close secondary -> main remains visible/alive
+Ctrl+P reopen -> same secondary HWND is reused
+main close -> clean ExitCode=0
+lifecycle identity/order validator -> PASS
+```
+
+The main-loop `RequestRender()` heartbeat baseline is recorded as an
+**observational isolation result** only: while both windows are visible, the
+secondary can be resized/hidden/reopened without invalidating the main window.
+This does not claim scheduler-level semantic isolation and does not change the
+existing render architecture.
+
+The current implementation hides a secondary window on close and destroys
+remaining windows during final main shutdown. BRG5-D records this behavior as
+the canonical pre-Phase-0 baseline; it does not redesign it.
+
+
+## BRG5-E repeated lifecycle/audio stress gate
+
+BRG5-E executes the Issue #8 stress subset without changing production
+ownership or lifecycle architecture.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-lifecycle-audio-stress.ps1 -Configuration Debug -Iterations 5
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-lifecycle-audio-stress.ps1 -Configuration Release -Iterations 5
+```
+
+The harness enforces a minimum of five iterations. Each iteration uses fresh
+application processes and fresh lifecycle evidence for two scenarios:
+
+1. playback cycle:
+   - generated local media playback;
+   - pause/resume;
+   - seek forward/backward + rapid seek;
+   - shutdown while playback is active;
+   - PlayerSession lifecycle validation;
+   - AudioCaptureManager / AudioProcessor / AudioOutputWorker lifecycle validation;
+2. multi-window cycle:
+   - main + secondary creation;
+   - secondary resize;
+   - secondary close -> hide;
+   - same-HWND reopen;
+   - final process shutdown and window destruction.
+
+Every produced lifecycle log is archived under:
+
+```text
+artifacts/brg5/stress/<configuration>-<commit-prefix>/
+```
+
+with one JSON + lifecycle log per scenario per iteration. The archived log is
+validated again after copying.
+
+The summary JSON records:
+- exact commit;
+- configuration;
+- requested/completed iteration counts;
+- focused BRG-3 callback-lifetime regression result;
+- process model;
+- lifecycle grammar;
+- duration;
+- per-iteration evidence paths;
+- overall PASS/FAIL and failure reason.
+
+BRG5-E repeated-stress regression passes only when:
+- at least five iterations are requested;
+- the focused BRG-3 callback lifetime CTest passes;
+- every playback cycle passes;
+- every multi-window cycle passes;
+- every archived lifecycle log passes the one-shot exact-sequence validator;
+- the completed iteration count equals the requested count;
+- no crash, hang, abort, invalid teardown or stale callback is observed.
+
+This repeated WAV-based stress does not by itself prove real render-callback-active
+shutdown. Final BRG5-E acceptance additionally requires the separate AUD-8-02
+real-video callback gate below in both Debug and Release.
+
+
+## AUD-8-02 real render-callback-active shutdown gate
+
+AUD-8-02 is the final P1 evidence gap for BRG5-E. A clean shutdown during
+the default BRG5-C PCM WAV scenario is not sufficient because it does not prove
+that a real libmpv video render-update callback executed in that process.
+
+Production evidence is collected at the existing guarded callback boundary in
+`PlayBackRender::HandleRenderUpdate()`:
+
+- each accepted libmpv update callback increments
+  `RenderUpdateCallbackState::acceptedCallbacks`;
+- the first accepted callback emits a
+  `[BRG5-DIAG] category=RENDER_CALLBACK ... callback_first ...` marker;
+- shutdown emits `shutdown_pre_close` with the accepted callback count and
+  current in-flight count before closing the callback gate;
+- after `WaitForQuiescence()`, shutdown emits `shutdown_quiescent` and the
+  in-flight count must be zero.
+
+The markers are opt-in through `IM_PLAYER_LIFECYCLE_LOG`; canonical
+`[Lifecycle]` grammar is unchanged.
+
+A deterministic video fixture is generated locally without ffmpeg:
+
+```powershell
+python .\scripts\brg5_generate_video_fixture.py .\artifacts\brg5\brg5e-render-fixture.y4m
+```
+
+Canonical local runtime gate:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-render-callback-shutdown.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-render-callback-shutdown.ps1 -Configuration Release
+```
+
+The harness:
+1. starts Im_player with a deterministic YUV4MPEG2 video;
+2. waits until the real libmpv callback emits `callback_first`;
+3. keeps the video process alive briefly after callback activity is observed;
+4. sends WM_CLOSE to the saved main HWND while the video is still active;
+5. requires exit code 0;
+6. requires marker order `callback_first < shutdown_pre_close < shutdown_quiescent`;
+7. parses the callback count from `callback_first`;
+8. requires `shutdown_pre_close callback_count > callback_first callback_count`,
+   proving callback activity advanced during the active-video interval before shutdown;
+9. requires a stable callback-state identity across all three markers;
+10. requires `shutdown_quiescent in_flight=0`;
+11. runs the canonical lifecycle validator on the same process log.
+
+Evidence JSON:
+- `artifacts/brg5/brg5e-render-callback-debug.json`
+- `artifacts/brg5/brg5e-render-callback-release.json`
+
+AUD-8-02 passes only when both Debug and Release satisfy the gate on the same
+exact head, including callback-count advancement after the first observed real
+libmpv callback. The focused BRG-3 callback-lifetime CTest remains
+complementary deterministic concurrency proof; it is not a substitute for this
+real runtime callback evidence.
