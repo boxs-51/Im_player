@@ -59,14 +59,24 @@ render/session state during teardown.
 
 ```powershell
 ctest --test-dir .\build\windows-msvc-x64 -C Debug -R brg3_render_callback_lifetime_gate --output-on-failure
+ctest --test-dir .\build\windows-msvc-x64 -C Release -R brg3_render_callback_lifetime_gate --output-on-failure
 ```
 
-The focused test races callback entry against gate closure for 200 rounds and
-verifies that protected lifetime is never entered after quiescence.
+The focused test races callback entry against gate closure for 200 rounds,
+verifies that protected lifetime is never entered after quiescence, and repeats
+the waiter/last-leaver synchronization path for 2000 rounds.
 
-## Runtime shutdown stress
+This focused CTest is deterministic and is required in BRG CI for both Debug and
+Release.
 
-After building the exact commit:
+## Runtime shutdown stress — canonical local interactive proof
+
+BRG-3 desktop startup/main-window-close evidence is intentionally collected on
+an **interactive local Windows desktop**. GitHub-hosted Windows runners execute
+as service/non-interactive environments and are not authoritative for this GUI
+lifecycle scenario.
+
+After building the exact commit locally:
 
 ```powershell
 powershell -ExecutionPolicy Bypass -File .\scripts\test-shutdown.ps1 -Configuration Debug -Iterations 20
@@ -75,6 +85,33 @@ powershell -ExecutionPolicy Bypass -File .\scripts\test-shutdown.ps1 -Configurat
 
 Every iteration must remain alive through startup, accept a normal main-window
 close request, exit before timeout and return `ExitCode=0`.
+
+The exact full Git SHA must be recorded with the evidence. Runtime evidence from
+a different head is supporting evidence only unless the issue explicitly records
+that the intervening drift is NON_MATERIAL and carries the evidence forward.
+
+## CI / runtime evidence boundary
+
+BRG CI remains mandatory and fail-closed for deterministic gates:
+
+```text
+Static sanity
+Fresh dependency provisioning
+Configure
+Debug compile/link
+Release compile/link
+Focused BRG-3 lifetime CTest
+BRG CI Gate
+```
+
+The CI smoke hook **does not launch the desktop GUI shutdown harness**. It emits
+an explicit `NOT_RUN_IN_CI` marker instead. A green CI run therefore proves the
+deterministic build/lifetime gates only; it must not be relabeled as BRG-3 L2
+interactive runtime proof.
+
+Canonical BRG-3 merge evidence is the combination of:
+1. exact-head required CI PASS; and
+2. exact-head local interactive Debug + Release shutdown stress PASS.
 
 ## Lifecycle evidence markers
 
