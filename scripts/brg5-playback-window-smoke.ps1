@@ -10,7 +10,7 @@ param(
     [ValidateRange(1, 30)]
     [int]$StartupSeconds = 4,
 
-    [ValidateRange(1, 30)]
+    [ValidateRange(100, 5000)]
     [int]$ActionDelayMilliseconds = 700,
 
     [ValidateRange(1, 30)]
@@ -155,8 +155,10 @@ try {
     $cases["rapid_seek"] = "PASS_INPUT_PATH_ALIVE"
 
     $beforeResize = Get-Rect $hwnd
-    $targetW = [Math]::Max(800, [Math]::Min(1100, (Rect-Width $beforeResize) - 120))
-    $targetH = [Math]::Max(450, [Math]::Min(700, (Rect-Height $beforeResize) - 80))
+    $beforeW = Rect-Width $beforeResize
+    $beforeH = Rect-Height $beforeResize
+    $targetW = if ($beforeW -gt 900) { $beforeW - 120 } else { $beforeW + 120 }
+    $targetH = if ($beforeH -gt 560) { $beforeH - 80 } else { $beforeH + 80 }
     if (-not [BRG5.NativeWindow]::SetWindowPos($hwnd, [IntPtr]::Zero, 0, 0, $targetW, $targetH, [BRG5.NativeWindow]::SWP_NOZORDER -bor [BRG5.NativeWindow]::SWP_NOACTIVATE)) {
         throw "[BRG5-C] resize SetWindowPos failed"
     }
