@@ -110,6 +110,7 @@ $result = "FAIL"
 $failure = $null
 $p = $null
 $hwnd = [IntPtr]::Zero
+$firstCallbackCount = 0
 $callbackCount = 0
 $callbackState = $null
 $firstCallbackMarker = $null
@@ -194,13 +195,22 @@ try {
     $preCloseMarker = [string]$lines[$preCloseIndex]
     $quiescentMarker = [string]$lines[$quiescentIndex]
 
+    $firstCountMatch = [regex]::Match($firstCallbackMarker, "callback_count=(\d+)")
+    if (-not $firstCountMatch.Success) {
+        throw "[AUD-8-02] callback_count missing from callback_first marker"
+    }
+    $firstCallbackCount = [int64]$firstCountMatch.Groups[1].Value
+    if ($firstCallbackCount -le 0) {
+        throw "[AUD-8-02] callback_first callback_count must be > 0"
+    }
+
     $countMatch = [regex]::Match($preCloseMarker, "callback_count=(\d+)")
     if (-not $countMatch.Success) {
         throw "[AUD-8-02] callback_count missing from shutdown_pre_close marker"
     }
     $callbackCount = [int64]$countMatch.Groups[1].Value
-    if ($callbackCount -le 0) {
-        throw "[AUD-8-02] shutdown_pre_close callback_count must be > 0"
+    if ($callbackCount -le $firstCallbackCount) {
+        throw "[AUD-8-02] callback_count did not advance before shutdown: first=$firstCallbackCount pre_close=$callbackCount"
     }
 
     $firstState = [regex]::Match($firstCallbackMarker, "state=(\S+)")
@@ -226,6 +236,7 @@ try {
     }
 
     $cases["callback_count_before_shutdown"] = "PASS_GT_0"
+    $cases["callback_activity_advanced"] = "PASS_PRE_CLOSE_GT_FIRST"
     $cases["callback_state_identity"] = "PASS_STABLE"
     $cases["callback_shutdown_order"] = "PASS_FIRST_PRE_CLOSE_QUIESCENT"
     $cases["callback_quiescence"] = "PASS_IN_FLIGHT_0"
@@ -262,6 +273,7 @@ finally {
         video_path = $resolvedVideo
         video_source = $videoSource
         callback_state = $callbackState
+        callback_count_first_observed = $firstCallbackCount
         callback_count_before_shutdown = $callbackCount
         result = $result
         failure = $failure
