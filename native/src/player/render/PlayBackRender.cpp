@@ -2,6 +2,7 @@
 #include <thread>
 #include <iostream>
 #include <chrono>
+#include <cstdio>
 
 #include "log.h"
 #include "player/render/PlayBackRender.h"
@@ -34,6 +35,22 @@ void PlayBackRender::HandleRenderUpdate(void* userdata) noexcept
     auto invocation = callbackState->lifetime.Enter();
     if (!invocation)
         return;
+
+    const std::uint64_t callbackCount =
+        callbackState->acceptedCallbacks.fetch_add(1, std::memory_order_acq_rel) + 1;
+
+    if (callbackCount == 1)
+    {
+        char diag[256]{};
+        const std::string stateId = LifecycleEvidence::PointerIdentity(callbackState);
+        std::snprintf(
+            diag,
+            sizeof(diag),
+            "callback_first state=%s callback_count=%llu",
+            stateId.c_str(),
+            static_cast<unsigned long long>(callbackCount));
+        LifecycleEvidence::EmitDiagnostic("RENDER_CALLBACK", diag);
+    }
 
     if (auto* thread = callbackState->thread.load(std::memory_order_acquire))
     {
@@ -133,6 +150,23 @@ void PlayBackRender::Shutdown()
     // Phase 1: reject all new callback work.
     if (m_updateCallbackState)
     {
+        const std::uint64_t callbackCount =
+            m_updateCallbackState->acceptedCallbacks.load(std::memory_order_acquire);
+        const std::size_t inFlight =
+            m_updateCallbackState->lifetime.InFlight();
+
+        char preCloseDiag[320]{};
+        const std::string stateId =
+            LifecycleEvidence::PointerIdentity(m_updateCallbackState.get());
+        std::snprintf(
+            preCloseDiag,
+            sizeof(preCloseDiag),
+            "shutdown_pre_close state=%s callback_count=%llu in_flight=%zu",
+            stateId.c_str(),
+            static_cast<unsigned long long>(callbackCount),
+            inFlight);
+        LifecycleEvidence::EmitDiagnostic("RENDER_CALLBACK", preCloseDiag);
+
         m_updateCallbackState->lifetime.Close();
         LOG(1, LogLevel::Info, LogCategory::Render,
             "[RenderShutdown] callback gate closed");
@@ -140,6 +174,19 @@ void PlayBackRender::Shutdown()
         // Any callback admitted before Close() must finish before the worker
         // boundary can change.
         m_updateCallbackState->lifetime.WaitForQuiescence();
+
+        char quiescentDiag[320]{};
+        std::snprintf(
+            quiescentDiag,
+            sizeof(quiescentDiag),
+            "shutdown_quiescent state=%s callback_count=%llu in_flight=%zu",
+            stateId.c_str(),
+            static_cast<unsigned long long>(
+                m_updateCallbackState->acceptedCallbacks.load(
+                    std::memory_order_acquire)),
+            m_updateCallbackState->lifetime.InFlight());
+        LifecycleEvidence::EmitDiagnostic("RENDER_CALLBACK", quiescentDiag);
+
         LOG(1, LogLevel::Info, LogCategory::Render,
             "[RenderShutdown] pre-stop callback quiescence established");
 
