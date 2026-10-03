@@ -2,14 +2,24 @@
 #include "PlayerStateSystem.h"
 #include "log.h"
 #include "threads/thread_manager.h"
+#include "common/LifecycleEvidence.h"
 #include <iostream>
 #include <algorithm>
 
 AudioCaptureManager::AudioCaptureManager()
-{}
+{
+    LifecycleEvidence::Emit(
+        "AudioCaptureManager",
+        "CREATE",
+        LifecycleEvidence::PointerIdentity(this));
+}
 
 AudioCaptureManager::~AudioCaptureManager() {
     Shutdown();
+    LifecycleEvidence::Emit(
+        "AudioCaptureManager",
+        "DESTROY",
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 std::string AudioCaptureManager::GetPipeName() const { 
@@ -91,6 +101,7 @@ void AudioCaptureManager::StartCapture() {
 
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
+    LifecycleEvidence::Emit("AudioCaptureManager", "START", m_threadId);
 }
 
 void AudioCaptureManager::StopCapture() {
@@ -98,6 +109,7 @@ void AudioCaptureManager::StopCapture() {
         return;
     }
 
+    LifecycleEvidence::Emit("AudioCaptureManager", "STOP", m_threadId);
     m_isCapturing = false;
 
     HANDLE hPipe = m_atomicPipeHandle.load();
@@ -107,6 +119,7 @@ void AudioCaptureManager::StopCapture() {
 
     if (m_captureThread.joinable()) {
         m_captureThread.join();
+        LifecycleEvidence::Emit("AudioCaptureManager", "JOIN", m_threadId);
     }
 
     GetThreadManager().Unregister(m_threadId);
