@@ -147,6 +147,7 @@ $result = "FAIL"
 $failure = $null
 $p = $null
 $secondaryHandle = [IntPtr]::Zero
+$mainTitle = $null
 $previousLifecycleLog = [Environment]::GetEnvironmentVariable("IM_PLAYER_LIFECYCLE_LOG", [EnvironmentVariableTarget]::Process)
 
 Write-Host "[BRG5-D] start commit=$commit configuration=$Configuration scenario=$scenario"
