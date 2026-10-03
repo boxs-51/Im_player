@@ -110,6 +110,7 @@ required = [
     "scripts/brg5-playback-window-smoke.ps1",
     "scripts/brg5_generate_media_fixture.py",
     "scripts/brg5-multi-window-smoke.ps1",
+    "scripts/brg5-lifecycle-audio-stress.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
