@@ -109,8 +109,10 @@ required = [
     "scripts/brg5-startup-shutdown.ps1",
     "scripts/brg5-playback-window-smoke.ps1",
     "scripts/brg5_generate_media_fixture.py",
+    "scripts/brg5_generate_video_fixture.py",
     "scripts/brg5-multi-window-smoke.ps1",
     "scripts/brg5-lifecycle-audio-stress.ps1",
+    "scripts/brg5-render-callback-shutdown.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -365,12 +367,46 @@ require_order(
     "callback gate entry must precede worker snapshot",
 )
 
+if "acceptedCallbacks.fetch_add" not in render_update_body:
+    fail("BRG-5: real render callback activity counter missing")
+if "callback_first" not in render_update_body:
+    fail("BRG-5: first real render callback evidence marker missing")
+require_order(
+    render_update_body,
+    "callbackState->lifetime.Enter()",
+    "acceptedCallbacks.fetch_add",
+    "callback gate entry must precede callback activity count",
+)
+require_order(
+    render_update_body,
+    "acceptedCallbacks.fetch_add",
+    "callbackState->thread.load",
+    "callback activity count must precede worker request",
+)
+
 if "m_renderThread.get());" in playback_render_cpp:
     fail("BRG-3: raw render-thread pointer must not be registered as MPV callback userdata")
 if "&PlayBackRender::HandleRenderUpdate" not in playback_render_cpp:
     fail("BRG-3: MPV update callback must use the guarded static handler")
 if "m_updateCallbackState.get()" not in playback_render_cpp:
     fail("BRG-3: MPV callback userdata must be the stable callback-state object")
+
+if "shutdown_pre_close" not in render_shutdown_body:
+    fail("BRG-5: shutdown callback-count evidence marker missing")
+if "shutdown_quiescent" not in render_shutdown_body:
+    fail("BRG-5: shutdown callback quiescence evidence marker missing")
+require_order(
+    render_shutdown_body,
+    "shutdown_pre_close",
+    "m_updateCallbackState->lifetime.Close();",
+    "callback-count snapshot must precede callback gate close",
+)
+require_order(
+    render_shutdown_body,
+    "m_updateCallbackState->lifetime.Close();",
+    "shutdown_quiescent",
+    "callback quiescence marker must follow callback gate close",
+)
 
 require_order(
     render_shutdown_body,
