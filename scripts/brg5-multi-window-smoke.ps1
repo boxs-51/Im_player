@@ -74,7 +74,19 @@ namespace BRG5 {
 
         [StructLayout(LayoutKind.Explicit)]
         public struct INPUTUNION {
+            [FieldOffset(0)] public MOUSEINPUT mi;
             [FieldOffset(0)] public KEYBDINPUT ki;
+            [FieldOffset(0)] public HARDWAREINPUT hi;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct MOUSEINPUT {
+            public int dx;
+            public int dy;
+            public uint mouseData;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -84,6 +96,13 @@ namespace BRG5 {
             public uint dwFlags;
             public uint time;
             public UIntPtr dwExtraInfo;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct HARDWAREINPUT {
+            public uint uMsg;
+            public ushort wParamL;
+            public ushort wParamH;
         }
 
         public const uint WM_KEYDOWN = 0x0100;
@@ -106,6 +125,10 @@ namespace BRG5 {
             return input;
         }
 
+        public static uint LastSendInputCount { get; private set; }
+        public static int LastSendInputError { get; private set; }
+        public static int InputSize { get { return Marshal.SizeOf(typeof(INPUT)); } }
+
         public static bool SendCtrlP() {
             var inputs = new INPUT[] {
                 KeyInput(0x11, false),
@@ -113,7 +136,17 @@ namespace BRG5 {
                 KeyInput(0x50, true),
                 KeyInput(0x11, true)
             };
-            return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT))) == inputs.Length;
+
+            LastSendInputCount = SendInput(
+                (uint)inputs.Length,
+                inputs,
+                Marshal.SizeOf(typeof(INPUT))
+            );
+            LastSendInputError = LastSendInputCount == inputs.Length
+                ? 0
+                : Marshal.GetLastWin32Error();
+
+            return LastSendInputCount == inputs.Length;
         }
 
         public static List<WindowInfo> EnumerateProcessWindows(uint pid, bool visibleOnly) {
@@ -199,7 +232,10 @@ function Send-CtrlP([IntPtr]$Hwnd) {
     }
 
     if (-not [BRG5.MultiWindowNative]::SendCtrlP()) {
-        throw "[BRG5-D] SendInput Ctrl+P failed"
+        $sent = [BRG5.MultiWindowNative]::LastSendInputCount
+        $errorCode = [BRG5.MultiWindowNative]::LastSendInputError
+        $inputSize = [BRG5.MultiWindowNative]::InputSize
+        throw "[BRG5-D] SendInput Ctrl+P failed sent=$sent/4 error=$errorCode inputSize=$inputSize"
     }
 
     Start-Sleep -Milliseconds $ActionDelayMilliseconds
@@ -338,6 +374,11 @@ finally {
         configuration = $Configuration
         scenario = $scenario
         input_injection = "SENDINPUT_CTRL_P"
+        input_diagnostics = [ordered]@{
+            input_struct_size = [BRG5.MultiWindowNative]::InputSize
+            last_send_count = [BRG5.MultiWindowNative]::LastSendInputCount
+            last_error = [BRG5.MultiWindowNative]::LastSendInputError
+        }
         result = $result
         failure = $failure
         main_window_title = if ($mainTitle) { $mainTitle } else { $null }
