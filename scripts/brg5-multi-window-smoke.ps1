@@ -212,6 +212,12 @@ function Wait-VisibleWindowCount([System.Diagnostics.Process]$Process, [int]$Exp
 }
 
 function Send-CtrlP([IntPtr]$Hwnd) {
+    $expectedInputSize = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
+    $actualInputSize = [BRG5.MultiWindowNative]::InputSize
+    if ($actualInputSize -ne $expectedInputSize) {
+        throw "[BRG5-D] INPUT ABI mismatch expected=$expectedInputSize actual=$actualInputSize pointerSize=$([IntPtr]::Size)"
+    }
+
     # SDL_GetModState() depends on real keyboard modifier state. WM_KEYDOWN
     # messages posted directly to an HWND do not reliably update that state,
     # so use SendInput after verifying that the intended main HWND is foreground.
@@ -376,6 +382,8 @@ finally {
         input_injection = "SENDINPUT_CTRL_P"
         input_diagnostics = [ordered]@{
             input_struct_size = [BRG5.MultiWindowNative]::InputSize
+            expected_input_struct_size = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
+            pointer_size = [IntPtr]::Size
             last_send_count = [BRG5.MultiWindowNative]::LastSendInputCount
             last_error = [BRG5.MultiWindowNative]::LastSendInputError
         }
