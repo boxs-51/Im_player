@@ -113,6 +113,7 @@ required = [
     "scripts/brg5-multi-window-smoke.ps1",
     "scripts/brg5-lifecycle-audio-stress.ps1",
     "scripts/brg5-render-callback-shutdown.ps1",
+    "scripts/issue19-event-render-stress.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -366,6 +367,28 @@ for token in (
         fail(f"#19: full ImGui frame must remain under per-window imguiMutex: {token}")
 
 facts["issue19_imgui_serialization_contract"] = "PASS" if not errors else "FAIL"
+
+# AUD-19-01: focused event/render stress harness must remain capable of driving
+# real window-targeted mouse + keyboard pressure, resize, multi-window close,
+# and lifecycle-validated shutdown on the exact local candidate.
+issue19_stress_harness = (
+    ROOT / "scripts/issue19-event-render-stress.ps1"
+).read_text(encoding="utf-8")
+
+for token in (
+    "WM_MOUSEMOVE",
+    "WM_LBUTTONDOWN",
+    "WM_LBUTTONUP",
+    "Invoke-EventBurst",
+    'cases["secondary_close_during_event_burst"]',
+    'cases["main_close_during_event_burst"]',
+    "POSTMESSAGE_WINDOW_TARGETED_MOUSE_KEYBOARD",
+    "brg5_validate_lifecycle.py",
+):
+    if token not in issue19_stress_harness:
+        fail(f"#19: focused event/render stress harness contract missing: {token}")
+
+facts["issue19_event_render_stress_contract"] = "PASS" if not errors else "FAIL"
 
 # BRG-3 MPV render callback lifetime regression contract.
 # Keep callback userdata alive through detach/context destruction and ensure
