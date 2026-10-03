@@ -101,7 +101,7 @@ void AudioCaptureManager::StartCapture() {
 
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
-    LifecycleEvidence::Emit("AudioCaptureManager", "START", m_threadId.ToString());
+    LifecycleEvidence::Emit("AudioCaptureManager", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void AudioCaptureManager::StopCapture() {
@@ -109,7 +109,7 @@ void AudioCaptureManager::StopCapture() {
         return;
     }
 
-    LifecycleEvidence::Emit("AudioCaptureManager", "STOP", m_threadId.ToString());
+    LifecycleEvidence::Emit("AudioCaptureManager", "STOP", LifecycleEvidence::PointerIdentity(this));
     m_isCapturing = false;
 
     HANDLE hPipe = m_atomicPipeHandle.load();
@@ -119,7 +119,7 @@ void AudioCaptureManager::StopCapture() {
 
     if (m_captureThread.joinable()) {
         m_captureThread.join();
-        LifecycleEvidence::Emit("AudioCaptureManager", "JOIN", m_threadId.ToString());
+        LifecycleEvidence::Emit("AudioCaptureManager", "JOIN", LifecycleEvidence::PointerIdentity(this));
     }
 
     GetThreadManager().Unregister(m_threadId);
