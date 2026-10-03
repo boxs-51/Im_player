@@ -5,13 +5,13 @@ ROOT = Path(__file__).resolve().parents[1]
 
 required = {
     "native/src/windows/WindowController.cpp": [
-        '"Window"', '"CREATE"', '"STOP"', '"DESTROY"'
+        '"Window"', '"CREATE"', '"START"', '"STOP"', '"DESTROY"'
     ],
     "native/src/player/session/PlayerSession.cpp": [
         '"PlayerSession"', '"CREATE"', '"START"', '"STOP"', '"DESTROY"'
     ],
     "native/src/player/render/PlayBackRender.cpp": [
-        '"MPVRenderContext"', '"CREATE"', '"STOP"', '"DESTROY"'
+        '"MPVRenderContext"', '"CREATE"', '"START"', '"STOP"', '"DESTROY"'
     ],
     "native/src/windows/UIRenderThread.cpp": [
         '"UIRenderThread"', '"CREATE"', '"START"', '"STOP"', '"JOIN"', '"DESTROY"'
