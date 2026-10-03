@@ -33,5 +33,16 @@ else {
     Write-Host "[BRG-2] No CTestTestfile.cmake yet; BRG-5 may extend this hook."
 }
 
+# BRG-3 runtime lifetime extension. When the canonical shutdown harness exists,
+# exercise repeated real startup -> normal main-window close -> clean process
+# exit on the exact configuration built by this CI job.
+$shutdownHarness = Join-Path $root "scripts\test-shutdown.ps1"
+if (Test-Path $shutdownHarness) {
+    & $shutdownHarness -Configuration $Configuration -Iterations 20 *>&1
+    if ($LASTEXITCODE -ne 0) {
+        throw "[BRG-3] Repeated normal-close shutdown stress failed for $Configuration"
+    }
+}
+
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 Write-Host "[BRG-2] Smoke hook PASS commit=$commit configuration=$Configuration"
