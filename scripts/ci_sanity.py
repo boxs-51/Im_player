@@ -316,7 +316,7 @@ else:
     if "e->key.keysym.mod" not in popup_handler_body:
         fail("BRG-5: popup hotkeys must use event-local SDL modifier snapshot")
     if re.search(
-        r"SDL_Keymod\\s+mod\\s*=\\s*SDL_GetModState\\s*\\(",
+        r"SDL_Keymod\s+mod\s*=\s*SDL_GetModState\s*\(",
         popup_handler_body,
     ):
         fail("BRG-5: popup hotkeys must not use timing-dependent global SDL modifier state")
