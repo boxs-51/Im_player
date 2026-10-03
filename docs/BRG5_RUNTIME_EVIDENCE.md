@@ -257,6 +257,13 @@ powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -
 The baseline harness treats the main window and `MockSubWindow` as the two
 observable windows. It exercises the existing `Ctrl+P` path and requires:
 
+The harness injects `Ctrl+P` with Win32 `SendInput` after verifying the saved
+main HWND is the foreground window. This is intentional: production hotkey
+handling reads modifier state through `SDL_GetModState()`, while HWND-only
+`PostMessage(WM_KEYDOWN/WM_KEYUP)` does not reliably update the keyboard
+modifier state observed by SDL during repeated fresh-process runs. Evidence JSON
+records `input_injection=SENDINPUT_CTRL_P`.
+
 ```text
 initial main window visible
 Ctrl+P -> two visible windows
