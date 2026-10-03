@@ -24,6 +24,24 @@ PlayBackRender::~PlayBackRender()
 }
 
 #ifdef RENDER_MPV_THREAD
+void PlayBackRender::HandleRenderUpdate(void* userdata) noexcept
+{
+    auto* callbackState = static_cast<RenderUpdateCallbackState*>(userdata);
+    if (!callbackState)
+        return;
+
+    auto invocation = callbackState->lifetime.Enter();
+    if (!invocation)
+        return;
+
+    if (auto* thread = callbackState->thread.load(std::memory_order_acquire))
+    {
+        thread->RequestRender();
+    }
+}
+#endif
+
+#ifdef RENDER_MPV_THREAD
 bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend, const RenderThreadInitParams &threadParams)
 {
 #else
@@ -63,16 +81,20 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
     m_renderThread->state.surface.drawH = threadParams.initialH;
     m_renderThread->state.Audio_visualizers = m_audioVisualizers.load();
 
-    // 3. Khởi chạy luồng
+    // 3. Create callback state before registration. The state outlives both
+    // callback detachment and render-worker destruction.
+    m_updateCallbackState = std::make_unique<RenderUpdateCallbackState>();
+    m_updateCallbackState->thread.store(m_renderThread.get(), std::memory_order_release);
+
+    // 4. Start the worker before MPV can request render work.
     m_renderThread->Start();
 
-    // 4. Set Callback MPV - Truyền trực tiếp raw pointer `m_renderThread.get()`
-    mpv_render_context_set_update_callback(m_render_ctx, [](void *userdata)
-                                           {
-        auto* thread = static_cast<PlayBackRenderThread*>(userdata);
-        if (thread) {
-            thread->RequestRender();
-        } }, m_renderThread.get());
+    // 5. Register stable callback userdata. Shutdown closes this gate before
+    // detaching the callback and destroying the worker.
+    mpv_render_context_set_update_callback(
+        m_render_ctx,
+        &PlayBackRender::HandleRenderUpdate,
+        m_updateCallbackState.get());
 #else
     mpv_render_context_set_update_callback(m_render_ctx, [](void *)
                                            {
@@ -86,25 +108,89 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
 
 void PlayBackRender::Shutdown()
 {
+    std::lock_guard<std::mutex> shutdownLock(m_shutdownMutex);
+    if (m_shutdownComplete)
+        return;
 
 #ifdef RENDER_MPV_THREAD
-    // Tự dọn dẹp Luồng Render do mình sở hữu
+    // Phase 1: reject all new callback work.
+    if (m_updateCallbackState)
+    {
+        m_updateCallbackState->lifetime.Close();
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] callback gate closed");
+
+        // Any callback admitted before Close() must finish before the worker
+        // boundary can change.
+        m_updateCallbackState->lifetime.WaitForQuiescence();
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] pre-stop callback quiescence established");
+
+        // New callbacks are rejected after Close(); make worker access explicit.
+        m_updateCallbackState->thread.store(nullptr, std::memory_order_release);
+    }
+
+    // Phase 2: stop + join the render worker while callback userdata is still
+    // alive. Joining first also guarantees no mpv_render_context_render() is
+    // active when shutdown calls another mpv_render_* function below.
     if (m_renderThread)
     {
         m_renderThread->Stop();
-        m_renderThread.reset(); // Xóa hoàn toàn instance
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] render worker stopped and joined");
     }
 #endif
 
+    // Phase 3: detach MPV callback only after the render worker can no longer
+    // be inside mpv_render_context_render(). libmpv requires mpv_render_*
+    // functions for one context not to run concurrently.
     if (m_render_ctx)
     {
-        // TẮT CALLBACK MPV TRƯỚC HẾT để ngắt kết nối với luồng
         mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);
-        mpv_render_context_free(m_render_ctx);
-        m_render_ctx = nullptr;
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] mpv update callback detached");
     }
 
+#ifdef RENDER_MPV_THREAD
+    if (m_updateCallbackState)
+    {
+        // Defensive wait for callbacks that raced with detachment but were
+        // rejected by the closed gate.
+        m_updateCallbackState->lifetime.WaitForQuiescence();
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] post-detach callback quiescence established");
+    }
 
+    // Phase 4: callback is detached and no callback can access the worker.
+    if (m_renderThread)
+    {
+        m_renderThread.reset();
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] render worker destroyed");
+    }
+#endif
+
+    // Phase 5: destroy the MPV render context after the render worker is gone.
+    if (m_render_ctx)
+    {
+        mpv_render_context_free(m_render_ctx);
+        m_render_ctx = nullptr;
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] mpv render context freed");
+    }
+
+#ifdef RENDER_MPV_THREAD
+    // Callback state is the final lifetime boundary and outlives the context.
+    if (m_updateCallbackState)
+    {
+        m_updateCallbackState->lifetime.WaitForQuiescence();
+        m_updateCallbackState.reset();
+        LOG(1, LogLevel::Info, LogCategory::Render,
+            "[RenderShutdown] callback state destroyed");
+    }
+#endif
+
+    m_shutdownComplete = true;
 }
 
 void PlayBackRender::SetAudioVisualizerEnabled(bool enable)

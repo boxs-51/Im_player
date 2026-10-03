@@ -223,3 +223,25 @@ target_link_options(Im_player PRIVATE
     /SUBSYSTEM:WINDOWS
     /ENTRY:mainCRTStartup
 )
+
+
+# BRG-3 focused lifetime regression target.
+include(CTest)
+if(BUILD_TESTING)
+    add_executable(render_callback_lifetime_test
+        tests/render_callback_lifetime_test.cpp
+    )
+    target_include_directories(render_callback_lifetime_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(render_callback_lifetime_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME brg3_render_callback_lifetime_gate
+        COMMAND render_callback_lifetime_test
+    )
+    set_tests_properties(
+        brg3_render_callback_lifetime_gate
+        PROPERTIES TIMEOUT 30
+    )
+endif()

@@ -236,33 +236,36 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
 }
 
 WindowRuntime::~WindowRuntime() {
-    // 1. Dừng luồng Render trước
-
-    if (resource.GetPlayerSession() && resource.GetPlayerSession()->GetRenderer()) {
-        resource.GetPlayerSession()->GetRenderer()->Shutdown();
-    }
-
+    // Stop and join the UI render thread before tearing down any render-owned
+    // object. The UI thread can still reach PlayerSession/PlayBackRender and
+    // graphics resources while it is live.
     if (resource.uiRenderThread) {
         resource.uiRenderThread->Stop();
     }
 
-    // 2. Shutdown Backend
+    // With UI rendering quiesced, shut down the MPV render path while its
+    // graphics backend/context is still valid.
+    if (auto* session = resource.GetPlayerSession()) {
+        if (auto* renderer = session->GetRenderer()) {
+            renderer->Shutdown();
+        }
+    }
+
     if (resource.graphicsBackend) {
         resource.graphicsBackend->Shutdown(true);
     }
-    // 3. Set Current Context và hủy Context ImGui TRƯỚC khi xóa Font Controller
+
+    // Destroy ImGui context before the font controller/atlas it references.
     if (resource.imguiCtx) {
         ImGui::SetCurrentContext(resource.imguiCtx);
         ImGui::DestroyContext(resource.imguiCtx);
         resource.imguiCtx = nullptr;
     }
 
-    // 4. Xóa FontController (Xóa Atlas) SAU khi Destroy Context
     if (fontController) {
         fontController.reset();
     }
 
-    // 5. Hủy SDL Window vật lý
     if (resource.sdlWindow) {
         SDL_DestroyWindow(resource.sdlWindow);
         resource.sdlWindow = nullptr;

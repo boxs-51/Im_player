@@ -8,6 +8,9 @@
 #include <any>
 #include <SDL.h>
 #include <chrono>
+#include <mutex>
+
+#include "player/render/RenderCallbackLifetimeGate.h"
 
 class Player;
 class IGraphicsBackend;
@@ -56,6 +59,15 @@ public:
     }
 
 private:
+#ifdef RENDER_MPV_THREAD
+    struct RenderUpdateCallbackState {
+        RenderCallbackLifetimeGate lifetime;
+        std::atomic<PlayBackRenderThread*> thread{nullptr};
+    };
+
+    static void HandleRenderUpdate(void* userdata) noexcept;
+#endif
+
     mpv_render_context* m_render_ctx = nullptr;
     std::atomic<bool> m_audioVisualizers{false};
 
@@ -64,5 +76,9 @@ private:
     FrameTextureInfo m_lastDisplayedFrame;
     std::chrono::steady_clock::time_point m_lastFrameTime;
     std::unique_ptr<PlayBackRenderThread> m_renderThread;
+    std::unique_ptr<RenderUpdateCallbackState> m_updateCallbackState;
 #endif
+
+    std::mutex m_shutdownMutex;
+    bool m_shutdownComplete = false;
 };
