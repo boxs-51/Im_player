@@ -279,6 +279,7 @@ $mainRectBeforeSecondaryResizeSignature = $null
 $mainRectAfterSecondaryResizeSignature = $null
 $secondaryRectBeforeResizeSignature = $null
 $secondaryRectAfterResizeSignature = $null
+$hotkeyDiagnostics = @()
 $previousLifecycleLog = [Environment]::GetEnvironmentVariable("IM_PLAYER_LIFECYCLE_LOG", [EnvironmentVariableTarget]::Process)
 
 Write-Host "[BRG5-D] start commit=$commit configuration=$Configuration scenario=$scenario"
@@ -390,6 +391,13 @@ catch {
     throw
 }
 finally {
+    if (Test-Path $lifecycleLog) {
+        $hotkeyDiagnostics = @(
+            Get-Content $lifecycleLog -ErrorAction SilentlyContinue |
+                Where-Object { $_ -like "[BRG5-DIAG]*" }
+        )
+    }
+
     if ($null -eq $previousLifecycleLog) {
         Remove-Item Env:IM_PLAYER_LIFECYCLE_LOG -ErrorAction SilentlyContinue
     } else {
@@ -410,6 +418,7 @@ finally {
             last_send_count = [BRG5.MultiWindowNative]::LastSendInputCount
             last_error = [BRG5.MultiWindowNative]::LastSendInputError
         }
+        hotkey_diagnostics = $hotkeyDiagnostics
         result = $result
         failure = $failure
         main_window_title = if ($mainTitle) { $mainTitle } else { $null }
