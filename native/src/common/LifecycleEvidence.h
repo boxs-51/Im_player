@@ -25,13 +25,17 @@ inline void Emit(
     const DWORD pid = GetCurrentProcessId();
     const DWORD tid = GetCurrentThreadId();
 
+    const char* componentData = component.empty() ? "" : component.data();
+    const char* phaseData = phase.empty() ? "" : phase.data();
+    const char* identityData = identity.empty() ? "" : identity.data();
+
     const int written = std::snprintf(
         line,
         sizeof(line),
         "[Lifecycle] phase=%.*s component=%.*s id=%.*s pid=%lu tid=%lu\n",
-        static_cast<int>(phase.size()), phase.data(),
-        static_cast<int>(component.size()), component.data(),
-        static_cast<int>(identity.size()), identity.data(),
+        static_cast<int>(phase.size()), phaseData,
+        static_cast<int>(component.size()), componentData,
+        static_cast<int>(identity.size()), identityData,
         static_cast<unsigned long>(pid),
         static_cast<unsigned long>(tid));
 
