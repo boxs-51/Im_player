@@ -18,15 +18,21 @@ void HandleWindowRuntimeEvent(WindowRuntime *runtime, const SDL_Event *e)
     if (!runtime)
         return;
 
-    ImGuiContext *imguiCtx = runtime->resource.imguiCtx;
-    if (imguiCtx)
+    // ImGui SDL event processing mutates the same per-window ImGuiContext and
+    // backend data used by UIRenderThread. Serialize the complete event-side
+    // mutation against the render frame critical region.
     {
-        ImGui::SetCurrentContext(imguiCtx);
+        std::lock_guard<std::mutex> imguiLock(runtime->imguiMutex);
+        ImGuiContext *imguiCtx = runtime->resource.imguiCtx;
+        if (imguiCtx)
+        {
+            ImGui::SetCurrentContext(imguiCtx);
+        }
+
+        // Backend event handling is part of the same ImGui ownership boundary.
+        if (runtime->resource.graphicsBackend)
+            runtime->resource.graphicsBackend->ProcessEvent(e);
     }
-    // Thay thế ImGui_ImplSDL2_ProcessEvent(e) bằng cách gọi vào backend của cửa sổ.
-    // Backend sẽ tự xử lý và cập nhật trạng thái input nội bộ của nó.
-    if (runtime->resource.graphicsBackend)
-        runtime->resource.graphicsBackend->ProcessEvent(e);
 
     auto *session = runtime->resource.GetPlayerSession();
     if (e->type == SDL_MPV_RENDER_UPDATE)
