@@ -1,7 +1,8 @@
 #pragma once
 
 #include <cstdint>
-#include <array>\n#include <vector>
+#include <array>
+#include <vector>
 
 constexpr size_t kSpectrumBins = 64;
 constexpr size_t kFftSize = 2048;
