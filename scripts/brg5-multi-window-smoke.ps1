@@ -148,6 +148,10 @@ $failure = $null
 $p = $null
 $secondaryHandle = [IntPtr]::Zero
 $mainTitle = $null
+$mainRectBeforeSecondaryResizeSignature = $null
+$mainRectAfterSecondaryResizeSignature = $null
+$secondaryRectBeforeResizeSignature = $null
+$secondaryRectAfterResizeSignature = $null
 $previousLifecycleLog = [Environment]::GetEnvironmentVariable("IM_PLAYER_LIFECYCLE_LOG", [EnvironmentVariableTarget]::Process)
 
 Write-Host "[BRG5-D] start commit=$commit configuration=$Configuration scenario=$scenario"
@@ -161,7 +165,6 @@ try {
     $initial = @(Wait-VisibleWindowCount $p 1 "initial-main-window")
     $mainHandle = $initial[0].Handle
     $mainTitle = $initial[0].Title
-    $mainRectBefore = Get-Rect $mainHandle
     $cases["main_window_visible"] = "PASS_ONE_VISIBLE"
 
     Send-CtrlP $mainHandle
@@ -172,7 +175,15 @@ try {
     $cases["open_main_plus_secondary"] = "PASS_TWO_VISIBLE"
     $cases["render_both_baseline"] = "PASS_BOTH_VISIBLE_PROCESS_ALIVE"
 
+    # Attribute this assertion only to the secondary-resize transition.
+    # Do not compare against the startup geometry: opening the secondary is a
+    # separate transition and may legitimately cause unrelated window-manager
+    # settling before the resize case begins.
+    $mainRectBeforeSecondaryResize = Get-Rect $mainHandle
     $secondaryBefore = Get-Rect $secondaryHandle
+    $mainRectBeforeSecondaryResizeSignature = Rect-Signature $mainRectBeforeSecondaryResize
+    $secondaryRectBeforeResizeSignature = Rect-Signature $secondaryBefore
+
     $secondaryW = $secondaryBefore.Right - $secondaryBefore.Left
     $secondaryH = $secondaryBefore.Bottom - $secondaryBefore.Top
     $targetW = if ($secondaryW -gt 520) { $secondaryW - 90 } else { $secondaryW + 90 }
@@ -182,13 +193,17 @@ try {
     }
     Start-Sleep -Milliseconds $ActionDelayMilliseconds
     Assert-Alive $p "resize-secondary"
+
     $secondaryAfter = Get-Rect $secondaryHandle
-    if ((Rect-Signature $secondaryAfter) -eq (Rect-Signature $secondaryBefore)) {
+    $mainRectAfterSecondaryResize = Get-Rect $mainHandle
+    $secondaryRectAfterResizeSignature = Rect-Signature $secondaryAfter
+    $mainRectAfterSecondaryResizeSignature = Rect-Signature $mainRectAfterSecondaryResize
+
+    if ($secondaryRectAfterResizeSignature -eq $secondaryRectBeforeResizeSignature) {
         throw "[BRG5-D] secondary geometry did not change"
     }
-    $mainRectAfter = Get-Rect $mainHandle
-    if ((Rect-Signature $mainRectAfter) -ne (Rect-Signature $mainRectBefore)) {
-        throw "[BRG5-D] main geometry changed while resizing secondary"
+    if ($mainRectAfterSecondaryResizeSignature -ne $mainRectBeforeSecondaryResizeSignature) {
+        throw "[BRG5-D] main geometry changed during secondary resize: before=$mainRectBeforeSecondaryResizeSignature after=$mainRectAfterSecondaryResizeSignature"
     }
     $cases["resize_secondary_main_continues"] = "PASS_ISOLATED_GEOMETRY"
 
@@ -263,6 +278,12 @@ finally {
         failure = $failure
         main_window_title = if ($mainTitle) { $mainTitle } else { $null }
         secondary_hwnd = if ($secondaryHandle -ne [IntPtr]::Zero) { $secondaryHandle.ToInt64() } else { $null }
+        resize_geometry = [ordered]@{
+            main_before_secondary_resize = $mainRectBeforeSecondaryResizeSignature
+            main_after_secondary_resize = $mainRectAfterSecondaryResizeSignature
+            secondary_before_resize = $secondaryRectBeforeResizeSignature
+            secondary_after_resize = $secondaryRectAfterResizeSignature
+        }
         cases = $cases
         lifecycle_log = $lifecycleLog
     }
