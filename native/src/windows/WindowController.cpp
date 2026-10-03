@@ -233,8 +233,10 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
     resource.sdlWindow = _sdlWindow;
     resource.hwnd = _hwnd;
 
-    LifecycleEvidence::Emit("Window", "CREATE", std::to_string(info.id));
+    const std::string lifecycleId = std::to_string(info.id);
+    LifecycleEvidence::Emit("Window", "CREATE", lifecycleId);
     controller = std::make_unique<WindowController>(this);
+    LifecycleEvidence::Emit("Window", "START", lifecycleId);
 }
 
 WindowRuntime::~WindowRuntime() {
