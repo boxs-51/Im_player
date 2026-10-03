@@ -2,7 +2,8 @@
 
 #include "AudioTypes.h"
 #include "SpscRingBuffer.h"
-#include "AudioVisualizerData.h"\n#include "AudioVisualizerSnapshot.h"
+#include "AudioVisualizerData.h"
+#include "AudioVisualizerSnapshot.h"
 #include "threads/thread_id.h"
 
 #include <optional>
@@ -78,8 +79,8 @@ private:
     // Reset lịch sử đo đạc khi chuyển bài hoặc Seek
     void ResetLoudnessHistory();
 
-    // --- LOCK-FREE VISUALIZER SNAPSHOT (Double Buffering) ---
-    AudioVisualizerFrame m_visualizerFrames[2];
-    std::atomic<int> m_writeIndex{0};
-    std::atomic<uint64_t> m_visualizerSequence{0};
+    // --- RACE-FREE VISUALIZER SNAPSHOT ---
+    // Processor owns the working frame; only publication/copy takes the mutex.
+    AudioVisualizerFrame m_workingVisualizerFrame;
+    AudioVisualizerSnapshot m_visualizerSnapshot;
 };
