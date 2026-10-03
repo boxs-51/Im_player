@@ -522,6 +522,16 @@ facts["brg5_lifecycle_validator_selftest"] = (
     "PASS" if brg5_validator_selftest.returncode == 0 else "FAIL"
 )
 
+render_shutdown_harness = (
+    ROOT / "scripts/brg5-render-callback-shutdown.ps1"
+).read_text(encoding="utf-8")
+if "callback_count did not advance before shutdown" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 must fail when callback activity does not advance")
+if "PASS_PRE_CLOSE_GT_FIRST" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 callback-advancement PASS evidence marker missing")
+if "callback_count_first_observed" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 must record the first observed callback count")
+
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
     check=True,
