@@ -203,6 +203,17 @@ function Wait-VisibleWindowCount([System.Diagnostics.Process]$Process, [int]$Exp
     throw "[AUD-19-01] $Case expected visible windows=$Expected actual=$($actual.Count)"
 }
 
+function Wait-LifecycleMarker([string]$Path, [string]$Marker, [string]$Case) {
+    for ($i = 0; $i -lt 50; ++$i) {
+        if (Test-Path $Path) {
+            $text = Get-Content $Path -Raw -ErrorAction SilentlyContinue
+            if ($text -and $text.Contains($Marker)) { return }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "[AUD-19-01] $Case lifecycle marker not observed: $Marker"
+}
+
 function Get-Rect([IntPtr]$Hwnd) {
     $rect = New-Object ISSUE19.EventRenderNative+RECT
     if (-not [ISSUE19.EventRenderNative]::GetWindowRect($Hwnd, [ref]$rect)) {
@@ -268,8 +279,10 @@ function Invoke-EventBurst {
         Assert-Alive $Process "$Case-iteration-$i"
 
         $target = $Targets[$i % $Targets.Count]
-        $x = 24 + (($i * 13) % 160)
-        $y = 24 + (($i * 7) % 100)
+        # Keep synthetic clicks in the client interior rather than the custom
+        # title-bar/control strip while still varying coordinates per event.
+        $x = 220 + (($i * 13) % 120)
+        $y = 180 + (($i * 7) % 80)
 
         if (-not [ISSUE19.EventRenderNative]::PostMouseMove($target, $x, $y)) {
             throw "[AUD-19-01] $Case mouse move failed iteration=$i hwnd=$target"
@@ -339,6 +352,9 @@ try {
     $initial = @(Wait-VisibleWindowCount $p 1 "initial-main-window")
     $mainHandle = $initial[0].Handle
     $cases["main_window_visible"] = "PASS_ONE_VISIBLE"
+
+    Wait-LifecycleMarker $lifecycleLog "phase=START component=UIRenderThread " "pre-injection-render-thread"
+    $cases["ui_render_thread_started_before_injection"] = "PASS"
 
     $mainParams = @{
         Process = $p
