@@ -382,6 +382,8 @@ for token in (
     "Invoke-EventBurst",
     'cases["secondary_close_during_event_burst"]',
     'cases["main_close_during_event_burst"]',
+    'cases["ui_render_thread_started_before_injection"]',
+    "phase=START component=UIRenderThread ",
     "POSTMESSAGE_WINDOW_TARGETED_MOUSE_KEYBOARD",
     "brg5_validate_lifecycle.py",
 ):
