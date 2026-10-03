@@ -10,9 +10,12 @@
 #include <SDL.h>
 
 #include "WindowManager.h"
+#include "common/LifecycleEvidence.h"
+#include <cstdio>
 
 void OpenMockSubWindow()
 {
+    LifecycleEvidence::EmitDiagnostic("HOTKEY", "OpenMockSubWindow enter");
     auto &winManager = WindowManager::GetInstance();
     const std::string templateName = "MockSubWindow";
 
@@ -21,6 +24,7 @@ void OpenMockSubWindow()
 
     if (Win)
     {
+        LifecycleEvidence::EmitDiagnostic("HOTKEY", "MockSubWindow hidden instance found");
         // 2. Nếu có, chỉ cần hiện nó lên
         if (Win->state.display.isShown)
             winManager.HideWindow(Win->info.id);
@@ -34,7 +38,12 @@ void OpenMockSubWindow()
         WindowRuntime *mainWin = winManager.GetMainWindow();
         if (mainWin)
         {
+            LifecycleEvidence::EmitDiagnostic("HOTKEY", "MockSubWindow queue create");
             winManager.QueueCreateWindow(templateName, mainWin);
+        }
+        else
+        {
+            LifecycleEvidence::EmitDiagnostic("HOTKEY", "MockSubWindow main window missing");
         }
     }
 }
@@ -305,7 +314,23 @@ bool HandlePopupHotkeys(const SDL_Event *e)
         return false;
 
     SDL_Keycode key = e->key.keysym.sym;
-    SDL_Keymod mod = SDL_GetModState();
+    // Use the modifier snapshot carried by this SDL_KEYDOWN event. Reading
+    // SDL_GetModState() here can observe a newer global keyboard state after
+    // the event was queued, which makes Ctrl+hotkeys timing-dependent.
+    SDL_Keymod mod = static_cast<SDL_Keymod>(e->key.keysym.mod);
+
+    if (key == SDLK_p)
+    {
+        char diag[256]{};
+        std::snprintf(
+            diag,
+            sizeof(diag),
+            "popup P keydown event_mod=%u event_ctrl=%d windowID=%u",
+            static_cast<unsigned>(e->key.keysym.mod),
+            (mod & KMOD_CTRL) ? 1 : 0,
+            static_cast<unsigned>(e->key.windowID));
+        LifecycleEvidence::EmitDiagnostic("HOTKEY", diag);
+    }
 
     // ESC: đóng tất cả popup đang mở
     if (key == SDLK_ESCAPE)
@@ -395,6 +420,7 @@ bool HandlePopupHotkeys(const SDL_Event *e)
         }
         case SDLK_p: // Hotkey mới: Ctrl + P
         {
+            LifecycleEvidence::EmitDiagnostic("HOTKEY", "Ctrl+P branch entered");
             // Gọi hàm logic để mở cửa sổ phụ
             OpenMockSubWindow();
             return true;
@@ -429,8 +455,25 @@ bool HandleExtersionHotkeys(const SDL_Event *e)
 // Hàm tổng gộp xử lý hotkey
 bool HandleHotkeys(const SDL_Event *e, WindowRuntime *runtime)
 {
+    if (e && e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_p)
+    {
+        char diag[320]{};
+        std::snprintf(
+            diag,
+            sizeof(diag),
+            "HandleHotkeys P keydown event_mod=%u disabled=%d windowID=%u",
+            static_cast<unsigned>(e->key.keysym.mod),
+            Disabehotkey ? 1 : 0,
+            static_cast<unsigned>(e->key.windowID));
+        LifecycleEvidence::EmitDiagnostic("HOTKEY", diag);
+    }
+
     if (Disabehotkey)
+    {
+        if (e && e->type == SDL_KEYDOWN && e->key.keysym.sym == SDLK_p)
+            LifecycleEvidence::EmitDiagnostic("HOTKEY", "P keydown blocked by Disabehotkey");
         return false;
+    }
     return HandleBasicHotkeys(e, runtime) ||
            HandlePopupHotkeys(e) ||
            HandleExtersionHotkeys(e);

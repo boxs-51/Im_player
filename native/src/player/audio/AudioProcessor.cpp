@@ -1,6 +1,7 @@
 #include "AudioProcessor.h"
 #include "log.h"
 #include "threads/thread_manager.h"
+#include "common/LifecycleEvidence.h"
 
 #include <cmath>
 #include <algorithm>
@@ -9,6 +10,11 @@
 
 
 AudioProcessor::AudioProcessor() {
+    LifecycleEvidence::Emit(
+        "AudioProcessor",
+        "CREATE",
+        LifecycleEvidence::PointerIdentity(this));
+
     // 1. Khởi tạo PFFFT Setup cho số thực (PFFFT_REAL)
     m_pffftSetup = pffft_new_setup(kFftSize, PFFFT_REAL);
 
@@ -22,6 +28,10 @@ AudioProcessor::AudioProcessor() {
 
 AudioProcessor::~AudioProcessor() {
     Stop();
+    LifecycleEvidence::Emit(
+        "AudioProcessor",
+        "DESTROY",
+        LifecycleEvidence::PointerIdentity(this));
 
     // Giải phóng tài nguyên PFFFT
     if (m_pffftSetup) {
@@ -53,13 +63,16 @@ void AudioProcessor::Start() {
     m_isRunning.store(true, std::memory_order_release);
     m_processThread = std::thread(&AudioProcessor::ProcessLoop, this);
     GetThreadManager().Register(m_threadId, &m_processThread);
+    LifecycleEvidence::Emit("AudioProcessor", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void AudioProcessor::Stop() {
     if (!m_isRunning.exchange(false, std::memory_order_acq_rel)) return;
 
+    LifecycleEvidence::Emit("AudioProcessor", "STOP", LifecycleEvidence::PointerIdentity(this));
     if (m_processThread.joinable()) {
         m_processThread.join();
+        LifecycleEvidence::Emit("AudioProcessor", "JOIN", LifecycleEvidence::PointerIdentity(this));
     }
 
     GetThreadManager().Unregister(m_threadId);

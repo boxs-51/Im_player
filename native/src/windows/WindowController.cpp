@@ -6,6 +6,7 @@
 #include "WindowManager.h" 
 #include "WindowRelation.h"
 #include "UIRenderThread.h"
+#include "common/LifecycleEvidence.h"
 #include "UpdateWindowState.h"
 #include <algorithm>
 
@@ -232,10 +233,16 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
     resource.sdlWindow = _sdlWindow;
     resource.hwnd = _hwnd;
 
+    const std::string lifecycleId = std::to_string(info.id);
+    LifecycleEvidence::Emit("Window", "CREATE", lifecycleId);
     controller = std::make_unique<WindowController>(this);
+    LifecycleEvidence::Emit("Window", "START", lifecycleId);
 }
 
 WindowRuntime::~WindowRuntime() {
+    const std::string lifecycleId = std::to_string(info.id);
+    LifecycleEvidence::Emit("Window", "STOP", lifecycleId);
+
     // Stop and join the UI render thread before tearing down any render-owned
     // object. The UI thread can still reach PlayerSession/PlayBackRender and
     // graphics resources while it is live.
@@ -251,13 +258,21 @@ WindowRuntime::~WindowRuntime() {
         }
     }
 
+    // ImGui backend state is stored on the current ImGui context.
+    // In a multi-window process another window may have been the most recent
+    // renderer, so select this window's context before shutting its backend
+    // down. Otherwise Debug ImGui may observe an already-shutdown/null backend
+    // on the wrong context and abort during teardown.
+    if (resource.imguiCtx) {
+        ImGui::SetCurrentContext(resource.imguiCtx);
+    }
+
     if (resource.graphicsBackend) {
         resource.graphicsBackend->Shutdown(true);
     }
 
     // Destroy ImGui context before the font controller/atlas it references.
     if (resource.imguiCtx) {
-        ImGui::SetCurrentContext(resource.imguiCtx);
         ImGui::DestroyContext(resource.imguiCtx);
         resource.imguiCtx = nullptr;
     }
@@ -270,6 +285,8 @@ WindowRuntime::~WindowRuntime() {
         SDL_DestroyWindow(resource.sdlWindow);
         resource.sdlWindow = nullptr;
     }
+
+    LifecycleEvidence::Emit("Window", "DESTROY", lifecycleId);
 }
 
 // --- Cài đặt các hàm tiện ích mới của WindowRuntime ---

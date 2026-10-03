@@ -8,6 +8,7 @@
 
 #include <imgui.h>
 #include "common/Exception.h"
+#include "common/LifecycleEvidence.h"
 
 UIRenderThread::UIRenderThread(WindowRuntime *owner, IGraphicsBackend *graphicsBackend)
     : m_ownerRuntime(owner), m_graphicsBackend(graphicsBackend)
@@ -23,11 +24,20 @@ UIRenderThread::UIRenderThread(WindowRuntime *owner, IGraphicsBackend *graphicsB
     {
         THROW_APP_EXCEPTION("Failed to create graphics sub-context for UIRenderThread.");
     }
+
+    LifecycleEvidence::Emit(
+        "UIRenderThread",
+        "CREATE",
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 UIRenderThread::~UIRenderThread()
 {
     Stop();
+    LifecycleEvidence::Emit(
+        "UIRenderThread",
+        "DESTROY",
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 void UIRenderThread::Start()
@@ -39,17 +49,22 @@ void UIRenderThread::Start()
     m_thread = std::thread(&UIRenderThread::Run, this);
     m_registeredThreadName = "UIRenderThread_" + std::to_string(m_ownerRuntime->info.id);
     GetThreadManager().Register(m_registeredThreadName, &m_thread);
+    LifecycleEvidence::Emit("UIRenderThread", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void UIRenderThread::Stop()
 {
     if (!m_running)
         return;
+
+    const std::string lifecycleId = LifecycleEvidence::PointerIdentity(this);
+    LifecycleEvidence::Emit("UIRenderThread", "STOP", lifecycleId);
     m_running = false;
     m_cv.notify_one(); // Đánh thức luồng để nó có thể thoát
     if (m_thread.joinable())
     {
         m_thread.join();
+        LifecycleEvidence::Emit("UIRenderThread", "JOIN", lifecycleId);
     }
 
     if (!m_registeredThreadName.empty())

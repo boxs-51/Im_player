@@ -102,6 +102,17 @@ required = [
     ".github/ISSUE_TEMPLATE/canonical_work_item.yml",
     ".github/ISSUE_TEMPLATE/integration_wave.yml",
     ".github/pull_request_template.md",
+    "native/src/common/LifecycleEvidence.h",
+    "docs/BRG5_RUNTIME_EVIDENCE.md",
+    "scripts/brg5_lifecycle_sanity.py",
+    "scripts/brg5_validate_lifecycle.py",
+    "scripts/brg5-startup-shutdown.ps1",
+    "scripts/brg5-playback-window-smoke.ps1",
+    "scripts/brg5_generate_media_fixture.py",
+    "scripts/brg5_generate_video_fixture.py",
+    "scripts/brg5-multi-window-smoke.ps1",
+    "scripts/brg5-lifecycle-audio-stress.ps1",
+    "scripts/brg5-render-callback-shutdown.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -219,6 +230,12 @@ player_manager_h = (ROOT / "native/src/player/session/PlayerManager.h").read_tex
 window_manager_h = (ROOT / "native/src/windows/WindowManager.h").read_text(
     encoding="utf-8"
 )
+window_factory_h = (ROOT / "native/src/windows/WindowFactory.h").read_text(
+    encoding="utf-8"
+)
+hotkey_handler_cpp = (ROOT / "native/src/hotkey_handler.cpp").read_text(
+    encoding="utf-8"
+)
 font_manager_cpp = (ROOT / "native/src/FontManager.cpp").read_text(encoding="utf-8")
 main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 
@@ -282,6 +299,30 @@ elif destroy_all_index > font_shutdown_index:
 if "m_pendingSessionIds.erase(sessionId);" not in create_session_body:
     fail("BRG-4: pending session reservation cleanup missing")
 
+if "new WindowRuntime();" in window_factory_h:
+    fail("BRG-5: WindowRuntime must not be constructed before stable WindowId assignment")
+if "runtime->info.id = nextId++" in window_factory_h:
+    fail("BRG-5: Window identity must not mutate after lifecycle CREATE/START")
+if "const WindowId id = nextId++;" not in window_factory_h or "new WindowRuntime(id)" not in window_factory_h:
+    fail("BRG-5: WindowFactory must pass the final WindowId into WindowRuntime construction")
+
+popup_handler_match = re.search(
+    r"bool\s+HandlePopupHotkeys\s*\([^)]*\)\s*\{(?P<body>.*?)\n\}",
+    hotkey_handler_cpp,
+    re.S,
+)
+if not popup_handler_match:
+    fail("BRG-5: HandlePopupHotkeys body not found")
+else:
+    popup_handler_body = popup_handler_match.group("body")
+    if "e->key.keysym.mod" not in popup_handler_body:
+        fail("BRG-5: popup hotkeys must use event-local SDL modifier snapshot")
+    if re.search(
+        r"SDL_Keymod\s+mod\s*=\s*SDL_GetModState\s*\(",
+        popup_handler_body,
+    ):
+        fail("BRG-5: popup hotkeys must not use timing-dependent global SDL modifier state")
+
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
 
 # BRG-3 MPV render callback lifetime regression contract.
@@ -326,12 +367,46 @@ require_order(
     "callback gate entry must precede worker snapshot",
 )
 
+if "acceptedCallbacks.fetch_add" not in render_update_body:
+    fail("BRG-5: real render callback activity counter missing")
+if "callback_first" not in render_update_body:
+    fail("BRG-5: first real render callback evidence marker missing")
+require_order(
+    render_update_body,
+    "callbackState->lifetime.Enter()",
+    "acceptedCallbacks.fetch_add",
+    "callback gate entry must precede callback activity count",
+)
+require_order(
+    render_update_body,
+    "acceptedCallbacks.fetch_add",
+    "callbackState->thread.load",
+    "callback activity count must precede worker request",
+)
+
 if "m_renderThread.get());" in playback_render_cpp:
     fail("BRG-3: raw render-thread pointer must not be registered as MPV callback userdata")
 if "&PlayBackRender::HandleRenderUpdate" not in playback_render_cpp:
     fail("BRG-3: MPV update callback must use the guarded static handler")
 if "m_updateCallbackState.get()" not in playback_render_cpp:
     fail("BRG-3: MPV callback userdata must be the stable callback-state object")
+
+if "shutdown_pre_close" not in render_shutdown_body:
+    fail("BRG-5: shutdown callback-count evidence marker missing")
+if "shutdown_quiescent" not in render_shutdown_body:
+    fail("BRG-5: shutdown callback quiescence evidence marker missing")
+require_order(
+    render_shutdown_body,
+    "shutdown_pre_close",
+    "m_updateCallbackState->lifetime.Close();",
+    "callback-count snapshot must precede callback gate close",
+)
+require_order(
+    render_shutdown_body,
+    "m_updateCallbackState->lifetime.Close();",
+    "shutdown_quiescent",
+    "callback quiescence marker must follow callback gate close",
+)
 
 require_order(
     render_shutdown_body,
@@ -377,6 +452,19 @@ require_order(
     "UIRenderThread must stop/join before PlayBackRender shutdown",
 )
 
+require_order(
+    window_runtime_destructor,
+    "ImGui::SetCurrentContext(resource.imguiCtx);",
+    "resource.graphicsBackend->Shutdown(true);",
+    "window ImGui context must be current before backend shutdown",
+)
+require_order(
+    window_runtime_destructor,
+    "resource.graphicsBackend->Shutdown(true);",
+    "ImGui::DestroyContext(resource.imguiCtx);",
+    "backend shutdown must precede ImGui context destruction",
+)
+
 gate_header_text = (
     ROOT / "native/src/player/render/RenderCallbackLifetimeGate.h"
 ).read_text(encoding="utf-8")
@@ -400,6 +488,49 @@ if last_leave < 0 or wait_lock < 0 or notify < 0 or wait_lock > notify:
     )
 
 facts["brg3_callback_lifetime_contract"] = "PASS" if not errors else "FAIL"
+
+# BRG-5 lifecycle evidence contract.
+# Run the focused coverage checker as part of the canonical static sanity gate
+# so lifecycle instrumentation cannot silently drift out of the BRG-5 matrix.
+brg5_sanity = subprocess.run(
+    [sys.executable, str(ROOT / "scripts/brg5_lifecycle_sanity.py")],
+    text=True,
+    capture_output=True,
+)
+if brg5_sanity.returncode != 0:
+    detail = (brg5_sanity.stderr or brg5_sanity.stdout).strip()
+    fail("BRG-5 lifecycle marker coverage failed: " + detail)
+facts["brg5_lifecycle_contract"] = (
+    "PASS" if brg5_sanity.returncode == 0 else "FAIL"
+)
+
+brg5_validator_selftest = subprocess.run(
+    [
+        sys.executable,
+        str(ROOT / "scripts/brg5_validate_lifecycle.py"),
+        "--self-test",
+    ],
+    text=True,
+    capture_output=True,
+)
+if brg5_validator_selftest.returncode != 0:
+    detail = (
+        brg5_validator_selftest.stderr or brg5_validator_selftest.stdout
+    ).strip()
+    fail("BRG-5 lifecycle validator self-test failed: " + detail)
+facts["brg5_lifecycle_validator_selftest"] = (
+    "PASS" if brg5_validator_selftest.returncode == 0 else "FAIL"
+)
+
+render_shutdown_harness = (
+    ROOT / "scripts/brg5-render-callback-shutdown.ps1"
+).read_text(encoding="utf-8")
+if "callback_count did not advance before shutdown" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 must fail when callback activity does not advance")
+if "PASS_PRE_CLOSE_GT_FIRST" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 callback-advancement PASS evidence marker missing")
+if "callback_count_first_observed" not in render_shutdown_harness:
+    fail("BRG-5: AUD-8-02 must record the first observed callback count")
 
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
