@@ -62,7 +62,7 @@ try {
 }
 catch {
     $failure = $_.Exception.Message
-    Write-Error $failure
+    Write-Host "[BRG5-B] ERROR: $failure"
     throw
 }
 finally {
