@@ -102,6 +102,9 @@ required = [
     ".github/ISSUE_TEMPLATE/canonical_work_item.yml",
     ".github/ISSUE_TEMPLATE/integration_wave.yml",
     ".github/pull_request_template.md",
+    "native/src/common/LifecycleEvidence.h",
+    "docs/BRG5_RUNTIME_EVIDENCE.md",
+    "scripts/brg5_lifecycle_sanity.py",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -400,6 +403,21 @@ if last_leave < 0 or wait_lock < 0 or notify < 0 or wait_lock > notify:
     )
 
 facts["brg3_callback_lifetime_contract"] = "PASS" if not errors else "FAIL"
+
+# BRG-5 lifecycle evidence contract.
+# Run the focused coverage checker as part of the canonical static sanity gate
+# so lifecycle instrumentation cannot silently drift out of the BRG-5 matrix.
+brg5_sanity = subprocess.run(
+    [sys.executable, str(ROOT / "scripts/brg5_lifecycle_sanity.py")],
+    text=True,
+    capture_output=True,
+)
+if brg5_sanity.returncode != 0:
+    detail = (brg5_sanity.stderr or brg5_sanity.stdout).strip()
+    fail("BRG-5 lifecycle marker coverage failed: " + detail)
+facts["brg5_lifecycle_contract"] = (
+    "PASS" if brg5_sanity.returncode == 0 else "FAIL"
+)
 
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
