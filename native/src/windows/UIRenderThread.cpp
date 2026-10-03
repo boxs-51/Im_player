@@ -28,7 +28,7 @@ UIRenderThread::UIRenderThread(WindowRuntime *owner, IGraphicsBackend *graphicsB
     LifecycleEvidence::Emit(
         "UIRenderThread",
         "CREATE",
-        std::to_string(m_ownerRuntime->info.id));
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 UIRenderThread::~UIRenderThread()
@@ -37,7 +37,7 @@ UIRenderThread::~UIRenderThread()
     LifecycleEvidence::Emit(
         "UIRenderThread",
         "DESTROY",
-        std::to_string(m_ownerRuntime->info.id));
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 void UIRenderThread::Start()
@@ -49,7 +49,7 @@ void UIRenderThread::Start()
     m_thread = std::thread(&UIRenderThread::Run, this);
     m_registeredThreadName = "UIRenderThread_" + std::to_string(m_ownerRuntime->info.id);
     GetThreadManager().Register(m_registeredThreadName, &m_thread);
-    LifecycleEvidence::Emit("UIRenderThread", "START", m_registeredThreadName);
+    LifecycleEvidence::Emit("UIRenderThread", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void UIRenderThread::Stop()
@@ -57,10 +57,7 @@ void UIRenderThread::Stop()
     if (!m_running)
         return;
 
-    const std::string lifecycleId =
-        m_registeredThreadName.empty()
-            ? std::to_string(m_ownerRuntime->info.id)
-            : m_registeredThreadName;
+    const std::string lifecycleId = LifecycleEvidence::PointerIdentity(this);
     LifecycleEvidence::Emit("UIRenderThread", "STOP", lifecycleId);
     m_running = false;
     m_cv.notify_one(); // Đánh thức luồng để nó có thể thoát
