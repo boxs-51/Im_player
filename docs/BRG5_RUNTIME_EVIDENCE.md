@@ -115,3 +115,60 @@ BRG5-A is complete when:
 4. Debug and Release lifecycle logs pass the runtime validator;
 5. no ownership/control-flow redesign is introduced;
 6. static sanity verifies marker coverage.
+
+
+## BRG5-B startup/shutdown regression gate
+
+BRG5-B packages the baseline no-user-playback startup/clean-shutdown scenario
+with the existing BRG-3 callback lifetime regression and the BRG5-A lifecycle
+validator.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-startup-shutdown.ps1 -Configuration Debug -Iterations 1
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-startup-shutdown.ps1 -Configuration Release -Iterations 1
+```
+
+For each configuration the harness must, in order:
+
+1. run `brg3_render_callback_lifetime_gate` CTest;
+2. launch the application without user media playback;
+3. keep the process alive through the startup observation window;
+4. request normal main-window close through the existing BRG-3 harness;
+5. require `ExitCode=0`;
+6. capture lifecycle markers through `IM_PLAYER_LIFECYCLE_LOG`;
+7. validate stable identity and phase ordering;
+8. write JSON evidence under `artifacts/brg5/`.
+
+Evidence JSON records:
+
+```text
+commit
+configuration
+scenario
+iterations
+startup_seconds
+exit_timeout_seconds
+focused_brg3_regression
+lifecycle_validation
+result
+failure
+lifecycle_log
+ctest_command
+runtime_command
+validator_command
+```
+
+Hosted CI does not execute this interactive GUI scenario. It remains fail-closed
+for deterministic build/CTest/static contracts and prints the exact local
+BRG5-B command. Local interactive Windows evidence is canonical for BRG5-B.
+
+BRG5-B passes when Debug and Release both report:
+
+```text
+focused_brg3_regression = PASS
+startup/shutdown         = PASS
+lifecycle_validation     = PASS
+result                   = PASS
+```
