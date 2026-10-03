@@ -227,6 +227,9 @@ player_manager_h = (ROOT / "native/src/player/session/PlayerManager.h").read_tex
 window_manager_h = (ROOT / "native/src/windows/WindowManager.h").read_text(
     encoding="utf-8"
 )
+window_factory_h = (ROOT / "native/src/windows/WindowFactory.h").read_text(
+    encoding="utf-8"
+)
 font_manager_cpp = (ROOT / "native/src/FontManager.cpp").read_text(encoding="utf-8")
 main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 
@@ -289,6 +292,13 @@ elif destroy_all_index > font_shutdown_index:
 
 if "m_pendingSessionIds.erase(sessionId);" not in create_session_body:
     fail("BRG-4: pending session reservation cleanup missing")
+
+if "new WindowRuntime();" in window_factory_h:
+    fail("BRG-5: WindowRuntime must not be constructed before stable WindowId assignment")
+if "runtime->info.id = nextId++" in window_factory_h:
+    fail("BRG-5: Window identity must not mutate after lifecycle CREATE/START")
+if "const WindowId id = nextId++;" not in window_factory_h or "new WindowRuntime(id)" not in window_factory_h:
+    fail("BRG-5: WindowFactory must pass the final WindowId into WindowRuntime construction")
 
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
 
