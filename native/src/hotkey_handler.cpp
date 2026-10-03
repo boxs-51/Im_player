@@ -321,16 +321,13 @@ bool HandlePopupHotkeys(const SDL_Event *e)
 
     if (key == SDLK_p)
     {
-        char diag[320]{};
-        const SDL_Keymod globalMod = SDL_GetModState();
+        char diag[256]{};
         std::snprintf(
             diag,
             sizeof(diag),
-            "popup P keydown event_mod=%u global_mod=%u event_ctrl=%d global_ctrl=%d windowID=%u",
+            "popup P keydown event_mod=%u event_ctrl=%d windowID=%u",
             static_cast<unsigned>(e->key.keysym.mod),
-            static_cast<unsigned>(globalMod),
             (mod & KMOD_CTRL) ? 1 : 0,
-            (globalMod & KMOD_CTRL) ? 1 : 0,
             static_cast<unsigned>(e->key.windowID));
         LifecycleEvidence::EmitDiagnostic("HOTKEY", diag);
     }
