@@ -385,6 +385,19 @@ require_order(
     "UIRenderThread must stop/join before PlayBackRender shutdown",
 )
 
+require_order(
+    window_runtime_destructor,
+    "ImGui::SetCurrentContext(resource.imguiCtx);",
+    "resource.graphicsBackend->Shutdown(true);",
+    "window ImGui context must be current before backend shutdown",
+)
+require_order(
+    window_runtime_destructor,
+    "resource.graphicsBackend->Shutdown(true);",
+    "ImGui::DestroyContext(resource.imguiCtx);",
+    "backend shutdown must precede ImGui context destruction",
+)
+
 gate_header_text = (
     ROOT / "native/src/player/render/RenderCallbackLifetimeGate.h"
 ).read_text(encoding="utf-8")
