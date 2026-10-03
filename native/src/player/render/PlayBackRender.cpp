@@ -109,6 +109,10 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
         SDLUtils::SDLX_PushUniqueEvent(ev); }, nullptr);
 #endif
 
+    LifecycleEvidence::Emit(
+        "MPVRenderContext",
+        "START",
+        LifecycleEvidence::PointerIdentity(m_render_ctx));
     return true;
 }
 
