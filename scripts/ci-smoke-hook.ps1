@@ -33,5 +33,15 @@ else {
     Write-Host "[BRG-2] No CTestTestfile.cmake yet; BRG-5 may extend this hook."
 }
 
+# BRG-3 runtime policy:
+# GitHub-hosted Windows runners are non-interactive service environments and
+# are not authoritative for desktop startup/main-window-close behavior.
+# They still enforce compile/link plus the deterministic focused lifetime CTest
+# above. Canonical L2/L4 GUI runtime proof is collected on an interactive local
+# Windows desktop using scripts/test-shutdown.ps1 on the exact commit under test.
+Write-Host "[BRG-3] Interactive GUI shutdown stress: NOT_RUN_IN_CI"
+Write-Host "[BRG-3] Canonical runtime proof: local interactive Windows exact-head evidence"
+Write-Host "[BRG-3] Local command: scripts/test-shutdown.ps1 -Configuration $Configuration -Iterations 20"
+
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 Write-Host "[BRG-2] Smoke hook PASS commit=$commit configuration=$Configuration"
