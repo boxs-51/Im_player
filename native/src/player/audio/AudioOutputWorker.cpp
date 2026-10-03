@@ -88,16 +88,16 @@ void AudioOutputWorker::Start() {
     m_isRunning.store(true, std::memory_order_release);
     m_workerThread = std::thread(&AudioOutputWorker::OutputLoop, this);
     GetThreadManager().Register(m_threadId, &m_workerThread);
-    LifecycleEvidence::Emit("AudioOutputWorker", "START", m_threadId.ToString());
+    LifecycleEvidence::Emit("AudioOutputWorker", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void AudioOutputWorker::Stop() {
     if (!m_isRunning.exchange(false, std::memory_order_acq_rel)) return;
 
-    LifecycleEvidence::Emit("AudioOutputWorker", "STOP", m_threadId.ToString());
+    LifecycleEvidence::Emit("AudioOutputWorker", "STOP", LifecycleEvidence::PointerIdentity(this));
     if (m_workerThread.joinable()) {
         m_workerThread.join();
-        LifecycleEvidence::Emit("AudioOutputWorker", "JOIN", m_threadId.ToString());
+        LifecycleEvidence::Emit("AudioOutputWorker", "JOIN", LifecycleEvidence::PointerIdentity(this));
     }
 
     GetThreadManager().Unregister(m_threadId);
