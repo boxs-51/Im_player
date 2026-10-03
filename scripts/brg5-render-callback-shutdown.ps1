@@ -134,8 +134,11 @@ try {
         Assert-Alive $p "waiting-for-render-callback"
 
         if (Test-Path $lifecycleLog) {
-            $probeLines = @(Get-Content $lifecycleLog -ErrorAction SilentlyContinue)
-            $firstCallbackMarker = Find-Line $probeLines "callback_first"
+            $probeLines = [string[]]@(
+                Get-Content $lifecycleLog -ErrorAction SilentlyContinue |
+                    ForEach-Object { $_.ToString() }
+            )
+            $firstCallbackMarker = [string](Find-Line $probeLines "callback_first")
             if ($firstCallbackMarker -and $firstCallbackMarker.Contains("category=RENDER_CALLBACK")) {
                 break
             }
@@ -171,7 +174,10 @@ try {
         throw "[AUD-8-02] lifecycle log missing: $lifecycleLog"
     }
 
-    $lines = @(Get-Content $lifecycleLog -ErrorAction Stop)
+    $lines = [string[]]@(
+        Get-Content $lifecycleLog -ErrorAction Stop |
+            ForEach-Object { $_.ToString() }
+    )
 
     $firstIndex = Find-LineIndex $lines "callback_first"
     $preCloseIndex = Find-LineIndex $lines "shutdown_pre_close"
@@ -184,9 +190,9 @@ try {
         throw "[AUD-8-02] render callback/shutdown marker order invalid"
     }
 
-    $firstCallbackMarker = $lines[$firstIndex]
-    $preCloseMarker = $lines[$preCloseIndex]
-    $quiescentMarker = $lines[$quiescentIndex]
+    $firstCallbackMarker = [string]$lines[$firstIndex]
+    $preCloseMarker = [string]$lines[$preCloseIndex]
+    $quiescentMarker = [string]$lines[$quiescentIndex]
 
     $countMatch = [regex]::Match($preCloseMarker, "callback_count=(\d+)")
     if (-not $countMatch.Success) {
