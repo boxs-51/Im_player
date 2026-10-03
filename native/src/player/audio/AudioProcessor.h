@@ -2,7 +2,7 @@
 
 #include "AudioTypes.h"
 #include "SpscRingBuffer.h"
-#include "AudioVisualizerData.h"
+#include "AudioVisualizerData.h"\n#include "AudioVisualizerSnapshot.h"
 #include "threads/thread_id.h"
 
 #include <optional>
@@ -34,7 +34,7 @@ public:
     void Stop();
 
     /**
-     * @brief UI Thread gọi hàm này để lấy snapshot dữ liệu visualizer (HOÀN TOÀN LOCK-FREE)
+     * @brief UI Thread lấy bản sao visualizer qua snapshot boundary đồng bộ, race-free.
      */
     bool GetLatestVisualizerData(AudioVisualizerFrame& outFrame);
 
