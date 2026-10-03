@@ -60,14 +60,61 @@ namespace BRG5 {
         [DllImport("user32.dll")] public static extern bool GetWindowRect(IntPtr hWnd, out RECT rect);
         [DllImport("user32.dll")] public static extern bool SetWindowPos(IntPtr hWnd, IntPtr after, int x, int y, int cx, int cy, uint flags);
         [DllImport("user32.dll")] public static extern bool SetForegroundWindow(IntPtr hWnd);
+        [DllImport("user32.dll")] public static extern IntPtr GetForegroundWindow();
+        [DllImport("user32.dll")] public static extern bool ShowWindow(IntPtr hWnd, int nCmdShow);
         [DllImport("user32.dll")] public static extern bool PostMessage(IntPtr hWnd, uint msg, IntPtr wParam, IntPtr lParam);
         [DllImport("user32.dll")] public static extern uint MapVirtualKey(uint code, uint mapType);
+        [DllImport("user32.dll", SetLastError=true)] public static extern uint SendInput(uint nInputs, INPUT[] pInputs, int cbSize);
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct INPUT {
+            public uint type;
+            public INPUTUNION U;
+        }
+
+        [StructLayout(LayoutKind.Explicit)]
+        public struct INPUTUNION {
+            [FieldOffset(0)] public KEYBDINPUT ki;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        public struct KEYBDINPUT {
+            public ushort wVk;
+            public ushort wScan;
+            public uint dwFlags;
+            public uint time;
+            public UIntPtr dwExtraInfo;
+        }
 
         public const uint WM_KEYDOWN = 0x0100;
         public const uint WM_KEYUP = 0x0101;
         public const uint WM_CLOSE = 0x0010;
         public const uint SWP_NOZORDER = 0x0004;
         public const uint SWP_NOACTIVATE = 0x0010;
+        public const int SW_RESTORE = 9;
+        public const uint INPUT_KEYBOARD = 1;
+        public const uint KEYEVENTF_KEYUP = 0x0002;
+
+        public static INPUT KeyInput(ushort vk, bool keyUp) {
+            var input = new INPUT();
+            input.type = INPUT_KEYBOARD;
+            input.U.ki.wVk = vk;
+            input.U.ki.wScan = 0;
+            input.U.ki.dwFlags = keyUp ? KEYEVENTF_KEYUP : 0;
+            input.U.ki.time = 0;
+            input.U.ki.dwExtraInfo = UIntPtr.Zero;
+            return input;
+        }
+
+        public static bool SendCtrlP() {
+            var inputs = new INPUT[] {
+                KeyInput(0x11, false),
+                KeyInput(0x50, false),
+                KeyInput(0x50, true),
+                KeyInput(0x11, true)
+            };
+            return SendInput((uint)inputs.Length, inputs, Marshal.SizeOf(typeof(INPUT))) == inputs.Length;
+        }
 
         public static List<WindowInfo> EnumerateProcessWindows(uint pid, bool visibleOnly) {
             var result = new List<WindowInfo>();
@@ -132,13 +179,29 @@ function Wait-VisibleWindowCount([System.Diagnostics.Process]$Process, [int]$Exp
 }
 
 function Send-CtrlP([IntPtr]$Hwnd) {
-    [BRG5.MultiWindowNative]::SetForegroundWindow($Hwnd) | Out-Null
-    [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x11, $true) | Out-Null
-    Start-Sleep -Milliseconds 80
-    [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x50, $true) | Out-Null
-    [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x50, $false) | Out-Null
-    Start-Sleep -Milliseconds 80
-    [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x11, $false) | Out-Null
+    # SDL_GetModState() depends on real keyboard modifier state. WM_KEYDOWN
+    # messages posted directly to an HWND do not reliably update that state,
+    # so use SendInput after verifying that the intended main HWND is foreground.
+    [BRG5.MultiWindowNative]::ShowWindow($Hwnd, [BRG5.MultiWindowNative]::SW_RESTORE) | Out-Null
+
+    $focused = $false
+    for ($attempt = 1; $attempt -le 10; ++$attempt) {
+        [BRG5.MultiWindowNative]::SetForegroundWindow($Hwnd) | Out-Null
+        Start-Sleep -Milliseconds 100
+        if ([BRG5.MultiWindowNative]::GetForegroundWindow() -eq $Hwnd) {
+            $focused = $true
+            break
+        }
+    }
+
+    if (-not $focused) {
+        throw "[BRG5-D] could not focus main window for Ctrl+P SendInput"
+    }
+
+    if (-not [BRG5.MultiWindowNative]::SendCtrlP()) {
+        throw "[BRG5-D] SendInput Ctrl+P failed"
+    }
+
     Start-Sleep -Milliseconds $ActionDelayMilliseconds
 }
 
@@ -274,6 +337,7 @@ finally {
         commit = $commit
         configuration = $Configuration
         scenario = $scenario
+        input_injection = "SENDINPUT_CTRL_P"
         result = $result
         failure = $failure
         main_window_title = if ($mainTitle) { $mainTitle } else { $null }
