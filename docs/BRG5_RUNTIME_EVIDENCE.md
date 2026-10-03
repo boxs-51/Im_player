@@ -218,3 +218,42 @@ message.
 
 BRG5-C passes only when both Debug and Release complete all cases and the final
 lifecycle validator passes.
+
+
+## BRG5-D multi-window baseline gate
+
+BRG5-D records the existing multi-window behavior without refactoring ownership,
+render scheduling, or window lifecycle policy.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -Configuration Release
+```
+
+The baseline harness treats the main window and `MockSubWindow` as the two
+observable windows. It exercises the existing `Ctrl+P` path and requires:
+
+```text
+initial main window visible
+Ctrl+P -> two visible windows
+both windows remain alive during observation
+resize secondary -> secondary geometry changes
+resize secondary -> main geometry remains unchanged
+close secondary -> secondary becomes hidden
+close secondary -> main remains visible/alive
+Ctrl+P reopen -> same secondary HWND is reused
+main close -> clean ExitCode=0
+lifecycle identity/order validator -> PASS
+```
+
+The main-loop `RequestRender()` heartbeat baseline is recorded as an
+**observational isolation result** only: while both windows are visible, the
+secondary can be resized/hidden/reopened without invalidating the main window.
+This does not claim scheduler-level semantic isolation and does not change the
+existing render architecture.
+
+The current implementation hides a secondary window on close and destroys
+remaining windows during final main shutdown. BRG5-D records this behavior as
+the canonical pre-Phase-0 baseline; it does not redesign it.
