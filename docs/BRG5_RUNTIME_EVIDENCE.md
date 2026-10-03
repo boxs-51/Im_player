@@ -182,11 +182,15 @@ test-only production control API.
 Canonical local command:
 
 ```powershell
-powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Debug -MediaPath "<local-media-file>"
-powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Release -MediaPath "<local-media-file>"
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Release
 ```
 
-The application receives the media path through the existing `argv[1]`
+If `-MediaPath` is omitted, the harness generates a deterministic 60-second
+mono PCM WAV fixture under `artifacts/brg5/`. A user-supplied local media file
+may still be passed explicitly with `-MediaPath`.
+
+The application receives the resolved media path through the existing `argv[1]`
 `LoadFile()` path. The harness then exercises:
 
 ```text
@@ -208,8 +212,9 @@ semantic playback correctness. Window operations additionally require an
 observable Win32 state/geometry change.
 
 The harness writes JSON evidence under `artifacts/brg5/` and records the exact
-commit, configuration, media path, per-case result, lifecycle log, overall
-result and failure message.
+commit, configuration, media path, media source (`GENERATED_PCM_WAV` or
+`USER_SUPPLIED`), per-case result, lifecycle log, overall result and failure
+message.
 
 BRG5-C passes only when both Debug and Release complete all cases and the final
 lifecycle validator passes.
