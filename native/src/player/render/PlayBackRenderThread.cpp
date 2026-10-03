@@ -35,15 +35,13 @@ void PlayBackRenderThread::Start() {
     m_thread = std::thread(&PlayBackRenderThread::Run, this);
     m_registeredThreadName = "PlayBackRenderThread_" + (m_sessionId.empty() ? std::to_string(reinterpret_cast<uintptr_t>(this)) : m_sessionId);
     GetThreadManager().Register(m_registeredThreadName, &m_thread);
-    LifecycleEvidence::Emit("PlayBackRenderThread", "START", m_registeredThreadName);
+    LifecycleEvidence::Emit("PlayBackRenderThread", "START", LifecycleEvidence::PointerIdentity(this));
 }
 
 void PlayBackRenderThread::Stop() {
     if (!m_running) return;
 
-    const std::string lifecycleId = m_registeredThreadName.empty()
-        ? LifecycleEvidence::PointerIdentity(this)
-        : m_registeredThreadName;
+    const std::string lifecycleId = LifecycleEvidence::PointerIdentity(this);
     LifecycleEvidence::Emit("PlayBackRenderThread", "STOP", lifecycleId);
     m_running = false;
     state.cv.notify_all();
