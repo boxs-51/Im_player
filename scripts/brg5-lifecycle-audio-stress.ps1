@@ -157,7 +157,8 @@ try {
                 lifecycle_log = $playbackArchive.lifecycle_log
                 player_session_create_destroy = "PASS_ONE_SHOT_GRAMMAR"
                 play_seek_close = "PASS"
-                render_callback_shutdown_activity = "PASS_PLAYBACK_CLOSE_EXIT_0"
+                playback_shutdown = "PASS_PLAYBACK_CLOSE_EXIT_0"
+                render_callback_shutdown_activity = "SEPARATE_AUD_8_02_GATE"
                 audio_start_seek_stop = "PASS_AUDIO_WORKER_LIFECYCLE_VALIDATED"
             }
             multi_window = [ordered]@{
@@ -191,6 +192,7 @@ finally {
         focused_brg3_regression = $focusedRegression
         process_model = "FRESH_PROCESS_PER_SCENARIO_PER_ITERATION"
         lifecycle_grammar = "ONE_SHOT_EXACT_SEQUENCE"
+        aud_8_02_render_callback_gate = "SEPARATE_REQUIRED"
         result = $result
         failure = $failure
         started_utc = $started.ToString("o")
