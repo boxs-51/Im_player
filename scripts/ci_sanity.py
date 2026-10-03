@@ -315,7 +315,10 @@ else:
     popup_handler_body = popup_handler_match.group("body")
     if "e->key.keysym.mod" not in popup_handler_body:
         fail("BRG-5: popup hotkeys must use event-local SDL modifier snapshot")
-    if "SDL_GetModState()" in popup_handler_body:
+    if re.search(
+        r"SDL_Keymod\\s+mod\\s*=\\s*SDL_GetModState\\s*\\(",
+        popup_handler_body,
+    ):
         fail("BRG-5: popup hotkeys must not use timing-dependent global SDL modifier state")
 
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
