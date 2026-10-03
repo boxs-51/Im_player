@@ -447,6 +447,24 @@ facts["brg5_lifecycle_contract"] = (
     "PASS" if brg5_sanity.returncode == 0 else "FAIL"
 )
 
+brg5_validator_selftest = subprocess.run(
+    [
+        sys.executable,
+        str(ROOT / "scripts/brg5_validate_lifecycle.py"),
+        "--self-test",
+    ],
+    text=True,
+    capture_output=True,
+)
+if brg5_validator_selftest.returncode != 0:
+    detail = (
+        brg5_validator_selftest.stderr or brg5_validator_selftest.stdout
+    ).strip()
+    fail("BRG-5 lifecycle validator self-test failed: " + detail)
+facts["brg5_lifecycle_validator_selftest"] = (
+    "PASS" if brg5_validator_selftest.returncode == 0 else "FAIL"
+)
+
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
     check=True,
