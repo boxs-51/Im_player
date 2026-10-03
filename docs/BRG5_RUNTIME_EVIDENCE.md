@@ -172,3 +172,44 @@ startup/shutdown         = PASS
 lifecycle_validation     = PASS
 result                   = PASS
 ```
+
+
+## BRG5-C playback/window smoke gate
+
+BRG5-C exercises the existing executable control paths without adding a
+test-only production control API.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Debug -MediaPath "<local-media-file>"
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-playback-window-smoke.ps1 -Configuration Release -MediaPath "<local-media-file>"
+```
+
+The application receives the media path through the existing `argv[1]`
+`LoadFile()` path. The harness then exercises:
+
+```text
+local-media startup / process survival
+pause / resume through existing Space hotkey path
+seek forward / backward through existing arrow hotkey path
+rapid seek smoke
+window resize with observed geometry change
+minimize with observed iconic state
+restore with observed non-iconic state
+fullscreen enter / exit through existing F11 hotkey path
+clean main-window close with ExitCode=0
+lifecycle identity/order validation
+```
+
+The pause/resume/seek assertions in BRG5-C are smoke assertions: the injected
+input path must not crash/hang the process. They do not claim frame-accurate
+semantic playback correctness. Window operations additionally require an
+observable Win32 state/geometry change.
+
+The harness writes JSON evidence under `artifacts/brg5/` and records the exact
+commit, configuration, media path, per-case result, lifecycle log, overall
+result and failure message.
+
+BRG5-C passes only when both Debug and Release complete all cases and the final
+lifecycle validator passes.
