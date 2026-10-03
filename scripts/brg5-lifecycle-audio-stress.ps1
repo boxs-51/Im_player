@@ -80,7 +80,7 @@ function Archive-And-Validate(
     Copy-Item $SourceJson $destJson -Force
     Copy-Item $SourceLog $destLog -Force
 
-    & python.exe $validator $destLog
+    & python.exe $validator $destLog | ForEach-Object { Write-Host $_ }
     if ($LASTEXITCODE -ne 0) {
         throw "[BRG5-E] archived lifecycle validation failed kind=$Kind iteration=$Iteration"
     }
