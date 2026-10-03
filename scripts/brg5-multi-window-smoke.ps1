@@ -127,26 +127,21 @@ namespace BRG5 {
 
         public static uint LastSendInputCount { get; private set; }
         public static int LastSendInputError { get; private set; }
+        public static string LastSendStage { get; private set; }
         public static int InputSize { get { return Marshal.SizeOf(typeof(INPUT)); } }
 
-        public static bool SendCtrlP() {
-            var inputs = new INPUT[] {
-                KeyInput(0x11, false),
-                KeyInput(0x50, false),
-                KeyInput(0x50, true),
-                KeyInput(0x11, true)
-            };
-
+        public static bool SendKeyStage(ushort vk, bool keyUp, string stage) {
+            var inputs = new INPUT[] { KeyInput(vk, keyUp) };
+            LastSendStage = stage;
             LastSendInputCount = SendInput(
-                (uint)inputs.Length,
+                1,
                 inputs,
                 Marshal.SizeOf(typeof(INPUT))
             );
-            LastSendInputError = LastSendInputCount == inputs.Length
+            LastSendInputError = LastSendInputCount == 1
                 ? 0
                 : Marshal.GetLastWin32Error();
-
-            return LastSendInputCount == inputs.Length;
+            return LastSendInputCount == 1;
         }
 
         public static List<WindowInfo> EnumerateProcessWindows(uint pid, bool visibleOnly) {
@@ -211,6 +206,19 @@ function Wait-VisibleWindowCount([System.Diagnostics.Process]$Process, [int]$Exp
     throw "[BRG5-D] $Case expected visible windows=$Expected actual=$($actual.Count)"
 }
 
+function Invoke-KeyStage([int]$VirtualKey, [bool]$KeyUp, [string]$Stage) {
+    if (-not [BRG5.MultiWindowNative]::SendKeyStage(
+        [uint16]$VirtualKey,
+        $KeyUp,
+        $Stage
+    )) {
+        $sent = [BRG5.MultiWindowNative]::LastSendInputCount
+        $errorCode = [BRG5.MultiWindowNative]::LastSendInputError
+        $inputSize = [BRG5.MultiWindowNative]::InputSize
+        throw "[BRG5-D] SendInput stage=$Stage failed sent=$sent/1 error=$errorCode inputSize=$inputSize"
+    }
+}
+
 function Send-CtrlP([IntPtr]$Hwnd) {
     $expectedInputSize = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
     $actualInputSize = [BRG5.MultiWindowNative]::InputSize
@@ -218,9 +226,9 @@ function Send-CtrlP([IntPtr]$Hwnd) {
         throw "[BRG5-D] INPUT ABI mismatch expected=$expectedInputSize actual=$actualInputSize pointerSize=$([IntPtr]::Size)"
     }
 
-    # SDL_GetModState() depends on real keyboard modifier state. WM_KEYDOWN
-    # messages posted directly to an HWND do not reliably update that state,
-    # so use SendInput after verifying that the intended main HWND is foreground.
+    # Production reads the modifier through SDL_GetModState() while processing
+    # the P SDL_KEYDOWN event. Inject transitions in separate OS calls and leave
+    # enough time for SDL_PollEvent() to pump Ctrl-down before P is delivered.
     [BRG5.MultiWindowNative]::ShowWindow($Hwnd, [BRG5.MultiWindowNative]::SW_RESTORE) | Out-Null
 
     $focused = $false
@@ -234,14 +242,28 @@ function Send-CtrlP([IntPtr]$Hwnd) {
     }
 
     if (-not $focused) {
-        throw "[BRG5-D] could not focus main window for Ctrl+P SendInput"
+        throw "[BRG5-D] could not focus main window for staged Ctrl+P SendInput"
     }
 
-    if (-not [BRG5.MultiWindowNative]::SendCtrlP()) {
-        $sent = [BRG5.MultiWindowNative]::LastSendInputCount
-        $errorCode = [BRG5.MultiWindowNative]::LastSendInputError
-        $inputSize = [BRG5.MultiWindowNative]::InputSize
-        throw "[BRG5-D] SendInput Ctrl+P failed sent=$sent/4 error=$errorCode inputSize=$inputSize"
+    $ctrlDown = $false
+    try {
+        Invoke-KeyStage 0x11 $false "CTRL_DOWN"
+        $ctrlDown = $true
+
+        # Main loop is capped at 120 FPS; 250 ms spans many SDL event-pump cycles.
+        Start-Sleep -Milliseconds 250
+
+        Invoke-KeyStage 0x50 $false "P_DOWN"
+        Start-Sleep -Milliseconds 80
+        Invoke-KeyStage 0x50 $true "P_UP"
+
+        # Give the P event time to be handled while Ctrl remains logically down.
+        Start-Sleep -Milliseconds 250
+    }
+    finally {
+        if ($ctrlDown) {
+            Invoke-KeyStage 0x11 $true "CTRL_UP"
+        }
     }
 
     Start-Sleep -Milliseconds $ActionDelayMilliseconds
@@ -379,11 +401,12 @@ finally {
         commit = $commit
         configuration = $Configuration
         scenario = $scenario
-        input_injection = "SENDINPUT_CTRL_P"
+        input_injection = "SENDINPUT_STAGED_CTRL_P"
         input_diagnostics = [ordered]@{
             input_struct_size = [BRG5.MultiWindowNative]::InputSize
             expected_input_struct_size = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
             pointer_size = [IntPtr]::Size
+            last_send_stage = [BRG5.MultiWindowNative]::LastSendStage
             last_send_count = [BRG5.MultiWindowNative]::LastSendInputCount
             last_error = [BRG5.MultiWindowNative]::LastSendInputError
         }
