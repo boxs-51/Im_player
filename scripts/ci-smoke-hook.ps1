@@ -27,7 +27,8 @@ $brg5Scripts = @(
     (Join-Path $PSScriptRoot "brg5-playback-window-smoke.ps1"),
     (Join-Path $PSScriptRoot "brg5-multi-window-smoke.ps1"),
     (Join-Path $PSScriptRoot "brg5-lifecycle-audio-stress.ps1"),
-    (Join-Path $PSScriptRoot "brg5-render-callback-shutdown.ps1")
+    (Join-Path $PSScriptRoot "brg5-render-callback-shutdown.ps1"),
+    (Join-Path $PSScriptRoot "issue19-event-render-stress.ps1")
 )
 foreach ($scriptPath in $brg5Scripts) {
     if (-not (Test-Path $scriptPath)) {
@@ -78,6 +79,8 @@ Write-Host "[BRG5-E] Repeated lifecycle/audio stress: NOT_RUN_IN_CI"
 Write-Host "[BRG5-E] Local command: scripts/brg5-lifecycle-audio-stress.ps1 -Configuration $Configuration -Iterations 5"
 Write-Host "[AUD-8-02] Real render-callback-active shutdown: NOT_RUN_IN_CI"
 Write-Host "[AUD-8-02] Local command: scripts/brg5-render-callback-shutdown.ps1 -Configuration $Configuration"
+Write-Host "[AUD-19-01] Focused ImGui event/render stress: NOT_RUN_IN_CI"
+Write-Host "[AUD-19-01] Local command: scripts/issue19-event-render-stress.ps1 -Configuration $Configuration"
 
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 Write-Host "[BRG-2] Smoke hook PASS commit=$commit configuration=$Configuration"
