@@ -2,6 +2,7 @@
 #include "SdlAudioDevice.h"
 #include "log.h"
 #include "threads/thread_manager.h"
+#include "common/LifecycleEvidence.h"
 
 #include <iostream>
 #include <vector>
@@ -9,10 +10,19 @@
 #include <chrono>
 
 AudioOutputWorker::AudioOutputWorker()
-{}
+{
+    LifecycleEvidence::Emit(
+        "AudioOutputWorker",
+        "CREATE",
+        LifecycleEvidence::PointerIdentity(this));
+}
 
 AudioOutputWorker::~AudioOutputWorker() {
     Stop();
+    LifecycleEvidence::Emit(
+        "AudioOutputWorker",
+        "DESTROY",
+        LifecycleEvidence::PointerIdentity(this));
 }
 
 std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(AudioBackendType type) {
@@ -78,13 +88,16 @@ void AudioOutputWorker::Start() {
     m_isRunning.store(true, std::memory_order_release);
     m_workerThread = std::thread(&AudioOutputWorker::OutputLoop, this);
     GetThreadManager().Register(m_threadId, &m_workerThread);
+    LifecycleEvidence::Emit("AudioOutputWorker", "START", m_threadId);
 }
 
 void AudioOutputWorker::Stop() {
     if (!m_isRunning.exchange(false, std::memory_order_acq_rel)) return;
 
+    LifecycleEvidence::Emit("AudioOutputWorker", "STOP", m_threadId);
     if (m_workerThread.joinable()) {
         m_workerThread.join();
+        LifecycleEvidence::Emit("AudioOutputWorker", "JOIN", m_threadId);
     }
 
     GetThreadManager().Unregister(m_threadId);
