@@ -284,6 +284,108 @@ if "m_pendingSessionIds.erase(sessionId);" not in create_session_body:
 
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
 
+# BRG-3 MPV render callback lifetime regression contract.
+# Keep callback userdata alive through detach/context destruction and ensure
+# UI rendering is quiesced before render teardown begins.
+playback_render_cpp = (ROOT / "native/src/player/render/PlayBackRender.cpp").read_text(
+    encoding="utf-8"
+)
+window_controller_cpp = (ROOT / "native/src/windows/WindowController.cpp").read_text(
+    encoding="utf-8"
+)
+
+render_shutdown_body = extract_function_body(
+    playback_render_cpp, "void PlayBackRender::Shutdown"
+)
+render_update_body = extract_function_body(
+    playback_render_cpp, "void PlayBackRender::HandleRenderUpdate"
+)
+window_runtime_destructor = extract_function_body(
+    window_controller_cpp, "WindowRuntime::~WindowRuntime"
+)
+
+def require_order(body: str, first: str, second: str, message: str) -> None:
+    first_index = body.find(first)
+    second_index = body.find(second)
+    if first_index < 0 or second_index < 0:
+        fail(f"BRG-3: missing ordering marker for {message}")
+    elif first_index > second_index:
+        fail(f"BRG-3: invalid ordering: {message}")
+
+if "RenderCallbackLifetimeGate.h" not in (
+    ROOT / "native/src/player/render/PlayBackRender.h"
+).read_text(encoding="utf-8"):
+    fail("BRG-3: PlayBackRender must own the callback lifetime gate")
+
+if "m_updateCallbackState->lifetime.Enter()" not in render_update_body:
+    fail("BRG-3: render callback must enter lifetime gate before worker access")
+require_order(
+    render_update_body,
+    "m_updateCallbackState->lifetime.Enter()",
+    "callbackState->thread.load",
+    "callback gate entry must precede worker snapshot",
+)
+
+if "m_renderThread.get());" in playback_render_cpp:
+    fail("BRG-3: raw render-thread pointer must not be registered as MPV callback userdata")
+if "&PlayBackRender::HandleRenderUpdate" not in playback_render_cpp:
+    fail("BRG-3: MPV update callback must use the guarded static handler")
+if "m_updateCallbackState.get()" not in playback_render_cpp:
+    fail("BRG-3: MPV callback userdata must be the stable callback-state object")
+
+require_order(
+    render_shutdown_body,
+    "m_updateCallbackState->lifetime.Close();",
+    "m_updateCallbackState->thread.store(nullptr",
+    "callback admission must close before worker pointer is cleared",
+)
+require_order(
+    render_shutdown_body,
+    "m_updateCallbackState->thread.store(nullptr",
+    "m_renderThread->Stop();",
+    "callback worker pointer must clear before render worker stop/join",
+)
+require_order(
+    render_shutdown_body,
+    "m_renderThread->Stop();",
+    "mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);",
+    "render worker must stop/join before MPV callback detach",
+)
+require_order(
+    render_shutdown_body,
+    "mpv_render_context_set_update_callback(m_render_ctx, nullptr, nullptr);",
+    "m_renderThread.reset();",
+    "MPV callback detach must precede render worker destruction",
+)
+require_order(
+    render_shutdown_body,
+    "m_renderThread.reset();",
+    "mpv_render_context_free(m_render_ctx);",
+    "render worker destruction must precede MPV render-context free",
+)
+require_order(
+    render_shutdown_body,
+    "mpv_render_context_free(m_render_ctx);",
+    "m_updateCallbackState.reset();",
+    "callback state must outlive MPV render-context destruction",
+)
+
+require_order(
+    window_runtime_destructor,
+    "resource.uiRenderThread->Stop();",
+    "renderer->Shutdown();",
+    "UIRenderThread must stop/join before PlayBackRender shutdown",
+)
+
+if not (ROOT / "native/src/player/render/RenderCallbackLifetimeGate.h").is_file():
+    fail("BRG-3: callback lifetime gate header is missing")
+if not (ROOT / "tests/render_callback_lifetime_test.cpp").is_file():
+    fail("BRG-3: focused callback lifetime test is missing")
+if "brg3_render_callback_lifetime_gate" not in cmake_text:
+    fail("BRG-3: focused callback lifetime CTest is not registered")
+
+facts["brg3_callback_lifetime_contract"] = "PASS" if not errors else "FAIL"
+
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
     check=True,
