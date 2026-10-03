@@ -489,6 +489,41 @@ if last_leave < 0 or wait_lock < 0 or notify < 0 or wait_lock > notify:
 
 facts["brg3_callback_lifetime_contract"] = "PASS" if not errors else "FAIL"
 
+# Issue #20 visualizer snapshot concurrency contract.
+# Fail closed if the guarded publication boundary or focused stress gate drifts.
+audio_processor_h = (ROOT / "native/src/player/audio/AudioProcessor.h").read_text(
+    encoding="utf-8"
+)
+audio_processor_cpp = (ROOT / "native/src/player/audio/AudioProcessor.cpp").read_text(
+    encoding="utf-8"
+)
+visualizer_snapshot_h = (
+    ROOT / "native/src/player/audio/AudioVisualizerSnapshot.h"
+).read_text(encoding="utf-8")
+
+if "m_visualizerFrames[2]" in audio_processor_h or "m_writeIndex" in audio_processor_h:
+    fail("Issue #20: unsafe visualizer double-buffer publication must remain removed")
+if "AudioVisualizerFrame m_workingVisualizerFrame;" not in audio_processor_h:
+    fail("Issue #20: processor-only working visualizer frame is missing")
+if "AudioVisualizerSnapshot m_visualizerSnapshot;" not in audio_processor_h:
+    fail("Issue #20: guarded published visualizer snapshot is missing")
+if "m_visualizerSnapshot.Read(outFrame);" not in audio_processor_cpp:
+    fail("Issue #20: UI visualizer reads must use the guarded snapshot")
+if "AudioVisualizerFrame& frame = m_workingVisualizerFrame;" not in audio_processor_cpp:
+    fail("Issue #20: DSP must operate on the processor-only working frame")
+if audio_processor_cpp.count("m_visualizerSnapshot.Publish(frame);") < 2:
+    fail("Issue #20: all AnalyzeBlock exits must publish through the guarded snapshot")
+if "std::lock_guard<std::mutex> lock(m_mutex);" not in visualizer_snapshot_h:
+    fail("Issue #20: visualizer snapshot must retain the mutex boundary")
+if "swap(m_publishedFrame, producerFrame);" not in visualizer_snapshot_h:
+    fail("Issue #20: visualizer publication must swap only under the snapshot mutex")
+if not (ROOT / "tests/audio_visualizer_snapshot_test.cpp").is_file():
+    fail("Issue #20: focused visualizer concurrency stress test is missing")
+if "issue20_audio_visualizer_snapshot_gate" not in cmake_text:
+    fail("Issue #20: focused visualizer CTest is not registered")
+
+facts["issue20_visualizer_snapshot_contract"] = "PASS" if not errors else "FAIL"
+
 # BRG-5 lifecycle evidence contract.
 # Run the focused coverage checker as part of the canonical static sanity gate
 # so lifecycle instrumentation cannot silently drift out of the BRG-5 matrix.
