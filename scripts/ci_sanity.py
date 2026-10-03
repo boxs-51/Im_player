@@ -377,12 +377,27 @@ require_order(
     "UIRenderThread must stop/join before PlayBackRender shutdown",
 )
 
+gate_header_text = (
+    ROOT / "native/src/player/render/RenderCallbackLifetimeGate.h"
+).read_text(encoding="utf-8")
+
 if not (ROOT / "native/src/player/render/RenderCallbackLifetimeGate.h").is_file():
     fail("BRG-3: callback lifetime gate header is missing")
 if not (ROOT / "tests/render_callback_lifetime_test.cpp").is_file():
     fail("BRG-3: focused callback lifetime test is missing")
 if "brg3_render_callback_lifetime_gate" not in cmake_text:
     fail("BRG-3: focused callback lifetime CTest is not registered")
+
+last_leave = gate_header_text.find("if (previous == 1)")
+wait_lock = gate_header_text.find(
+    "std::lock_guard<std::mutex> lock(m_waitMutex)", last_leave
+)
+notify = gate_header_text.find("m_waitCv.notify_all()", last_leave)
+if last_leave < 0 or wait_lock < 0 or notify < 0 or wait_lock > notify:
+    fail(
+        "BRG-3: final callback leave must synchronize m_waitMutex before "
+        "quiescence notification"
+    )
 
 facts["brg3_callback_lifetime_contract"] = "PASS" if not errors else "FAIL"
 
