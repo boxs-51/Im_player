@@ -105,6 +105,7 @@ required = [
     "native/src/common/LifecycleEvidence.h",
     "docs/BRG5_RUNTIME_EVIDENCE.md",
     "scripts/brg5_lifecycle_sanity.py",
+    "scripts/brg5_validate_lifecycle.py",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
