@@ -345,3 +345,59 @@ BRG5-E passes only when:
 - every archived lifecycle log passes the one-shot exact-sequence validator;
 - the completed iteration count equals the requested count;
 - no crash, hang, abort, invalid teardown or stale callback is observed.
+
+
+## AUD-8-02 real render-callback-active shutdown gate
+
+AUD-8-02 is the final P1 evidence gap for BRG5-E. A clean shutdown during
+the default BRG5-C PCM WAV scenario is not sufficient because it does not prove
+that a real libmpv video render-update callback executed in that process.
+
+Production evidence is collected at the existing guarded callback boundary in
+`PlayBackRender::HandleRenderUpdate()`:
+
+- each accepted libmpv update callback increments
+  `RenderUpdateCallbackState::acceptedCallbacks`;
+- the first accepted callback emits a
+  `[BRG5-DIAG] category=RENDER_CALLBACK ... callback_first ...` marker;
+- shutdown emits `shutdown_pre_close` with the accepted callback count and
+  current in-flight count before closing the callback gate;
+- after `WaitForQuiescence()`, shutdown emits `shutdown_quiescent` and the
+  in-flight count must be zero.
+
+The markers are opt-in through `IM_PLAYER_LIFECYCLE_LOG`; canonical
+`[Lifecycle]` grammar is unchanged.
+
+A deterministic video fixture is generated locally without ffmpeg:
+
+```powershell
+python .\scripts\brg5_generate_video_fixture.py .\artifacts\brg5\brg5e-render-fixture.y4m
+```
+
+Canonical local runtime gate:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-render-callback-shutdown.ps1 -Configuration Debug
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-render-callback-shutdown.ps1 -Configuration Release
+```
+
+The harness:
+1. starts Im_player with a deterministic YUV4MPEG2 video;
+2. waits until the real libmpv callback emits `callback_first`;
+3. keeps the video process alive briefly after callback activity is observed;
+4. sends WM_CLOSE to the saved main HWND while the video is still active;
+5. requires exit code 0;
+6. requires marker order `callback_first < shutdown_pre_close < shutdown_quiescent`;
+7. requires `shutdown_pre_close callback_count > 0`;
+8. requires a stable callback-state identity across all three markers;
+9. requires `shutdown_quiescent in_flight=0`;
+10. runs the canonical lifecycle validator on the same process log.
+
+Evidence JSON:
+- `artifacts/brg5/brg5e-render-callback-debug.json`
+- `artifacts/brg5/brg5e-render-callback-release.json`
+
+AUD-8-02 passes only when both Debug and Release satisfy the gate on the same
+exact production head. The focused BRG-3 callback-lifetime CTest remains
+complementary deterministic concurrency proof; it is not a substitute for this
+real runtime callback evidence.
