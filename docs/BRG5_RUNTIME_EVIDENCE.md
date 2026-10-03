@@ -90,11 +90,28 @@ Failures must include reproduction details and be classified as either:
 - pre-existing baseline debt;
 - Phase 0/1+ debt outside BRG authority.
 
+## Runtime lifecycle validation
+
+Each local lifecycle capture must also pass:
+
+```powershell
+python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-debug.log
+python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-release.log
+```
+
+The validator fails when:
+- a required phase is missing;
+- phase order is invalid;
+- a component changes identity between CREATE/START/STOP/JOIN/DESTROY;
+- a smoke log contains lifecycle markers from more than one process.
+
 ## BRG5-A gate
 
 BRG5-A is complete when:
 1. all required components emit standardized lifecycle markers at their
    existing lifecycle boundaries;
-2. worker JOIN is emitted only after the actual thread join returns;
-3. no ownership/control-flow redesign is introduced;
-4. static sanity can verify the marker coverage.
+2. each object keeps one stable identity across all applicable phases;
+3. worker JOIN is emitted only after the actual thread join returns;
+4. Debug and Release lifecycle logs pass the runtime validator;
+5. no ownership/control-flow redesign is introduced;
+6. static sanity verifies marker coverage.
