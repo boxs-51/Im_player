@@ -120,8 +120,9 @@ try {
             "lifecycle_validation"
         )
         foreach ($case in $requiredPlaybackCases) {
-            if ($null -eq $playbackEvidence.cases.$case -or -not [string]$playbackEvidence.cases.$case.StartsWith("PASS")) {
-                throw "[BRG5-E] playback iteration $iteration missing PASS case: $case"
+            $caseValue = $playbackEvidence.cases.$case
+            if ($null -eq $caseValue -or -not ([string]$caseValue).StartsWith("PASS")) {
+                throw "[BRG5-E] playback iteration $iteration missing PASS case: $case value=$caseValue"
             }
         }
 
@@ -142,8 +143,9 @@ try {
             "lifecycle_validation"
         )
         foreach ($case in $requiredMultiCases) {
-            if ($null -eq $multiEvidence.cases.$case -or -not [string]$multiEvidence.cases.$case.StartsWith("PASS")) {
-                throw "[BRG5-E] multi-window iteration $iteration missing PASS case: $case"
+            $caseValue = $multiEvidence.cases.$case
+            if ($null -eq $caseValue -or -not ([string]$caseValue).StartsWith("PASS")) {
+                throw "[BRG5-E] multi-window iteration $iteration missing PASS case: $case value=$caseValue"
             }
         }
 
