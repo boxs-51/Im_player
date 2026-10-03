@@ -10,6 +10,7 @@
 #include "backends/IGraphicsBackend.h"
 #include "mpv/render_gl.h"
 #include "windows/WindowUtils.h"
+#include "common/LifecycleEvidence.h"
 
 void *GetProcAddressWrapper([[maybe_unused]] void *ctx, const char *name)
 {
@@ -68,6 +69,11 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
         return false;
     }
 
+    LifecycleEvidence::Emit(
+        "MPVRenderContext",
+        "CREATE",
+        LifecycleEvidence::PointerIdentity(m_render_ctx));
+
 #ifdef RENDER_MPV_THREAD
     // 2. Tự khởi tạo và cấu hình PlayBackRenderThread
     m_renderThread = std::make_unique<PlayBackRenderThread>();
@@ -111,6 +117,13 @@ void PlayBackRender::Shutdown()
     std::lock_guard<std::mutex> shutdownLock(m_shutdownMutex);
     if (m_shutdownComplete)
         return;
+
+    std::string renderContextLifecycleId;
+    if (m_render_ctx)
+    {
+        renderContextLifecycleId = LifecycleEvidence::PointerIdentity(m_render_ctx);
+        LifecycleEvidence::Emit("MPVRenderContext", "STOP", renderContextLifecycleId);
+    }
 
 #ifdef RENDER_MPV_THREAD
     // Phase 1: reject all new callback work.
@@ -175,6 +188,7 @@ void PlayBackRender::Shutdown()
     {
         mpv_render_context_free(m_render_ctx);
         m_render_ctx = nullptr;
+        LifecycleEvidence::Emit("MPVRenderContext", "DESTROY", renderContextLifecycleId);
         LOG(1, LogLevel::Info, LogCategory::Render,
             "[RenderShutdown] mpv render context freed");
     }
