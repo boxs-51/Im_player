@@ -86,7 +86,46 @@ int main()
         }
     }
 
+    // Exercise the exact waiter/last-leaver synchronization repeatedly.
+    // The last Invocation release must never be able to notify before a
+    // quiescence waiter is safely blocked.
+    constexpr int kWaiterRounds = 2000;
+    for (int round = 0; round < kWaiterRounds; ++round)
+    {
+        RenderCallbackLifetimeGate gate;
+        auto invocation = gate.Enter();
+        if (!invocation)
+        {
+            std::cerr << "waiter round unexpectedly rejected initial invocation: "
+                      << round << "\n";
+            return 4;
+        }
+
+        gate.Close();
+
+        std::atomic<bool> waiterStarted{false};
+        std::atomic<bool> waiterDone{false};
+        std::thread waiter([&] {
+            waiterStarted.store(true, std::memory_order_release);
+            gate.WaitForQuiescence();
+            waiterDone.store(true, std::memory_order_release);
+        });
+
+        while (!waiterStarted.load(std::memory_order_acquire))
+            std::this_thread::yield();
+
+        invocation = {};
+        waiter.join();
+
+        if (!waiterDone.load(std::memory_order_acquire) || gate.InFlight() != 0)
+        {
+            std::cerr << "quiescence waiter failed in round " << round << "\n";
+            return 5;
+        }
+    }
+
     std::cout << "BRG-3 callback lifetime gate stress PASS: "
-              << kRounds << " rounds\n";
+              << kRounds << " callback rounds, "
+              << kWaiterRounds << " waiter rounds\n";
     return 0;
 }

@@ -85,6 +85,11 @@ private:
     void Leave() noexcept {
         const std::size_t previous = m_inFlight.fetch_sub(1, std::memory_order_acq_rel);
         if (previous == 1) {
+            // Synchronize the 1 -> 0 transition with WaitForQuiescence().
+            // Without taking the wait mutex here, a waiter can observe a
+            // non-zero predicate, then miss the zero-transition notification
+            // before it actually blocks on the condition variable.
+            std::lock_guard<std::mutex> lock(m_waitMutex);
             m_waitCv.notify_all();
         }
     }
