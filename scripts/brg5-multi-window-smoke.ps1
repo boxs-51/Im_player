@@ -232,18 +232,18 @@ function Send-CtrlP([IntPtr]$Hwnd) {
         [BRG5.MultiWindowNative]::SW_RESTORE
     ) | Out-Null
 
-    $focused = $false
-    for ($attempt = 1; $attempt -le 10; ++$attempt) {
+    # Foreground activation is best-effort only. Windows can legally reject
+    # SetForegroundWindow because of foreground-lock policy. The BRG5-D input
+    # path posts WM_KEYDOWN/WM_KEYUP directly to the saved main HWND, so focus
+    # ownership is not a correctness precondition for this harness.
+    $foregroundAcquired = $false
+    for ($attempt = 1; $attempt -le 3; ++$attempt) {
         [BRG5.MultiWindowNative]::SetForegroundWindow($Hwnd) | Out-Null
         Start-Sleep -Milliseconds 100
         if ([BRG5.MultiWindowNative]::GetForegroundWindow() -eq $Hwnd) {
-            $focused = $true
+            $foregroundAcquired = $true
             break
         }
-    }
-
-    if (-not $focused) {
-        throw "[BRG5-D] could not focus main window for staged Ctrl+P PostMessage"
     }
 
     if (-not [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x11, $true)) {
