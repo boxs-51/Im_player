@@ -213,10 +213,22 @@ try {
     $cases["reopen_secondary_reuses_window"] = "PASS_SAME_HWND"
     $cases["request_render_heartbeat_isolation"] = "PASS_OBSERVED_MAIN_ALIVE_SECONDARY_REUSABLE"
 
-    if (-not $p.CloseMainWindow()) { throw "[BRG5-D] CloseMainWindow returned false" }
+    # Do not use Process.CloseMainWindow() in a multi-window process.
+    # After the secondary is reopened, .NET may select that top-level HWND;
+    # the application intentionally handles secondary WM_CLOSE as hide-only.
+    # Target the saved main HWND explicitly so this assertion measures the
+    # application's main-window shutdown contract rather than .NET selection.
+    if (-not [BRG5.MultiWindowNative]::PostMessage(
+        $mainHandle,
+        [BRG5.MultiWindowNative]::WM_CLOSE,
+        [IntPtr]::Zero,
+        [IntPtr]::Zero
+    )) {
+        throw "[BRG5-D] failed to post WM_CLOSE to saved main HWND"
+    }
     if (-not $p.WaitForExit($ExitTimeoutSeconds * 1000)) {
         Stop-Process -Id $p.Id -Force -ErrorAction SilentlyContinue
-        throw "[BRG5-D] main shutdown timeout"
+        throw "[BRG5-D] main shutdown timeout after explicit main WM_CLOSE"
     }
     if ($p.ExitCode -ne 0) { throw "[BRG5-D] main shutdown exitCode=$($p.ExitCode)" }
     $cases["close_main_clean_shutdown"] = "PASS_EXIT_0"
