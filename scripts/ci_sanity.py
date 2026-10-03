@@ -317,11 +317,11 @@ if "RenderCallbackLifetimeGate.h" not in (
 ).read_text(encoding="utf-8"):
     fail("BRG-3: PlayBackRender must own the callback lifetime gate")
 
-if "m_updateCallbackState->lifetime.Enter()" not in render_update_body:
+if "callbackState->lifetime.Enter()" not in render_update_body:
     fail("BRG-3: render callback must enter lifetime gate before worker access")
 require_order(
     render_update_body,
-    "m_updateCallbackState->lifetime.Enter()",
+    "callbackState->lifetime.Enter()",
     "callbackState->thread.load",
     "callback gate entry must precede worker snapshot",
 )
