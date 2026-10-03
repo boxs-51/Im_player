@@ -257,12 +257,14 @@ powershell -ExecutionPolicy Bypass -File .\scripts\brg5-multi-window-smoke.ps1 -
 The baseline harness treats the main window and `MockSubWindow` as the two
 observable windows. It exercises the existing `Ctrl+P` path and requires:
 
-The harness injects `Ctrl+P` with Win32 `SendInput` after verifying the saved
-main HWND is the foreground window. This is intentional: production hotkey
-handling reads modifier state through `SDL_GetModState()`, while HWND-only
-`PostMessage(WM_KEYDOWN/WM_KEYUP)` does not reliably update the keyboard
-modifier state observed by SDL during repeated fresh-process runs. Evidence JSON
-records `input_injection=SENDINPUT_CTRL_P`.
+The harness injects the staged Ctrl+P sequence with
+`PostMessage(WM_KEYDOWN/WM_KEYUP)` directly to the saved main HWND. Foreground
+activation is best-effort only and is not a correctness precondition because
+Windows may reject `SetForegroundWindow()` under foreground-lock policy.
+Production popup hotkeys consume the modifier snapshot attached to the SDL key
+event through `e->key.keysym.mod`, avoiding timing-dependent
+`SDL_GetModState()` sampling. Evidence JSON records
+`input_injection=POSTMESSAGE_STAGED_CTRL_P_EVENT_LOCAL_MODIFIER`.
 
 ```text
 initial main window visible
@@ -307,7 +309,7 @@ application processes and fresh lifecycle evidence for two scenarios:
    - generated local media playback;
    - pause/resume;
    - seek forward/backward + rapid seek;
-   - shutdown while playback/render callback activity is active;
+   - shutdown while playback is active;
    - PlayerSession lifecycle validation;
    - AudioCaptureManager / AudioProcessor / AudioOutputWorker lifecycle validation;
 2. multi-window cycle:
@@ -337,7 +339,7 @@ The summary JSON records:
 - per-iteration evidence paths;
 - overall PASS/FAIL and failure reason.
 
-BRG5-E passes only when:
+BRG5-E repeated-stress regression passes only when:
 - at least five iterations are requested;
 - the focused BRG-3 callback lifetime CTest passes;
 - every playback cycle passes;
@@ -345,6 +347,10 @@ BRG5-E passes only when:
 - every archived lifecycle log passes the one-shot exact-sequence validator;
 - the completed iteration count equals the requested count;
 - no crash, hang, abort, invalid teardown or stale callback is observed.
+
+This repeated WAV-based stress does not by itself prove real render-callback-active
+shutdown. Final BRG5-E acceptance additionally requires the separate AUD-8-02
+real-video callback gate below in both Debug and Release.
 
 
 ## AUD-8-02 real render-callback-active shutdown gate
@@ -388,16 +394,19 @@ The harness:
 4. sends WM_CLOSE to the saved main HWND while the video is still active;
 5. requires exit code 0;
 6. requires marker order `callback_first < shutdown_pre_close < shutdown_quiescent`;
-7. requires `shutdown_pre_close callback_count > 0`;
-8. requires a stable callback-state identity across all three markers;
-9. requires `shutdown_quiescent in_flight=0`;
-10. runs the canonical lifecycle validator on the same process log.
+7. parses the callback count from `callback_first`;
+8. requires `shutdown_pre_close callback_count > callback_first callback_count`,
+   proving callback activity advanced during the active-video interval before shutdown;
+9. requires a stable callback-state identity across all three markers;
+10. requires `shutdown_quiescent in_flight=0`;
+11. runs the canonical lifecycle validator on the same process log.
 
 Evidence JSON:
 - `artifacts/brg5/brg5e-render-callback-debug.json`
 - `artifacts/brg5/brg5e-render-callback-release.json`
 
 AUD-8-02 passes only when both Debug and Release satisfy the gate on the same
-exact production head. The focused BRG-3 callback-lifetime CTest remains
+exact head, including callback-count advancement after the first observed real
+libmpv callback. The focused BRG-3 callback-lifetime CTest remains
 complementary deterministic concurrency proof; it is not a substitute for this
 real runtime callback evidence.
