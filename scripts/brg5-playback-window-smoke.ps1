@@ -4,8 +4,7 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration,
 
-    [Parameter(Mandatory = $true)]
-    [string]$MediaPath,
+    [string]$MediaPath = "",
 
     [ValidateRange(1, 30)]
     [int]$StartupSeconds = 4,
@@ -31,9 +30,21 @@ $scenario = "local-media-playback-window-controls"
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 
 if (-not (Test-Path $exe)) { throw "[BRG5-C] Missing executable: $exe" }
-$resolvedMedia = (Resolve-Path $MediaPath -ErrorAction Stop).Path
 
 New-Item -ItemType Directory -Force -Path $artifactDir | Out-Null
+
+$mediaSource = "USER_SUPPLIED"
+if ([string]::IsNullOrWhiteSpace($MediaPath)) {
+    $fixture = Join-Path $artifactDir "brg5c-fixture.wav"
+    & python.exe (Join-Path $PSScriptRoot "brg5_generate_media_fixture.py") $fixture --seconds 60
+    if ($LASTEXITCODE -ne 0) {
+        throw "[BRG5-C] deterministic media fixture generation failed"
+    }
+    $MediaPath = $fixture
+    $mediaSource = "GENERATED_PCM_WAV"
+}
+
+$resolvedMedia = (Resolve-Path $MediaPath -ErrorAction Stop).Path
 Remove-Item $lifecycleLog -Force -ErrorAction SilentlyContinue
 Remove-Item $evidenceJson -Force -ErrorAction SilentlyContinue
 
@@ -234,6 +245,7 @@ finally {
         configuration = $Configuration
         scenario = $scenario
         media_path = $resolvedMedia
+        media_source = $mediaSource
         result = $result
         failure = $failure
         cases = $cases
