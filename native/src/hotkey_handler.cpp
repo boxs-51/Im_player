@@ -305,7 +305,10 @@ bool HandlePopupHotkeys(const SDL_Event *e)
         return false;
 
     SDL_Keycode key = e->key.keysym.sym;
-    SDL_Keymod mod = SDL_GetModState();
+    // Use the modifier snapshot carried by this SDL_KEYDOWN event. Reading
+    // SDL_GetModState() here can observe a newer global keyboard state after
+    // the event was queued, which makes Ctrl+hotkeys timing-dependent.
+    SDL_Keymod mod = static_cast<SDL_Keymod>(e->key.keysym.mod);
 
     // ESC: đóng tất cả popup đang mở
     if (key == SDLK_ESCAPE)
