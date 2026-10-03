@@ -20,6 +20,31 @@ if (-not (Test-Path $mpv)) {
     throw "[BRG-2] Smoke hook missing libmpv runtime: $mpv"
 }
 
+# BRG-5 PowerShell harnesses are safe to syntax-parse on hosted CI even though
+# their GUI runtime scenarios remain local-interactive only.
+$brg5Scripts = @(
+    (Join-Path $PSScriptRoot "brg5-startup-shutdown.ps1"),
+    (Join-Path $PSScriptRoot "brg5-playback-window-smoke.ps1")
+)
+foreach ($scriptPath in $brg5Scripts) {
+    if (-not (Test-Path $scriptPath)) {
+        throw "[BRG5] Missing harness: $scriptPath"
+    }
+    $tokens = $null
+    $parseErrors = $null
+    [System.Management.Automation.Language.Parser]::ParseFile(
+        $scriptPath,
+        [ref]$tokens,
+        [ref]$parseErrors
+    ) | Out-Null
+
+    if ($parseErrors.Count -ne 0) {
+        $detail = ($parseErrors | ForEach-Object { $_.Message }) -join "; "
+        throw "[BRG5] PowerShell syntax invalid for $scriptPath : $detail"
+    }
+    Write-Host "[BRG5] PowerShell syntax PASS: $scriptPath"
+}
+
 # Extension point for BRG-5 (#8): when CTest tests are registered in the
 # configured build tree, they automatically become part of this hook.
 $ctestFile = Join-Path $buildDir "CTestTestfile.cmake"
