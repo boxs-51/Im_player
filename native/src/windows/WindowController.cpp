@@ -6,6 +6,7 @@
 #include "WindowManager.h" 
 #include "WindowRelation.h"
 #include "UIRenderThread.h"
+#include "common/LifecycleEvidence.h"
 #include "UpdateWindowState.h"
 #include <algorithm>
 
@@ -232,10 +233,14 @@ WindowRuntime::WindowRuntime(WindowId _id, SDL_Window* _sdlWindow, HWND _hwnd) {
     resource.sdlWindow = _sdlWindow;
     resource.hwnd = _hwnd;
 
+    LifecycleEvidence::Emit("Window", "CREATE", std::to_string(info.id));
     controller = std::make_unique<WindowController>(this);
 }
 
 WindowRuntime::~WindowRuntime() {
+    const std::string lifecycleId = std::to_string(info.id);
+    LifecycleEvidence::Emit("Window", "STOP", lifecycleId);
+
     // Stop and join the UI render thread before tearing down any render-owned
     // object. The UI thread can still reach PlayerSession/PlayBackRender and
     // graphics resources while it is live.
@@ -270,6 +275,8 @@ WindowRuntime::~WindowRuntime() {
         SDL_DestroyWindow(resource.sdlWindow);
         resource.sdlWindow = nullptr;
     }
+
+    LifecycleEvidence::Emit("Window", "DESTROY", lifecycleId);
 }
 
 // --- Cài đặt các hàm tiện ích mới của WindowRuntime ---
