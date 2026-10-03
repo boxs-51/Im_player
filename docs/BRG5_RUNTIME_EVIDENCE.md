@@ -40,18 +40,21 @@ The marker records the thread that performed the lifecycle transition. The
 component identity is stable for the object's lifetime and should use the
 existing session/window/thread name when available.
 
-Required components:
+Required components and applicable phases:
 
-```text
-Window
-PlayerSession
-MPVRenderContext
-UIRenderThread
-PlayBackRenderThread
-AudioCaptureManager
-AudioProcessor
-AudioOutputWorker
-```
+| Component | Required phases |
+| --- | --- |
+| Window | CREATE, START, STOP, DESTROY |
+| PlayerSession | CREATE, START, STOP, DESTROY |
+| MPVRenderContext | CREATE, START, STOP, DESTROY |
+| UIRenderThread | CREATE, START, STOP, JOIN, DESTROY |
+| PlayBackRenderThread | CREATE, START, STOP, JOIN, DESTROY |
+| AudioCaptureManager | CREATE, START, STOP, JOIN, DESTROY |
+| AudioProcessor | CREATE, START, STOP, JOIN, DESTROY |
+| AudioOutputWorker | CREATE, START, STOP, JOIN, DESTROY |
+
+`JOIN` is required only for components that own a worker thread. It must be
+emitted after the corresponding `std::thread::join()` returns.
 
 ## Evidence sink
 
