@@ -231,6 +231,9 @@ window_manager_h = (ROOT / "native/src/windows/WindowManager.h").read_text(
 window_factory_h = (ROOT / "native/src/windows/WindowFactory.h").read_text(
     encoding="utf-8"
 )
+hotkey_handler_cpp = (ROOT / "native/src/hotkey_handler.cpp").read_text(
+    encoding="utf-8"
+)
 font_manager_cpp = (ROOT / "native/src/FontManager.cpp").read_text(encoding="utf-8")
 main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 
@@ -300,6 +303,20 @@ if "runtime->info.id = nextId++" in window_factory_h:
     fail("BRG-5: Window identity must not mutate after lifecycle CREATE/START")
 if "const WindowId id = nextId++;" not in window_factory_h or "new WindowRuntime(id)" not in window_factory_h:
     fail("BRG-5: WindowFactory must pass the final WindowId into WindowRuntime construction")
+
+popup_handler_match = re.search(
+    r"bool\s+HandlePopupHotkeys\s*\([^)]*\)\s*\{(?P<body>.*?)\n\}",
+    hotkey_handler_cpp,
+    re.S,
+)
+if not popup_handler_match:
+    fail("BRG-5: HandlePopupHotkeys body not found")
+else:
+    popup_handler_body = popup_handler_match.group("body")
+    if "e->key.keysym.mod" not in popup_handler_body:
+        fail("BRG-5: popup hotkeys must use event-local SDL modifier snapshot")
+    if "SDL_GetModState()" in popup_handler_body:
+        fail("BRG-5: popup hotkeys must not use timing-dependent global SDL modifier state")
 
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
 
