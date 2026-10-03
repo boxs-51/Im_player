@@ -58,9 +58,12 @@ public:
         const auto* tpl = registry->GetTemplate(templateName);
         if (!tpl) return nullptr;
 
-        auto* runtime = new WindowRuntime();
+        // Window identity must be final before WindowRuntime construction:
+        // lifecycle CREATE/START markers are emitted by the constructor and must
+        // use the same stable ID later observed at STOP/DESTROY.
+        const WindowId id = nextId++;
+        auto* runtime = new WindowRuntime(id);
         runtime->info.templateName = templateName; // Lưu lại template name
-        runtime->info.id = nextId++;
         runtime->state = tpl->state;
         runtime->style = tpl->style;
         // Sử dụng Merge thay vì toán tử gán để tránh lỗi C2280,
