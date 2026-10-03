@@ -220,16 +220,17 @@ function Invoke-KeyStage([int]$VirtualKey, [bool]$KeyUp, [string]$Stage) {
 }
 
 function Send-CtrlP([IntPtr]$Hwnd) {
-    $expectedInputSize = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
-    $actualInputSize = [BRG5.MultiWindowNative]::InputSize
-    if ($actualInputSize -ne $expectedInputSize) {
-        throw "[BRG5-D] INPUT ABI mismatch expected=$expectedInputSize actual=$actualInputSize pointerSize=$([IntPtr]::Size)"
-    }
-
-    # Production reads the modifier through SDL_GetModState() while processing
-    # the P SDL_KEYDOWN event. Inject transitions in separate OS calls and leave
-    # enough time for SDL_PollEvent() to pump Ctrl-down before P is delivered.
-    [BRG5.MultiWindowNative]::ShowWindow($Hwnd, [BRG5.MultiWindowNative]::SW_RESTORE) | Out-Null
+    # BRG5-D needs the P key to enter SDL through the target window's normal
+    # Win32 message path. Prior SendInput probes were accepted by Windows but
+    # produced no SDL P KEYDOWN in this application (hotkey diagnostics empty).
+    #
+    # With production popup handling now using e->key.keysym.mod, queue the
+    # complete Ctrl+P sequence to the saved main HWND in order. SDL snapshots
+    # the modifier state on the P event, so the later Ctrl-up cannot erase it.
+    [BRG5.MultiWindowNative]::ShowWindow(
+        $Hwnd,
+        [BRG5.MultiWindowNative]::SW_RESTORE
+    ) | Out-Null
 
     $focused = $false
     for ($attempt = 1; $attempt -le 10; ++$attempt) {
@@ -242,28 +243,26 @@ function Send-CtrlP([IntPtr]$Hwnd) {
     }
 
     if (-not $focused) {
-        throw "[BRG5-D] could not focus main window for staged Ctrl+P SendInput"
+        throw "[BRG5-D] could not focus main window for staged Ctrl+P PostMessage"
     }
 
-    $ctrlDown = $false
-    try {
-        Invoke-KeyStage 0x11 $false "CTRL_DOWN"
-        $ctrlDown = $true
-
-        # Main loop is capped at 120 FPS; 250 ms spans many SDL event-pump cycles.
-        Start-Sleep -Milliseconds 250
-
-        Invoke-KeyStage 0x50 $false "P_DOWN"
-        Start-Sleep -Milliseconds 80
-        Invoke-KeyStage 0x50 $true "P_UP"
-
-        # Give the P event time to be handled while Ctrl remains logically down.
-        Start-Sleep -Milliseconds 250
+    if (-not [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x11, $true)) {
+        throw "[BRG5-D] failed to post CTRL_DOWN to main HWND"
     }
-    finally {
-        if ($ctrlDown) {
-            Invoke-KeyStage 0x11 $true "CTRL_UP"
-        }
+    Start-Sleep -Milliseconds 80
+
+    if (-not [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x50, $true)) {
+        throw "[BRG5-D] failed to post P_DOWN to main HWND"
+    }
+    Start-Sleep -Milliseconds 80
+
+    if (-not [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x50, $false)) {
+        throw "[BRG5-D] failed to post P_UP to main HWND"
+    }
+    Start-Sleep -Milliseconds 80
+
+    if (-not [BRG5.MultiWindowNative]::PostKey($Hwnd, 0x11, $false)) {
+        throw "[BRG5-D] failed to post CTRL_UP to main HWND"
     }
 
     Start-Sleep -Milliseconds $ActionDelayMilliseconds
@@ -409,14 +408,11 @@ finally {
         commit = $commit
         configuration = $Configuration
         scenario = $scenario
-        input_injection = "SENDINPUT_STAGED_CTRL_P"
+        input_injection = "POSTMESSAGE_STAGED_CTRL_P_EVENT_LOCAL_MODIFIER"
         input_diagnostics = [ordered]@{
-            input_struct_size = [BRG5.MultiWindowNative]::InputSize
-            expected_input_struct_size = if ([IntPtr]::Size -eq 8) { 40 } else { 28 }
-            pointer_size = [IntPtr]::Size
-            last_send_stage = [BRG5.MultiWindowNative]::LastSendStage
-            last_send_count = [BRG5.MultiWindowNative]::LastSendInputCount
-            last_error = [BRG5.MultiWindowNative]::LastSendInputError
+            delivery = "POSTMESSAGE_WM_KEYDOWN_UP"
+            modifier_source = "SDL_EVENT_KEYSYM_MOD"
+            target = "SAVED_MAIN_HWND"
         }
         hotkey_diagnostics = $hotkeyDiagnostics
         result = $result
