@@ -99,11 +99,33 @@ python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-debug.log
 python .\scripts\brg5_validate_lifecycle.py .\artifacts\brg5\lifecycle-release.log
 ```
 
-The validator fails when:
+The validator uses a **one-shot object lifecycle grammar** for each process/log.
+For every observed object identity, the complete phase sequence must exactly equal
+the component's canonical sequence listed above. Therefore the validator fails
+when:
 - a required phase is missing;
+- any phase is duplicated;
 - phase order is invalid;
-- a component changes identity between CREATE/START/STOP/JOIN/DESTROY;
+- any transition appears after DESTROY;
+- a component changes identity between lifecycle phases;
+- an unknown lifecycle component appears;
 - a smoke log contains lifecycle markers from more than one process.
+
+Restarting the same object identity after DESTROY is **not** part of the BRG-5
+baseline contract. BRG5-E repeated stress uses a fresh process and fresh
+lifecycle log for each iteration. This avoids conflating allocator/pointer reuse
+or object restart semantics with the one-shot lifecycle contract.
+
+Canonical validator self-test:
+
+```powershell
+python .\scripts\brg5_validate_lifecycle.py --self-test
+```
+
+The self-test includes a valid lifecycle plus invalid cases for duplicate
+CREATE, out-of-order phases, missing JOIN, transition after DESTROY and
+multiple-process contamination. Canonical static sanity runs this self-test
+fail-closed.
 
 ## BRG5-A gate
 
