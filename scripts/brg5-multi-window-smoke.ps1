@@ -278,7 +278,7 @@ $mainRectBeforeSecondaryResizeSignature = $null
 $mainRectAfterSecondaryResizeSignature = $null
 $secondaryRectBeforeResizeSignature = $null
 $secondaryRectAfterResizeSignature = $null
-$hotkeyDiagnostics = @()
+$hotkeyDiagnostics = [string[]]@()
 $previousLifecycleLog = [Environment]::GetEnvironmentVariable("IM_PLAYER_LIFECYCLE_LOG", [EnvironmentVariableTarget]::Process)
 
 Write-Host "[BRG5-D] start commit=$commit configuration=$Configuration scenario=$scenario"
@@ -391,9 +391,14 @@ catch {
 }
 finally {
     if (Test-Path $lifecycleLog) {
-        $hotkeyDiagnostics = @(
+        $hotkeyDiagnostics = [string[]]@(
             Get-Content $lifecycleLog -ErrorAction SilentlyContinue |
-                Where-Object { $_.StartsWith("[BRG5-DIAG]") }
+                Where-Object {
+                    $_.StartsWith("[BRG5-DIAG] category=HOTKEY ")
+                } |
+                ForEach-Object {
+                    $_.ToString()
+                }
         )
     }
 
