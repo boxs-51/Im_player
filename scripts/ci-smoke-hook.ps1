@@ -42,6 +42,8 @@ else {
 Write-Host "[BRG-3] Interactive GUI shutdown stress: NOT_RUN_IN_CI"
 Write-Host "[BRG-3] Canonical runtime proof: local interactive Windows exact-head evidence"
 Write-Host "[BRG-3] Local command: scripts/test-shutdown.ps1 -Configuration $Configuration -Iterations 20"
+Write-Host "[BRG5-B] Interactive startup/shutdown matrix: NOT_RUN_IN_CI"
+Write-Host "[BRG5-B] Local command: scripts/brg5-startup-shutdown.ps1 -Configuration $Configuration -Iterations 1"
 
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 Write-Host "[BRG-2] Smoke hook PASS commit=$commit configuration=$Configuration"
