@@ -394,7 +394,7 @@ finally {
     if (Test-Path $lifecycleLog) {
         $hotkeyDiagnostics = @(
             Get-Content $lifecycleLog -ErrorAction SilentlyContinue |
-                Where-Object { $_ -like "[BRG5-DIAG]*" }
+                Where-Object { $_.StartsWith("[BRG5-DIAG]") }
         )
     }
 
