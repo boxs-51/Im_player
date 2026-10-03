@@ -279,3 +279,62 @@ existing render architecture.
 The current implementation hides a secondary window on close and destroys
 remaining windows during final main shutdown. BRG5-D records this behavior as
 the canonical pre-Phase-0 baseline; it does not redesign it.
+
+
+## BRG5-E repeated lifecycle/audio stress gate
+
+BRG5-E executes the Issue #8 stress subset without changing production
+ownership or lifecycle architecture.
+
+Canonical local command:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-lifecycle-audio-stress.ps1 -Configuration Debug -Iterations 5
+powershell -ExecutionPolicy Bypass -File .\scripts\brg5-lifecycle-audio-stress.ps1 -Configuration Release -Iterations 5
+```
+
+The harness enforces a minimum of five iterations. Each iteration uses fresh
+application processes and fresh lifecycle evidence for two scenarios:
+
+1. playback cycle:
+   - generated local media playback;
+   - pause/resume;
+   - seek forward/backward + rapid seek;
+   - shutdown while playback/render callback activity is active;
+   - PlayerSession lifecycle validation;
+   - AudioCaptureManager / AudioProcessor / AudioOutputWorker lifecycle validation;
+2. multi-window cycle:
+   - main + secondary creation;
+   - secondary resize;
+   - secondary close -> hide;
+   - same-HWND reopen;
+   - final process shutdown and window destruction.
+
+Every produced lifecycle log is archived under:
+
+```text
+artifacts/brg5/stress/<configuration>-<commit-prefix>/
+```
+
+with one JSON + lifecycle log per scenario per iteration. The archived log is
+validated again after copying.
+
+The summary JSON records:
+- exact commit;
+- configuration;
+- requested/completed iteration counts;
+- focused BRG-3 callback-lifetime regression result;
+- process model;
+- lifecycle grammar;
+- duration;
+- per-iteration evidence paths;
+- overall PASS/FAIL and failure reason.
+
+BRG5-E passes only when:
+- at least five iterations are requested;
+- the focused BRG-3 callback lifetime CTest passes;
+- every playback cycle passes;
+- every multi-window cycle passes;
+- every archived lifecycle log passes the one-shot exact-sequence validator;
+- the completed iteration count equals the requested count;
+- no crash, hang, abort, invalid teardown or stale callback is observed.
