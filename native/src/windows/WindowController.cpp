@@ -258,13 +258,21 @@ WindowRuntime::~WindowRuntime() {
         }
     }
 
+    // ImGui backend state is stored on the current ImGui context.
+    // In a multi-window process another window may have been the most recent
+    // renderer, so select this window's context before shutting its backend
+    // down. Otherwise Debug ImGui may observe an already-shutdown/null backend
+    // on the wrong context and abort during teardown.
+    if (resource.imguiCtx) {
+        ImGui::SetCurrentContext(resource.imguiCtx);
+    }
+
     if (resource.graphicsBackend) {
         resource.graphicsBackend->Shutdown(true);
     }
 
     // Destroy ImGui context before the font controller/atlas it references.
     if (resource.imguiCtx) {
-        ImGui::SetCurrentContext(resource.imguiCtx);
         ImGui::DestroyContext(resource.imguiCtx);
         resource.imguiCtx = nullptr;
     }
