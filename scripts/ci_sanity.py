@@ -703,6 +703,10 @@ if not (ROOT / "native/src/player/audio/AudioQueueUnderflowDetector.h").is_file(
     fail("Issue #26: sustained queue-underflow detector is missing")
 if not (ROOT / "tests/audio_queue_underflow_detector_test.cpp").is_file():
     fail("Issue #26: focused queue-underflow detector test is missing")
+if not (ROOT / "native/src/player/audio/AudioQueueWritePlanner.h").is_file():
+    fail("Issue #26: bounded queue write planner is missing")
+if not (ROOT / "tests/audio_queue_write_planner_test.cpp").is_file():
+    fail("Issue #26: focused queue write planner test is missing")
 if not (ROOT / "tests/pcm_realtime_pacer_test.cpp").is_file():
     fail("Issue #26: focused realtime pacer test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
@@ -715,6 +719,8 @@ if "issue26_audio_media_clock_gate" not in cmake_text:
     fail("Issue #26: synthetic audio media clock CTest is not registered")
 if "issue26_audio_queue_underflow_gate" not in cmake_text:
     fail("Issue #26: queue-underflow detector CTest is not registered")
+if "issue26_audio_queue_write_planner_gate" not in cmake_text:
+    fail("Issue #26: queue write planner CTest is not registered")
 
 audio_telemetry_h = (
     ROOT / "native/src/player/audio/AudioTelemetry.h"
@@ -874,7 +880,7 @@ for token in (
         fail(f"Issue #26: capture pacing contract missing: {token}")
 
 for token in (
-    "kAudioOutputTargetQueueMilliseconds = 100",
+    "kAudioOutputTargetQueueMilliseconds = 120",
     "kAudioOutputTargetQueueBytes",
     "kAudioOutputDesignMaxQueueMilliseconds = 150",
     "kAudioOutputDevicePeriodFrames = 512",
@@ -894,6 +900,14 @@ for token in (
 
 if "queuedBytes >= kAudioOutputTargetQueueBytes" not in audio_output_cpp:
     fail("Issue #26: output queue target backpressure is missing")
+for token in (
+    "PlanAudioQueueWrite",
+    "framesQueuedFromBlock",
+    "kAudioOutputDesignMaxQueueBytes",
+    "SDL_QUEUE_HARD_CAP_EXCEEDED",
+):
+    if token not in audio_output_cpp:
+        fail(f"Issue #26: segmented bounded SDL write missing: {token}")
 for token in (
     "AudioQueueUnderflowDetector underflowDetector;",
     "SDL_QUEUE_EMPTY_OBSERVED",

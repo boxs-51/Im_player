@@ -32,9 +32,9 @@ constexpr uint32_t kCanonicalAudioBytesPerSecond =
     static_cast<uint32_t>(kCanonicalAudioBytesPerFrame);
 
 // Issue #26 external SDL jitter reservoir.
-// Keep ~100 ms queued under steady playback. A single maximum AudioBlock can
-// add at most ~42.67 ms, so target + one block remains below 150 ms.
-constexpr uint32_t kAudioOutputTargetQueueMilliseconds = 100;
+// Maintain ~120 ms queued under steady playback while segmented writes enforce
+// an absolute 150 ms hard cap.
+constexpr uint32_t kAudioOutputTargetQueueMilliseconds = 120;
 constexpr uint32_t kAudioOutputTargetQueueBytes =
     (kCanonicalAudioBytesPerSecond * kAudioOutputTargetQueueMilliseconds) / 1000;
 constexpr uint32_t kAudioOutputMaxBlockBytes =
@@ -55,9 +55,8 @@ constexpr uint64_t kAudioOutputUnderflowGraceMicros =
     kCanonicalAudioSampleRate;
 
 static_assert(
-    kAudioOutputTargetQueueBytes + kAudioOutputMaxBlockBytes <=
-        kAudioOutputDesignMaxQueueBytes,
-    "Issue #26 queue target plus one maximum block must remain <=150ms");
+    kAudioOutputTargetQueueBytes < kAudioOutputDesignMaxQueueBytes,
+    "Issue #26 queue target must remain below the 150ms hard cap");
 
 /**
  * @struct AudioBlock

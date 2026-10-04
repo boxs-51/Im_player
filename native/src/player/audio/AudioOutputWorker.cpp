@@ -2,6 +2,7 @@
 #include "SdlAudioDevice.h"
 #include "AudioTelemetry.h"
 #include "AudioQueueUnderflowDetector.h"
+#include "AudioQueueWritePlanner.h"
 #include "log.h"
 #include "threads/thread_manager.h"
 #include "common/LifecycleEvidence.h"
@@ -364,26 +365,123 @@ void AudioOutputWorker::OutputLoop() {
                 //}
 
                 if (m_isRunning.load(std::memory_order_relaxed)) {
-                    m_audioDevice->Write(block->samples.data(), block->sample_count());
-                    writePerformed = m_audioDevice->IsReady();
-                    if (writePerformed) {
-                        m_metrics.blocksWritten.fetch_add(1, std::memory_order_relaxed);
+                    std::uint32_t framesQueuedFromBlock = 0;
+                    std::uint32_t finalQueuedBytes =
+                        m_audioDevice->GetQueuedSizeBytes();
+                    bool segmentWriteFailed = false;
 
-                        const double lastWrittenPts = block->pts;
-                        const double lastWrittenEndPts =
-                            block->pts + block->duration_seconds();
-                        const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
-                        updateQueueMetrics(queuedBytes);
+                    while (
+                        framesQueuedFromBlock < block->frames &&
+                        m_isRunning.load(std::memory_order_relaxed) &&
+                        m_audioDevice &&
+                        m_audioDevice->IsReady()) {
+                        const std::uint32_t queuedBefore =
+                            m_audioDevice->GetQueuedSizeBytes();
+                        updateQueueMetrics(queuedBefore);
+
+                        const std::uint64_t segmentObservationMicros =
+                            AudioTelemetryNowMicros();
+                        const AudioQueueEmptyDecision segmentDecision =
+                            underflowDetector.Observe(
+                                playbackStartedObserved,
+                                queuedBefore,
+                                segmentObservationMicros);
+
+                        if (segmentDecision.event ==
+                            AudioQueueEmptyEvent::Observed) {
+                            EmitAudioTelemetryEvidence(
+                                "SDL_QUEUE_EMPTY_OBSERVED t_us=%llu grace_us=%llu source=segment",
+                                static_cast<unsigned long long>(
+                                    segmentObservationMicros),
+                                static_cast<unsigned long long>(
+                                    kAudioOutputUnderflowGraceMicros));
+                        } else if (
+                            segmentDecision.event ==
+                            AudioQueueEmptyEvent::Recovered) {
+                            EmitAudioTelemetryEvidence(
+                                "SDL_QUEUE_EMPTY_RECOVERED t_us=%llu empty_us=%llu source=segment",
+                                static_cast<unsigned long long>(
+                                    segmentObservationMicros),
+                                static_cast<unsigned long long>(
+                                    segmentDecision.emptyDurationMicros));
+                        } else if (
+                            segmentDecision.event ==
+                            AudioQueueEmptyEvent::SustainedUnderflow) {
+                            const uint64_t underflowIndex =
+                                m_metrics.queueUnderflowEvents.fetch_add(
+                                    1,
+                                    std::memory_order_relaxed) + 1;
+                            EmitAudioTelemetryEvidence(
+                                "ERROR SDL_QUEUE_UNDERFLOW index=%llu empty_us=%llu grace_us=%llu action=rearm_prebuffer source=segment",
+                                static_cast<unsigned long long>(
+                                    underflowIndex),
+                                static_cast<unsigned long long>(
+                                    segmentDecision.emptyDurationMicros),
+                                static_cast<unsigned long long>(
+                                    kAudioOutputUnderflowGraceMicros));
+                            m_audioDevice->FlushBuffers();
+                            playbackStartedObserved = false;
+                            underflowDetector.Reset();
+                            finalQueuedBytes = 0;
+                        }
+
+                        const std::uint32_t remainingFrames =
+                            block->frames - framesQueuedFromBlock;
+                        const AudioQueueWritePlan writePlan =
+                            PlanAudioQueueWrite(
+                                finalQueuedBytes =
+                                    m_audioDevice->GetQueuedSizeBytes(),
+                                remainingFrames);
+
+                        if (writePlan.framesToWrite == 0) {
+                            std::this_thread::sleep_for(
+                                std::chrono::milliseconds(1));
+                            continue;
+                        }
+
+                        const std::size_t sampleOffset =
+                            static_cast<std::size_t>(
+                                framesQueuedFromBlock) *
+                            kCanonicalAudioChannels;
+                        const std::size_t samplesToWrite =
+                            static_cast<std::size_t>(
+                                writePlan.framesToWrite) *
+                            kCanonicalAudioChannels;
+
+                        m_audioDevice->Write(
+                            block->samples.data() + sampleOffset,
+                            samplesToWrite);
+                        if (!m_audioDevice->IsReady()) {
+                            segmentWriteFailed = true;
+                            break;
+                        }
+
+                        framesQueuedFromBlock +=
+                            writePlan.framesToWrite;
+                        finalQueuedBytes =
+                            m_audioDevice->GetQueuedSizeBytes();
+                        updateQueueMetrics(finalQueuedBytes);
+
+                        if (finalQueuedBytes >
+                            kAudioOutputDesignMaxQueueBytes) {
+                            EmitAudioTelemetryEvidence(
+                                "ERROR SDL_QUEUE_HARD_CAP_EXCEEDED queued_bytes=%u hard_cap_bytes=%u",
+                                finalQueuedBytes,
+                                kAudioOutputDesignMaxQueueBytes);
+                            segmentWriteFailed = true;
+                            break;
+                        }
 
                         if (!playbackStartedObserved &&
-                            queuedBytes >= kAudioOutputTargetQueueBytes) {
+                            finalQueuedBytes >=
+                                kAudioOutputTargetQueueBytes) {
                             playbackStartedObserved = true;
                         }
 
                         const AudioQueueEmptyDecision refillDecision =
                             underflowDetector.Observe(
                                 playbackStartedObserved,
-                                queuedBytes,
+                                finalQueuedBytes,
                                 AudioTelemetryNowMicros());
                         if (refillDecision.event ==
                             AudioQueueEmptyEvent::Recovered) {
@@ -392,6 +490,21 @@ void AudioOutputWorker::OutputLoop() {
                                 static_cast<unsigned long long>(
                                     refillDecision.emptyDurationMicros));
                         }
+                    }
+
+                    writePerformed =
+                        !segmentWriteFailed &&
+                        framesQueuedFromBlock == block->frames &&
+                        m_audioDevice &&
+                        m_audioDevice->IsReady();
+
+                    if (writePerformed) {
+                        m_metrics.blocksWritten.fetch_add(1, std::memory_order_relaxed);
+
+                        const double lastWrittenPts = block->pts;
+                        const double lastWrittenEndPts =
+                            block->pts + block->duration_seconds();
+                        const uint32_t queuedBytes = finalQueuedBytes;
 
                         double mpvTimePos = 0.0;
                         if (m_stateSystem) {
