@@ -14,6 +14,7 @@
 #include "player/render/RenderCallbackLifetimeGate.h"
 
 class Player;
+class PlayerStateSystem;
 class IGraphicsBackend;
 class PlayBackRenderThread;
 
@@ -44,6 +45,7 @@ public:
 
     void Shutdown();
     void Render(const ImVec2& size, IGraphicsBackend* backend);
+    void BindStartupState(PlayerStateSystem* state);
 
     bool IsAudioVisualizerEnabled() const { return m_audioVisualizers.load(); }
     void SetAudioVisualizerEnabled(bool enable);
