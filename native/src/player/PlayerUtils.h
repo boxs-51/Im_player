@@ -29,7 +29,7 @@ inline void ApplyStaticMPVConfig(mpv_handle* mpv) {
     
     SetMPVOptions(mpv, {
         {"idle", "yes"},
-        {"keep-open", "no"}, // #33: do not turn startup EOF into an implicit last-frame seek
+        {"keep-open", "yes"},
         {"stop-screensaver", "yes"},
         {"vo", "libmpv"},
         {"hwdec", "auto-safe"}, // Tự động chọn giải mã phần cứng ổn định nhất
