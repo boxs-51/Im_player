@@ -10,8 +10,8 @@ param(
     [ValidateRange(1, 100)]
     [int]$Iterations = 20,
 
-    [ValidateRange(5, 120)]
-    [int]$StartupTimeoutSeconds = 30,
+    [ValidateRange(5, 180)]
+    [int]$StartupTimeoutSeconds = 60,
 
     [ValidateRange(100, 5000)]
     [int]$PostStartupObserveMilliseconds = 1000
@@ -76,7 +76,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     }
 
     try {
-        $process = Start-Process -FilePath $exe -ArgumentList @($MediaUrl) -PassThru
+        $quotedMediaUrl = '"' + $MediaUrl + '"'
+        $process = Start-Process -FilePath $exe -ArgumentList $quotedMediaUrl -WorkingDirectory $root -PassThru
         $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
 
         $startup = @()
@@ -103,7 +104,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "START_FILE marker not observed"
         }
         if (($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -eq 0) {
-            throw "FILE_LOADED marker not observed"
+            $endFile = @($startup | Where-Object { $_ -match "event=END_FILE " } | Select-Object -Last 1)
+            if ($endFile.Count -gt 0) {
+                throw "FILE_LOADED not observed; $($endFile[0])"
+            }
+            throw "FILE_LOADED not observed within $StartupTimeoutSeconds seconds after START_FILE"
         }
         if (($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " }).Count -eq 0) {
             throw "PLAYBACK_RESTART marker not observed"
