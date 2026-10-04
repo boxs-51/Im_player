@@ -99,19 +99,23 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
             $startup = Get-StartupLines $logPath
             $hasDeferred = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -gt 0
+            $hasIdleReady = ($startup | Where-Object { $_ -match "event=MPV_IDLE_READY " }).Count -gt 0
             $hasDispatch = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DISPATCH " }).Count -gt 0
             $hasLoad = ($startup | Where-Object { $_ -match "event=LOAD_REQUEST " }).Count -gt 0
             $hasStart = ($startup | Where-Object { $_ -match "event=START_FILE " }).Count -gt 0
             $hasLoaded = ($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
             $hasRestart = ($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " }).Count -gt 0
 
-            if ($hasDeferred -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasRestart) { break }
+            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasRestart) { break }
             Start-Sleep -Milliseconds 100
         }
 
         $startup = Get-StartupLines $logPath
         if (($startup | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -eq 0) {
             throw "CLI_LOAD_DEFERRED marker not observed"
+        }
+        if (($startup | Where-Object { $_ -match "event=MPV_IDLE_READY " }).Count -eq 0) {
+            throw "MPV_IDLE_READY marker not observed"
         }
         if (($startup | Where-Object { $_ -match "event=CLI_LOAD_DISPATCH " }).Count -eq 0) {
             throw "CLI_LOAD_DISPATCH marker not observed"
@@ -164,6 +168,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
 
         $deferredIndex = Find-StartupIndex $startup "event=CLI_LOAD_DEFERRED "
+        $idleReadyIndex = Find-StartupIndex $startup "event=MPV_IDLE_READY "
         $dispatchIndex = Find-StartupIndex $startup "event=CLI_LOAD_DISPATCH "
         $loadIndex = Find-StartupIndex $startup "event=LOAD_REQUEST "
         $startIndex = Find-StartupIndex $startup "event=START_FILE "
@@ -171,8 +176,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
         $configEndIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_END "
 
-        if ($deferredIndex -lt 0 -or $dispatchIndex -le $deferredIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex) {
-            throw "startup event order is not CLI_LOAD_DEFERRED -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED"
+        if ($deferredIndex -lt 0 -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex) {
+            throw "startup event order is not CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED"
         }
         if ($configBeginIndex -le $loadedIndex -or $configEndIndex -le $configBeginIndex) {
             throw "dynamic config timing markers are not post-FILE_LOADED ordered"
