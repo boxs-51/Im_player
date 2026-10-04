@@ -228,6 +228,23 @@ require(
     and observer_cpp.count('"STARTUP"') >= 8,
     "#33: startup observer markers must persist to the lifecycle evidence sink",
 )
+audio_only_harness = ROOT / "scripts/issue33-audio-only-eof-smoke.ps1"
+require(
+    audio_only_harness.is_file(),
+    "#33: audio-only normal EOF regression harness is missing",
+)
+if audio_only_harness.is_file():
+    audio_only_text = audio_only_harness.read_text(encoding="utf-8")
+    for token in (
+        "issue26_generate_pcm_fixture.py",
+        "event=STARTUP_MEDIA_STARTED load_id=1 .*source=audio_pcm",
+        "event=STARTUP_KEEP_OPEN_RESTORE load_id=1 .*result=0",
+        "event=END_FILE load_id=1 .*startup_media_started=1",
+        "normal audio-only EOF incorrectly triggered startup retry",
+        "event=LEGACY_PLAYLIST_RETRY ",
+    ):
+        require(token in audio_only_text, f"#33: audio-only EOF regression contract missing: {token}")
+
 cold_url_harness = ROOT / "scripts/issue33-cold-url-smoke.ps1"
 require(
     cold_url_harness.is_file(),
@@ -273,7 +290,7 @@ if cold_url_harness.is_file():
         "Find-LastStartupIndex",
         "Find-StartupIndexAtOrAfter",
         "final startup attempt",
-        "bounded startup retry occurred after FIRST_VIDEO_FRAME",
+        "bounded startup retry occurred after media startup",
         "combinedFinalAttemptStart",
         "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
