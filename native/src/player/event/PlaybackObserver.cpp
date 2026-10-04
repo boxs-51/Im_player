@@ -686,6 +686,22 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_IDLE: {
+            bool firstIdleReady = false;
+            m_state.WritePlayback([&](PlaybackModel& m) {
+                if (!m.startupMpvIdleReady) {
+                    m.startupMpvIdleReady = true;
+                    firstIdleReady = true;
+                }
+            });
+
+            if (firstIdleReady) {
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=MPV_IDLE_READY ts_ms=%llu",
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            }
+
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] MPV is now idle."); 
             break;
         }
