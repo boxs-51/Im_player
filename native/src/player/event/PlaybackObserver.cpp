@@ -550,15 +550,27 @@ void PlaybackObserver::ProcessEvents() {
                         strcmp(msg->prefix, "ffmpeg/demuxer") == 0 ||
                         strcmp(msg->prefix, "demux") == 0;
                     if (startupRelevant) {
-                        LifecycleEvidence::EmitDiagnostic(
-                            "STARTUP",
-                            FormatString(
-                                "event=MPV_LOG load_id=%llu ts_ms=%llu prefix=%s level=%s text=%.320s",
-                                static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
-                                static_cast<unsigned long long>(SDL_GetTicks64()),
-                                msg->prefix,
-                                msg->level ? msg->level : "unknown",
-                                msg->text));
+                        const Uint64 startupLoadId = m_commander.GetStartupLoadId();
+                        if (startupLoadId > 0) {
+                            LifecycleEvidence::EmitDiagnostic(
+                                "STARTUP",
+                                FormatString(
+                                    "event=MPV_LOG load_id=%llu ts_ms=%llu prefix=%s level=%s text=%.320s",
+                                    static_cast<unsigned long long>(startupLoadId),
+                                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                                    msg->prefix,
+                                    msg->level ? msg->level : "unknown",
+                                    msg->text));
+                        } else {
+                            LifecycleEvidence::EmitDiagnostic(
+                                "STARTUP",
+                                FormatString(
+                                    "event=MPV_LOG phase=preload ts_ms=%llu prefix=%s level=%s text=%.320s",
+                                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                                    msg->prefix,
+                                    msg->level ? msg->level : "unknown",
+                                    msg->text));
+                        }
                     }
                 }
                 if (msg && msg->level) {
