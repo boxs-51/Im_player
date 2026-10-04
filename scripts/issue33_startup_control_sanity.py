@@ -165,9 +165,9 @@ for marker in (
     "event=SEEK_REQUEST",
     "event=SEEK",
     "event=MPV_IDLE_READY",
-    "event=DYNAMIC_CONFIG_APPLY_BEGIN",
+    "event=DYNAMIC_CONFIG_DEFER",
+    "event=MPV_LOG",
     "event=END_FILE",
-    "timing=post_file_loaded",
 ):
     require(marker in observer_cpp, f"#33: startup observer marker missing: {marker}")
 
