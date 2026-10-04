@@ -392,6 +392,19 @@ for token in (
 
 facts["issue19_event_render_stress_contract"] = "PASS" if not errors else "FAIL"
 
+# Issue #33 deterministic startup-control contract.
+issue33_sanity = subprocess.run(
+    [sys.executable, str(ROOT / "scripts/issue33_startup_control_sanity.py")],
+    text=True,
+    capture_output=True,
+)
+if issue33_sanity.returncode != 0:
+    detail = (issue33_sanity.stderr or issue33_sanity.stdout).strip()
+    fail("Issue #33 startup control sanity failed: " + detail)
+facts["issue33_startup_control_contract"] = (
+    "PASS" if issue33_sanity.returncode == 0 else "FAIL"
+)
+
 # BRG-3 MPV render callback lifetime regression contract.
 # Keep callback userdata alive through detach/context destruction and ensure
 # UI rendering is quiesced before render teardown begins.
