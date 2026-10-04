@@ -83,6 +83,7 @@ int PlaybackCommand::IssueLoadFile(
         m.startupLoadedLoadId = 0;
         m.startupVideoEvidenceLoadId = 0;
         m.startupVideoEvidenceArmed = false;
+        m.startupMediaStartedLoadId = 0;
         loadId = m.startupLoadId;
         m.isLoadingMedia = true;
     });
@@ -117,7 +118,25 @@ int PlaybackCommand::IssueLoadFile(
     }
 
     PlaybackCommand::ApplyPlaybackSettings();
-    const char* cmd[] = { "loadfile", url.c_str(), extraFlags.c_str(), nullptr };
+
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        m_startupKeepOpenOverrideLoadId = loadId;
+        m_startupKeepOpenOverrideActive = true;
+    }
+
+    // #33: keep the historical global keep-open=yes contract, but disable it
+    // only for the startup window of this file so an early terminal condition
+    // cannot be turned into an implicit last-frame seek. mpv restores per-file
+    // options automatically when playback ends.
+    const char* cmd[] = {
+        "loadfile",
+        url.c_str(),
+        extraFlags.c_str(),
+        "-1",
+        "keep-open=no",
+        nullptr
+    };
     const int ret = Exec(cmd);
 
     LifecycleEvidence::EmitDiagnostic(
@@ -134,6 +153,10 @@ int PlaybackCommand::IssueLoadFile(
         m_state.WritePlayback([](PlaybackModel& m) {
             m.isLoadingMedia = false;
         });
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        if (m_startupKeepOpenOverrideLoadId == loadId) {
+            m_startupKeepOpenOverrideActive = false;
+        }
     }
     return ret;
 }
@@ -246,6 +269,42 @@ void PlaybackCommand::Update() {
     
     if (isSeekPending && (SDL_GetTicks64() - lastSeekRequestTime >= SEEK_DELAY_MS)) {
         DoSeek(seekTargetTime);
+    }
+
+    Uint64 keepOpenLoadId = 0;
+    bool keepOpenOverrideActive = false;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        keepOpenLoadId = m_startupKeepOpenOverrideLoadId;
+        keepOpenOverrideActive = m_startupKeepOpenOverrideActive;
+    }
+
+    if (keepOpenOverrideActive && keepOpenLoadId > 0) {
+        bool mediaStarted = false;
+        m_state.ReadPlayback([&](PlaybackModel const& m) {
+            mediaStarted =
+                m.startupLoadId == keepOpenLoadId &&
+                m.startupMediaStartedLoadId == keepOpenLoadId;
+        });
+
+        if (mediaStarted) {
+            const int restoreResult = SetPropertyString("keep-open", "yes");
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=STARTUP_KEEP_OPEN_RESTORE load_id=%llu ts_ms=%llu result=%d error_text=%s",
+                    static_cast<unsigned long long>(keepOpenLoadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    restoreResult,
+                    mpv_error_string(restoreResult)));
+
+            if (restoreResult >= 0) {
+                std::lock_guard<std::mutex> lock(m_commandMutex);
+                if (m_startupKeepOpenOverrideLoadId == keepOpenLoadId) {
+                    m_startupKeepOpenOverrideActive = false;
+                }
+            }
+        }
     }
 }
 
