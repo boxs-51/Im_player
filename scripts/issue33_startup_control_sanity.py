@@ -19,6 +19,7 @@ player_cpp = (ROOT / "native/src/player/player/Player.cpp").read_text(encoding="
 ytdlp_h = (ROOT / "native/src/YtDlpManager.h").read_text(encoding="utf-8")
 lifecycle_h = (ROOT / "native/src/common/LifecycleEvidence.h").read_text(encoding="utf-8")
 audio_telemetry_h = (ROOT / "native/src/player/audio/AudioTelemetry.h").read_text(encoding="utf-8")
+audio_capture_cpp = (ROOT / "native/src/player/audio/AudioCaptureManager.cpp").read_text(encoding="utf-8")
 render_thread_cpp = (ROOT / "native/src/player/render/PlayBackRenderThread.cpp").read_text(encoding="utf-8")
 render_thread_h = (ROOT / "native/src/player/render/PlayBackRenderThread.h").read_text(encoding="utf-8")
 render_h = (ROOT / "native/src/player/render/PlayBackRender.h").read_text(encoding="utf-8")
@@ -42,6 +43,7 @@ require(
     and "uint64_t startupLoadedLoadId = 0;" in models_h
     and "uint64_t startupVideoEvidenceLoadId = 0;" in models_h
     and "bool startupVideoEvidenceArmed = false;" in models_h
+    and "uint64_t startupMediaStartedLoadId = 0;" in models_h
     and "uint32_t startupRestartCount = 0;" in models_h,
     "#33: startup transaction/evidence identity state is missing",
 )
@@ -55,20 +57,24 @@ require(
     and "m.startupLoadId += 1;" in command_cpp
     and "m.startupLoadedLoadId = 0;" in command_cpp
     and "m.startupVideoEvidenceLoadId = 0;" in command_cpp
-    and "m.startupVideoEvidenceArmed = false;" in command_cpp,
+    and "m.startupVideoEvidenceArmed = false;" in command_cpp
+    and "m.startupMediaStartedLoadId = 0;" in command_cpp,
     "#33: direct LoadFile must reset stale seek/source/evidence state and advance startup load id",
 )
 require(
-    '{"keep-open", "no"}' in player_utils_h
-    and '{"keep-open", "yes"}' not in player_utils_h,
-    "#33: startup policy must not turn EOF into an implicit last-frame seek",
+    '{"keep-open", "yes"}' in player_utils_h
+    and '"keep-open=no"' in command_cpp
+    and '"-1"' in command_cpp
+    and "STARTUP_KEEP_OPEN_RESTORE" in command_cpp
+    and 'SetPropertyString("keep-open", "yes")' in command_cpp,
+    "#33: keep-open=no must be scoped to startup and restored after first media payload",
 )
 require(
     "RetryStartupLoadAfterEarlyFailure" in command_h
     and "IssueLoadFile" in command_h
     and "STARTUP_EARLY_FAILURE_RETRY_LIMIT = 1" in command_h
     and "event=LOAD_RETRY_REQUEST" in command_cpp
-    and "reason=early_terminal_before_first_frame" in command_cpp,
+    and "reason=early_terminal_before_any_media" in command_cpp,
     "#33: bounded one-shot early-terminal reload contract missing",
 )
 require(
@@ -77,8 +83,26 @@ require(
     and "event=EARLY_TERMINAL_RETRY_EXHAUSTED" in observer_cpp
     and "RetryStartupLoadAfterEarlyFailure(loadId)" in observer_cpp
     and "MPV_ERROR_NOTHING_TO_PLAY" in observer_cpp
-    and "cause = earlyNoData ? \"nothing_to_play\" : \"eof\"" in observer_cpp,
+    and "cause = earlyNoData ? \"nothing_to_play\" : \"eof\"" in observer_cpp
+    and "!mediaStarted" in observer_cpp
+    and "!firstFramePublished" not in observer_cpp,
     "#33: END_FILE early-terminal recovery boundary must cover EOF and NOTHING_TO_PLAY",
+)
+
+require(
+    "event=STARTUP_MEDIA_STARTED" in audio_capture_cpp
+    and "source=audio_pcm" in audio_capture_cpp
+    and "startupMediaStartedLoadId" in audio_capture_cpp
+    and "event=STARTUP_MEDIA_STARTED" in render_thread_cpp
+    and "source=video_frame" in render_thread_cpp
+    and "startupMediaStartedLoadId" in render_thread_cpp,
+    "#33: any-media startup boundary must be set by first PCM or first rendered frame",
+)
+require(
+    "event=LEGACY_ERROR_RETRY_SUPPRESSED" in observer_cpp
+    and "event=LEGACY_PLAYLIST_RETRY" in observer_cpp
+    and "retryableEarlyFailure && err == MPV_ERROR_NOTHING_TO_PLAY" in observer_cpp,
+    "#33: bounded startup retry must suppress legacy playlist retry authority",
 )
 
 require(
@@ -240,8 +264,11 @@ if cold_url_harness.is_file():
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
         "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy",
+        "LEGACY_PLAYLIST_RETRY must never run for direct startup",
+        "final startup attempt missing STARTUP_MEDIA_STARTED",
+        "final startup attempt must restore keep-open exactly once",
         "EARLY_TERMINAL_RETRY_EXHAUSTED is a startup failure",
-        "reason=early_terminal_before_first_frame",
+        "reason=early_terminal_before_any_media",
         "cause=(eof|nothing_to_play)",
         "Find-LastStartupIndex",
         "Find-StartupIndexAtOrAfter",
