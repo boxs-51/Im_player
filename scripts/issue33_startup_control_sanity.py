@@ -275,6 +275,30 @@ require(
     "#33: dynamic MPV config must remain behind the known-source guard",
 )
 
+file_loaded_start = observer_cpp.find("case MPV_EVENT_FILE_LOADED")
+idle_start = observer_cpp.find("case MPV_EVENT_IDLE", file_loaded_start)
+require(
+    file_loaded_start >= 0 and idle_start > file_loaded_start,
+    "#33: FILE_LOADED observer boundary missing",
+)
+if file_loaded_start >= 0 and idle_start > file_loaded_start:
+    file_loaded_body = observer_cpp[file_loaded_start:idle_start]
+    require(
+        "m_commander.Play();" not in file_loaded_body,
+        "#33: FILE_LOADED must not inject redundant pause=false autoplay mutation",
+    )
+    require(
+        "event=AUTOPLAY_INHERIT" in file_loaded_body
+        and "source=mpv_default" in file_loaded_body,
+        "#33: inherited mpv-default autoplay evidence marker missing",
+    )
+
+require(
+    "event=APP_SEEK_COMMAND" in command_cpp
+    and 'const char* cmd[] = { "seek", buffer, "absolute", nullptr };' in command_cpp,
+    "#33: every C++ app-issued seek must be attributable in startup evidence",
+)
+
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
 seek_request_index = observer_cpp.find("event=SEEK_REQUEST")
 require(
