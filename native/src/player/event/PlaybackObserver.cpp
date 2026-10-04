@@ -547,8 +547,12 @@ void PlaybackObserver::ProcessEvents() {
                     const bool startupRelevant =
                         strcmp(msg->prefix, "cplayer") == 0 ||
                         strcmp(msg->prefix, "ytdl_hook") == 0 ||
-                        strcmp(msg->prefix, "ffmpeg/demuxer") == 0 ||
-                        strcmp(msg->prefix, "demux") == 0;
+                        strncmp(msg->prefix, "ffmpeg", 6) == 0 ||
+                        strcmp(msg->prefix, "stream") == 0 ||
+                        strcmp(msg->prefix, "demux") == 0 ||
+                        strcmp(msg->prefix, "edl") == 0 ||
+                        strcmp(msg->prefix, "timeline") == 0 ||
+                        strcmp(msg->prefix, "cache") == 0;
                     if (startupRelevant) {
                         const Uint64 startupLoadId = m_commander.GetStartupLoadId();
                         if (startupLoadId > 0) {
@@ -615,15 +619,52 @@ void PlaybackObserver::ProcessEvents() {
             if (!data) break;
 
             const Uint64 loadId = m_commander.GetStartupLoadId();
+            bool firstFramePublished = false;
+            m_state.ReadPlayback([&](PlaybackModel const& m) {
+                firstFramePublished =
+                    m.startupLoadId == loadId &&
+                    m.startupVideoEvidenceLoadId == loadId &&
+                    !m.startupVideoEvidenceArmed;
+            });
+
             LifecycleEvidence::EmitDiagnostic(
                 "STARTUP",
                 FormatString(
-                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s",
+                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s first_frame_published=%d",
                     static_cast<unsigned long long>(loadId),
                     static_cast<unsigned long long>(SDL_GetTicks64()),
                     static_cast<int>(data->reason),
                     data->error,
-                    mpv_error_string(data->error)));
+                    mpv_error_string(data->error),
+                    firstFramePublished ? 1 : 0));
+
+            if (data->reason == MPV_END_FILE_REASON_EOF &&
+                loadId > 0 &&
+                !firstFramePublished) {
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=EARLY_EOF_DETECTED load_id=%llu ts_ms=%llu boundary=before_first_frame",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+
+                if (m_commander.RetryStartupLoadAfterEarlyEof(loadId)) {
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=EARLY_EOF_RETRY_ACCEPTED load_id=%llu ts_ms=%llu",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64())));
+                    break;
+                }
+
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=EARLY_EOF_RETRY_EXHAUSTED load_id=%llu ts_ms=%llu",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            }
  
             switch (data->reason) {
             // --- Phát hết file bình thường ---
