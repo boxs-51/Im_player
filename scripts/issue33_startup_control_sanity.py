@@ -217,6 +217,25 @@ if cold_url_harness.is_file():
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
+start_process_index = harness_text.find("Start-Process -FilePath $exe")
+close_window_index = harness_text.find("CloseMainWindow()", start_process_index)
+require(
+    start_process_index >= 0 and close_window_index > start_process_index,
+    "#33: harness process/close boundaries must remain discoverable",
+)
+if start_process_index >= 0 and close_window_index > start_process_index:
+    live_window = harness_text[start_process_index:close_window_index]
+    require(
+        "Get-StartupLines $logPath" not in live_window
+        and "Get-EvidenceLines $logPath" not in live_window,
+        "#33: acceptance harness must not read shared evidence while playback is active",
+    )
+require(
+    "EvidenceObserveSeconds = 10" in harness_text
+    and "Do not read the shared evidence file while playback is active." in harness_text,
+    "#33: no-read startup observation window contract missing",
+)
+
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
 seek_request_index = observer_cpp.find("event=SEEK_REQUEST")
 require(

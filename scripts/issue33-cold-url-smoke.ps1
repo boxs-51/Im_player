@@ -13,6 +13,9 @@ param(
     [ValidateRange(5, 180)]
     [int]$StartupTimeoutSeconds = 60,
 
+    [ValidateRange(3, 60)]
+    [int]$EvidenceObserveSeconds = 10,
+
     [ValidateRange(100, 5000)]
     [int]$PostStartupObserveMilliseconds = 1000
 )
@@ -85,7 +88,7 @@ function Get-StartupLines([string]$Path) {
     }
 }
 
-# Combined audio/video evidence is intentionally read only after clean process exit.
+# All startup/audio/video evidence is intentionally read only after clean process exit.
 function Get-EvidenceLines([string]$Path) {
     if (-not (Test-Path $Path)) { return @() }
 
@@ -143,26 +146,30 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     try {
         $quotedMediaUrl = '"' + $MediaUrl + '"'
         $process = Start-Process -FilePath $exe -ArgumentList $quotedMediaUrl -WorkingDirectory $root -PassThru
-        $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
-
-        $startup = @()
+        # Do not read the shared evidence file while playback is active.
+        # STARTUP uses a Win32 shared append sink, but canonical #26
+        # AUDIO-TELEMETRY still uses fopen_s("ab"). A live reader can therefore
+        # perturb the audio writer's sharing contract and selectively drop
+        # first-milestone evidence. Observe only process liveness here; consume
+        # all STARTUP + AUDIO evidence after clean process exit.
+        $observeSeconds = [Math]::Min($StartupTimeoutSeconds, $EvidenceObserveSeconds)
+        $deadline = [DateTime]::UtcNow.AddSeconds($observeSeconds)
         while ([DateTime]::UtcNow -lt $deadline) {
             if ($process.HasExited) {
-                throw "process exited during startup, exitCode=$($process.ExitCode)"
+                throw "process exited during startup observation, exitCode=$($process.ExitCode)"
             }
-
-            $startup = Get-StartupLines $logPath
-            $hasDeferred = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -gt 0
-            $hasIdleReady = ($startup | Where-Object { $_ -match "event=MPV_IDLE_READY " }).Count -gt 0
-            $hasDispatch = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DISPATCH " }).Count -gt 0
-            $hasLoad = ($startup | Where-Object { $_ -match "event=LOAD_REQUEST " }).Count -gt 0
-            $hasStart = ($startup | Where-Object { $_ -match "event=START_FILE " }).Count -gt 0
-            $hasLoaded = ($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
-            $hasVideoEvidenceArm = ($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -gt 0
-            $hasFirstVideoFrame = ($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -gt 0
-
-            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasVideoEvidenceArm -and $hasFirstVideoFrame) { break }
             Start-Sleep -Milliseconds 100
+        }
+        Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
+
+        if (-not $process.CloseMainWindow()) {
+            throw "CloseMainWindow returned false"
+        }
+        if (-not $process.WaitForExit(10000)) {
+            throw "process did not exit within 10s after close"
+        }
+        if ($process.ExitCode -ne 0) {
+            throw "process exitCode=$($process.ExitCode)"
         }
 
         $startup = Get-StartupLines $logPath
@@ -218,9 +225,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         if ($firstVideoFrames[0] -notmatch "boundary=video_reconfig") {
             throw "FIRST_VIDEO_FRAME missing video-reconfig boundary attribution"
         }
-        Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
-        $startup = Get-StartupLines $logPath
-
         $loadLine = $startup | Where-Object { $_ -match "event=LOAD_REQUEST " } | Select-Object -First 1
         if ($loadLine -notmatch "flags=replace") {
             throw "direct startup did not use replace semantics"
@@ -282,16 +286,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "extra PLAYBACK_RESTART loop observed count=$maxRestart"
         }
         $run.playback_restart_count = $maxRestart
-
-        if (-not $process.CloseMainWindow()) {
-            throw "CloseMainWindow returned false"
-        }
-        if (-not $process.WaitForExit(10000)) {
-            throw "process did not exit within 10s after close"
-        }
-        if ($process.ExitCode -ne 0) {
-            throw "process exitCode=$($process.ExitCode)"
-        }
 
         # Audio telemetry uses a separate append sink. Read the combined evidence
         # only after process exit so the harness cannot perturb writer sharing or
