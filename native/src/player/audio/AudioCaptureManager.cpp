@@ -1,5 +1,6 @@
 #include "AudioCaptureManager.h"
 #include "PcmFrameAccumulator.h"
+#include "PcmRealtimePacer.h"
 #include "AudioTelemetry.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
@@ -100,6 +101,14 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
     snapshot.blocksDropped = m_metrics.blocksDropped.load(std::memory_order_relaxed);
     snapshot.bytesReceived = m_metrics.bytesReceived.load(std::memory_order_relaxed);
     snapshot.ringOverflows = m_metrics.ringOverflows.load(std::memory_order_relaxed);
+    snapshot.backpressureWaits =
+        m_metrics.backpressureWaits.load(std::memory_order_relaxed);
+    snapshot.pacingSleepCount =
+        m_metrics.pacingSleepCount.load(std::memory_order_relaxed);
+    snapshot.pacingSleepMicros =
+        m_metrics.pacingSleepMicros.load(std::memory_order_relaxed);
+    snapshot.pacingRebases =
+        m_metrics.pacingRebases.load(std::memory_order_relaxed);
     snapshot.lastSequence = m_metrics.lastSequence.load(std::memory_order_relaxed);
     snapshot.currentGeneration = m_metrics.currentGeneration.load(std::memory_order_relaxed);
     snapshot.partialFrameCarryBytes = m_metrics.partialFrameCarryBytes.load(std::memory_order_relaxed);
@@ -159,6 +168,14 @@ void AudioCaptureManager::StartCapture() {
     m_currentPts = 0.0;
     m_activeGeneration = 0;
     m_wasSeeking = false;
+    m_metrics.blocksReceived.store(0, std::memory_order_relaxed);
+    m_metrics.blocksDropped.store(0, std::memory_order_relaxed);
+    m_metrics.bytesReceived.store(0, std::memory_order_relaxed);
+    m_metrics.ringOverflows.store(0, std::memory_order_relaxed);
+    m_metrics.backpressureWaits.store(0, std::memory_order_relaxed);
+    m_metrics.pacingSleepCount.store(0, std::memory_order_relaxed);
+    m_metrics.pacingSleepMicros.store(0, std::memory_order_relaxed);
+    m_metrics.pacingRebases.store(0, std::memory_order_relaxed);
     m_metrics.firstPipeConnectedMicros.store(0, std::memory_order_relaxed);
     m_metrics.firstPipeBytesMicros.store(0, std::memory_order_relaxed);
     m_metrics.firstCompletePcmBlockMicros.store(0, std::memory_order_relaxed);
@@ -271,15 +288,20 @@ void AudioCaptureManager::CaptureLoop() {
             LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
 
             PcmFrameAccumulator accumulator;
+            PcmRealtimePacer realtimePacer;
             std::array<std::uint8_t, PcmFrameAccumulator::kReadCapacity> readBuffer{};
             bool firstPayloadLogged = false;
+            bool firstPacingDelayLogged = false;
             m_currentPts = 0.0;
             m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
 
             while (m_isRunning) {
-                if (!m_isCapturing && accumulator.PendingBytes() != 0) {
-                    accumulator.Reset();
-                    m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
+                if (!m_isCapturing) {
+                    if (accumulator.PendingBytes() != 0) {
+                        accumulator.Reset();
+                        m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
+                    }
+                    realtimePacer.Reset();
                 }
 
                 if (accumulator.ReadyFrames() == 0) {
@@ -373,13 +395,44 @@ void AudioCaptureManager::CaptureLoop() {
                     continue;
                 }
 
-                AudioBlock* writeSlot = m_producer->acquire_write();
-                if (!writeSlot) {
-                    m_metrics.ringOverflows.fetch_add(1, std::memory_order_relaxed);
-                    m_metrics.blocksDropped.fetch_add(1, std::memory_order_relaxed);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
-                    continue;
+                const PcmPacingDecision pacing =
+                    realtimePacer.BeforePublish(AudioTelemetryNowMicros());
+                if (pacing.rebased) {
+                    m_metrics.pacingRebases.fetch_add(1, std::memory_order_relaxed);
+                    EmitAudioTelemetryEvidence(
+                        "PCM_PACER_REBASE published_frames=%llu",
+                        static_cast<unsigned long long>(
+                            realtimePacer.PublishedFrames()));
                 }
+                if (pacing.delayMicros > 0) {
+                    m_metrics.pacingSleepCount.fetch_add(1, std::memory_order_relaxed);
+                    m_metrics.pacingSleepMicros.fetch_add(
+                        pacing.delayMicros,
+                        std::memory_order_relaxed);
+                    if (!firstPacingDelayLogged) {
+                        EmitAudioTelemetryEvidence(
+                            "PCM_PACING_ACTIVE delay_us=%llu lead_frames=%llu",
+                            static_cast<unsigned long long>(pacing.delayMicros),
+                            static_cast<unsigned long long>(
+                                PcmRealtimePacer::kLeadFrames));
+                        firstPacingDelayLogged = true;
+                    }
+                    std::this_thread::sleep_for(
+                        std::chrono::microseconds(pacing.delayMicros));
+                    if (!m_isRunning)
+                        break;
+                }
+
+                AudioBlock* writeSlot = m_producer->acquire_write();
+                while (!writeSlot && m_isRunning.load(std::memory_order_relaxed)) {
+                    // This is backpressure, not data loss: accumulator bytes
+                    // remain owned by CaptureThread until a raw-ring slot exists.
+                    m_metrics.backpressureWaits.fetch_add(1, std::memory_order_relaxed);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    writeSlot = m_producer->acquire_write();
+                }
+                if (!m_isRunning || !writeSlot)
+                    break;
 
                 const uint32_t frames = accumulator.DrainFrames(
                     writeSlot->samples.data(),
@@ -423,6 +476,10 @@ void AudioCaptureManager::CaptureLoop() {
                 }
                 if (isSeeking && !m_wasSeeking) {
                     m_activeGeneration++;
+                    realtimePacer.Reset();
+                    EmitAudioTelemetryEvidence(
+                        "PCM_PACER_RESET reason=seek generation=%llu",
+                        static_cast<unsigned long long>(m_activeGeneration));
                 }
                 m_wasSeeking = isSeeking;
 
@@ -447,6 +504,7 @@ void AudioCaptureManager::CaptureLoop() {
                 m_metrics.lastPTS.store(writeSlot->pts, std::memory_order_relaxed);
 
                 m_producer->commit_write();
+                realtimePacer.OnPublished(frames);
             }
         }
 

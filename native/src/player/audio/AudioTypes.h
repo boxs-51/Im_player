@@ -66,6 +66,10 @@ struct AudioPipelineMetrics {
 
     uint64_t ringOverflows   = 0;
     uint64_t ringUnderflows  = 0;
+    uint64_t backpressureWaits = 0;
+    uint64_t pacingSleepCount = 0;
+    uint64_t pacingSleepMicros = 0;
+    uint64_t pacingRebases = 0;
 
     uint64_t lastSequence    = 0;
     uint64_t currentGeneration = 0;

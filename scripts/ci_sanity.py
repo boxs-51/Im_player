@@ -690,10 +690,16 @@ if not (ROOT / "tests/pcm_frame_accumulator_test.cpp").is_file():
     fail("Issue #26: focused PCM framing test is missing")
 if not (ROOT / "tests/audio_telemetry_math_test.cpp").is_file():
     fail("Issue #26: focused audio telemetry math test is missing")
+if not (ROOT / "native/src/player/audio/PcmRealtimePacer.h").is_file():
+    fail("Issue #26: realtime PCM pacer is missing")
+if not (ROOT / "tests/pcm_realtime_pacer_test.cpp").is_file():
+    fail("Issue #26: focused realtime pacer test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
     fail("Issue #26: focused PCM framing CTest is not registered")
 if "issue26_audio_telemetry_math_gate" not in cmake_text:
     fail("Issue #26: focused telemetry math CTest is not registered")
+if "issue26_pcm_realtime_pacer_gate" not in cmake_text:
+    fail("Issue #26: focused realtime pacer CTest is not registered")
 
 audio_telemetry_h = (
     ROOT / "native/src/player/audio/AudioTelemetry.h"
@@ -720,6 +726,9 @@ for token in (
     "WAVE RIFF header reached raw PCM consumer",
     "published block violates canonical contract",
     "runtime summary reports loss/error",
+    "SDL queue high-water exceeded 150ms",
+    "short-run A/V offset exceeded 500ms",
+    "realtime PCM pacer did not engage",
     "telemetry_error_count",
 ):
     if token not in issue26_runtime_harness:
@@ -739,6 +748,17 @@ if "SUMMARY capture_blocks=" not in audio_cpp:
     fail("Issue #26: end-of-run audio telemetry summary missing")
 if "sample_rate=%u channels=%u format=float32" not in audio_capture_cpp:
     fail("Issue #26: runtime AudioBlock format evidence missing")
+for token in (
+    "PcmRealtimePacer realtimePacer;",
+    "realtimePacer.BeforePublish",
+    "realtimePacer.OnPublished",
+    "backpressureWaits",
+    "PCM_PACING_ACTIVE",
+):
+    if token not in audio_capture_cpp and token not in (
+        ROOT / "native/src/player/audio/AudioCaptureManager.h"
+    ).read_text(encoding="utf-8"):
+        fail(f"Issue #26: capture pacing contract missing: {token}")
 
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 

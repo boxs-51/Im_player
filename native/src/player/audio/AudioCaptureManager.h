@@ -25,6 +25,10 @@ struct AudioPipelineMetricsAtomic {
     std::atomic<uint64_t> blocksDropped{0};
     std::atomic<uint64_t> bytesReceived{0};
     std::atomic<uint64_t> ringOverflows{0};
+    std::atomic<uint64_t> backpressureWaits{0};
+    std::atomic<uint64_t> pacingSleepCount{0};
+    std::atomic<uint64_t> pacingSleepMicros{0};
+    std::atomic<uint64_t> pacingRebases{0};
     std::atomic<uint64_t> lastSequence{0};
     std::atomic<uint64_t> currentGeneration{0};
     std::atomic<uint64_t> partialFrameCarryBytes{0};

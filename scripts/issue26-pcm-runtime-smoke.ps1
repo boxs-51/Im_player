@@ -203,26 +203,30 @@ try {
         }
 
         $summaryMarker = Require-Marker $lines "^\[AUDIO-TELEMETRY\] SUMMARY " "SUMMARY"
-        if ($summaryMarker -notmatch "capture_blocks=(\d+) capture_dropped=(\d+) capture_bytes=(\d+) ring_overflows=(\d+) carry_bytes=(\d+) generation=(\d+) output_blocks=(\d+) format_mismatch=(\d+) underflows=(\d+) write_failures=(\d+) queued_bytes=(\d+) queued_ms=([-+0-9.eE]+) queue_high_water_bytes=(\d+) last_written_end_pts=([-+0-9.eE]+) mpv_time_pos=([-+0-9.eE]+) audible_head_pts=([-+0-9.eE]+) av_offset_s=([-+0-9.eE]+)") {
+        if ($summaryMarker -notmatch "capture_blocks=(\d+) capture_dropped=(\d+) capture_bytes=(\d+) ring_overflows=(\d+) backpressure_waits=(\d+) pacing_sleeps=(\d+) pacing_sleep_us=(\d+) pacing_rebases=(\d+) carry_bytes=(\d+) generation=(\d+) output_blocks=(\d+) format_mismatch=(\d+) underflows=(\d+) write_failures=(\d+) queued_bytes=(\d+) queued_ms=([-+0-9.eE]+) queue_high_water_bytes=(\d+) last_written_end_pts=([-+0-9.eE]+) mpv_time_pos=([-+0-9.eE]+) audible_head_pts=([-+0-9.eE]+) av_offset_s=([-+0-9.eE]+)") {
             throw "[ISSUE26] unable to parse runtime summary case=$name marker=$summaryMarker"
         }
         $captureBlocks = [uint64]$Matches[1]
         $captureDropped = [uint64]$Matches[2]
         $captureBytes = [uint64]$Matches[3]
         $ringOverflows = [uint64]$Matches[4]
-        $summaryCarryBytes = [uint64]$Matches[5]
-        $generation = [uint64]$Matches[6]
-        $outputBlocks = [uint64]$Matches[7]
-        $formatMismatch = [uint64]$Matches[8]
-        $underflows = [uint64]$Matches[9]
-        $writeFailures = [uint64]$Matches[10]
-        $queuedBytes = [uint32]$Matches[11]
-        $queuedMs = [double]$Matches[12]
-        $queueHighWaterBytes = [uint32]$Matches[13]
-        $lastWrittenEndPts = [double]$Matches[14]
-        $mpvTimePos = [double]$Matches[15]
-        $audibleHeadPts = [double]$Matches[16]
-        $avOffsetSeconds = [double]$Matches[17]
+        $backpressureWaits = [uint64]$Matches[5]
+        $pacingSleeps = [uint64]$Matches[6]
+        $pacingSleepUs = [uint64]$Matches[7]
+        $pacingRebases = [uint64]$Matches[8]
+        $summaryCarryBytes = [uint64]$Matches[9]
+        $generation = [uint64]$Matches[10]
+        $outputBlocks = [uint64]$Matches[11]
+        $formatMismatch = [uint64]$Matches[12]
+        $underflows = [uint64]$Matches[13]
+        $writeFailures = [uint64]$Matches[14]
+        $queuedBytes = [uint32]$Matches[15]
+        $queuedMs = [double]$Matches[16]
+        $queueHighWaterBytes = [uint32]$Matches[17]
+        $lastWrittenEndPts = [double]$Matches[18]
+        $mpvTimePos = [double]$Matches[19]
+        $audibleHeadPts = [double]$Matches[20]
+        $avOffsetSeconds = [double]$Matches[21]
 
         if ($captureBlocks -eq 0 -or $captureBytes -eq 0 -or $outputBlocks -eq 0) {
             throw "[ISSUE26] runtime summary contains no audio progress case=$name marker=$summaryMarker"
@@ -233,6 +237,21 @@ try {
         }
         if ($summaryCarryBytes -ge 8) {
             throw "[ISSUE26] invalid final partial-frame carry case=$name carry_bytes=$summaryCarryBytes"
+        }
+        if ($pacingSleeps -eq 0 -or $pacingSleepUs -eq 0) {
+            throw "[ISSUE26] realtime PCM pacer did not engage case=$name marker=$summaryMarker"
+        }
+
+        $bytesPerSecond = 48000.0 * 2.0 * 4.0
+        $queueHighWaterMs = 1000.0 * [double]$queueHighWaterBytes / $bytesPerSecond
+        if ($queueHighWaterMs -gt 150.0) {
+            throw "[ISSUE26] SDL queue high-water exceeded 150ms case=$name queue_high_water_ms=$queueHighWaterMs marker=$summaryMarker"
+        }
+        if ($queuedMs -gt 150.0) {
+            throw "[ISSUE26] SDL queue at shutdown exceeded 150ms case=$name queued_ms=$queuedMs marker=$summaryMarker"
+        }
+        if ([math]::Abs($avOffsetSeconds) -gt 0.500) {
+            throw "[ISSUE26] short-run A/V offset exceeded 500ms case=$name av_offset_s=$avOffsetSeconds marker=$summaryMarker"
         }
 
         $errorLines = @($lines | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] ERROR " })
@@ -290,6 +309,10 @@ try {
             capture_blocks = $captureBlocks
             capture_dropped = $captureDropped
             ring_overflows = $ringOverflows
+            backpressure_waits = $backpressureWaits
+            pacing_sleeps = $pacingSleeps
+            pacing_sleep_us = $pacingSleepUs
+            pacing_rebases = $pacingRebases
             output_blocks = $outputBlocks
             format_mismatch = $formatMismatch
             underflows = $underflows
@@ -297,6 +320,7 @@ try {
             queued_bytes_at_shutdown = $queuedBytes
             queued_ms_at_shutdown = $queuedMs
             queue_high_water_bytes = $queueHighWaterBytes
+            queue_high_water_ms = $queueHighWaterMs
             last_written_end_pts = $lastWrittenEndPts
             mpv_time_pos = $mpvTimePos
             audible_head_pts = $audibleHeadPts
