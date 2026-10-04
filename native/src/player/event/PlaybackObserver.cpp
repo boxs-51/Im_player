@@ -583,6 +583,17 @@ void PlaybackObserver::ProcessEvents() {
         case MPV_EVENT_END_FILE: {
             auto* data = (mpv_event_end_file*)event->data;
             if (!data) break;
+
+            const Uint64 loadId = m_commander.GetStartupLoadId();
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(data->reason),
+                    data->error,
+                    mpv_error_string(data->error)));
  
             switch (data->reason) {
             // --- Phát hết file bình thường ---
