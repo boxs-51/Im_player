@@ -5,12 +5,14 @@
 #include <SDL_stdinc.h>
 #include <vector>
 #include <mutex>
+#include <cstdint>
 
 class Player; // Forward declaration
+class PlayerStateSystem;
 
 class PlaybackCommand {
 public:
-    PlaybackCommand(Player& player);
+    PlaybackCommand(Player& player, PlayerStateSystem& state);
 
     // Raw Commands
     int Exec(const char** cmd);
@@ -22,7 +24,7 @@ public:
     int SetPropertyFlag(const std::string& name, bool flag);
 
     // Basic Controls
-    int LoadFile(const std::string& url, const std::string& extraFlags = "append-play");
+    int LoadFile(const std::string& url, const std::string& extraFlags = "replace");
     int Play();
     int Pause();
     int SetMute(bool mute);
@@ -33,6 +35,7 @@ public:
     void Update(); // Called in main loop to handle pending commands
     int PlaylistNext();
     int PlaylistPrev();
+    Uint64 GetStartupLoadId();
 
 private:
     void ApplyPlaybackSettings();
@@ -41,6 +44,7 @@ private:
 private:
 
     Player& m_player;
+    PlayerStateSystem& m_state;
 
     std::mutex m_commandMutex;
 
