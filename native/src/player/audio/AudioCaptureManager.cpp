@@ -1,10 +1,16 @@
 #include "AudioCaptureManager.h"
+#include "PcmFrameAccumulator.h"
+#include "PcmRealtimePacer.h"
+#include "AudioMediaClock.h"
+#include "AudioTelemetry.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
 #include "threads/thread_manager.h"
 #include "common/LifecycleEvidence.h"
 #include <iostream>
 #include <algorithm>
+#include <array>
+#include <cstdio>
 
 AudioCaptureManager::AudioCaptureManager()
 {
@@ -27,26 +33,67 @@ std::string AudioCaptureManager::GetPipeName() const {
 }
 
 
-void AudioCaptureManager::UpdateFormatCacheFromState() {
-    if (!m_stateSystem) return;
+bool AudioCaptureManager::SetRequiredMpvProperty(const char* name, const char* value) {
+    const int result = mpv_set_property_string(m_mpv, name, value);
+    if (result < 0) {
+        LOG(1, LogLevel::Error, LogCategory::Audio,
+            "[AudioCaptureManager] Required MPV audio property failed: %s=%s error=%s (%d)",
+            name, value, mpv_error_string(result), result);
+        return false;
+    }
 
-    // Khởi tạo mặc định hợp lệ tránh giá trị rác
-    int sampleRate = 48000;
-    int channel_count = 2;
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioCaptureManager] PCM transport property: %s=%s", name, value);
+    EmitAudioTelemetryEvidence(
+        "MPV_PROPERTY_SET name=%s value=%s result=%d",
+        name,
+        value,
+        result);
+    return true;
+}
 
-    m_stateSystem->ReadAudio([&sampleRate, &channel_count](const AudioModel& model) {
-        if (model.params.asamplerate > 0)
-            sampleRate = model.params.asamplerate;
-        if (model.params.channel_count > 0)
-            channel_count = model.params.channel_count;
-    });
+void AudioCaptureManager::LogEffectiveMpvProperty(const char* name) const {
+    char* value = mpv_get_property_string(m_mpv, name);
+    if (!value) {
+        LOG(1, LogLevel::Warning, LogCategory::Audio,
+            "[AudioCaptureManager] Unable to read effective MPV property: %s", name);
+        return;
+    }
 
-    // Clamp giá trị đảm bảo nằm trong khoảng an toàn cho stereo pipeline
-    sampleRate = std::clamp(sampleRate, 8000, 192000);
-    channel_count = std::clamp(channel_count, 1, static_cast<int>(kMaxAudioChannels));
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioCaptureManager] Effective MPV audio property: %s=%s", name, value);
+    EmitAudioTelemetryEvidence(
+        "MPV_PROPERTY_EFFECTIVE name=%s value=%s",
+        name,
+        value);
+    mpv_free(value);
+}
 
-    m_formatCache.sampleRate = static_cast<uint32_t>(sampleRate);
-    m_formatCache.channels = static_cast<uint8_t>(channel_count);
+bool AudioCaptureManager::ConfigureMpvPcmTransport() {
+    // Configure the payload contract before selecting the PCM AO. The capture
+    // thread consumes the pipe as raw native-endian float32 stereo frames.
+    const bool configured =
+        SetRequiredMpvProperty("ao-pcm-waveheader", "no")
+        && SetRequiredMpvProperty("audio-format", "float")
+        && SetRequiredMpvProperty("audio-samplerate", "48000")
+        && SetRequiredMpvProperty("audio-channels", "stereo")
+        && SetRequiredMpvProperty("ao-pcm-file", m_pipeName.c_str())
+        && SetRequiredMpvProperty("ao", "pcm");
+
+    if (!configured)
+        return false;
+
+    for (const char* name : {
+             "ao",
+             "ao-pcm-waveheader",
+             "audio-format",
+             "audio-samplerate",
+             "audio-channels",
+             "ao-pcm-file",
+         }) {
+        LogEffectiveMpvProperty(name);
+    }
+    return true;
 }
 
 AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
@@ -55,7 +102,23 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
     snapshot.blocksDropped = m_metrics.blocksDropped.load(std::memory_order_relaxed);
     snapshot.bytesReceived = m_metrics.bytesReceived.load(std::memory_order_relaxed);
     snapshot.ringOverflows = m_metrics.ringOverflows.load(std::memory_order_relaxed);
+    snapshot.backpressureWaits =
+        m_metrics.backpressureWaits.load(std::memory_order_relaxed);
+    snapshot.pacingSleepCount =
+        m_metrics.pacingSleepCount.load(std::memory_order_relaxed);
+    snapshot.pacingSleepMicros =
+        m_metrics.pacingSleepMicros.load(std::memory_order_relaxed);
+    snapshot.pacingRebases =
+        m_metrics.pacingRebases.load(std::memory_order_relaxed);
     snapshot.lastSequence = m_metrics.lastSequence.load(std::memory_order_relaxed);
+    snapshot.currentGeneration = m_metrics.currentGeneration.load(std::memory_order_relaxed);
+    snapshot.partialFrameCarryBytes = m_metrics.partialFrameCarryBytes.load(std::memory_order_relaxed);
+    snapshot.firstPipeConnectedMicros =
+        m_metrics.firstPipeConnectedMicros.load(std::memory_order_relaxed);
+    snapshot.firstPipeBytesMicros =
+        m_metrics.firstPipeBytesMicros.load(std::memory_order_relaxed);
+    snapshot.firstCompletePcmBlockMicros =
+        m_metrics.firstCompletePcmBlockMicros.load(std::memory_order_relaxed);
     snapshot.lastPTS = m_metrics.lastPTS.load(std::memory_order_relaxed);
     return snapshot;
 }
@@ -71,13 +134,21 @@ bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, 
 
     m_pipeName = "\\\\.\\pipe\\mpv_pcm_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
-    UpdateFormatCacheFromState();
-
     StartCapture();
 
-    mpv_set_property_string(m_mpv, "ao", "pcm");
-    mpv_set_property_string(m_mpv, "ao-pcm-file", m_pipeName.c_str());
+    if (!ConfigureMpvPcmTransport()) {
+        LOG(1, LogLevel::Error, LogCategory::Audio,
+            "[AudioCaptureManager] Canonical PCM transport setup failed; capture startup aborted.");
+        StopCapture();
+        m_producer.reset();
+        m_stateSystem = nullptr;
+        m_mpv = nullptr;
+        return false;
+    }
 
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioCaptureManager] Canonical PCM contract established: raw float32, 48000 Hz, stereo, %zu bytes/frame.",
+        kCanonicalAudioBytesPerFrame);
     return true;
 }
 
@@ -98,6 +169,17 @@ void AudioCaptureManager::StartCapture() {
     m_currentPts = 0.0;
     m_activeGeneration = 0;
     m_wasSeeking = false;
+    m_metrics.blocksReceived.store(0, std::memory_order_relaxed);
+    m_metrics.blocksDropped.store(0, std::memory_order_relaxed);
+    m_metrics.bytesReceived.store(0, std::memory_order_relaxed);
+    m_metrics.ringOverflows.store(0, std::memory_order_relaxed);
+    m_metrics.backpressureWaits.store(0, std::memory_order_relaxed);
+    m_metrics.pacingSleepCount.store(0, std::memory_order_relaxed);
+    m_metrics.pacingSleepMicros.store(0, std::memory_order_relaxed);
+    m_metrics.pacingRebases.store(0, std::memory_order_relaxed);
+    m_metrics.firstPipeConnectedMicros.store(0, std::memory_order_relaxed);
+    m_metrics.firstPipeBytesMicros.store(0, std::memory_order_relaxed);
+    m_metrics.firstCompletePcmBlockMicros.store(0, std::memory_order_relaxed);
 
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
@@ -192,98 +274,250 @@ void AudioCaptureManager::CaptureLoop() {
         }
 
         if (connected && m_isRunning) {
+            const std::uint64_t pipeConnectedMicros = AudioTelemetryNowMicros();
+            if (RecordFirstAudioTelemetry(
+                    m_metrics.firstPipeConnectedMicros,
+                    pipeConnectedMicros)) {
+                LOG(1, LogLevel::Info, LogCategory::Audio,
+                    "[AUDIO_TIMELINE] PIPE_CONNECTED t_us=%llu",
+                    static_cast<unsigned long long>(pipeConnectedMicros));
+                EmitAudioTelemetryEvidence(
+                    "PIPE_CONNECTED t_us=%llu",
+                    static_cast<unsigned long long>(pipeConnectedMicros));
+            }
+
             LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
 
-            UpdateFormatCacheFromState();
-            const DWORD maxBytesToRead = static_cast<DWORD>(kMaxAudioSamples * sizeof(float));
-
+            PcmFrameAccumulator accumulator;
+            PcmRealtimePacer realtimePacer;
+            AudioMediaClock mediaClock;
+            std::array<std::uint8_t, PcmFrameAccumulator::kReadCapacity> readBuffer{};
+            bool firstPayloadLogged = false;
+            bool firstPacingDelayLogged = false;
             m_currentPts = 0.0;
+            m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
 
             while (m_isRunning) {
-                AudioBlock* writeSlot = m_producer->acquire_write();
-                if (!writeSlot) {
-                    m_metrics.ringOverflows.fetch_add(1, std::memory_order_relaxed);
-                    m_metrics.blocksDropped.fetch_add(1, std::memory_order_relaxed);
-                    std::this_thread::sleep_for(std::chrono::milliseconds(2));
+                if (!m_isCapturing) {
+                    if (accumulator.PendingBytes() != 0) {
+                        accumulator.Reset();
+                        m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
+                    }
+                    realtimePacer.Reset();
+                    mediaClock.Reset();
+                }
+
+                if (accumulator.ReadyFrames() == 0) {
+                    DWORD bytesRead = 0;
+                    ResetEvent(hEvent);
+
+                    BOOL success = ReadFile(
+                        currentPipe,
+                        readBuffer.data(),
+                        static_cast<DWORD>(readBuffer.size()),
+                        &bytesRead,
+                        &overlapped
+                    );
+
+                    if (!success && GetLastError() == ERROR_IO_PENDING) {
+                        while (m_isRunning) {
+                            DWORD waitRes = WaitForSingleObject(hEvent, 10);
+                            if (waitRes == WAIT_OBJECT_0) {
+                                success = GetOverlappedResult(currentPipe, &overlapped, &bytesRead, FALSE);
+                                break;
+                            }
+                        }
+                    }
+
+                    if (!m_isRunning || !success || bytesRead == 0) {
+                        LOG(1, LogLevel::Warning, LogCategory::Audio,
+                            "[AudioCaptureManager] Pipe disconnected or stream read ended.");
+                        break;
+                    }
+
+                    m_metrics.bytesReceived.fetch_add(bytesRead, std::memory_order_relaxed);
+
+                    const std::uint64_t pipeBytesMicros = AudioTelemetryNowMicros();
+                    if (RecordFirstAudioTelemetry(
+                            m_metrics.firstPipeBytesMicros,
+                            pipeBytesMicros)) {
+                        LOG(1, LogLevel::Info, LogCategory::Audio,
+                            "[AUDIO_TIMELINE] FIRST_PIPE_BYTES t_us=%llu bytes=%lu",
+                            static_cast<unsigned long long>(pipeBytesMicros),
+                            static_cast<unsigned long>(bytesRead));
+                        EmitAudioTelemetryEvidence(
+                            "FIRST_PIPE_BYTES t_us=%llu bytes=%lu",
+                            static_cast<unsigned long long>(pipeBytesMicros),
+                            static_cast<unsigned long>(bytesRead));
+                    }
+
+                    if (!firstPayloadLogged) {
+                        char preview[3 * 8 + 1] = {};
+                        const size_t previewBytes = std::min<size_t>(bytesRead, 8);
+                        size_t offset = 0;
+                        for (size_t index = 0; index < previewBytes; ++index) {
+                            offset += static_cast<size_t>(std::snprintf(
+                                preview + offset,
+                                sizeof(preview) - offset,
+                                "%02X%s",
+                                static_cast<unsigned int>(readBuffer[index]),
+                                (index + 1 < previewBytes) ? " " : ""));
+                        }
+                        LOG(1, LogLevel::Info, LogCategory::Audio,
+                            "[AudioCaptureManager] First raw PCM payload bytes=%lu preview=[%s] contract=float32/48000/stereo/raw",
+                            static_cast<unsigned long>(bytesRead), preview);
+                        EmitAudioTelemetryEvidence(
+                            "FIRST_RAW_PCM_PAYLOAD bytes=%lu preview=[%s] contract=float32/48000/stereo/raw",
+                            static_cast<unsigned long>(bytesRead),
+                            preview);
+                        firstPayloadLogged = true;
+                    }
+
+                    if (!accumulator.Append(readBuffer.data(), bytesRead)) {
+                        LOG(1, LogLevel::Error, LogCategory::Audio,
+                            "[AudioCaptureManager] PCM byte accumulator overflow; refusing ambiguous framing.");
+                        EmitAudioTelemetryEvidence(
+                            "ERROR PCM_ACCUMULATOR_OVERFLOW pending_bytes=%llu append_bytes=%lu",
+                            static_cast<unsigned long long>(accumulator.PendingBytes()),
+                            static_cast<unsigned long>(bytesRead));
+                        break;
+                    }
+
+                    m_metrics.partialFrameCarryBytes.store(
+                        accumulator.PendingBytes() % PcmFrameAccumulator::kFrameBytes,
+                        std::memory_order_relaxed);
+
+                    if (!m_isCapturing) {
+                        accumulator.Reset();
+                        m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
+                        continue;
+                    }
+                }
+
+                if (accumulator.ReadyFrames() == 0) {
                     continue;
                 }
 
-                DWORD bytesRead = 0;
-                ResetEvent(hEvent);
+                const PcmPacingDecision pacing =
+                    realtimePacer.BeforePublish(AudioTelemetryNowMicros());
+                if (pacing.rebased) {
+                    m_metrics.pacingRebases.fetch_add(1, std::memory_order_relaxed);
+                    EmitAudioTelemetryEvidence(
+                        "PCM_PACER_REBASE published_frames=%llu",
+                        static_cast<unsigned long long>(
+                            realtimePacer.PublishedFrames()));
+                }
+                if (pacing.delayMicros > 0) {
+                    m_metrics.pacingSleepCount.fetch_add(1, std::memory_order_relaxed);
+                    m_metrics.pacingSleepMicros.fetch_add(
+                        pacing.delayMicros,
+                        std::memory_order_relaxed);
+                    if (!firstPacingDelayLogged) {
+                        EmitAudioTelemetryEvidence(
+                            "PCM_PACING_ACTIVE delay_us=%llu lead_frames=%llu",
+                            static_cast<unsigned long long>(pacing.delayMicros),
+                            static_cast<unsigned long long>(
+                                PcmRealtimePacer::kLeadFrames));
+                        firstPacingDelayLogged = true;
+                    }
+                    std::this_thread::sleep_for(
+                        std::chrono::microseconds(pacing.delayMicros));
+                    if (!m_isRunning)
+                        break;
+                }
 
-                BOOL success = ReadFile(
-                    currentPipe,
+                AudioBlock* writeSlot = m_producer->acquire_write();
+                while (!writeSlot && m_isRunning.load(std::memory_order_relaxed)) {
+                    // This is backpressure, not data loss: accumulator bytes
+                    // remain owned by CaptureThread until a raw-ring slot exists.
+                    m_metrics.backpressureWaits.fetch_add(1, std::memory_order_relaxed);
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    writeSlot = m_producer->acquire_write();
+                }
+                if (!m_isRunning || !writeSlot)
+                    break;
+
+                const uint32_t frames = accumulator.DrainFrames(
                     writeSlot->samples.data(),
-                    maxBytesToRead,
-                    &bytesRead,
-                    &overlapped
-                );
+                    static_cast<uint32_t>(kMaxAudioFrames));
 
-                if (!success && GetLastError() == ERROR_IO_PENDING) {
-                    while (m_isRunning) {
-                        DWORD waitRes = WaitForSingleObject(hEvent, 10);
-                        if (waitRes == WAIT_OBJECT_0) {
-                            success = GetOverlappedResult(currentPipe, &overlapped, &bytesRead, FALSE);
-                            break;
-                        }
-                    }
+                if (frames == 0) {
+                    continue;
                 }
 
-                if (!m_isRunning || !success || bytesRead == 0) {
-                    LOG(1, LogLevel::Warning, LogCategory::Audio, 
-                        "[AudioCaptureManager] Pipe disconnected or stream read ended.");
-                    break; 
+                const uint64_t carryBytes =
+                    accumulator.PendingBytes() % PcmFrameAccumulator::kFrameBytes;
+                m_metrics.partialFrameCarryBytes.store(
+                    carryBytes,
+                    std::memory_order_relaxed);
+
+                const std::uint64_t completeBlockMicros = AudioTelemetryNowMicros();
+                if (RecordFirstAudioTelemetry(
+                        m_metrics.firstCompletePcmBlockMicros,
+                        completeBlockMicros)) {
+                    LOG(1, LogLevel::Info, LogCategory::Audio,
+                        "[AUDIO_TIMELINE] FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu",
+                        static_cast<unsigned long long>(completeBlockMicros),
+                        frames,
+                        static_cast<unsigned long long>(carryBytes));
+                    EmitAudioTelemetryEvidence(
+                        "FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu sample_rate=%u channels=%u format=float32",
+                        static_cast<unsigned long long>(completeBlockMicros),
+                        frames,
+                        static_cast<unsigned long long>(carryBytes),
+                        static_cast<unsigned int>(kCanonicalAudioSampleRate),
+                        static_cast<unsigned int>(kCanonicalAudioChannels));
                 }
 
-                if (m_isCapturing) {
-                    UpdateFormatCacheFromState();
-
-                    double timepos = 0.0;
-                    bool isSeeking = false;
-                    if (m_stateSystem) {
-                        m_stateSystem->ReadPlayback([&timepos,&isSeeking](const PlaybackModel& model) {
-                            timepos = model.timing.timePos;
-                            isSeeking = model.flags.isSeeking;
-                        });
-                    }
-                    if (isSeeking && !m_wasSeeking) {
-                        m_activeGeneration++;
-                    }
-                    m_wasSeeking = isSeeking;
-
-                    m_currentPts = timepos;
-                    
-                    const uint32_t sampleCount = bytesRead / static_cast<uint32_t>(sizeof(float));
-                    
-                    // Giới hạn channel tối đa kMaxAudioChannels (2)
-                    uint32_t channels = m_formatCache.channels;
-                    if (channels == 0 || channels > kMaxAudioChannels) {
-                        channels = 2;
-                    }
-                    
-                    const uint32_t sampleRate = (m_formatCache.sampleRate > 0) ? m_formatCache.sampleRate : 48000;
-
-                    writeSlot->format.sampleRate = sampleRate;
-                    writeSlot->format.channels = static_cast<uint8_t>(channels);
-                    writeSlot->format.format = m_formatCache.format;
-
-                    writeSlot->frames = sampleCount / channels;
-                    writeSlot->sequence = m_sequence++;
-                    writeSlot->generation = m_activeGeneration;
-                    
-                    writeSlot->pts = m_currentPts;
-
-                    double blockDuration = static_cast<double>(writeSlot->frames) / static_cast<double>(sampleRate);
-                    m_currentPts += blockDuration;
-
-                    // Metrics Tracking
-                    m_metrics.blocksReceived.fetch_add(1, std::memory_order_relaxed);
-                    m_metrics.bytesReceived.fetch_add(bytesRead, std::memory_order_relaxed);
-                    m_metrics.lastSequence.store(writeSlot->sequence, std::memory_order_relaxed);
-                    m_metrics.lastPTS.store(writeSlot->pts, std::memory_order_relaxed);
-
-                    m_producer->commit_write();
+                double timepos = 0.0;
+                bool isSeeking = false;
+                if (m_stateSystem) {
+                    m_stateSystem->ReadPlayback([&timepos, &isSeeking](const PlaybackModel& model) {
+                        timepos = model.timing.timePos;
+                        isSeeking = model.flags.isSeeking;
+                    });
                 }
+                if (isSeeking && !m_wasSeeking) {
+                    m_activeGeneration++;
+                    realtimePacer.Reset();
+                    mediaClock.Reset();
+                    EmitAudioTelemetryEvidence(
+                        "PCM_PACER_RESET reason=seek generation=%llu",
+                        static_cast<unsigned long long>(m_activeGeneration));
+                    EmitAudioTelemetryEvidence(
+                        "AUDIO_MEDIA_CLOCK_RESET reason=seek generation=%llu",
+                        static_cast<unsigned long long>(m_activeGeneration));
+                }
+                m_wasSeeking = isSeeking;
+
+                if (!mediaClock.IsAnchored()) {
+                    mediaClock.Anchor(timepos);
+                    EmitAudioTelemetryEvidence(
+                        "AUDIO_MEDIA_CLOCK_ANCHOR generation=%llu anchor_pts=%.6f reference=mpv_time_pos advancement=canonical_frame_count",
+                        static_cast<unsigned long long>(m_activeGeneration),
+                        mediaClock.AnchorPts());
+                }
+
+                m_currentPts = mediaClock.CurrentPosition();
+
+                writeSlot->format.sampleRate = kCanonicalAudioSampleRate;
+                writeSlot->format.channels = kCanonicalAudioChannels;
+                writeSlot->format.format = AudioSampleFormat::Float32;
+                writeSlot->frames = frames;
+                writeSlot->sequence = m_sequence++;
+                writeSlot->generation = m_activeGeneration;
+                writeSlot->pts = m_currentPts;
+
+                mediaClock.Advance(writeSlot->frames);
+                m_currentPts = mediaClock.CurrentPosition();
+
+                m_metrics.blocksReceived.fetch_add(1, std::memory_order_relaxed);
+                m_metrics.lastSequence.store(writeSlot->sequence, std::memory_order_relaxed);
+                m_metrics.currentGeneration.store(writeSlot->generation, std::memory_order_relaxed);
+                m_metrics.lastPTS.store(writeSlot->pts, std::memory_order_relaxed);
+
+                m_producer->commit_write();
+                realtimePacer.OnPublished(frames);
             }
         }
 

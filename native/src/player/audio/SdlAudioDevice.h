@@ -25,5 +25,6 @@ private:
     std::atomic<SDL_AudioDeviceID> m_deviceId{0};
     std::atomic<bool> m_isSdlAudioInitialized{false};
     std::atomic<bool> m_isReady{false};
+    std::atomic<bool> m_playbackStarted{false};
     mutable std::mutex m_lifecycleMutex;
 };

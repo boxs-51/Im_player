@@ -1,4 +1,5 @@
 #include "SdlAudioDevice.h"
+#include "AudioTelemetry.h"
 #include "log.h"
 #include <iostream>
 
@@ -32,7 +33,7 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     desiredSpec.freq = static_cast<int>(sampleRate);
     desiredSpec.format = AUDIO_F32SYS; // Native Endian Float32
     desiredSpec.channels = channels;
-    desiredSpec.samples = 512;          // ~10.6ms ở 48kHz
+    desiredSpec.samples = static_cast<Uint16>(kAudioOutputDevicePeriodFrames);
     desiredSpec.callback = nullptr;
     desiredSpec.userdata = nullptr;
 
@@ -41,20 +42,62 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
 
     if (devId == 0) {
         LOG(1, LogLevel::Error, LogCategory::Audio,
-            "[SdlAudioDevice] Failed to open default audio device: %S", SDL_GetError());
+            "[SdlAudioDevice] Failed to open default audio device: %s", SDL_GetError());
         m_isReady.store(false, std::memory_order_release);
         return false;
     }
 
-    // Unpause thiết bị
-    SDL_PauseAudioDevice(devId, 0);
+    EmitAudioTelemetryEvidence(
+        "SDL_FORMAT requested_rate=%d requested_channels=%u requested_format=0x%04X obtained_rate=%d obtained_channels=%u obtained_format=0x%04X",
+        desiredSpec.freq,
+        static_cast<unsigned int>(desiredSpec.channels),
+        static_cast<unsigned int>(AUDIO_F32SYS),
+        obtainedSpec.freq,
+        static_cast<unsigned int>(obtainedSpec.channels),
+        static_cast<unsigned int>(obtainedSpec.format));
+
+    if (obtainedSpec.freq != desiredSpec.freq ||
+        obtainedSpec.format != AUDIO_F32SYS ||
+        obtainedSpec.channels != desiredSpec.channels) {
+        LOG(1, LogLevel::Error, LogCategory::Audio,
+            "[SdlAudioDevice] Obtained format violates canonical contract: expected=%dHz/%uch/0x%04X obtained=%dHz/%uch/0x%04X",
+            desiredSpec.freq,
+            static_cast<unsigned int>(desiredSpec.channels),
+            static_cast<unsigned int>(AUDIO_F32SYS),
+            obtainedSpec.freq,
+            static_cast<unsigned int>(obtainedSpec.channels),
+            static_cast<unsigned int>(obtainedSpec.format));
+        EmitAudioTelemetryEvidence(
+            "ERROR SDL_FORMAT_REJECT expected_rate=%d expected_channels=%u obtained_rate=%d obtained_channels=%u",
+            desiredSpec.freq,
+            static_cast<unsigned int>(desiredSpec.channels),
+            obtainedSpec.freq,
+            static_cast<unsigned int>(obtainedSpec.channels));
+        SDL_CloseAudioDevice(devId);
+        m_isReady.store(false, std::memory_order_release);
+        return false;
+    }
+
+    // SDL opens paused. Keep it paused until the queued-audio reservoir reaches
+    // the Issue #26 target, otherwise a just-in-time first block makes the
+    // external device vulnerable to scheduler jitter and repeated starvation.
+    m_playbackStarted.store(false, std::memory_order_relaxed);
 
     // Atomic store để luồng Worker thấy Device ID và trạng thái sẵn sàng
     m_deviceId.store(devId, std::memory_order_release);
     m_isReady.store(true, std::memory_order_release);
 
+    EmitAudioTelemetryEvidence(
+        "SDL_PREBUFFER_ARMED target_bytes=%u target_ms=%u",
+        kAudioOutputTargetQueueBytes,
+        kAudioOutputTargetQueueMilliseconds);
+
     LOG(1, LogLevel::Info, LogCategory::Audio,
-        "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch)", devId, obtainedSpec.freq, obtainedSpec.channels);
+        "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch, format=0x%04X)",
+        devId,
+        obtainedSpec.freq,
+        obtainedSpec.channels,
+        static_cast<unsigned int>(obtainedSpec.format));
 
     return true;
 }
@@ -63,6 +106,7 @@ void SdlAudioDevice::Close() {
     std::lock_guard<std::mutex> lock(m_lifecycleMutex);
 
     m_isReady.store(false, std::memory_order_release);
+    m_playbackStarted.store(false, std::memory_order_relaxed);
 
     // Nhát cắt Atomic: Đặt m_deviceId = 0 trước. 
     // Mọi lệnh Write/GetQueued từ Worker thread gọi vào sau thời điểm này sẽ lập tức return safe!
@@ -105,13 +149,39 @@ void SdlAudioDevice::Write(const float* samples, size_t sampleCount) {
             "[SdlAudioDevice] SDL_QueueAudio failed: %s", SDL_GetError());
         // Đánh dấu thiết bị lỗi để Worker biết và kích hoạt Auto-Recovery
         m_isReady.store(false, std::memory_order_release);
+        return;
+    }
+
+    if (!m_playbackStarted.load(std::memory_order_relaxed)) {
+        const uint32_t queuedBytes = SDL_GetQueuedAudioSize(devId);
+        if (queuedBytes >= kAudioOutputTargetQueueBytes) {
+            bool expected = false;
+            if (m_playbackStarted.compare_exchange_strong(
+                    expected,
+                    true,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed)) {
+                SDL_PauseAudioDevice(devId, 0);
+                EmitAudioTelemetryEvidence(
+                    "SDL_PLAYBACK_STARTED queued_bytes=%u queued_ms=%.3f target_ms=%u",
+                    queuedBytes,
+                    1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                    kAudioOutputTargetQueueMilliseconds);
+            }
+        }
     }
 }
 
 void SdlAudioDevice::FlushBuffers() {
     SDL_AudioDeviceID devId = m_deviceId.load(std::memory_order_acquire);
     if (devId != 0) {
+        SDL_PauseAudioDevice(devId, 1);
         SDL_ClearQueuedAudio(devId);
+        m_playbackStarted.store(false, std::memory_order_relaxed);
+        EmitAudioTelemetryEvidence(
+            "SDL_PREBUFFER_REARMED target_bytes=%u target_ms=%u",
+            kAudioOutputTargetQueueBytes,
+            kAudioOutputTargetQueueMilliseconds);
     }
 }
 

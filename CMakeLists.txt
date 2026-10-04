@@ -261,4 +261,106 @@ if(BUILD_TESTING)
         issue20_audio_visualizer_snapshot_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(pcm_frame_accumulator_test
+        tests/pcm_frame_accumulator_test.cpp
+    )
+    target_include_directories(pcm_frame_accumulator_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(pcm_frame_accumulator_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_pcm_frame_accumulator_gate
+        COMMAND pcm_frame_accumulator_test
+    )
+    set_tests_properties(
+        issue26_pcm_frame_accumulator_gate
+        PROPERTIES TIMEOUT 30
+    )
+
+    add_executable(audio_telemetry_math_test
+        tests/audio_telemetry_math_test.cpp
+    )
+    target_include_directories(audio_telemetry_math_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_telemetry_math_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_telemetry_math_gate
+        COMMAND audio_telemetry_math_test
+    )
+    set_tests_properties(
+        issue26_audio_telemetry_math_gate
+        PROPERTIES TIMEOUT 30
+    )
+
+    add_executable(pcm_realtime_pacer_test
+        tests/pcm_realtime_pacer_test.cpp
+    )
+    target_include_directories(pcm_realtime_pacer_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(pcm_realtime_pacer_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_pcm_realtime_pacer_gate
+        COMMAND pcm_realtime_pacer_test
+    )
+    set_tests_properties(
+        issue26_pcm_realtime_pacer_gate
+        PROPERTIES TIMEOUT 30
+    )
+
+    add_executable(audio_media_clock_test
+        tests/audio_media_clock_test.cpp
+    )
+    target_include_directories(audio_media_clock_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_media_clock_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_media_clock_gate
+        COMMAND audio_media_clock_test
+    )
+    set_tests_properties(
+        issue26_audio_media_clock_gate
+        PROPERTIES TIMEOUT 30
+    )
+
+    add_executable(audio_queue_underflow_detector_test
+        tests/audio_queue_underflow_detector_test.cpp
+    )
+    target_include_directories(audio_queue_underflow_detector_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_queue_underflow_detector_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_queue_underflow_gate
+        COMMAND audio_queue_underflow_detector_test
+    )
+    set_tests_properties(
+        issue26_audio_queue_underflow_gate
+        PROPERTIES TIMEOUT 30
+    )
+
+    add_executable(audio_queue_write_planner_test
+        tests/audio_queue_write_planner_test.cpp
+    )
+    target_include_directories(audio_queue_write_planner_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_queue_write_planner_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_queue_write_planner_gate
+        COMMAND audio_queue_write_planner_test
+    )
+    set_tests_properties(
+        issue26_audio_queue_write_planner_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()

@@ -591,6 +591,343 @@ if "issue20_audio_visualizer_snapshot_gate" not in cmake_text:
 
 facts["issue20_visualizer_snapshot_contract"] = "PASS" if not errors else "FAIL"
 
+# Issue #26: canonical raw PCM transport/output contract.
+audio_capture_h = (ROOT / "native/src/player/audio/AudioCaptureManager.h").read_text(
+    encoding="utf-8"
+)
+audio_capture_cpp = (ROOT / "native/src/player/audio/AudioCaptureManager.cpp").read_text(
+    encoding="utf-8"
+)
+audio_output_h = (ROOT / "native/src/player/audio/AudioOutputWorker.h").read_text(
+    encoding="utf-8"
+)
+audio_output_cpp = (ROOT / "native/src/player/audio/AudioOutputWorker.cpp").read_text(
+    encoding="utf-8"
+)
+audio_types_h = (ROOT / "native/src/player/audio/AudioTypes.h").read_text(
+    encoding="utf-8"
+)
+pcm_accumulator_h = (
+    ROOT / "native/src/player/audio/PcmFrameAccumulator.h"
+).read_text(encoding="utf-8")
+
+for token in (
+    'SetRequiredMpvProperty("ao-pcm-waveheader", "no")',
+    'SetRequiredMpvProperty("audio-format", "float")',
+    'SetRequiredMpvProperty("audio-samplerate", "48000")',
+    'SetRequiredMpvProperty("audio-channels", "stereo")',
+    'SetRequiredMpvProperty("ao-pcm-file", m_pipeName.c_str())',
+    'SetRequiredMpvProperty("ao", "pcm")',
+    "PcmFrameAccumulator accumulator;",
+    "accumulator.DrainFrames(",
+    "writeSlot->format.sampleRate = kCanonicalAudioSampleRate;",
+    "writeSlot->format.channels = kCanonicalAudioChannels;",
+):
+    if token not in audio_capture_cpp:
+        fail(f"Issue #26: canonical PCM capture contract missing: {token}")
+
+for token in (
+    "kCanonicalAudioSampleRate = 48000",
+    "kCanonicalAudioChannels = 2",
+    "kCanonicalAudioBytesPerFrame",
+):
+    if token not in audio_types_h:
+        fail(f"Issue #26: canonical PCM format constant missing: {token}")
+
+for token in (
+    "ReadyFrames()",
+    "DrainFrames(",
+    "PendingBytes()",
+):
+    if token not in pcm_accumulator_h:
+        fail(f"Issue #26: PCM frame accumulator contract missing: {token}")
+
+for token in (
+    "blocksDroppedFormatMismatch",
+    "queueUnderflowEvents",
+    "GetQueuedSizeBytes()",
+    "queuedMilliseconds",
+):
+    if token not in audio_output_cpp and token not in audio_output_h:
+        fail(f"Issue #26: output telemetry/format guard missing: {token}")
+
+if "mpv_get_property_string" not in audio_capture_cpp or "Effective MPV audio property" not in audio_capture_cpp:
+    fail("Issue #26: effective MPV transport properties must be recorded")
+
+sdl_audio_cpp = (ROOT / "native/src/player/audio/SdlAudioDevice.cpp").read_text(
+    encoding="utf-8"
+)
+for token in (
+    "obtainedSpec.freq != desiredSpec.freq",
+    "obtainedSpec.format != AUDIO_F32SYS",
+    "obtainedSpec.channels != desiredSpec.channels",
+    "Obtained format violates canonical contract",
+):
+    if token not in sdl_audio_cpp:
+        fail(f"Issue #26: SDL obtained-format contract missing: {token}")
+
+for token in (
+    "[AUDIO_TIMELINE] PIPE_CONNECTED",
+    "[AUDIO_TIMELINE] FIRST_PIPE_BYTES",
+    "[AUDIO_TIMELINE] FIRST_COMPLETE_PCM_BLOCK",
+):
+    if token not in audio_capture_cpp:
+        fail(f"Issue #26: capture startup timeline marker missing: {token}")
+
+for token in (
+    "[AUDIO_TIMELINE] FIRST_PROCESSED_BLOCK",
+    "[AUDIO_TIMELINE] FIRST_SDL_WRITE",
+    "[AUDIO_TIMELINE] FIRST_NONZERO_SDL_QUEUE",
+    "estimatedAudibleHeadPts",
+    "estimatedAvOffsetSeconds",
+    "SYNC_SAMPLE index=",
+    "syncSampleCount",
+    "maxAbsAvOffsetSeconds",
+):
+    if token not in audio_output_cpp and token not in audio_output_h:
+        fail(f"Issue #26: output startup/sync telemetry missing: {token}")
+
+if not (ROOT / "native/src/player/audio/AudioTelemetry.h").is_file():
+    fail("Issue #26: audio telemetry helper is missing")
+if not (ROOT / "tests/pcm_frame_accumulator_test.cpp").is_file():
+    fail("Issue #26: focused PCM framing test is missing")
+if not (ROOT / "tests/audio_telemetry_math_test.cpp").is_file():
+    fail("Issue #26: focused audio telemetry math test is missing")
+if not (ROOT / "native/src/player/audio/PcmRealtimePacer.h").is_file():
+    fail("Issue #26: realtime PCM pacer is missing")
+if not (ROOT / "native/src/player/audio/AudioMediaClock.h").is_file():
+    fail("Issue #26: independent audio media clock is missing")
+if not (ROOT / "tests/audio_media_clock_test.cpp").is_file():
+    fail("Issue #26: synthetic audio media clock drift test is missing")
+if not (ROOT / "native/src/player/audio/AudioQueueUnderflowDetector.h").is_file():
+    fail("Issue #26: sustained queue-underflow detector is missing")
+if not (ROOT / "tests/audio_queue_underflow_detector_test.cpp").is_file():
+    fail("Issue #26: focused queue-underflow detector test is missing")
+if not (ROOT / "native/src/player/audio/AudioQueueWritePlanner.h").is_file():
+    fail("Issue #26: bounded queue write planner is missing")
+if not (ROOT / "tests/audio_queue_write_planner_test.cpp").is_file():
+    fail("Issue #26: focused queue write planner test is missing")
+if not (ROOT / "tests/pcm_realtime_pacer_test.cpp").is_file():
+    fail("Issue #26: focused realtime pacer test is missing")
+if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
+    fail("Issue #26: focused PCM framing CTest is not registered")
+if "issue26_audio_telemetry_math_gate" not in cmake_text:
+    fail("Issue #26: focused telemetry math CTest is not registered")
+if "issue26_pcm_realtime_pacer_gate" not in cmake_text:
+    fail("Issue #26: focused realtime pacer CTest is not registered")
+if "issue26_audio_media_clock_gate" not in cmake_text:
+    fail("Issue #26: synthetic audio media clock CTest is not registered")
+if "issue26_audio_queue_underflow_gate" not in cmake_text:
+    fail("Issue #26: queue-underflow detector CTest is not registered")
+if "issue26_audio_queue_write_planner_gate" not in cmake_text:
+    fail("Issue #26: queue write planner CTest is not registered")
+
+audio_telemetry_h = (
+    ROOT / "native/src/player/audio/AudioTelemetry.h"
+).read_text(encoding="utf-8")
+for token in (
+    "[AUDIO-TELEMETRY]",
+    "IM_PLAYER_LIFECYCLE_LOG",
+    "AudioTelemetryEvidenceMutex",
+):
+    if token not in audio_telemetry_h:
+        fail(f"Issue #26: durable audio telemetry evidence sink missing: {token}")
+
+issue26_runtime_harness = (
+    ROOT / "scripts/issue26-pcm-runtime-smoke.ps1"
+).read_text(encoding="utf-8")
+for token in (
+    "44100-mono",
+    "44100-stereo",
+    "48000-mono",
+    "48000-stereo",
+    "FIRST_NONZERO_SDL_QUEUE",
+    "startup timeline order invalid",
+    "effective property mismatch",
+    "WAVE RIFF header reached raw PCM consumer",
+    "published block violates canonical contract",
+    "runtime summary reports loss/error",
+    "SDL queue high-water exceeded 150ms",
+    "expected exactly one audio media clock anchor",
+    "startup_av_offset_diagnostic_seconds",
+    "realtime PCM pacer did not engage",
+    "telemetry_error_count",
+):
+    if token not in issue26_runtime_harness:
+        fail(f"Issue #26: runtime normalization harness contract missing: {token}")
+
+if not (ROOT / "scripts/issue26_generate_pcm_fixture.py").is_file():
+    fail("Issue #26: normalization fixture generator is missing")
+
+issue26_av_fixture_path = ROOT / "scripts/issue26_generate_av_fixture.py"
+if not issue26_av_fixture_path.is_file():
+    fail("Issue #26: deterministic long-run A/V fixture generator is missing")
+else:
+    issue26_av_fixture = issue26_av_fixture_path.read_text(encoding="utf-8")
+    for token in (
+        'stream.write(b"AVI ")',
+        'b"vids"',
+        'b"auds"',
+        'WAVE_FORMAT_PCM',
+        'BI_RGB',
+    ):
+        if token not in issue26_av_fixture:
+            fail(f"Issue #26: A/V fixture contract missing: {token}")
+
+    av_fixture_selftest_path = REPORT_DIR / "issue26-av-fixture-selftest.avi"
+    av_fixture_selftest = subprocess.run(
+        [
+            sys.executable,
+            str(issue26_av_fixture_path),
+            str(av_fixture_selftest_path),
+            "--seconds",
+            "5",
+        ],
+        text=True,
+        capture_output=True,
+    )
+    if av_fixture_selftest.returncode != 0:
+        detail = (
+            av_fixture_selftest.stderr or av_fixture_selftest.stdout
+        ).strip()
+        fail("Issue #26: A/V fixture self-test generation failed: " + detail)
+    elif not av_fixture_selftest_path.is_file():
+        fail("Issue #26: A/V fixture self-test output missing")
+    else:
+        fixture_prefix = av_fixture_selftest_path.read_bytes()[:65536]
+        if fixture_prefix[:4] != b"RIFF" or fixture_prefix[8:12] != b"AVI ":
+            fail("Issue #26: A/V fixture self-test RIFF/AVI signature invalid")
+        for marker in (b"vids", b"auds", b"movi"):
+            if marker not in fixture_prefix:
+                fail(
+                    "Issue #26: A/V fixture self-test missing marker: "
+                    + marker.decode("ascii")
+                )
+        av_fixture_selftest_path.unlink(missing_ok=True)
+
+issue26_longrun_harness_path = ROOT / "scripts/issue26-av-drift-longrun.ps1"
+if not issue26_longrun_harness_path.is_file():
+    fail("Issue #26: >=10-minute A/V drift harness is missing")
+else:
+    issue26_longrun_harness = issue26_longrun_harness_path.read_text(
+        encoding="utf-8"
+    )
+    if "ULL" in issue26_longrun_harness:
+        fail("Issue #26: PowerShell long-run harness contains unsupported C/C++ integer suffix ULL")
+    for token in (
+        "PlaybackSeconds = 620",
+        "WarmupSeconds = 10",
+        "issue26_generate_av_fixture.py",
+        "fixture_container = \"AVI\"",
+        "first SYNC_SAMPLE not observed within 20s",
+        "expected exactly one independent audio media clock anchor",
+        "starting observation window",
+        "measured steady sync span below 600s",
+        "insufficient steady sync samples after warm-up",
+        "non-sequential sync index",
+        "non-monotonic sync timestamp",
+        "steady A/V drift excursion exceeded 500ms",
+        "10-minute steady A/V drift delta exceeded 250ms",
+        "steady periodic SDL queue exceeded 150ms",
+        "observation complete pre_close_underflows=",
+        "startup_underflows=",
+        "steady_underflows=",
+        "warmup_cutoff_us=",
+        "steady-state sustained underflow detected after warm-up",
+        "cannot phase underflow without observed t_us + empty_us",
+        "pre_close_underflows",
+        "startup_underflows",
+        "steady_underflows",
+        "shutdown_only_underflows",
+        "steady_baseline_av_offset_seconds",
+        "startup_first_av_offset_seconds",
+        "capture_dropped",
+        "ring_overflows",
+        "format_mismatch",
+        "underflows",
+        "write_failures",
+        "ISSUE26-AV-DRIFT-LONGRUN-v1",
+    ):
+        if token not in issue26_longrun_harness:
+            fail(f"Issue #26: long-run drift contract missing: {token}")
+
+audio_cpp = (ROOT / "native/src/player/audio/Audio.cpp").read_text(
+    encoding="utf-8"
+)
+if "[AUDIO-TELEMETRY]" not in (
+    ROOT / "native/src/player/audio/AudioTelemetry.h"
+).read_text(encoding="utf-8"):
+    fail("Issue #26: audio telemetry evidence prefix missing")
+if "SUMMARY capture_blocks=" not in audio_cpp:
+    fail("Issue #26: end-of-run audio telemetry summary missing")
+for token in (
+    "sync_samples=%llu",
+    "max_abs_av_offset_s=%.6f",
+    "snapshot_phase=shutdown_entry",
+):
+    if token not in audio_cpp:
+        fail(f"Issue #26: long-run summary field missing: {token}")
+if "sample_rate=%u channels=%u format=float32" not in audio_capture_cpp:
+    fail("Issue #26: runtime AudioBlock format evidence missing")
+for token in (
+    "PcmRealtimePacer realtimePacer;",
+    "AudioMediaClock mediaClock;",
+    "AUDIO_MEDIA_CLOCK_ANCHOR",
+    "mediaClock.CurrentPosition()",
+    "mediaClock.Advance",
+    "realtimePacer.BeforePublish",
+    "realtimePacer.OnPublished",
+    "backpressureWaits",
+    "PCM_PACING_ACTIVE",
+):
+    if token not in audio_capture_cpp and token not in (
+        ROOT / "native/src/player/audio/AudioCaptureManager.h"
+    ).read_text(encoding="utf-8"):
+        fail(f"Issue #26: capture pacing contract missing: {token}")
+
+for token in (
+    "kAudioOutputTargetQueueMilliseconds = 120",
+    "kAudioOutputTargetQueueBytes",
+    "kAudioOutputDesignMaxQueueMilliseconds = 150",
+    "kAudioOutputDevicePeriodFrames = 512",
+    "kAudioOutputUnderflowGracePeriods = 2",
+    "kAudioOutputUnderflowGraceMicros",
+):
+    if token not in audio_types_h:
+        fail(f"Issue #26: bounded output reservoir constant missing: {token}")
+
+for token in (
+    "SDL_PREBUFFER_ARMED",
+    "SDL_PLAYBACK_STARTED",
+    "SDL_PREBUFFER_REARMED",
+):
+    if token not in sdl_audio_cpp:
+        fail(f"Issue #26: SDL prebuffer contract missing: {token}")
+
+if "queuedBytes >= kAudioOutputTargetQueueBytes" not in audio_output_cpp:
+    fail("Issue #26: output queue target backpressure is missing")
+for token in (
+    "PlanAudioQueueWrite",
+    "framesQueuedFromBlock",
+    "kAudioOutputDesignMaxQueueBytes",
+    "SDL_QUEUE_HARD_CAP_EXCEEDED",
+):
+    if token not in audio_output_cpp:
+        fail(f"Issue #26: segmented bounded SDL write missing: {token}")
+for token in (
+    "AudioQueueUnderflowDetector underflowDetector;",
+    "SDL_QUEUE_EMPTY_OBSERVED",
+    "SDL_QUEUE_EMPTY_RECOVERED",
+    "SDL_QUEUE_UNDERFLOW",
+    "AudioQueueEmptyEvent::SustainedUnderflow",
+):
+    if token not in audio_output_cpp:
+        fail(f"Issue #26: sustained underflow semantics missing: {token}")
+if "desiredSpec.samples = static_cast<Uint16>(kAudioOutputDevicePeriodFrames);" not in sdl_audio_cpp:
+    fail("Issue #26: SDL requested period must use canonical period constant")
+
+facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
+
 # BRG-5 lifecycle evidence contract.
 # Run the focused coverage checker as part of the canonical static sanity gate
 # so lifecycle instrumentation cannot silently drift out of the BRG-5 matrix.

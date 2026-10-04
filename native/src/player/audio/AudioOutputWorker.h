@@ -18,6 +18,30 @@ enum class AudioBackendType {
     ASIO
 };
 
+struct AudioOutputMetricsAtomic {
+    std::atomic<uint64_t> blocksWritten{0};
+    std::atomic<uint64_t> blocksDroppedFormatMismatch{0};
+    std::atomic<uint64_t> queueUnderflowEvents{0};
+    std::atomic<uint64_t> writeFailures{0};
+    std::atomic<uint64_t> firstProcessedBlockMicros{0};
+    std::atomic<uint64_t> firstSdlWriteMicros{0};
+    std::atomic<uint64_t> firstNonzeroQueueMicros{0};
+    std::atomic<uint32_t> queuedBytes{0};
+    std::atomic<uint32_t> queueHighWaterBytes{0};
+    std::atomic<double> queuedMilliseconds{0.0};
+    std::atomic<double> lastWrittenPts{0.0};
+    std::atomic<double> lastWrittenEndPts{0.0};
+    std::atomic<double> mpvTimePos{0.0};
+    std::atomic<double> estimatedAudibleHeadPts{0.0};
+    std::atomic<double> estimatedAvOffsetSeconds{0.0};
+    std::atomic<uint64_t> syncSampleCount{0};
+    std::atomic<uint64_t> firstSyncSampleMicros{0};
+    std::atomic<uint64_t> lastSyncSampleMicros{0};
+    std::atomic<double> firstSyncAvOffsetSeconds{0.0};
+    std::atomic<double> lastSyncAvOffsetSeconds{0.0};
+    std::atomic<double> maxAbsAvOffsetSeconds{0.0};
+};
+
 /**
  * @class AudioOutputWorker
  * @brief Thread CONSUMER cuối cùng trong pipeline âm thanh: 
@@ -36,6 +60,7 @@ public:
      * @brief Khởi tạo Worker với RingBuffer và StateSystem
      */
     bool Init(SpscConsumer<AudioBlock> processedStream,
+              PlayerStateSystem* stateSystem,
               AudioBackendType backend = AudioBackendType::SDL2);
 
     void Start();
@@ -51,12 +76,15 @@ public:
      */
     bool IsRunning() const { return m_isRunning.load(std::memory_order_relaxed); }
 
+    AudioOutputMetrics GetMetrics() const;
+
 private:
     void OutputLoop();
     std::unique_ptr<IAudioOutputDevice> CreateDeviceBackend(AudioBackendType type);
 
     // --- References & Streams ---
     std::optional<SpscConsumer<AudioBlock>> m_processedStream;
+    PlayerStateSystem* m_stateSystem = nullptr;
 
     // --- Audio Backend ---
     std::unique_ptr<IAudioOutputDevice> m_audioDevice;
@@ -67,4 +95,5 @@ private:
     std::atomic<bool> m_isRunning{false};
     uint64_t m_lastGeneration = 0;
     ThreadID m_threadId = "";
+    AudioOutputMetricsAtomic m_metrics;
 };
