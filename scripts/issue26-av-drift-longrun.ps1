@@ -82,6 +82,31 @@ try {
     $p = Start-Process -FilePath $exe -ArgumentList $quotedMedia -WorkingDirectory $root -PassThru
     $null = Wait-MainWindow $p
 
+    # Fail early if the generated A/V container cannot reach the external
+    # speaker path. The >=10-minute measurement clock starts only after the
+    # first durable sync sample exists.
+    $startupDeadline = [DateTime]::UtcNow.AddSeconds(20)
+    $firstSyncObserved = $false
+    while ([DateTime]::UtcNow -lt $startupDeadline) {
+        Start-Sleep -Milliseconds 500
+        $p.Refresh()
+        if ($p.HasExited) {
+            throw "[ISSUE26-LONGRUN] process exited before first sync sample exitCode=$($p.ExitCode)"
+        }
+        if (Test-Path $log) {
+            $firstSyncObserved = $null -ne (
+                Select-String -Path $log -Pattern '^\[AUDIO-TELEMETRY\] SYNC_SAMPLE index=1 ' -Quiet
+            )
+            if ($firstSyncObserved) {
+                break
+            }
+        }
+    }
+    if (-not $firstSyncObserved) {
+        throw "[ISSUE26-LONGRUN] first SYNC_SAMPLE not observed within 20s; A/V fixture did not reach paced output"
+    }
+
+    Write-Host "[ISSUE26-LONGRUN] first sync observed; starting measured drift interval seconds=$PlaybackSeconds"
     $deadline = [DateTime]::UtcNow.AddSeconds($PlaybackSeconds)
     while ([DateTime]::UtcNow -lt $deadline) {
         Start-Sleep -Seconds 5

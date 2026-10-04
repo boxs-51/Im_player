@@ -797,6 +797,8 @@ else:
         "PlaybackSeconds = 610",
         "issue26_generate_av_fixture.py",
         "fixture_container = \"AVI\"",
+        "first SYNC_SAMPLE not observed within 20s",
+        "starting measured drift interval",
         "measured sync span below 600s",
         "insufficient sync samples",
         "non-sequential sync index",
