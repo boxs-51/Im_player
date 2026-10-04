@@ -335,8 +335,15 @@ if build_all_start >= 0 and handle_ytdl_start > build_all_start:
     )
     require(
         "event=YTDL_FORMAT_DISCOVERED" in build_all_body
-        and "action=defer_current_load" in build_all_body,
-        "#33: deferred ytdl-format discovery evidence contract missing",
+        and "action=defer_current_load" in build_all_body
+        and "persist_next_load=1" in build_all_body
+        and "s.selectedResolution = combinedFormat;" in build_all_body,
+        "#33: deferred ytdl-format discovery must persist the corrected selector for future load/retry",
+    )
+    require(
+        'SetPropertyString("ytdl-format"' not in build_all_body
+        and 'm_commander.SetPropertyString("ytdl-format"' not in build_all_body,
+        "#33: metadata discovery must not mutate active-load ytdl-format",
     )
 
 require(
