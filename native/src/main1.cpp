@@ -34,6 +34,7 @@
 #include "windows/UIRenderThread.h"
 #include "windows/WindowSharedGroup.h"
 #include "common/Exception.h"
+#include "common/LifecycleEvidence.h"
 #include "windows/WindowTemplateBuilder.h"
 #include "EventQueue.h"
 
@@ -163,12 +164,22 @@ int main(int argc, char **argv)
 #endif
 
         //YtDlpManager::GetInstance().InitOrUpdateAsync();
+
+        // #33: command-line media is a startup transaction, not a bootstrap
+        // side effect. Let the main runtime complete one event/render cycle
+        // before dispatching the same LoadFile path used by the popup.
+        std::string deferredStartupUrl;
+        bool startupUrlPending = false;
+        uint32_t completedStartupCycles = 0;
         if (argc >= 2)
         {
-            std::string Url = argv[1];
-            if(auto* session = mainWin->resource.GetPlayerSession())
-            if (auto *commander = mainWin->resource.GetPlayerSession()->GetCommander())
-                commander->LoadFile(Url);
+            deferredStartupUrl = argv[1];
+            startupUrlPending = true;
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=CLI_LOAD_DEFERRED ts_ms=%llu",
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
         }
 
         FrameTimer mainloop(120);
@@ -215,6 +226,24 @@ int main(int argc, char **argv)
                 if (targetWin)
                 {
                     HandleWindowRuntimeEvent(targetWin, &e);
+                }
+            }
+
+            if (startupUrlPending && completedStartupCycles > 0)
+            {
+                if (auto* session = mainWin->resource.GetPlayerSession())
+                {
+                    if (auto* commander = session->GetCommander())
+                    {
+                        LifecycleEvidence::EmitDiagnostic(
+                            "STARTUP",
+                            FormatString(
+                                "event=CLI_LOAD_DISPATCH ts_ms=%llu completed_cycles=%u",
+                                static_cast<unsigned long long>(SDL_GetTicks64()),
+                                completedStartupCycles));
+                        commander->LoadFile(deferredStartupUrl);
+                        startupUrlPending = false;
+                    }
                 }
             }
 
@@ -288,6 +317,9 @@ int main(int argc, char **argv)
 
             main_loop_rate = mainloop.getFPS();
             mainloop.endFrame();
+
+            if (startupUrlPending)
+                ++completedStartupCycles;
         }
 
         if (hMutex)
