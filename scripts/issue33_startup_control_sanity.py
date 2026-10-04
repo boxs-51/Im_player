@@ -64,19 +64,21 @@ require(
     "#33: startup policy must not turn EOF into an implicit last-frame seek",
 )
 require(
-    "RetryStartupLoadAfterEarlyEof" in command_h
+    "RetryStartupLoadAfterEarlyFailure" in command_h
     and "IssueLoadFile" in command_h
-    and "STARTUP_EARLY_EOF_RETRY_LIMIT = 1" in command_h
+    and "STARTUP_EARLY_FAILURE_RETRY_LIMIT = 1" in command_h
     and "event=LOAD_RETRY_REQUEST" in command_cpp
-    and "reason=early_eof_before_first_frame" in command_cpp,
-    "#33: bounded one-shot early-EOF reload contract missing",
+    and "reason=early_terminal_before_first_frame" in command_cpp,
+    "#33: bounded one-shot early-terminal reload contract missing",
 )
 require(
-    "event=EARLY_EOF_DETECTED" in observer_cpp
-    and "event=EARLY_EOF_RETRY_ACCEPTED" in observer_cpp
-    and "event=EARLY_EOF_RETRY_EXHAUSTED" in observer_cpp
-    and "RetryStartupLoadAfterEarlyEof(loadId)" in observer_cpp,
-    "#33: END_FILE early-EOF recovery boundary missing",
+    "event=EARLY_TERMINAL_FAILURE_DETECTED" in observer_cpp
+    and "event=EARLY_TERMINAL_RETRY_ACCEPTED" in observer_cpp
+    and "event=EARLY_TERMINAL_RETRY_EXHAUSTED" in observer_cpp
+    and "RetryStartupLoadAfterEarlyFailure(loadId)" in observer_cpp
+    and "MPV_ERROR_NOTHING_TO_PLAY" in observer_cpp
+    and "cause = earlyNoData ? \"nothing_to_play\" : \"eof\"" in observer_cpp,
+    "#33: END_FILE early-terminal recovery boundary must cover EOF and NOTHING_TO_PLAY",
 )
 
 require(
@@ -238,8 +240,9 @@ if cold_url_harness.is_file():
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
         "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy",
-        "EARLY_EOF_RETRY_EXHAUSTED is a startup failure",
-        "reason=early_eof_before_first_frame",
+        "EARLY_TERMINAL_RETRY_EXHAUSTED is a startup failure",
+        "reason=early_terminal_before_first_frame",
+        "cause=(eof|nothing_to_play)",
         "Find-LastStartupIndex",
         "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
@@ -319,7 +322,7 @@ if file_loaded_start >= 0 and idle_start > file_loaded_start:
 require(
     "mpv_internal_seek_count = 0" in harness_text
     and "Do not fail on the raw restart count alone" in harness_text
-    and "EARLY_EOF_RETRY_EXHAUSTED is a startup failure" in harness_text
+    and "EARLY_TERMINAL_RETRY_EXHAUSTED is a startup failure" in harness_text
     and 'throw "extra PLAYBACK_RESTART loop observed count=$maxRestart"' not in harness_text,
     "#33: harness must distinguish app-generated churn from healthy mpv-internal restarts",
 )
