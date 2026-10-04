@@ -15,6 +15,8 @@ models_h = (ROOT / "native/src/player/PlayerDataModels.h").read_text(encoding="u
 observer_cpp = (ROOT / "native/src/player/event/PlaybackObserver.cpp").read_text(encoding="utf-8")
 session_cpp = (ROOT / "native/src/player/session/PlayerSession.cpp").read_text(encoding="utf-8")
 main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
+player_cpp = (ROOT / "native/src/player/player/Player.cpp").read_text(encoding="utf-8")
+ytdlp_h = (ROOT / "native/src/YtDlpManager.h").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -69,6 +71,22 @@ require(
     "commander->LoadFile(Url);" not in main_cpp,
     "#33: argv media must not be loaded directly during bootstrap",
 )
+require(
+    "ResolveExecutableForPlayback" in player_cpp
+    and "script-opts-append" in player_cpp
+    and "ytdl_hook-ytdl_path=" in player_cpp
+    and "event=YTDL_PATH_RESOLVED" in player_cpp
+    and "event=YTDL_PATH_MISSING" in player_cpp,
+    "#33: libmpv startup must bind a deterministic yt-dlp executable before initialization",
+)
+require(
+    "GetModuleFileNameW" in ytdlp_h
+    and 'configRoot / "Debug" / "yt-dlp.exe"' in ytdlp_h
+    and 'configRoot / "Release" / "yt-dlp.exe"' in ytdlp_h
+    and 'cwd / "bin" / "Debug" / "yt-dlp.exe"' in ytdlp_h
+    and 'cwd / "bin" / "Release" / "yt-dlp.exe"' in ytdlp_h,
+    "#33: yt-dlp resolver must cover packaged executable and Debug/Release development layouts",
+)
 
 for marker in (
     "event=LOAD_REQUEST",
@@ -111,6 +129,8 @@ if cold_url_harness.is_file():
         "event=SEEK_REQUEST",
         "CLI_LOAD_DEFERRED",
         "CLI_LOAD_DISPATCH",
+        "YTDL_PATH_RESOLVED",
+        "YTDL_PATH_MISSING",
         "MPV_IDLE_READY",
         "CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
