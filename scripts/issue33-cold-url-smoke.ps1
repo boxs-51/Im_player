@@ -296,6 +296,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
 
 
+        $appSeekLines = @($startup | Where-Object { $_ -match "event=APP_SEEK_COMMAND " })
+        if ($appSeekLines.Count -gt 0) {
+            throw "unexpected C++ app-issued seek during default cold startup: $($appSeekLines -join '; ')"
+        }
+
         $restartLines = @($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " })
         $maxRestart = 0
         foreach ($line in $restartLines) {
