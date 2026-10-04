@@ -699,6 +699,10 @@ if not (ROOT / "native/src/player/audio/AudioMediaClock.h").is_file():
     fail("Issue #26: independent audio media clock is missing")
 if not (ROOT / "tests/audio_media_clock_test.cpp").is_file():
     fail("Issue #26: synthetic audio media clock drift test is missing")
+if not (ROOT / "native/src/player/audio/AudioQueueUnderflowDetector.h").is_file():
+    fail("Issue #26: sustained queue-underflow detector is missing")
+if not (ROOT / "tests/audio_queue_underflow_detector_test.cpp").is_file():
+    fail("Issue #26: focused queue-underflow detector test is missing")
 if not (ROOT / "tests/pcm_realtime_pacer_test.cpp").is_file():
     fail("Issue #26: focused realtime pacer test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
@@ -709,6 +713,8 @@ if "issue26_pcm_realtime_pacer_gate" not in cmake_text:
     fail("Issue #26: focused realtime pacer CTest is not registered")
 if "issue26_audio_media_clock_gate" not in cmake_text:
     fail("Issue #26: synthetic audio media clock CTest is not registered")
+if "issue26_audio_queue_underflow_gate" not in cmake_text:
+    fail("Issue #26: queue-underflow detector CTest is not registered")
 
 audio_telemetry_h = (
     ROOT / "native/src/player/audio/AudioTelemetry.h"
@@ -867,6 +873,9 @@ for token in (
     "kAudioOutputTargetQueueMilliseconds = 100",
     "kAudioOutputTargetQueueBytes",
     "kAudioOutputDesignMaxQueueMilliseconds = 150",
+    "kAudioOutputDevicePeriodFrames = 512",
+    "kAudioOutputUnderflowGracePeriods = 2",
+    "kAudioOutputUnderflowGraceMicros",
 ):
     if token not in audio_types_h:
         fail(f"Issue #26: bounded output reservoir constant missing: {token}")
@@ -881,8 +890,17 @@ for token in (
 
 if "queuedBytes >= kAudioOutputTargetQueueBytes" not in audio_output_cpp:
     fail("Issue #26: output queue target backpressure is missing")
-if "SDL_QUEUE_UNDERFLOW" not in audio_output_cpp:
-    fail("Issue #26: output underflow recovery evidence is missing")
+for token in (
+    "AudioQueueUnderflowDetector underflowDetector;",
+    "SDL_QUEUE_EMPTY_OBSERVED",
+    "SDL_QUEUE_EMPTY_RECOVERED",
+    "SDL_QUEUE_UNDERFLOW",
+    "AudioQueueEmptyEvent::SustainedUnderflow",
+):
+    if token not in audio_output_cpp:
+        fail(f"Issue #26: sustained underflow semantics missing: {token}")
+if "desiredSpec.samples = static_cast<Uint16>(kAudioOutputDevicePeriodFrames);" not in sdl_audio_cpp:
+    fail("Issue #26: SDL requested period must use canonical period constant")
 
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 

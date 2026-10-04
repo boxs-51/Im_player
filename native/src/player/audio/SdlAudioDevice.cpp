@@ -33,7 +33,7 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     desiredSpec.freq = static_cast<int>(sampleRate);
     desiredSpec.format = AUDIO_F32SYS; // Native Endian Float32
     desiredSpec.channels = channels;
-    desiredSpec.samples = 512;          // ~10.6ms ở 48kHz
+    desiredSpec.samples = static_cast<Uint16>(kAudioOutputDevicePeriodFrames);
     desiredSpec.callback = nullptr;
     desiredSpec.userdata = nullptr;
 

@@ -42,6 +42,18 @@ constexpr uint32_t kAudioOutputMaxBlockBytes =
 constexpr uint32_t kAudioOutputDesignMaxQueueMilliseconds = 150;
 constexpr uint32_t kAudioOutputDesignMaxQueueBytes =
     (kCanonicalAudioBytesPerSecond * kAudioOutputDesignMaxQueueMilliseconds) / 1000;
+
+// A single zero-byte SDL queue observation is not itself proof of an audible
+// underrun. Require continuous zero queue for at least two requested device
+// periods before counting/rearming. At 48 kHz / 512 frames this is ~21.33 ms.
+constexpr uint32_t kAudioOutputDevicePeriodFrames = 512;
+constexpr uint32_t kAudioOutputUnderflowGracePeriods = 2;
+constexpr uint64_t kAudioOutputUnderflowGraceMicros =
+    (static_cast<uint64_t>(kAudioOutputDevicePeriodFrames) *
+         kAudioOutputUnderflowGracePeriods * 1000000ULL +
+     kCanonicalAudioSampleRate - 1ULL) /
+    kCanonicalAudioSampleRate;
+
 static_assert(
     kAudioOutputTargetQueueBytes + kAudioOutputMaxBlockBytes <=
         kAudioOutputDesignMaxQueueBytes,

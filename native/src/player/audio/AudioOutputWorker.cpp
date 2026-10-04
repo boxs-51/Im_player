@@ -1,6 +1,7 @@
 #include "AudioOutputWorker.h"
 #include "SdlAudioDevice.h"
 #include "AudioTelemetry.h"
+#include "AudioQueueUnderflowDetector.h"
 #include "log.h"
 #include "threads/thread_manager.h"
 #include "common/LifecycleEvidence.h"
@@ -171,8 +172,8 @@ void AudioOutputWorker::OutputLoop() {
     std::vector<float> volumeAdjustedBuffer;
     uint32_t deviceErrorCount = 0;
     auto lastDeviceRetryTime = std::chrono::steady_clock::now();
-    bool hasQueuedAudio = false;
-    bool queueEmptyLatched = false;
+    bool playbackStartedObserved = false;
+    AudioQueueUnderflowDetector underflowDetector;
     std::uint64_t lastSyncEvidenceMicros = 0;
     std::uint64_t syncSampleIndex = 0;
     constexpr std::uint64_t kSyncEvidenceIntervalMicros = 5'000'000ULL;
@@ -237,6 +238,49 @@ void AudioOutputWorker::OutputLoop() {
             if (m_audioDevice && m_audioDevice->IsReady()) {
                 const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
                 updateQueueMetrics(queuedBytes);
+
+                const std::uint64_t queueObservationMicros =
+                    AudioTelemetryNowMicros();
+                const AudioQueueEmptyDecision queueDecision =
+                    underflowDetector.Observe(
+                        playbackStartedObserved,
+                        queuedBytes,
+                        queueObservationMicros);
+
+                if (queueDecision.event == AudioQueueEmptyEvent::Observed) {
+                    EmitAudioTelemetryEvidence(
+                        "SDL_QUEUE_EMPTY_OBSERVED t_us=%llu grace_us=%llu",
+                        static_cast<unsigned long long>(queueObservationMicros),
+                        static_cast<unsigned long long>(
+                            kAudioOutputUnderflowGraceMicros));
+                } else if (
+                    queueDecision.event == AudioQueueEmptyEvent::Recovered) {
+                    EmitAudioTelemetryEvidence(
+                        "SDL_QUEUE_EMPTY_RECOVERED t_us=%llu empty_us=%llu",
+                        static_cast<unsigned long long>(queueObservationMicros),
+                        static_cast<unsigned long long>(
+                            queueDecision.emptyDurationMicros));
+                } else if (
+                    queueDecision.event ==
+                    AudioQueueEmptyEvent::SustainedUnderflow) {
+                    const uint64_t underflowIndex =
+                        m_metrics.queueUnderflowEvents.fetch_add(
+                            1,
+                            std::memory_order_relaxed) + 1;
+                    EmitAudioTelemetryEvidence(
+                        "ERROR SDL_QUEUE_UNDERFLOW index=%llu empty_us=%llu grace_us=%llu action=rearm_prebuffer",
+                        static_cast<unsigned long long>(underflowIndex),
+                        static_cast<unsigned long long>(
+                            queueDecision.emptyDurationMicros),
+                        static_cast<unsigned long long>(
+                            kAudioOutputUnderflowGraceMicros));
+                    m_audioDevice->FlushBuffers();
+                    playbackStartedObserved = false;
+                    underflowDetector.Reset();
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+
                 if (queuedBytes >= kAudioOutputTargetQueueBytes) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
@@ -249,24 +293,6 @@ void AudioOutputWorker::OutputLoop() {
             const AudioBlock* block = m_processedStream->acquire_read();
 
             if (!block) {
-                if (m_audioDevice && m_audioDevice->IsReady()) {
-                    const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
-                    updateQueueMetrics(queuedBytes);
-                    if (hasQueuedAudio && queuedBytes == 0 && !queueEmptyLatched) {
-                        const uint64_t underflowIndex =
-                            m_metrics.queueUnderflowEvents.fetch_add(
-                                1,
-                                std::memory_order_relaxed) + 1;
-                        EmitAudioTelemetryEvidence(
-                            "ERROR SDL_QUEUE_UNDERFLOW index=%llu action=rearm_prebuffer",
-                            static_cast<unsigned long long>(underflowIndex));
-                        m_audioDevice->FlushBuffers();
-                        hasQueuedAudio = false;
-                        queueEmptyLatched = true;
-                    } else if (queuedBytes > 0) {
-                        queueEmptyLatched = false;
-                    }
-                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
@@ -323,6 +349,8 @@ void AudioOutputWorker::OutputLoop() {
                 if (m_audioDevice) {
                     m_audioDevice->FlushBuffers();
                 }
+                playbackStartedObserved = false;
+                underflowDetector.Reset();
             }
 
             bool writePerformed = false;
@@ -339,8 +367,6 @@ void AudioOutputWorker::OutputLoop() {
                     m_audioDevice->Write(block->samples.data(), block->sample_count());
                     writePerformed = m_audioDevice->IsReady();
                     if (writePerformed) {
-                        hasQueuedAudio = true;
-                        queueEmptyLatched = false;
                         m_metrics.blocksWritten.fetch_add(1, std::memory_order_relaxed);
 
                         const double lastWrittenPts = block->pts;
@@ -348,6 +374,24 @@ void AudioOutputWorker::OutputLoop() {
                             block->pts + block->duration_seconds();
                         const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
                         updateQueueMetrics(queuedBytes);
+
+                        if (!playbackStartedObserved &&
+                            queuedBytes >= kAudioOutputTargetQueueBytes) {
+                            playbackStartedObserved = true;
+                        }
+
+                        const AudioQueueEmptyDecision refillDecision =
+                            underflowDetector.Observe(
+                                playbackStartedObserved,
+                                queuedBytes,
+                                AudioTelemetryNowMicros());
+                        if (refillDecision.event ==
+                            AudioQueueEmptyEvent::Recovered) {
+                            EmitAudioTelemetryEvidence(
+                                "SDL_QUEUE_EMPTY_RECOVERED empty_us=%llu source=write",
+                                static_cast<unsigned long long>(
+                                    refillDecision.emptyDurationMicros));
+                        }
 
                         double mpvTimePos = 0.0;
                         if (m_stateSystem) {

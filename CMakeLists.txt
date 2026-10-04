@@ -329,4 +329,21 @@ if(BUILD_TESTING)
         issue26_audio_media_clock_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(audio_queue_underflow_detector_test
+        tests/audio_queue_underflow_detector_test.cpp
+    )
+    target_include_directories(audio_queue_underflow_detector_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_queue_underflow_detector_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_queue_underflow_gate
+        COMMAND audio_queue_underflow_detector_test
+    )
+    set_tests_properties(
+        issue26_audio_queue_underflow_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()
