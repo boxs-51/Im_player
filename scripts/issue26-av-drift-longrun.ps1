@@ -122,6 +122,22 @@ try {
         }
     }
 
+    # Freeze steady-state error evidence before intentionally initiating
+    # shutdown. Audio::Shutdown snapshots metrics at shutdown entry, so errors
+    # after CloseMainWindow() must not be misclassified as playback-window
+    # failures.
+    $preCloseUnderflowLines = @()
+    if (Test-Path $log) {
+        $preCloseUnderflowLines = @(
+            Select-String -Path $log -Pattern '^\[AUDIO-TELEMETRY\] ERROR SDL_QUEUE_UNDERFLOW '
+        )
+    }
+    $preCloseUnderflowCount = $preCloseUnderflowLines.Count
+    Write-Host "[ISSUE26-LONGRUN] observation complete pre_close_underflows=$preCloseUnderflowCount"
+    if ($preCloseUnderflowCount -ne 0) {
+        throw "[ISSUE26-LONGRUN] steady-state sustained underflow detected before shutdown count=$preCloseUnderflowCount"
+    }
+
     if (-not $p.CloseMainWindow()) {
         throw "[ISSUE26-LONGRUN] CloseMainWindow returned false"
     }
@@ -274,10 +290,13 @@ foreach ($required in @(
 if ([uint64]$summary["capture_dropped"] -ne 0 -or
     [uint64]$summary["ring_overflows"] -ne 0 -or
     [uint64]$summary["format_mismatch"] -ne 0 -or
-    [uint64]$summary["underflows"] -ne 0 -or
     [uint64]$summary["write_failures"] -ne 0) {
-    throw "[ISSUE26-LONGRUN] SUMMARY reports audio loss/error marker=$summaryLine"
+    throw "[ISSUE26-LONGRUN] SUMMARY reports transport loss/error marker=$summaryLine"
 }
+# Underflow acceptance is phase-scoped: steady playback must have zero
+# sustained underflows before CloseMainWindow(). Any additional underflow
+# recorded only during teardown remains diagnostic evidence.
+
 if ([string]$summary["snapshot_phase"] -ne "shutdown_entry") {
     throw "[ISSUE26-LONGRUN] unexpected summary snapshot phase=$($summary['snapshot_phase'])"
 }
@@ -287,6 +306,13 @@ $summaryQueueHighWaterMs =
     1000.0 * [double]([uint64]$summary["queue_high_water_bytes"]) / $bytesPerSecond
 if ($summaryQueueHighWaterMs -gt 150.0) {
     throw "[ISSUE26-LONGRUN] SUMMARY SDL queue high-water exceeded 150ms actual_ms=$summaryQueueHighWaterMs"
+}
+
+$summaryUnderflows = [uint64]$summary["underflows"]
+$shutdownOnlyUnderflows =
+    [int64]$summaryUnderflows - [int64]$preCloseUnderflowCount
+if ($shutdownOnlyUnderflows -lt 0) {
+    throw "[ISSUE26-LONGRUN] summary underflow count regressed below pre-close evidence"
 }
 
 $summarySyncSamples = [uint64]$summary["sync_samples"]
@@ -341,12 +367,14 @@ $result = [ordered]@{
     format_mismatch = [uint64]$summary["format_mismatch"]
     underflows = [uint64]$summary["underflows"]
     write_failures = [uint64]$summary["write_failures"]
+    pre_close_underflows = [uint64]$preCloseUnderflowCount
+    shutdown_only_underflows = $shutdownOnlyUnderflows
     snapshot_phase = [string]$summary["snapshot_phase"]
     result = "PASS"
     evidence_log = $log
 }
 $result | ConvertTo-Json -Depth 6 | Set-Content -Path $json -Encoding UTF8
 
-Write-Host "[ISSUE26-LONGRUN] PASS commit=$commit configuration=$Configuration"
+Write-Host "[ISSUE26-LONGRUN] PASS commit=$commit configuration=$Configuration pre_close_underflows=$preCloseUnderflowCount shutdown_only_underflows=$shutdownOnlyUnderflows"
 Write-Host "[ISSUE26-LONGRUN] steady_span_s=$spanSeconds total_samples=$($samples.Count) steady_samples=$($steadySamples.Count) warmup_s=$WarmupSeconds startup_first_offset_s=$($allFirst.AvOffsetSeconds) steady_baseline_offset_s=$steadyBaselineOffsetSeconds steady_last_offset_s=$($last.AvOffsetSeconds) drift_delta_s=$driftDeltaSeconds max_relative_drift_s=$maxRelativeDriftSeconds max_steady_queue_ms=$maxQueuedMs absolute_per_write_offset_diagnostic_s=$summaryMaxAbsOffset summary_queue_high_water_ms=$summaryQueueHighWaterMs"
 Write-Host "[ISSUE26-LONGRUN] summary=$json"
