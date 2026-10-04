@@ -122,20 +122,65 @@ try {
         }
     }
 
-    # Freeze steady-state error evidence before intentionally initiating
-    # shutdown. Audio::Shutdown snapshots metrics at shutdown entry, so errors
-    # after CloseMainWindow() must not be misclassified as playback-window
-    # failures.
-    $preCloseUnderflowLines = @()
+    # Freeze phase-scoped underflow evidence before intentionally initiating
+    # shutdown. The first WarmupSeconds belong to startup, not steady-state.
+    $preCloseLines = @()
     if (Test-Path $log) {
-        $preCloseUnderflowLines = @(
-            Select-String -Path $log -Pattern '^\[AUDIO-TELEMETRY\] ERROR SDL_QUEUE_UNDERFLOW '
-        )
+        $preCloseLines = @(Get-Content -Path $log | ForEach-Object { [string]$_ })
     }
-    $preCloseUnderflowCount = $preCloseUnderflowLines.Count
-    Write-Host "[ISSUE26-LONGRUN] observation complete pre_close_underflows=$preCloseUnderflowCount"
-    if ($preCloseUnderflowCount -ne 0) {
-        throw "[ISSUE26-LONGRUN] steady-state sustained underflow detected before shutdown count=$preCloseUnderflowCount"
+
+    $firstSyncLine = @($preCloseLines | Where-Object {
+        $_ -match '^\[AUDIO-TELEMETRY\] SYNC_SAMPLE index=1 '
+    }) | Select-Object -First 1
+    if (-not $firstSyncLine) {
+        throw "[ISSUE26-LONGRUN] cannot phase underflows without first SYNC_SAMPLE"
+    }
+
+    $firstSyncKv = Parse-KeyValues ([string]$firstSyncLine)
+    $preCloseFirstSyncUs = [uint64]$firstSyncKv["t_us"]
+    $preCloseWarmupCutoffUs =
+        $preCloseFirstSyncUs +
+        ([uint64]$WarmupSeconds * [uint64]1000000)
+
+    [uint64]$pendingEmptyObservedUs = 0
+    [uint64]$startupUnderflowCount = 0
+    [uint64]$steadyUnderflowCount = 0
+    [uint64]$preCloseUnderflowCount = 0
+
+    foreach ($line in $preCloseLines) {
+        if ($line -match '^\[AUDIO-TELEMETRY\] SDL_QUEUE_EMPTY_OBSERVED ') {
+            $observedKv = Parse-KeyValues $line
+            if ($observedKv.Contains("t_us")) {
+                $pendingEmptyObservedUs = [uint64]$observedKv["t_us"]
+            }
+            continue
+        }
+
+        if ($line -match '^\[AUDIO-TELEMETRY\] ERROR SDL_QUEUE_UNDERFLOW ') {
+            $underflowKv = Parse-KeyValues $line
+            if ($pendingEmptyObservedUs -eq 0 -or
+                -not $underflowKv.Contains("empty_us")) {
+                throw "[ISSUE26-LONGRUN] cannot phase underflow without observed t_us + empty_us"
+            }
+
+            $underflowEventUs =
+                $pendingEmptyObservedUs +
+                [uint64]$underflowKv["empty_us"]
+            ++$preCloseUnderflowCount
+
+            if ($underflowEventUs -lt $preCloseWarmupCutoffUs) {
+                ++$startupUnderflowCount
+            } else {
+                ++$steadyUnderflowCount
+            }
+
+            $pendingEmptyObservedUs = 0
+        }
+    }
+
+    Write-Host "[ISSUE26-LONGRUN] observation complete pre_close_underflows=$preCloseUnderflowCount startup_underflows=$startupUnderflowCount steady_underflows=$steadyUnderflowCount warmup_cutoff_us=$preCloseWarmupCutoffUs"
+    if ($steadyUnderflowCount -ne 0) {
+        throw "[ISSUE26-LONGRUN] steady-state sustained underflow detected after warm-up count=$steadyUnderflowCount"
     }
 
     if (-not $p.CloseMainWindow()) {
