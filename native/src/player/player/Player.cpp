@@ -3,6 +3,8 @@
 
 #include "player/scripts/script_manager.h"
 #include "player/PlayerUtils.h"
+#include "YtDlpManager.h"
+#include "common/LifecycleEvidence.h"
 
 #include "windows/WindowUtils.h"
 
@@ -23,6 +25,28 @@ bool Player::Init() {
     if (!m_mpv) return false;
 
     ApplyStaticMPVConfig(m_mpv);
+
+    const std::string ytdlpPath =
+        YtDlpManager::GetInstance().ResolveExecutableForPlayback();
+    if (!ytdlpPath.empty()) {
+        const std::string ytdlScriptOpt =
+            "ytdl_hook-ytdl_path=" + ytdlpPath;
+        const int ytdlOptResult = mpv_set_option_string(
+            m_mpv,
+            "script-opts-append",
+            ytdlScriptOpt.c_str());
+
+        LifecycleEvidence::EmitDiagnostic(
+            "STARTUP",
+            FormatString(
+                "event=YTDL_PATH_RESOLVED result=%d path=%s",
+                ytdlOptResult,
+                ytdlpPath.c_str()));
+    } else {
+        LifecycleEvidence::EmitDiagnostic(
+            "STARTUP",
+            "event=YTDL_PATH_MISSING");
+    }
 
     if (mpv_initialize(m_mpv) < 0) {
         mpv_terminate_destroy(m_mpv);
