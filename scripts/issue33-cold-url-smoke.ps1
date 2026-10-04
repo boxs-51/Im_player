@@ -111,6 +111,18 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
 
         $startup = Get-StartupLines $logPath
+        $missingYtdl = @($startup | Where-Object { $_ -match "event=YTDL_PATH_MISSING" })
+        if ($missingYtdl.Count -gt 0) {
+            throw "yt-dlp executable was not resolved before MPV initialization"
+        }
+        $resolvedYtdl = @($startup | Where-Object { $_ -match "event=YTDL_PATH_RESOLVED " })
+        if ($resolvedYtdl.Count -eq 0) {
+            throw "YTDL_PATH_RESOLVED marker not observed"
+        }
+        if ($resolvedYtdl[0] -notmatch "result=0") {
+            throw "MPV rejected deterministic yt-dlp path option: $($resolvedYtdl[0])"
+        }
+
         if (($startup | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -eq 0) {
             throw "CLI_LOAD_DEFERRED marker not observed"
         }
@@ -167,6 +179,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "default startup emitted SEEK_REQUEST"
         }
 
+        $ytdlIndex = Find-StartupIndex $startup "event=YTDL_PATH_RESOLVED "
         $deferredIndex = Find-StartupIndex $startup "event=CLI_LOAD_DEFERRED "
         $idleReadyIndex = Find-StartupIndex $startup "event=MPV_IDLE_READY "
         $dispatchIndex = Find-StartupIndex $startup "event=CLI_LOAD_DISPATCH "
@@ -176,8 +189,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
         $configEndIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_END "
 
-        if ($deferredIndex -lt 0 -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex) {
-            throw "startup event order is not CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED"
+        if ($ytdlIndex -lt 0 -or $deferredIndex -le $ytdlIndex -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex) {
+            throw "startup event order is not YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED"
         }
         if ($configBeginIndex -le $loadedIndex -or $configEndIndex -le $configBeginIndex) {
             throw "dynamic config timing markers are not post-FILE_LOADED ordered"
