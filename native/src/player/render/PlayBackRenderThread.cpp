@@ -253,8 +253,16 @@ try {
                                 && playback.startupLoadedLoadId == armedLoadIdBeforeRender
                                 && playback.startupLoadId == armedLoadIdBeforeRender) {
                                 playback.startupVideoEvidenceArmed = false;
+                                playback.startupMediaStartedLoadId =
+                                    armedLoadIdBeforeRender;
                             }
                         });
+                        LifecycleEvidence::EmitDiagnostic(
+                            "STARTUP",
+                            FormatString(
+                                "event=STARTUP_MEDIA_STARTED load_id=%llu ts_ms=%llu source=video_frame",
+                                static_cast<unsigned long long>(armedLoadIdBeforeRender),
+                                static_cast<unsigned long long>(SDL_GetTicks64())));
                         break;
                     }
                 }
