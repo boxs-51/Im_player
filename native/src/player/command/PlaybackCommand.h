@@ -57,6 +57,8 @@ private:
     std::string m_lastDirectLoadUrl;
     std::string m_lastDirectLoadFlags = "replace";
     Uint32 m_startupEarlyFailureRetries = 0;
+    Uint64 m_startupKeepOpenOverrideLoadId = 0;
+    bool m_startupKeepOpenOverrideActive = false;
 
     const Uint32 SEEK_DELAY_MS = 150;
     const Uint32 STARTUP_EARLY_FAILURE_RETRY_LIMIT = 1;
