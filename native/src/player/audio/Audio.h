@@ -48,6 +48,8 @@ public:
     bool IsInitialized() const { return m_isInitialized.load(std::memory_order_relaxed); }
 
     std::string GetPipeName() const { return m_audioCapture.GetPipeName(); }
+    AudioPipelineMetrics GetCaptureMetrics() const { return m_audioCapture.GetMetrics(); }
+    AudioOutputMetrics GetOutputMetrics() const { return m_audioOutput.GetMetrics(); }
 
 private:
     /**

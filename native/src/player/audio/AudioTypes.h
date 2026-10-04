@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <array>
 
 // Định dạng mẫu âm thanh (Mặc định Float32 để khớp với MPV f32le)
@@ -20,6 +21,42 @@ struct AudioFormat {
 constexpr size_t kMaxAudioFrames   = 2048; // ~42.67ms tại 48kHz
 constexpr size_t kMaxAudioChannels = 2;    // Stereo
 constexpr size_t kMaxAudioSamples  = kMaxAudioFrames * kMaxAudioChannels; // 4096 floats
+
+// Issue #26 canonical PCM transport/output contract.
+constexpr uint32_t kCanonicalAudioSampleRate = 48000;
+constexpr uint16_t kCanonicalAudioChannels = 2;
+constexpr size_t kCanonicalAudioBytesPerFrame =
+    sizeof(float) * static_cast<size_t>(kCanonicalAudioChannels);
+constexpr uint32_t kCanonicalAudioBytesPerSecond =
+    kCanonicalAudioSampleRate *
+    static_cast<uint32_t>(kCanonicalAudioBytesPerFrame);
+
+// Issue #26 external SDL jitter reservoir.
+// Maintain ~120 ms queued under steady playback while segmented writes enforce
+// an absolute 150 ms hard cap.
+constexpr uint32_t kAudioOutputTargetQueueMilliseconds = 120;
+constexpr uint32_t kAudioOutputTargetQueueBytes =
+    (kCanonicalAudioBytesPerSecond * kAudioOutputTargetQueueMilliseconds) / 1000;
+constexpr uint32_t kAudioOutputMaxBlockBytes =
+    static_cast<uint32_t>(kMaxAudioFrames * kCanonicalAudioBytesPerFrame);
+constexpr uint32_t kAudioOutputDesignMaxQueueMilliseconds = 150;
+constexpr uint32_t kAudioOutputDesignMaxQueueBytes =
+    (kCanonicalAudioBytesPerSecond * kAudioOutputDesignMaxQueueMilliseconds) / 1000;
+
+// A single zero-byte SDL queue observation is not itself proof of an audible
+// underrun. Require continuous zero queue for at least two requested device
+// periods before counting/rearming. At 48 kHz / 512 frames this is ~21.33 ms.
+constexpr uint32_t kAudioOutputDevicePeriodFrames = 512;
+constexpr uint32_t kAudioOutputUnderflowGracePeriods = 2;
+constexpr uint64_t kAudioOutputUnderflowGraceMicros =
+    (static_cast<uint64_t>(kAudioOutputDevicePeriodFrames) *
+         kAudioOutputUnderflowGracePeriods * 1000000ULL +
+     kCanonicalAudioSampleRate - 1ULL) /
+    kCanonicalAudioSampleRate;
+
+static_assert(
+    kAudioOutputTargetQueueBytes < kAudioOutputDesignMaxQueueBytes,
+    "Issue #26 queue target must remain below the 150ms hard cap");
 
 /**
  * @struct AudioBlock
@@ -59,8 +96,46 @@ struct AudioPipelineMetrics {
 
     uint64_t ringOverflows   = 0;
     uint64_t ringUnderflows  = 0;
+    uint64_t backpressureWaits = 0;
+    uint64_t pacingSleepCount = 0;
+    uint64_t pacingSleepMicros = 0;
+    uint64_t pacingRebases = 0;
 
     uint64_t lastSequence    = 0;
     uint64_t currentGeneration = 0;
+    uint64_t partialFrameCarryBytes = 0;
+    uint64_t firstPipeConnectedMicros = 0;
+    uint64_t firstPipeBytesMicros = 0;
+    uint64_t firstCompletePcmBlockMicros = 0;
     double   lastPTS         = 0.0;
+};
+
+/**
+ * @struct AudioOutputMetrics
+ * @brief Observable SDL output/queue metrics for the canonical PCM contract.
+ */
+struct AudioOutputMetrics {
+    uint64_t blocksWritten = 0;
+    uint64_t blocksDroppedFormatMismatch = 0;
+    uint64_t queueUnderflowEvents = 0;
+    uint64_t writeFailures = 0;
+    uint64_t firstProcessedBlockMicros = 0;
+    uint64_t firstSdlWriteMicros = 0;
+    uint64_t firstNonzeroQueueMicros = 0;
+    uint32_t queuedBytes = 0;
+    uint32_t queueHighWaterBytes = 0;
+    double queuedMilliseconds = 0.0;
+    double lastWrittenPts = 0.0;
+    double lastWrittenEndPts = 0.0;
+    double mpvTimePos = 0.0;
+    double estimatedAudibleHeadPts = 0.0;
+    double estimatedAvOffsetSeconds = 0.0;
+    uint64_t syncSampleCount = 0;
+    uint64_t firstSyncSampleMicros = 0;
+    uint64_t lastSyncSampleMicros = 0;
+    double firstSyncAvOffsetSeconds = 0.0;
+    double lastSyncAvOffsetSeconds = 0.0;
+    double maxAbsAvOffsetSeconds = 0.0;
+    uint32_t sampleRate = kCanonicalAudioSampleRate;
+    uint16_t channels = kCanonicalAudioChannels;
 };
