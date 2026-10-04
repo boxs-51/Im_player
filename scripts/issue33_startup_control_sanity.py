@@ -34,6 +34,10 @@ require(
     "#33: startup transaction identity/counter is missing",
 )
 require(
+    "bool startupMpvIdleReady = false;" in models_h,
+    "#33: MPV idle startup readiness state is missing",
+)
+require(
     "m.pendingseektime = -1.0;" in command_cpp
     and "m.startupLoadId += 1;" in command_cpp,
     "#33: direct LoadFile must clear stale pending seek and advance startup load id",
@@ -53,8 +57,13 @@ require(
 require(
     "event=CLI_LOAD_DEFERRED" in main_cpp
     and "event=CLI_LOAD_DISPATCH" in main_cpp
-    and "completedStartupCycles > 0" in main_cpp,
-    "#33: command-line startup must defer media dispatch until after a main-loop cycle",
+    and "startupMpvIdleReady" in main_cpp
+    and "readiness=mpv_idle" in main_cpp,
+    "#33: command-line startup must wait for MPV idle readiness before media dispatch",
+)
+require(
+    "completedStartupCycles" not in main_cpp,
+    "#33: startup dispatch must not depend on an arbitrary main-loop cycle count",
 )
 require(
     "commander->LoadFile(Url);" not in main_cpp,
@@ -73,6 +82,7 @@ for marker in (
     "event=PLAYBACK_RESTART",
     "event=SEEK_REQUEST",
     "event=SEEK",
+    "event=MPV_IDLE_READY",
     "event=DYNAMIC_CONFIG_APPLY_BEGIN",
     "event=END_FILE",
     "timing=post_file_loaded",
@@ -101,7 +111,8 @@ if cold_url_harness.is_file():
         "event=SEEK_REQUEST",
         "CLI_LOAD_DEFERRED",
         "CLI_LOAD_DISPATCH",
-        "CLI_LOAD_DEFERRED -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED",
+        "MPV_IDLE_READY",
+        "CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",
         '^\\[BRG5-DIAG\\] category=STARTUP ',
