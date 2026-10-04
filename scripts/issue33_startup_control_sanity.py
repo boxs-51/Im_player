@@ -18,6 +18,9 @@ main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 player_cpp = (ROOT / "native/src/player/player/Player.cpp").read_text(encoding="utf-8")
 ytdlp_h = (ROOT / "native/src/YtDlpManager.h").read_text(encoding="utf-8")
 lifecycle_h = (ROOT / "native/src/common/LifecycleEvidence.h").read_text(encoding="utf-8")
+render_thread_cpp = (ROOT / "native/src/player/render/PlayBackRenderThread.cpp").read_text(encoding="utf-8")
+render_thread_h = (ROOT / "native/src/player/render/PlayBackRenderThread.h").read_text(encoding="utf-8")
+render_h = (ROOT / "native/src/player/render/PlayBackRender.h").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -56,6 +59,18 @@ require(
 require(
     "std::make_unique<PlaybackCommand>(*m_player, *m_state)" in session_cpp,
     "#33: PlaybackCommand must be bound to the session state",
+)
+require(
+    "m_renderer->BindStartupState(m_state.get())" in session_cpp
+    and "BindStartupState(PlayerStateSystem* state)" in render_h
+    and "m_startupState" in render_thread_h,
+    "#33: render telemetry must bind the canonical startup load state",
+)
+require(
+    "event=FIRST_VIDEO_FRAME" in render_thread_cpp
+    and "mpv_render_context_render" in render_thread_cpp
+    and "MarkAsReady" in render_thread_cpp,
+    "#33: first video-frame evidence must be emitted from the actual rendered/ready FBO path",
 )
 require(
     "event=CLI_LOAD_DEFERRED" in main_cpp
@@ -140,7 +155,8 @@ if cold_url_harness.is_file():
         "YTDL_PATH_RESOLVED",
         "YTDL_PATH_MISSING",
         "MPV_IDLE_READY",
-        "CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED",
+        "YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> FIRST_VIDEO_FRAME",
+        "FIRST_VIDEO_FRAME",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",
         '^\\[BRG5-DIAG\\] category=STARTUP ',
