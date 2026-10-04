@@ -177,6 +177,12 @@ struct PlaybackModel {
     // #33 startup transaction identity. This is intentionally separate from
     // the audio/video generation contract owned by #30.
     uint64_t startupLoadId = 0;
+    // #33 rendered-frame evidence is armed only after the matching load has
+    // crossed FILE_LOADED + VIDEO_RECONFIG. Keep this separate from #30's
+    // future media generation contract.
+    uint64_t startupLoadedLoadId = 0;
+    uint64_t startupVideoEvidenceLoadId = 0;
+    bool startupVideoEvidenceArmed = false;
     uint32_t startupRestartCount = 0;
     bool startupMpvIdleReady = false;
 

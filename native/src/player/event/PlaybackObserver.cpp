@@ -639,6 +639,7 @@ void PlaybackObserver::ProcessEvents() {
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
                 loadId = static_cast<Uint64>(m.startupLoadId);
+                m.startupLoadedLoadId = m.startupLoadId;
                 videotype = m.videoType;
             });
 
@@ -708,6 +709,32 @@ void PlaybackObserver::ProcessEvents() {
         case MPV_EVENT_TICK: break;
         case MPV_EVENT_CLIENT_MESSAGE: break;
         case MPV_EVENT_VIDEO_RECONFIG: {
+            Uint64 loadId = 0;
+            bool armed = false;
+            m_state.WritePlayback([&](PlaybackModel& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                // Arm once for the exact load only after FILE_LOADED has bound
+                // the same identity. A render must observe this arm before it
+                // starts and revalidate it after publication before claiming
+                // FIRST_VIDEO_FRAME.
+                if (m.startupLoadId > 0
+                    && m.startupLoadedLoadId == m.startupLoadId
+                    && m.startupVideoEvidenceLoadId != m.startupLoadId) {
+                    m.startupVideoEvidenceLoadId = m.startupLoadId;
+                    m.startupVideoEvidenceArmed = true;
+                    armed = true;
+                }
+            });
+
+            if (armed) {
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=VIDEO_EVIDENCE_ARM load_id=%llu ts_ms=%llu boundary=video_reconfig",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            }
+
             LOG(1, LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [VIDEO RECONFIG] Video configuration changed."); 
             break;
         }

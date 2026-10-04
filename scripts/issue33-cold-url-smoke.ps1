@@ -127,9 +127,10 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             $hasLoad = ($startup | Where-Object { $_ -match "event=LOAD_REQUEST " }).Count -gt 0
             $hasStart = ($startup | Where-Object { $_ -match "event=START_FILE " }).Count -gt 0
             $hasLoaded = ($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
+            $hasVideoEvidenceArm = ($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -gt 0
             $hasFirstVideoFrame = ($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -gt 0
 
-            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasFirstVideoFrame) { break }
+            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasVideoEvidenceArm -and $hasFirstVideoFrame) { break }
             Start-Sleep -Milliseconds 100
         }
 
@@ -168,8 +169,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
             throw "FILE_LOADED not observed within $StartupTimeoutSeconds seconds after START_FILE"
         }
+        if (($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -eq 0) {
+            throw "VIDEO_EVIDENCE_ARM marker not observed after FILE_LOADED"
+        }
         if (($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -eq 0) {
-            throw "FIRST_VIDEO_FRAME marker not observed after FILE_LOADED"
+            throw "FIRST_VIDEO_FRAME marker not observed after VIDEO_EVIDENCE_ARM"
         }
         Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
         $startup = Get-StartupLines $logPath
@@ -208,12 +212,13 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $loadIndex = Find-StartupIndex $startup "event=LOAD_REQUEST "
         $startIndex = Find-StartupIndex $startup "event=START_FILE "
         $loadedIndex = Find-StartupIndex $startup "event=FILE_LOADED "
+        $videoEvidenceArmIndex = Find-StartupIndex $startup "event=VIDEO_EVIDENCE_ARM "
         $firstVideoIndex = Find-StartupIndex $startup "event=FIRST_VIDEO_FRAME "
         $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
         $configEndIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_END "
 
-        if ($ytdlIndex -lt 0 -or $deferredIndex -le $ytdlIndex -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex -or $firstVideoIndex -le $loadedIndex) {
-            throw "startup event order is not YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> FIRST_VIDEO_FRAME"
+        if ($ytdlIndex -lt 0 -or $deferredIndex -le $ytdlIndex -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex -or $videoEvidenceArmIndex -le $loadedIndex -or $firstVideoIndex -le $videoEvidenceArmIndex) {
+            throw "startup event order is not YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> VIDEO_EVIDENCE_ARM -> FIRST_VIDEO_FRAME"
         }
         if ($configBeginIndex -le $loadedIndex -or $configEndIndex -le $configBeginIndex) {
             throw "dynamic config timing markers are not post-FILE_LOADED ordered"

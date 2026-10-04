@@ -56,6 +56,9 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         m.pendingseektime = -1.0;
         m.startupRestartCount = 0;
         m.startupLoadId += 1;
+        m.startupLoadedLoadId = 0;
+        m.startupVideoEvidenceLoadId = 0;
+        m.startupVideoEvidenceArmed = false;
         loadId = m.startupLoadId;
         m.isLoadingMedia = true;
     });

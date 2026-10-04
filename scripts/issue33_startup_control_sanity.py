@@ -36,8 +36,11 @@ require(
 )
 require(
     "uint64_t startupLoadId = 0;" in models_h
+    and "uint64_t startupLoadedLoadId = 0;" in models_h
+    and "uint64_t startupVideoEvidenceLoadId = 0;" in models_h
+    and "bool startupVideoEvidenceArmed = false;" in models_h
     and "uint32_t startupRestartCount = 0;" in models_h,
-    "#33: startup transaction identity/counter is missing",
+    "#33: startup transaction/evidence identity state is missing",
 )
 require(
     "bool startupMpvIdleReady = false;" in models_h,
@@ -45,8 +48,11 @@ require(
 )
 require(
     "m.pendingseektime = -1.0;" in command_cpp
-    and "m.startupLoadId += 1;" in command_cpp,
-    "#33: direct LoadFile must clear stale pending seek and advance startup load id",
+    and "m.startupLoadId += 1;" in command_cpp
+    and "m.startupLoadedLoadId = 0;" in command_cpp
+    and "m.startupVideoEvidenceLoadId = 0;" in command_cpp
+    and "m.startupVideoEvidenceArmed = false;" in command_cpp,
+    "#33: direct LoadFile must reset stale seek/evidence state and advance startup load id",
 )
 require(
     "Uint64 lastSeekRequestTime = 0;" in command_cpp,
@@ -67,10 +73,19 @@ require(
     "#33: render telemetry must bind the canonical startup load state",
 )
 require(
+    "event=VIDEO_EVIDENCE_ARM" in observer_cpp
+    and "boundary=video_reconfig" in observer_cpp
+    and "startupLoadedLoadId = m.startupLoadId;" in observer_cpp,
+    "#33: video evidence must arm only after the matching loaded/video-reconfig boundary",
+)
+require(
     "event=FIRST_VIDEO_FRAME" in render_thread_cpp
+    and "armedLoadIdBeforeRender" in render_thread_cpp
+    and "startupVideoEvidenceArmed" in render_thread_cpp
     and "mpv_render_context_render" in render_thread_cpp
-    and "MarkAsReady" in render_thread_cpp,
-    "#33: first video-frame evidence must be emitted from the actual rendered/ready FBO path",
+    and "MarkAsReady" in render_thread_cpp
+    and "playback.startupVideoEvidenceArmed = false;" in render_thread_cpp,
+    "#33: first video-frame evidence must pre-arm, revalidate, publish, and disarm the exact load",
 )
 require(
     "event=CLI_LOAD_DEFERRED" in main_cpp
@@ -155,7 +170,8 @@ if cold_url_harness.is_file():
         "YTDL_PATH_RESOLVED",
         "YTDL_PATH_MISSING",
         "MPV_IDLE_READY",
-        "YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> FIRST_VIDEO_FRAME",
+        "YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> VIDEO_EVIDENCE_ARM -> FIRST_VIDEO_FRAME",
+        "VIDEO_EVIDENCE_ARM",
         "FIRST_VIDEO_FRAME",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",

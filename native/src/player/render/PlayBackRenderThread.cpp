@@ -193,6 +193,23 @@ try {
         params.push_back({MPV_RENDER_PARAM_SKIP_RENDERING, &skip_render});
         params.push_back({MPV_RENDER_PARAM_INVALID, nullptr});
 
+        // #33 generation-safe evidence boundary. Snapshot the explicitly
+        // armed load identity before rendering. A render that started before
+        // VIDEO_RECONFIG cannot retroactively claim the newly armed load.
+        PlayerStateSystem* startupState =
+            m_startupState.load(std::memory_order_acquire);
+        uint64_t armedLoadIdBeforeRender = 0;
+        if (startupState) {
+            startupState->ReadPlayback([&](PlaybackModel const& playback) {
+                if (playback.startupVideoEvidenceArmed
+                    && playback.startupVideoEvidenceLoadId > 0
+                    && playback.startupVideoEvidenceLoadId == playback.startupLoadedLoadId
+                    && playback.startupLoadedLoadId == playback.startupLoadId) {
+                    armedLoadIdBeforeRender = playback.startupVideoEvidenceLoadId;
+                }
+            });
+        }
+
         // Gọi Render MPV
         mpv_render_context_render(this->state.render_ctx, params.data());
 
@@ -200,33 +217,44 @@ try {
         this->state.fboPool->MarkAsReady(index, currentFrameId);
         m_lastRenderedFrameId.store(currentFrameId, std::memory_order_release);
 
-        // #33 acceptance marker: emit only after mpv_render_context_render()
-        // completed and the FBO was marked ready for UI consumption. This is
-        // therefore a produced/displayable frame, not merely a render wake.
-        if (auto* startupState = m_startupState.load(std::memory_order_acquire)) {
-            uint64_t loadId = 0;
+        // Revalidate the same arm after publication. This rejects a frame if a
+        // new LoadFile transaction raced with mpv_render_context_render().
+        if (startupState && armedLoadIdBeforeRender > 0) {
+            bool stillArmedForSameLoad = false;
             startupState->ReadPlayback([&](PlaybackModel const& playback) {
-                loadId = playback.startupLoadId;
+                stillArmedForSameLoad =
+                    playback.startupVideoEvidenceArmed
+                    && playback.startupVideoEvidenceLoadId == armedLoadIdBeforeRender
+                    && playback.startupLoadedLoadId == armedLoadIdBeforeRender
+                    && playback.startupLoadId == armedLoadIdBeforeRender;
             });
 
-            if (loadId > 0) {
+            if (stillArmedForSameLoad) {
                 uint64_t observed =
                     m_firstVideoFrameLoadId.load(std::memory_order_acquire);
-                while (observed != loadId) {
+                while (observed != armedLoadIdBeforeRender) {
                     if (m_firstVideoFrameLoadId.compare_exchange_weak(
                             observed,
-                            loadId,
+                            armedLoadIdBeforeRender,
                             std::memory_order_acq_rel,
                             std::memory_order_acquire)) {
-                        char diag[256]{};
+                        char diag[320]{};
                         std::snprintf(
                             diag,
                             sizeof(diag),
-                            "event=FIRST_VIDEO_FRAME load_id=%llu ts_ms=%llu frame_id=%llu",
-                            static_cast<unsigned long long>(loadId),
+                            "event=FIRST_VIDEO_FRAME load_id=%llu ts_ms=%llu frame_id=%llu armed_before_render=1 boundary=video_reconfig",
+                            static_cast<unsigned long long>(armedLoadIdBeforeRender),
                             static_cast<unsigned long long>(SDL_GetTicks64()),
                             static_cast<unsigned long long>(currentFrameId));
                         LifecycleEvidence::EmitDiagnostic("STARTUP", diag);
+
+                        startupState->WritePlayback([&](PlaybackModel& playback) {
+                            if (playback.startupVideoEvidenceLoadId == armedLoadIdBeforeRender
+                                && playback.startupLoadedLoadId == armedLoadIdBeforeRender
+                                && playback.startupLoadId == armedLoadIdBeforeRender) {
+                                playback.startupVideoEvidenceArmed = false;
+                            }
+                        });
                         break;
                     }
                 }
