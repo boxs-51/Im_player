@@ -52,6 +52,7 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
 #endif
 
     m_state = std::make_unique<PlayerStateSystem>();
+    m_renderer->BindStartupState(m_state.get());
 
     // --- KÍCH HOẠT VÀ KHỞI TẠO AUDIO PIPELINE ---
     m_audio = std::make_unique<Audio>();
