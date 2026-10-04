@@ -162,21 +162,27 @@ void UIRenderThread::Run()
                     continue;
                 }
 
-                if (currentWindow->resource.imguiCtx)
+                // One per-window lock covers the entire ImGui frame critical
+                // region. Locking BeginFrame/EndFrame separately would still
+                // allow Main Thread event mutation in the middle of a frame.
                 {
-                    ImGui::SetCurrentContext(currentWindow->resource.imguiCtx);
-                } // Đảm bảo đúng context ImGui
+                    std::lock_guard<std::mutex> imguiLock(currentWindow->imguiMutex);
 
-                
-                m_graphicsBackend->BeginFrame(currentWindow->resource.sdlWindow);
-                
-                if (currentWindow->renderer)
-                {
-                    currentWindow->renderer->RenderUI(currentWindow, *snapshot);
+                    if (currentWindow->resource.imguiCtx)
+                    {
+                        ImGui::SetCurrentContext(currentWindow->resource.imguiCtx);
+                    } // Đảm bảo đúng context ImGui
+
+                    m_graphicsBackend->BeginFrame(currentWindow->resource.sdlWindow);
+
+                    if (currentWindow->renderer)
+                    {
+                        currentWindow->renderer->RenderUI(currentWindow, *snapshot);
+                    }
+
+                    m_graphicsBackend->EndFrame(currentWindow->resource.sdlWindow);
+                    m_graphicsBackend->SwapWindow(currentWindow->resource.sdlWindow);
                 }
-
-                m_graphicsBackend->EndFrame(currentWindow->resource.sdlWindow);
-                m_graphicsBackend->SwapWindow(currentWindow->resource.sdlWindow);
 
                 m_ownerRuntime->windowloop->endFrame();
             }

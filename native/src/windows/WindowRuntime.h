@@ -33,6 +33,12 @@ public:
     mutable std::mutex stateMutex;
     mutable std::mutex frameSyncMutex;
 
+    // Serializes all mutation of this window's ImGuiContext and SDL2 ImGui
+    // backend state across Main Thread event handling and UIRenderThread frames.
+    // This mutex is per-window so independent window contexts may still render
+    // concurrently. Never wait/join a worker or hold a manager mutex while held.
+    mutable std::mutex imguiMutex;
+
     WindowInfo info;
     WindowState state;
     WindowStyle style;
