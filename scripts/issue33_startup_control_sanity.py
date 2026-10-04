@@ -238,9 +238,9 @@ if cold_url_harness.is_file():
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
         "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy",
+        "EARLY_EOF_RETRY_EXHAUSTED is a startup failure",
         "reason=early_eof_before_first_frame",
         "Find-LastStartupIndex",
-        "extra PLAYBACK_RESTART loop observed",
         "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
         'Get-Process -Name "Im_player"',
@@ -315,6 +315,14 @@ if file_loaded_start >= 0 and idle_start > file_loaded_start:
         and "source=mpv_default" in file_loaded_body,
         "#33: inherited mpv-default autoplay evidence marker missing",
     )
+
+require(
+    "mpv_internal_seek_count = 0" in harness_text
+    and "Do not fail on the raw restart count alone" in harness_text
+    and "EARLY_EOF_RETRY_EXHAUSTED is a startup failure" in harness_text
+    and 'throw "extra PLAYBACK_RESTART loop observed count=$maxRestart"' not in harness_text,
+    "#33: harness must distinguish app-generated churn from healthy mpv-internal restarts",
+)
 
 require(
     "event=APP_SEEK_COMMAND" in command_cpp
