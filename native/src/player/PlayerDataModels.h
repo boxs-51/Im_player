@@ -169,7 +169,14 @@ struct PlaybackModel {
     PlaybackState state = PlaybackState::NoFile; 
     VideoType videoType = VideoType::None;
     bool isLoadingMedia = false; // Trạng thái loading của ứng dụng
-    double pendingseektime = 0.0;
+    // No pending seek is armed on a fresh/new media load. Only an explicit
+    // format/user action may set this to a non-negative target.
+    double pendingseektime = -1.0;
+
+    // #33 startup transaction identity. This is intentionally separate from
+    // the audio/video generation contract owned by #30.
+    uint64_t startupLoadId = 0;
+    uint32_t startupRestartCount = 0;
 
     MediaFormatsModel formats;
 
