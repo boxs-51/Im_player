@@ -800,6 +800,8 @@ else:
     issue26_longrun_harness = issue26_longrun_harness_path.read_text(
         encoding="utf-8"
     )
+    if "ULL" in issue26_longrun_harness:
+        fail("Issue #26: PowerShell long-run harness contains unsupported C/C++ integer suffix ULL")
     for token in (
         "PlaybackSeconds = 620",
         "WarmupSeconds = 10",

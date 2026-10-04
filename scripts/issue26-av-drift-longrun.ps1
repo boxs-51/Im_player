@@ -198,7 +198,7 @@ for ($i = 0; $i -lt $samples.Count; ++$i) {
 $allFirst = $samples[0]
 $allLast = $samples[$samples.Count - 1]
 $warmupCutoffUs =
-    $allFirst.TimeUs + ([uint64]$WarmupSeconds * 1000000ULL)
+    $allFirst.TimeUs + ([uint64]$WarmupSeconds * [uint64]1000000)
 $steadySamples = @($samples | Where-Object {
     $_.TimeUs -ge $warmupCutoffUs
 })
