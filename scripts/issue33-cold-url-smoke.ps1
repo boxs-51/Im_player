@@ -48,7 +48,7 @@ function Get-StartupLines([string]$Path) {
     if (-not (Test-Path $Path)) { return @() }
     return @(
         Get-Content -Path $Path |
-            Where-Object { $_ -like "[BRG5-DIAG] category=STARTUP*" }
+            Where-Object { $_ -match "^\\[BRG5-DIAG\\] category=STARTUP " }
     )
 }
 
