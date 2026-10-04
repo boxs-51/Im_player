@@ -232,6 +232,18 @@ void AudioOutputWorker::OutputLoop() {
             }
 
             // =========================================================================
+            // 2. GIỮ SDL QUEUE QUANH BOUNDED RESERVOIR TARGET
+            // =========================================================================
+            if (m_audioDevice && m_audioDevice->IsReady()) {
+                const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
+                updateQueueMetrics(queuedBytes);
+                if (queuedBytes >= kAudioOutputTargetQueueBytes) {
+                    std::this_thread::sleep_for(std::chrono::milliseconds(1));
+                    continue;
+                }
+            }
+
+            // =========================================================================
             // 3. TRUY CẤP RINGBUFFER DÀNH RIÊNG CHO CONSUMER & XỬ LÝ GENERATION (SEEK)
             // =========================================================================
             const AudioBlock* block = m_processedStream->acquire_read();
@@ -241,7 +253,15 @@ void AudioOutputWorker::OutputLoop() {
                     const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
                     updateQueueMetrics(queuedBytes);
                     if (hasQueuedAudio && queuedBytes == 0 && !queueEmptyLatched) {
-                        m_metrics.queueUnderflowEvents.fetch_add(1, std::memory_order_relaxed);
+                        const uint64_t underflowIndex =
+                            m_metrics.queueUnderflowEvents.fetch_add(
+                                1,
+                                std::memory_order_relaxed) + 1;
+                        EmitAudioTelemetryEvidence(
+                            "ERROR SDL_QUEUE_UNDERFLOW index=%llu action=rearm_prebuffer",
+                            static_cast<unsigned long long>(underflowIndex));
+                        m_audioDevice->FlushBuffers();
+                        hasQueuedAudio = false;
                         queueEmptyLatched = true;
                     } else if (queuedBytes > 0) {
                         queueEmptyLatched = false;

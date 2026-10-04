@@ -148,6 +148,13 @@ if ($LASTEXITCODE -ne 0) {
 }
 
 [string[]]$lines = @(Get-Content -Path $log | ForEach-Object { [string]$_ })
+$anchorLines = @($lines | Where-Object {
+    $_ -match '^\[AUDIO-TELEMETRY\] AUDIO_MEDIA_CLOCK_ANCHOR '
+})
+if ($anchorLines.Count -ne 1) {
+    throw "[ISSUE26-LONGRUN] expected exactly one independent audio media clock anchor actual=$($anchorLines.Count)"
+}
+
 $syncLines = @($lines | Where-Object {
     $_ -match '^\[AUDIO-TELEMETRY\] SYNC_SAMPLE '
 })

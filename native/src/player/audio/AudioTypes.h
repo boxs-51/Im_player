@@ -27,6 +27,25 @@ constexpr uint32_t kCanonicalAudioSampleRate = 48000;
 constexpr uint16_t kCanonicalAudioChannels = 2;
 constexpr size_t kCanonicalAudioBytesPerFrame =
     sizeof(float) * static_cast<size_t>(kCanonicalAudioChannels);
+constexpr uint32_t kCanonicalAudioBytesPerSecond =
+    kCanonicalAudioSampleRate *
+    static_cast<uint32_t>(kCanonicalAudioBytesPerFrame);
+
+// Issue #26 external SDL jitter reservoir.
+// Keep ~100 ms queued under steady playback. A single maximum AudioBlock can
+// add at most ~42.67 ms, so target + one block remains below 150 ms.
+constexpr uint32_t kAudioOutputTargetQueueMilliseconds = 100;
+constexpr uint32_t kAudioOutputTargetQueueBytes =
+    (kCanonicalAudioBytesPerSecond * kAudioOutputTargetQueueMilliseconds) / 1000;
+constexpr uint32_t kAudioOutputMaxBlockBytes =
+    static_cast<uint32_t>(kMaxAudioFrames * kCanonicalAudioBytesPerFrame);
+constexpr uint32_t kAudioOutputDesignMaxQueueMilliseconds = 150;
+constexpr uint32_t kAudioOutputDesignMaxQueueBytes =
+    (kCanonicalAudioBytesPerSecond * kAudioOutputDesignMaxQueueMilliseconds) / 1000;
+static_assert(
+    kAudioOutputTargetQueueBytes + kAudioOutputMaxBlockBytes <=
+        kAudioOutputDesignMaxQueueBytes,
+    "Issue #26 queue target plus one maximum block must remain <=150ms");
 
 /**
  * @struct AudioBlock

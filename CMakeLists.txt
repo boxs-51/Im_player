@@ -312,4 +312,21 @@ if(BUILD_TESTING)
         issue26_pcm_realtime_pacer_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(audio_media_clock_test
+        tests/audio_media_clock_test.cpp
+    )
+    target_include_directories(audio_media_clock_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_media_clock_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_media_clock_gate
+        COMMAND audio_media_clock_test
+    )
+    set_tests_properties(
+        issue26_audio_media_clock_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()

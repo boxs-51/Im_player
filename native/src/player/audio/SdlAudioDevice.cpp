@@ -78,12 +78,19 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
         return false;
     }
 
-    // Unpause thiết bị only after the obtained format is proven canonical.
-    SDL_PauseAudioDevice(devId, 0);
+    // SDL opens paused. Keep it paused until the queued-audio reservoir reaches
+    // the Issue #26 target, otherwise a just-in-time first block makes the
+    // external device vulnerable to scheduler jitter and repeated starvation.
+    m_playbackStarted.store(false, std::memory_order_relaxed);
 
     // Atomic store để luồng Worker thấy Device ID và trạng thái sẵn sàng
     m_deviceId.store(devId, std::memory_order_release);
     m_isReady.store(true, std::memory_order_release);
+
+    EmitAudioTelemetryEvidence(
+        "SDL_PREBUFFER_ARMED target_bytes=%u target_ms=%u",
+        kAudioOutputTargetQueueBytes,
+        kAudioOutputTargetQueueMilliseconds);
 
     LOG(1, LogLevel::Info, LogCategory::Audio,
         "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch, format=0x%04X)",
@@ -99,6 +106,7 @@ void SdlAudioDevice::Close() {
     std::lock_guard<std::mutex> lock(m_lifecycleMutex);
 
     m_isReady.store(false, std::memory_order_release);
+    m_playbackStarted.store(false, std::memory_order_relaxed);
 
     // Nhát cắt Atomic: Đặt m_deviceId = 0 trước. 
     // Mọi lệnh Write/GetQueued từ Worker thread gọi vào sau thời điểm này sẽ lập tức return safe!
@@ -141,13 +149,39 @@ void SdlAudioDevice::Write(const float* samples, size_t sampleCount) {
             "[SdlAudioDevice] SDL_QueueAudio failed: %s", SDL_GetError());
         // Đánh dấu thiết bị lỗi để Worker biết và kích hoạt Auto-Recovery
         m_isReady.store(false, std::memory_order_release);
+        return;
+    }
+
+    if (!m_playbackStarted.load(std::memory_order_relaxed)) {
+        const uint32_t queuedBytes = SDL_GetQueuedAudioSize(devId);
+        if (queuedBytes >= kAudioOutputTargetQueueBytes) {
+            bool expected = false;
+            if (m_playbackStarted.compare_exchange_strong(
+                    expected,
+                    true,
+                    std::memory_order_acq_rel,
+                    std::memory_order_relaxed)) {
+                SDL_PauseAudioDevice(devId, 0);
+                EmitAudioTelemetryEvidence(
+                    "SDL_PLAYBACK_STARTED queued_bytes=%u queued_ms=%.3f target_ms=%u",
+                    queuedBytes,
+                    1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                    kAudioOutputTargetQueueMilliseconds);
+            }
+        }
     }
 }
 
 void SdlAudioDevice::FlushBuffers() {
     SDL_AudioDeviceID devId = m_deviceId.load(std::memory_order_acquire);
     if (devId != 0) {
+        SDL_PauseAudioDevice(devId, 1);
         SDL_ClearQueuedAudio(devId);
+        m_playbackStarted.store(false, std::memory_order_relaxed);
+        EmitAudioTelemetryEvidence(
+            "SDL_PREBUFFER_REARMED target_bytes=%u target_ms=%u",
+            kAudioOutputTargetQueueBytes,
+            kAudioOutputTargetQueueMilliseconds);
     }
 }
 

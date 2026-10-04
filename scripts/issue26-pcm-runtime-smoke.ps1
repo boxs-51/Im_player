@@ -232,7 +232,8 @@ try {
             throw "[ISSUE26] runtime summary contains no audio progress case=$name marker=$summaryMarker"
         }
         if ($captureDropped -ne 0 -or $ringOverflows -ne 0 -or
-            $formatMismatch -ne 0 -or $writeFailures -ne 0) {
+            $formatMismatch -ne 0 -or $underflows -ne 0 -or
+            $writeFailures -ne 0) {
             throw "[ISSUE26] runtime summary reports loss/error case=$name marker=$summaryMarker"
         }
         if ($summaryCarryBytes -ge 8) {

@@ -695,6 +695,10 @@ if not (ROOT / "tests/audio_telemetry_math_test.cpp").is_file():
     fail("Issue #26: focused audio telemetry math test is missing")
 if not (ROOT / "native/src/player/audio/PcmRealtimePacer.h").is_file():
     fail("Issue #26: realtime PCM pacer is missing")
+if not (ROOT / "native/src/player/audio/AudioMediaClock.h").is_file():
+    fail("Issue #26: independent audio media clock is missing")
+if not (ROOT / "tests/audio_media_clock_test.cpp").is_file():
+    fail("Issue #26: synthetic audio media clock drift test is missing")
 if not (ROOT / "tests/pcm_realtime_pacer_test.cpp").is_file():
     fail("Issue #26: focused realtime pacer test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
@@ -703,6 +707,8 @@ if "issue26_audio_telemetry_math_gate" not in cmake_text:
     fail("Issue #26: focused telemetry math CTest is not registered")
 if "issue26_pcm_realtime_pacer_gate" not in cmake_text:
     fail("Issue #26: focused realtime pacer CTest is not registered")
+if "issue26_audio_media_clock_gate" not in cmake_text:
+    fail("Issue #26: synthetic audio media clock CTest is not registered")
 
 audio_telemetry_h = (
     ROOT / "native/src/player/audio/AudioTelemetry.h"
@@ -798,6 +804,7 @@ else:
         "issue26_generate_av_fixture.py",
         "fixture_container = \"AVI\"",
         "first SYNC_SAMPLE not observed within 20s",
+        "expected exactly one independent audio media clock anchor",
         "starting measured drift interval",
         "measured sync span below 600s",
         "insufficient sync samples",
@@ -837,6 +844,10 @@ if "sample_rate=%u channels=%u format=float32" not in audio_capture_cpp:
     fail("Issue #26: runtime AudioBlock format evidence missing")
 for token in (
     "PcmRealtimePacer realtimePacer;",
+    "AudioMediaClock mediaClock;",
+    "AUDIO_MEDIA_CLOCK_ANCHOR",
+    "mediaClock.CurrentPosition()",
+    "mediaClock.Advance",
     "realtimePacer.BeforePublish",
     "realtimePacer.OnPublished",
     "backpressureWaits",
@@ -846,6 +857,27 @@ for token in (
         ROOT / "native/src/player/audio/AudioCaptureManager.h"
     ).read_text(encoding="utf-8"):
         fail(f"Issue #26: capture pacing contract missing: {token}")
+
+for token in (
+    "kAudioOutputTargetQueueMilliseconds = 100",
+    "kAudioOutputTargetQueueBytes",
+    "kAudioOutputDesignMaxQueueMilliseconds = 150",
+):
+    if token not in audio_types_h:
+        fail(f"Issue #26: bounded output reservoir constant missing: {token}")
+
+for token in (
+    "SDL_PREBUFFER_ARMED",
+    "SDL_PLAYBACK_STARTED",
+    "SDL_PREBUFFER_REARMED",
+):
+    if token not in sdl_audio_cpp:
+        fail(f"Issue #26: SDL prebuffer contract missing: {token}")
+
+if "queuedBytes >= kAudioOutputTargetQueueBytes" not in audio_output_cpp:
+    fail("Issue #26: output queue target backpressure is missing")
+if "SDL_QUEUE_UNDERFLOW" not in audio_output_cpp:
+    fail("Issue #26: output underflow recovery evidence is missing")
 
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 

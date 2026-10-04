@@ -1,6 +1,7 @@
 #include "AudioCaptureManager.h"
 #include "PcmFrameAccumulator.h"
 #include "PcmRealtimePacer.h"
+#include "AudioMediaClock.h"
 #include "AudioTelemetry.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
@@ -289,6 +290,7 @@ void AudioCaptureManager::CaptureLoop() {
 
             PcmFrameAccumulator accumulator;
             PcmRealtimePacer realtimePacer;
+            AudioMediaClock mediaClock;
             std::array<std::uint8_t, PcmFrameAccumulator::kReadCapacity> readBuffer{};
             bool firstPayloadLogged = false;
             bool firstPacingDelayLogged = false;
@@ -302,6 +304,7 @@ void AudioCaptureManager::CaptureLoop() {
                         m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
                     }
                     realtimePacer.Reset();
+                    mediaClock.Reset();
                 }
 
                 if (accumulator.ReadyFrames() == 0) {
@@ -477,13 +480,25 @@ void AudioCaptureManager::CaptureLoop() {
                 if (isSeeking && !m_wasSeeking) {
                     m_activeGeneration++;
                     realtimePacer.Reset();
+                    mediaClock.Reset();
                     EmitAudioTelemetryEvidence(
                         "PCM_PACER_RESET reason=seek generation=%llu",
+                        static_cast<unsigned long long>(m_activeGeneration));
+                    EmitAudioTelemetryEvidence(
+                        "AUDIO_MEDIA_CLOCK_RESET reason=seek generation=%llu",
                         static_cast<unsigned long long>(m_activeGeneration));
                 }
                 m_wasSeeking = isSeeking;
 
-                m_currentPts = timepos;
+                if (!mediaClock.IsAnchored()) {
+                    mediaClock.Anchor(timepos);
+                    EmitAudioTelemetryEvidence(
+                        "AUDIO_MEDIA_CLOCK_ANCHOR generation=%llu anchor_pts=%.6f reference=mpv_time_pos advancement=canonical_frame_count",
+                        static_cast<unsigned long long>(m_activeGeneration),
+                        mediaClock.AnchorPts());
+                }
+
+                m_currentPts = mediaClock.CurrentPosition();
 
                 writeSlot->format.sampleRate = kCanonicalAudioSampleRate;
                 writeSlot->format.channels = kCanonicalAudioChannels;
@@ -493,10 +508,8 @@ void AudioCaptureManager::CaptureLoop() {
                 writeSlot->generation = m_activeGeneration;
                 writeSlot->pts = m_currentPts;
 
-                const double blockDuration =
-                    static_cast<double>(writeSlot->frames) /
-                    static_cast<double>(kCanonicalAudioSampleRate);
-                m_currentPts += blockDuration;
+                mediaClock.Advance(writeSlot->frames);
+                m_currentPts = mediaClock.CurrentPosition();
 
                 m_metrics.blocksReceived.fetch_add(1, std::memory_order_relaxed);
                 m_metrics.lastSequence.store(writeSlot->sequence, std::memory_order_relaxed);
