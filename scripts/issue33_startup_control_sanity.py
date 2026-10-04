@@ -244,6 +244,10 @@ if cold_url_harness.is_file():
         "reason=early_terminal_before_first_frame",
         "cause=(eof|nothing_to_play)",
         "Find-LastStartupIndex",
+        "Find-StartupIndexAtOrAfter",
+        "final startup attempt",
+        "bounded startup retry occurred after FIRST_VIDEO_FRAME",
+        "combinedFinalAttemptStart",
         "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
         'Get-Process -Name "Im_player"',
@@ -318,6 +322,13 @@ if file_loaded_start >= 0 and idle_start > file_loaded_start:
         and "source=mpv_default" in file_loaded_body,
         "#33: inherited mpv-default autoplay evidence marker missing",
     )
+
+require(
+    "expected exactly one VIDEO_EVIDENCE_ARM marker in final startup attempt" in harness_text
+    and "expected exactly one FIRST_VIDEO_FRAME marker in final startup attempt" in harness_text
+    and "combinedFinalAttemptStart" in harness_text,
+    "#33: retry-aware video evidence must validate only the final startup attempt",
+)
 
 require(
     "mpv_internal_seek_count = 0" in harness_text
