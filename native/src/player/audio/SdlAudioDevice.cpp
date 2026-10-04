@@ -1,4 +1,5 @@
 #include "SdlAudioDevice.h"
+#include "AudioTelemetry.h"
 #include "log.h"
 #include <iostream>
 
@@ -46,6 +47,15 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
         return false;
     }
 
+    EmitAudioTelemetryEvidence(
+        "SDL_FORMAT requested_rate=%d requested_channels=%u requested_format=0x%04X obtained_rate=%d obtained_channels=%u obtained_format=0x%04X",
+        desiredSpec.freq,
+        static_cast<unsigned int>(desiredSpec.channels),
+        static_cast<unsigned int>(AUDIO_F32SYS),
+        obtainedSpec.freq,
+        static_cast<unsigned int>(obtainedSpec.channels),
+        static_cast<unsigned int>(obtainedSpec.format));
+
     if (obtainedSpec.freq != desiredSpec.freq ||
         obtainedSpec.format != AUDIO_F32SYS ||
         obtainedSpec.channels != desiredSpec.channels) {
@@ -57,6 +67,12 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
             obtainedSpec.freq,
             static_cast<unsigned int>(obtainedSpec.channels),
             static_cast<unsigned int>(obtainedSpec.format));
+        EmitAudioTelemetryEvidence(
+            "ERROR SDL_FORMAT_REJECT expected_rate=%d expected_channels=%u obtained_rate=%d obtained_channels=%u",
+            desiredSpec.freq,
+            static_cast<unsigned int>(desiredSpec.channels),
+            obtainedSpec.freq,
+            static_cast<unsigned int>(obtainedSpec.channels));
         SDL_CloseAudioDevice(devId);
         m_isReady.store(false, std::memory_order_release);
         return false;

@@ -250,6 +250,11 @@ void AudioOutputWorker::OutputLoop() {
                     static_cast<unsigned long long>(processedBlockMicros),
                     block->pts,
                     block->frames);
+                EmitAudioTelemetryEvidence(
+                    "FIRST_PROCESSED_BLOCK t_us=%llu pts=%.6f frames=%u",
+                    static_cast<unsigned long long>(processedBlockMicros),
+                    block->pts,
+                    block->frames);
             }
 
             if (block->format.sampleRate != kCanonicalAudioSampleRate ||
@@ -258,6 +263,11 @@ void AudioOutputWorker::OutputLoop() {
                 m_metrics.blocksDroppedFormatMismatch.fetch_add(1, std::memory_order_relaxed);
                 LOG(1, LogLevel::Error, LogCategory::Audio,
                     "[AudioOutputWorker] Dropping block with non-canonical format: rate=%u channels=%u format=%u",
+                    block->format.sampleRate,
+                    static_cast<unsigned int>(block->format.channels),
+                    static_cast<unsigned int>(block->format.format));
+                EmitAudioTelemetryEvidence(
+                    "ERROR FORMAT_MISMATCH rate=%u channels=%u format=%u",
                     block->format.sampleRate,
                     static_cast<unsigned int>(block->format.channels),
                     static_cast<unsigned int>(block->format.format));
@@ -334,6 +344,11 @@ void AudioOutputWorker::OutputLoop() {
                                 static_cast<unsigned long long>(sdlWriteMicros),
                                 lastWrittenPts,
                                 lastWrittenEndPts);
+                            EmitAudioTelemetryEvidence(
+                                "FIRST_SDL_WRITE t_us=%llu pts=%.6f end_pts=%.6f",
+                                static_cast<unsigned long long>(sdlWriteMicros),
+                                lastWrittenPts,
+                                lastWrittenEndPts);
                         }
 
                         if (queuedBytes > 0) {
@@ -343,6 +358,16 @@ void AudioOutputWorker::OutputLoop() {
                                     nonzeroQueueMicros)) {
                                 LOG(1, LogLevel::Info, LogCategory::Audio,
                                     "[AUDIO_TIMELINE] FIRST_NONZERO_SDL_QUEUE t_us=%llu queued_bytes=%u queued_ms=%.3f last_written_pts=%.6f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
+                                    static_cast<unsigned long long>(nonzeroQueueMicros),
+                                    queuedBytes,
+                                    1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                    lastWrittenPts,
+                                    lastWrittenEndPts,
+                                    audibleHead,
+                                    mpvTimePos,
+                                    avOffset);
+                                EmitAudioTelemetryEvidence(
+                                    "FIRST_NONZERO_SDL_QUEUE t_us=%llu queued_bytes=%u queued_ms=%.3f last_written_pts=%.6f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
                                     static_cast<unsigned long long>(nonzeroQueueMicros),
                                     queuedBytes,
                                     1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),

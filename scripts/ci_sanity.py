@@ -695,6 +695,35 @@ if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
 if "issue26_audio_telemetry_math_gate" not in cmake_text:
     fail("Issue #26: focused telemetry math CTest is not registered")
 
+audio_telemetry_h = (
+    ROOT / "native/src/player/audio/AudioTelemetry.h"
+).read_text(encoding="utf-8")
+for token in (
+    "[AUDIO-TELEMETRY]",
+    "IM_PLAYER_LIFECYCLE_LOG",
+    "AudioTelemetryEvidenceMutex",
+):
+    if token not in audio_telemetry_h:
+        fail(f"Issue #26: durable audio telemetry evidence sink missing: {token}")
+
+issue26_runtime_harness = (
+    ROOT / "scripts/issue26-pcm-runtime-smoke.ps1"
+).read_text(encoding="utf-8")
+for token in (
+    "44100-mono",
+    "44100-stereo",
+    "48000-mono",
+    "48000-stereo",
+    "FIRST_NONZERO_SDL_QUEUE",
+    "startup timeline order invalid",
+    "telemetry_error_count",
+):
+    if token not in issue26_runtime_harness:
+        fail(f"Issue #26: runtime normalization harness contract missing: {token}")
+
+if not (ROOT / "scripts/issue26_generate_pcm_fixture.py").is_file():
+    fail("Issue #26: normalization fixture generator is missing")
+
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 
 # BRG-5 lifecycle evidence contract.

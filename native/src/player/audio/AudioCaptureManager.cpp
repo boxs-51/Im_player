@@ -42,6 +42,11 @@ bool AudioCaptureManager::SetRequiredMpvProperty(const char* name, const char* v
 
     LOG(1, LogLevel::Info, LogCategory::Audio,
         "[AudioCaptureManager] PCM transport property: %s=%s", name, value);
+    EmitAudioTelemetryEvidence(
+        "MPV_PROPERTY_SET name=%s value=%s result=%d",
+        name,
+        value,
+        result);
     return true;
 }
 
@@ -55,6 +60,10 @@ void AudioCaptureManager::LogEffectiveMpvProperty(const char* name) const {
 
     LOG(1, LogLevel::Info, LogCategory::Audio,
         "[AudioCaptureManager] Effective MPV audio property: %s=%s", name, value);
+    EmitAudioTelemetryEvidence(
+        "MPV_PROPERTY_EFFECTIVE name=%s value=%s",
+        name,
+        value);
     mpv_free(value);
 }
 
@@ -254,6 +263,9 @@ void AudioCaptureManager::CaptureLoop() {
                 LOG(1, LogLevel::Info, LogCategory::Audio,
                     "[AUDIO_TIMELINE] PIPE_CONNECTED t_us=%llu",
                     static_cast<unsigned long long>(pipeConnectedMicros));
+                EmitAudioTelemetryEvidence(
+                    "PIPE_CONNECTED t_us=%llu",
+                    static_cast<unsigned long long>(pipeConnectedMicros));
             }
 
             LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
@@ -308,6 +320,10 @@ void AudioCaptureManager::CaptureLoop() {
                             "[AUDIO_TIMELINE] FIRST_PIPE_BYTES t_us=%llu bytes=%lu",
                             static_cast<unsigned long long>(pipeBytesMicros),
                             static_cast<unsigned long>(bytesRead));
+                        EmitAudioTelemetryEvidence(
+                            "FIRST_PIPE_BYTES t_us=%llu bytes=%lu",
+                            static_cast<unsigned long long>(pipeBytesMicros),
+                            static_cast<unsigned long>(bytesRead));
                     }
 
                     if (!firstPayloadLogged) {
@@ -325,12 +341,20 @@ void AudioCaptureManager::CaptureLoop() {
                         LOG(1, LogLevel::Info, LogCategory::Audio,
                             "[AudioCaptureManager] First raw PCM payload bytes=%lu preview=[%s] contract=float32/48000/stereo/raw",
                             static_cast<unsigned long>(bytesRead), preview);
+                        EmitAudioTelemetryEvidence(
+                            "FIRST_RAW_PCM_PAYLOAD bytes=%lu preview=[%s] contract=float32/48000/stereo/raw",
+                            static_cast<unsigned long>(bytesRead),
+                            preview);
                         firstPayloadLogged = true;
                     }
 
                     if (!accumulator.Append(readBuffer.data(), bytesRead)) {
                         LOG(1, LogLevel::Error, LogCategory::Audio,
                             "[AudioCaptureManager] PCM byte accumulator overflow; refusing ambiguous framing.");
+                        EmitAudioTelemetryEvidence(
+                            "ERROR PCM_ACCUMULATOR_OVERFLOW pending_bytes=%llu append_bytes=%lu",
+                            static_cast<unsigned long long>(accumulator.PendingBytes()),
+                            static_cast<unsigned long>(bytesRead));
                         break;
                     }
 
@@ -377,6 +401,11 @@ void AudioCaptureManager::CaptureLoop() {
                         completeBlockMicros)) {
                     LOG(1, LogLevel::Info, LogCategory::Audio,
                         "[AUDIO_TIMELINE] FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu",
+                        static_cast<unsigned long long>(completeBlockMicros),
+                        frames,
+                        static_cast<unsigned long long>(carryBytes));
+                    EmitAudioTelemetryEvidence(
+                        "FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu",
                         static_cast<unsigned long long>(completeBlockMicros),
                         frames,
                         static_cast<unsigned long long>(carryBytes));
