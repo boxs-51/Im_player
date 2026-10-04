@@ -122,6 +122,18 @@ AudioOutputMetrics AudioOutputWorker::GetMetrics() const {
         m_metrics.estimatedAudibleHeadPts.load(std::memory_order_relaxed);
     snapshot.estimatedAvOffsetSeconds =
         m_metrics.estimatedAvOffsetSeconds.load(std::memory_order_relaxed);
+    snapshot.syncSampleCount =
+        m_metrics.syncSampleCount.load(std::memory_order_relaxed);
+    snapshot.firstSyncSampleMicros =
+        m_metrics.firstSyncSampleMicros.load(std::memory_order_relaxed);
+    snapshot.lastSyncSampleMicros =
+        m_metrics.lastSyncSampleMicros.load(std::memory_order_relaxed);
+    snapshot.firstSyncAvOffsetSeconds =
+        m_metrics.firstSyncAvOffsetSeconds.load(std::memory_order_relaxed);
+    snapshot.lastSyncAvOffsetSeconds =
+        m_metrics.lastSyncAvOffsetSeconds.load(std::memory_order_relaxed);
+    snapshot.maxAbsAvOffsetSeconds =
+        m_metrics.maxAbsAvOffsetSeconds.load(std::memory_order_relaxed);
     snapshot.sampleRate = kCanonicalAudioSampleRate;
     snapshot.channels = kCanonicalAudioChannels;
     return snapshot;
@@ -161,6 +173,9 @@ void AudioOutputWorker::OutputLoop() {
     auto lastDeviceRetryTime = std::chrono::steady_clock::now();
     bool hasQueuedAudio = false;
     bool queueEmptyLatched = false;
+    std::uint64_t lastSyncEvidenceMicros = 0;
+    std::uint64_t syncSampleIndex = 0;
+    constexpr std::uint64_t kSyncEvidenceIntervalMicros = 5'000'000ULL;
 
     const auto updateQueueMetrics = [this](uint32_t queuedBytes) {
         m_metrics.queuedBytes.store(queuedBytes, std::memory_order_relaxed);
@@ -335,6 +350,17 @@ void AudioOutputWorker::OutputLoop() {
                         m_metrics.estimatedAudibleHeadPts.store(audibleHead, std::memory_order_relaxed);
                         m_metrics.estimatedAvOffsetSeconds.store(avOffset, std::memory_order_relaxed);
 
+                        const double absAvOffset = std::fabs(avOffset);
+                        double previousMax =
+                            m_metrics.maxAbsAvOffsetSeconds.load(std::memory_order_relaxed);
+                        while (absAvOffset > previousMax &&
+                               !m_metrics.maxAbsAvOffsetSeconds.compare_exchange_weak(
+                                   previousMax,
+                                   absAvOffset,
+                                   std::memory_order_relaxed,
+                                   std::memory_order_relaxed)) {
+                        }
+
                         const std::uint64_t sdlWriteMicros = AudioTelemetryNowMicros();
                         if (RecordFirstAudioTelemetry(
                                 m_metrics.firstSdlWriteMicros,
@@ -349,6 +375,43 @@ void AudioOutputWorker::OutputLoop() {
                                 static_cast<unsigned long long>(sdlWriteMicros),
                                 lastWrittenPts,
                                 lastWrittenEndPts);
+                        }
+
+                        if (lastSyncEvidenceMicros == 0 ||
+                            sdlWriteMicros - lastSyncEvidenceMicros >=
+                                kSyncEvidenceIntervalMicros) {
+                            ++syncSampleIndex;
+                            lastSyncEvidenceMicros = sdlWriteMicros;
+
+                            if (syncSampleIndex == 1) {
+                                m_metrics.firstSyncSampleMicros.store(
+                                    sdlWriteMicros,
+                                    std::memory_order_relaxed);
+                                m_metrics.firstSyncAvOffsetSeconds.store(
+                                    avOffset,
+                                    std::memory_order_relaxed);
+                            }
+
+                            m_metrics.syncSampleCount.store(
+                                syncSampleIndex,
+                                std::memory_order_relaxed);
+                            m_metrics.lastSyncSampleMicros.store(
+                                sdlWriteMicros,
+                                std::memory_order_relaxed);
+                            m_metrics.lastSyncAvOffsetSeconds.store(
+                                avOffset,
+                                std::memory_order_relaxed);
+
+                            EmitAudioTelemetryEvidence(
+                                "SYNC_SAMPLE index=%llu t_us=%llu queued_bytes=%u queued_ms=%.3f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
+                                static_cast<unsigned long long>(syncSampleIndex),
+                                static_cast<unsigned long long>(sdlWriteMicros),
+                                queuedBytes,
+                                1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                lastWrittenEndPts,
+                                audibleHead,
+                                mpvTimePos,
+                                avOffset);
                         }
 
                         if (queuedBytes > 0) {

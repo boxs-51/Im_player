@@ -100,6 +100,12 @@ struct AudioOutputMetrics {
     double mpvTimePos = 0.0;
     double estimatedAudibleHeadPts = 0.0;
     double estimatedAvOffsetSeconds = 0.0;
+    uint64_t syncSampleCount = 0;
+    uint64_t firstSyncSampleMicros = 0;
+    uint64_t lastSyncSampleMicros = 0;
+    double firstSyncAvOffsetSeconds = 0.0;
+    double lastSyncAvOffsetSeconds = 0.0;
+    double maxAbsAvOffsetSeconds = 0.0;
     uint32_t sampleRate = kCanonicalAudioSampleRate;
     uint16_t channels = kCanonicalAudioChannels;
 };

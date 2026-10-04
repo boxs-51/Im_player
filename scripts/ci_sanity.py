@@ -680,6 +680,9 @@ for token in (
     "[AUDIO_TIMELINE] FIRST_NONZERO_SDL_QUEUE",
     "estimatedAudibleHeadPts",
     "estimatedAvOffsetSeconds",
+    "SYNC_SAMPLE index=",
+    "syncSampleCount",
+    "maxAbsAvOffsetSeconds",
 ):
     if token not in audio_output_cpp and token not in audio_output_h:
         fail(f"Issue #26: output startup/sync telemetry missing: {token}")
@@ -737,6 +740,29 @@ for token in (
 if not (ROOT / "scripts/issue26_generate_pcm_fixture.py").is_file():
     fail("Issue #26: normalization fixture generator is missing")
 
+issue26_longrun_harness_path = ROOT / "scripts/issue26-av-drift-longrun.ps1"
+if not issue26_longrun_harness_path.is_file():
+    fail("Issue #26: >=10-minute A/V drift harness is missing")
+else:
+    issue26_longrun_harness = issue26_longrun_harness_path.read_text(
+        encoding="utf-8"
+    )
+    for token in (
+        "PlaybackSeconds = 610",
+        "measured sync span below 600s",
+        "insufficient sync samples",
+        "max absolute A/V offset exceeded 500ms",
+        "10-minute A/V drift delta exceeded 250ms",
+        "periodic SDL queue exceeded 150ms",
+        "capture_dropped",
+        "ring_overflows",
+        "format_mismatch",
+        "write_failures",
+        "ISSUE26-AV-DRIFT-LONGRUN-v1",
+    ):
+        if token not in issue26_longrun_harness:
+            fail(f"Issue #26: long-run drift contract missing: {token}")
+
 audio_cpp = (ROOT / "native/src/player/audio/Audio.cpp").read_text(
     encoding="utf-8"
 )
@@ -746,6 +772,13 @@ if "[AUDIO-TELEMETRY]" not in (
     fail("Issue #26: audio telemetry evidence prefix missing")
 if "SUMMARY capture_blocks=" not in audio_cpp:
     fail("Issue #26: end-of-run audio telemetry summary missing")
+for token in (
+    "sync_samples=%llu",
+    "max_abs_av_offset_s=%.6f",
+    "snapshot_phase=shutdown_entry",
+):
+    if token not in audio_cpp:
+        fail(f"Issue #26: long-run summary field missing: {token}")
 if "sample_rate=%u channels=%u format=float32" not in audio_capture_cpp:
     fail("Issue #26: runtime AudioBlock format evidence missing")
 for token in (

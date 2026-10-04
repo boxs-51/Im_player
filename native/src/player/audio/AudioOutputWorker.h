@@ -34,6 +34,12 @@ struct AudioOutputMetricsAtomic {
     std::atomic<double> mpvTimePos{0.0};
     std::atomic<double> estimatedAudibleHeadPts{0.0};
     std::atomic<double> estimatedAvOffsetSeconds{0.0};
+    std::atomic<uint64_t> syncSampleCount{0};
+    std::atomic<uint64_t> firstSyncSampleMicros{0};
+    std::atomic<uint64_t> lastSyncSampleMicros{0};
+    std::atomic<double> firstSyncAvOffsetSeconds{0.0};
+    std::atomic<double> lastSyncAvOffsetSeconds{0.0};
+    std::atomic<double> maxAbsAvOffsetSeconds{0.0};
 };
 
 /**
