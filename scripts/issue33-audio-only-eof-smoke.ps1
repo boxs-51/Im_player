@@ -44,32 +44,38 @@ try {
     $quotedFixture = "`"$fixture`""
     $p = Start-Process -FilePath $exe -ArgumentList $quotedFixture -WorkingDirectory $root -PassThru
 
-    $deadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
-    $endObserved = $false
-    while ([DateTime]::UtcNow -lt $deadline) {
+    $startupDeadline = [DateTime]::UtcNow.AddSeconds($TimeoutSeconds)
+    $mediaStartedObserved = $false
+    while ([DateTime]::UtcNow -lt $startupDeadline) {
         $p.Refresh()
         if ($p.HasExited) {
-            throw "[ISSUE-33-AUDIO-EOF] process exited before normal EOF, exitCode=$($p.ExitCode)"
+            throw "[ISSUE-33-AUDIO-EOF] process exited before audio startup, exitCode=$($p.ExitCode)"
         }
 
         if (Test-Path $logPath) {
             $text = Get-Content -Path $logPath -Raw -ErrorAction SilentlyContinue
-            if ($text -match "event=END_FILE load_id=1 ") {
-                $endObserved = $true
+            if ($text -match "event=STARTUP_MEDIA_STARTED load_id=1 .*source=audio_pcm") {
+                $mediaStartedObserved = $true
                 break
             }
         }
         Start-Sleep -Milliseconds 200
     }
 
-    if (-not $endObserved) {
-        throw "[ISSUE-33-AUDIO-EOF] timed out waiting for normal END_FILE"
+    if (-not $mediaStartedObserved) {
+        throw "[ISSUE-33-AUDIO-EOF] timed out waiting for audio media-start boundary"
     }
 
-    Start-Sleep -Milliseconds 500
-    $p.Refresh()
-    if ($p.HasExited) {
-        throw "[ISSUE-33-AUDIO-EOF] player did not remain alive after normal EOF"
+    # Cross the known deterministic fixture duration. With historical
+    # keep-open semantics restored after startup, mpv may stay loaded/paused
+    # instead of emitting END_FILE immediately, so END_FILE itself is optional.
+    $eofHorizon = [DateTime]::UtcNow.AddSeconds($FixtureSeconds + 2)
+    while ([DateTime]::UtcNow -lt $eofHorizon) {
+        $p.Refresh()
+        if ($p.HasExited) {
+            throw "[ISSUE-33-AUDIO-EOF] process exited before normal EOF horizon, exitCode=$($p.ExitCode)"
+        }
+        Start-Sleep -Milliseconds 200
     }
 
     $evidence = Get-Content -Path $logPath -Raw
@@ -80,8 +86,9 @@ try {
     if ($evidence -notmatch "event=STARTUP_KEEP_OPEN_RESTORE load_id=1 .*result=0") {
         throw "[ISSUE-33-AUDIO-EOF] startup keep-open override was not restored"
     }
-    if ($evidence -notmatch "event=END_FILE load_id=1 .*startup_media_started=1") {
-        throw "[ISSUE-33-AUDIO-EOF] normal EOF did not retain media-started state"
+    if ($evidence -match "event=END_FILE load_id=1 " -and
+        $evidence -notmatch "event=END_FILE load_id=1 .*startup_media_started=1") {
+        throw "[ISSUE-33-AUDIO-EOF] observed END_FILE lost media-started state"
     }
     if ($evidence -match "event=FIRST_VIDEO_FRAME ") {
         throw "[ISSUE-33-AUDIO-EOF] WAV fixture unexpectedly produced video evidence"
