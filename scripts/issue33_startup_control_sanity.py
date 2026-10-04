@@ -50,11 +50,12 @@ require(
 )
 require(
     "m.pendingseektime = -1.0;" in command_cpp
+    and "m.videoType = VideoType::None;" in command_cpp
     and "m.startupLoadId += 1;" in command_cpp
     and "m.startupLoadedLoadId = 0;" in command_cpp
     and "m.startupVideoEvidenceLoadId = 0;" in command_cpp
     and "m.startupVideoEvidenceArmed = false;" in command_cpp,
-    "#33: direct LoadFile must reset stale seek/evidence state and advance startup load id",
+    "#33: direct LoadFile must reset stale seek/source/evidence state and advance startup load id",
 )
 require(
     "Uint64 lastSeekRequestTime = 0;" in command_cpp,
@@ -209,7 +210,7 @@ if cold_url_harness.is_file():
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "DYNAMIC_CONFIG_DEFER",
         "YTDL_FORMAT_DISCOVERED",
-        "dynamic config boundary must choose exactly one post-FILE_LOADED path",
+        "cold URL active load must not apply source-specific dynamic config after FILE_LOADED",
         "issue33-summary.json",
         '^\\[BRG5-DIAG\\] category=STARTUP ',
         "-WorkingDirectory $root",
@@ -263,16 +264,9 @@ if build_all_start >= 0 and handle_ytdl_start > build_all_start:
     )
 
 require(
-    'if (videotype == VideoType::None)' in observer_cpp
-    and "event=DYNAMIC_CONFIG_DEFER" in observer_cpp
-    and "reason=source_type_unknown" in observer_cpp,
-    "#33: unknown source type must defer active-load dynamic MPV config",
-)
-none_guard = observer_cpp.find("if (videotype == VideoType::None)")
-dynamic_apply = observer_cpp.find("ApplyDynamicMPVConfig(m_mpv, videotype)", none_guard)
-require(
-    none_guard >= 0 and dynamic_apply > none_guard,
-    "#33: dynamic MPV config must remain behind the known-source guard",
+    "event=DYNAMIC_CONFIG_DEFER" in observer_cpp
+    and "reason=active_load_frozen" in observer_cpp,
+    "#33: active cold-load transaction must freeze source-specific dynamic MPV config",
 )
 
 file_loaded_start = observer_cpp.find("case MPV_EVENT_FILE_LOADED")
@@ -283,6 +277,10 @@ require(
 )
 if file_loaded_start >= 0 and idle_start > file_loaded_start:
     file_loaded_body = observer_cpp[file_loaded_start:idle_start]
+    require(
+        "ApplyDynamicMPVConfig(m_mpv, videotype)" not in file_loaded_body,
+        "#33: FILE_LOADED must not mutate source-specific dynamic MPV config",
+    )
     require(
         "m_commander.Play();" not in file_loaded_body,
         "#33: FILE_LOADED must not inject redundant pause=false autoplay mutation",
@@ -297,6 +295,11 @@ require(
     "event=APP_SEEK_COMMAND" in command_cpp
     and 'const char* cmd[] = { "seek", buffer, "absolute", nullptr };' in command_cpp,
     "#33: every C++ app-issued seek must be attributable in startup evidence",
+)
+require(
+    "event=MPV_LOG" in observer_cpp
+    and 'prefix=%s level=%s text=%.320s' in observer_cpp,
+    "#33: startup mpv/ytdl/demux log attribution missing",
 )
 
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
