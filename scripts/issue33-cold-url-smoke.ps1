@@ -34,6 +34,16 @@ $shortSha = $commit.Substring(0, [Math]::Min(12, $commit.Length))
 $outDir = Join-Path $root "artifacts\issue33\cold-url\$($Configuration.ToLowerInvariant())-$shortSha"
 New-Item -ItemType Directory -Force $outDir | Out-Null
 
+function Assert-NoExistingImPlayer {
+    $existing = @(Get-Process -Name "Im_player" -ErrorAction SilentlyContinue)
+    if ($existing.Count -gt 0) {
+        $pids = ($existing | ForEach-Object { $_.Id }) -join ","
+        throw "[ISSUE-33] precondition failed: existing Im_player process detected pid=$pids. Close all Im_player.exe instances before cold-start validation."
+    }
+}
+
+Assert-NoExistingImPlayer
+
 $summary = [ordered]@{
     schema = "ISSUE33-COLD-URL-v1"
     commit = $commit
@@ -60,6 +70,7 @@ function Find-StartupIndex([string[]]$Lines, [string]$Token) {
 }
 
 for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
+    Assert-NoExistingImPlayer
     $logPath = Join-Path $outDir ("run-{0:D2}.log" -f $iteration)
     if (Test-Path $logPath) { Remove-Item -Force $logPath }
 
