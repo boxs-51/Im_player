@@ -799,6 +799,8 @@ else:
         "fixture_container = \"AVI\"",
         "measured sync span below 600s",
         "insufficient sync samples",
+        "non-sequential sync index",
+        "non-monotonic sync timestamp",
         "max absolute A/V offset exceeded 500ms",
         "per-write max absolute A/V offset exceeded 500ms",
         "10-minute A/V drift delta exceeded 250ms",
@@ -806,6 +808,7 @@ else:
         "capture_dropped",
         "ring_overflows",
         "format_mismatch",
+        "underflows",
         "write_failures",
         "ISSUE26-AV-DRIFT-LONGRUN-v1",
     ):

@@ -147,6 +147,16 @@ foreach ($line in $syncLines) {
     }
 }
 
+for ($i = 0; $i -lt $samples.Count; ++$i) {
+    $expectedIndex = [uint64]($i + 1)
+    if ($samples[$i].Index -ne $expectedIndex) {
+        throw "[ISSUE26-LONGRUN] non-sequential sync index position=$i expected=$expectedIndex actual=$($samples[$i].Index)"
+    }
+    if ($i -gt 0 -and $samples[$i].TimeUs -le $samples[$i - 1].TimeUs) {
+        throw "[ISSUE26-LONGRUN] non-monotonic sync timestamp position=$i previous=$($samples[$i - 1].TimeUs) actual=$($samples[$i].TimeUs)"
+    }
+}
+
 $first = $samples[0]
 $last = $samples[$samples.Count - 1]
 $spanSeconds = ([double]($last.TimeUs - $first.TimeUs)) / 1000000.0
@@ -192,6 +202,7 @@ foreach ($required in @(
     "capture_dropped",
     "ring_overflows",
     "format_mismatch",
+    "underflows",
     "write_failures",
     "queue_high_water_bytes",
     "sync_samples",
@@ -210,6 +221,7 @@ foreach ($required in @(
 if ([uint64]$summary["capture_dropped"] -ne 0 -or
     [uint64]$summary["ring_overflows"] -ne 0 -or
     [uint64]$summary["format_mismatch"] -ne 0 -or
+    [uint64]$summary["underflows"] -ne 0 -or
     [uint64]$summary["write_failures"] -ne 0) {
     throw "[ISSUE26-LONGRUN] SUMMARY reports audio loss/error marker=$summaryLine"
 }
@@ -272,6 +284,7 @@ $result = [ordered]@{
     capture_dropped = [uint64]$summary["capture_dropped"]
     ring_overflows = [uint64]$summary["ring_overflows"]
     format_mismatch = [uint64]$summary["format_mismatch"]
+    underflows = [uint64]$summary["underflows"]
     write_failures = [uint64]$summary["write_failures"]
     snapshot_phase = [string]$summary["snapshot_phase"]
     result = "PASS"
