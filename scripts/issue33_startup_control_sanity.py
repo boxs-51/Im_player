@@ -22,6 +22,7 @@ audio_telemetry_h = (ROOT / "native/src/player/audio/AudioTelemetry.h").read_tex
 render_thread_cpp = (ROOT / "native/src/player/render/PlayBackRenderThread.cpp").read_text(encoding="utf-8")
 render_thread_h = (ROOT / "native/src/player/render/PlayBackRenderThread.h").read_text(encoding="utf-8")
 render_h = (ROOT / "native/src/player/render/PlayBackRender.h").read_text(encoding="utf-8")
+format_ytdlp_cpp = (ROOT / "native/src/player/event/BuildFormatYTDLP.cpp").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -238,6 +239,24 @@ require(
     and "FIRST_NONZERO_SDL_QUEUE" in harness_text,
     "#33: combined live evidence polling contract missing",
 )
+
+build_all_start = format_ytdlp_cpp.find("void PlaybackObserver::BuildAllFormats")
+handle_ytdl_start = format_ytdlp_cpp.find("void PlaybackObserver::HandleYTDLLog")
+require(
+    build_all_start >= 0 and handle_ytdl_start > build_all_start,
+    "#33: BuildAllFormats/HandleYTDLLog boundaries missing",
+)
+if build_all_start >= 0 and handle_ytdl_start > build_all_start:
+    build_all_body = format_ytdlp_cpp[build_all_start:handle_ytdl_start]
+    require(
+        'SetPropertyString("ytdl-format"' not in build_all_body,
+        "#33: yt-dlp metadata discovery must not mutate ytdl-format during the active load",
+    )
+    require(
+        "event=YTDL_FORMAT_DISCOVERED" in build_all_body
+        and "action=defer_current_load" in build_all_body,
+        "#33: deferred ytdl-format discovery evidence contract missing",
+    )
 
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
 seek_request_index = observer_cpp.find("event=SEEK_REQUEST")
