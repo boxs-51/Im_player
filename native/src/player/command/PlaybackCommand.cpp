@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <string>
 #include <log.h>
+#include "common/LifecycleEvidence.h"
 
 PlaybackCommand::PlaybackCommand(Player& player, PlayerStateSystem& state) : m_player(player), m_state(state) {}
 
@@ -67,6 +68,15 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         extraFlags.c_str(),
         url.c_str());
 
+    LifecycleEvidence::EmitDiagnostic(
+        "STARTUP",
+        FormatString(
+            "event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
+            static_cast<unsigned long long>(loadId),
+            static_cast<unsigned long long>(now),
+            extraFlags.c_str(),
+            url.c_str()));
+
     PlaybackCommand::ApplyPlaybackSettings();
     const char* cmd[] = { "loadfile", url.c_str(), extraFlags.c_str(), nullptr };
     const int ret = Exec(cmd);
@@ -76,6 +86,14 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         static_cast<unsigned long long>(loadId),
         static_cast<unsigned long long>(SDL_GetTicks64()),
         ret);
+
+    LifecycleEvidence::EmitDiagnostic(
+        "STARTUP",
+        FormatString(
+            "event=LOAD_COMMAND_RESULT load_id=%llu ts_ms=%llu result=%d",
+            static_cast<unsigned long long>(loadId),
+            static_cast<unsigned long long>(SDL_GetTicks64()),
+            ret));
 
     if (ret < 0) {
         m_state.WritePlayback([](PlaybackModel& m) {
