@@ -14,6 +14,7 @@ command_cpp = (ROOT / "native/src/player/command/PlaybackCommand.cpp").read_text
 models_h = (ROOT / "native/src/player/PlayerDataModels.h").read_text(encoding="utf-8")
 observer_cpp = (ROOT / "native/src/player/event/PlaybackObserver.cpp").read_text(encoding="utf-8")
 session_cpp = (ROOT / "native/src/player/session/PlayerSession.cpp").read_text(encoding="utf-8")
+main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -48,6 +49,16 @@ require(
 require(
     "std::make_unique<PlaybackCommand>(*m_player, *m_state)" in session_cpp,
     "#33: PlaybackCommand must be bound to the session state",
+)
+require(
+    "event=CLI_LOAD_DEFERRED" in main_cpp
+    and "event=CLI_LOAD_DISPATCH" in main_cpp
+    and "completedStartupCycles > 0" in main_cpp,
+    "#33: command-line startup must defer media dispatch until after a main-loop cycle",
+)
+require(
+    "commander->LoadFile(Url);" not in main_cpp,
+    "#33: argv media must not be loaded directly during bootstrap",
 )
 
 for marker in (
@@ -88,7 +99,9 @@ if cold_url_harness.is_file():
         "flags=replace",
         "pending_seek=-1",
         "event=SEEK_REQUEST",
-        "LOAD_REQUEST -> START_FILE -> FILE_LOADED",
+        "CLI_LOAD_DEFERRED",
+        "CLI_LOAD_DISPATCH",
+        "CLI_LOAD_DEFERRED -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",
         '^\\[BRG5-DIAG\\] category=STARTUP ',
