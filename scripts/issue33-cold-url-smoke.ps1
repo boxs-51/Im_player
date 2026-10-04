@@ -262,6 +262,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "default startup emitted SEEK_REQUEST"
         }
 
+        $legacyRetries = @($startup | Where-Object { $_ -match "event=LEGACY_PLAYLIST_RETRY " })
+        if ($legacyRetries.Count -gt 0) {
+            throw "LEGACY_PLAYLIST_RETRY must never run for direct startup"
+        }
+
         $retryLines = @($startup | Where-Object { $_ -match "event=LOAD_RETRY_REQUEST " })
         if ($retryLines.Count -gt 1) {
             throw "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy: $($retryLines.Count)"
@@ -277,7 +282,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         if ($retryLines.Count -eq 1) {
             if ($retryLines[0] -notmatch "load_id=$loadId\b" -or
                 $retryLines[0] -notmatch "attempt=2" -or
-                $retryLines[0] -notmatch "reason=early_terminal_before_first_frame") {
+                $retryLines[0] -notmatch "reason=early_terminal_before_any_media") {
                 throw "LOAD_RETRY_REQUEST missing bounded same-load early-terminal attribution"
             }
 
@@ -294,14 +299,14 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $finalAttemptStart = if ($retryIndex -ge 0) { $retryIndex + 1 } else { 0 }
 
         if ($retryIndex -ge 0) {
-            $preRetryFirstFrames = @()
+            $preRetryMediaStarted = @()
             for ($i = 0; $i -lt $retryIndex; $i++) {
-                if ($startup[$i] -match "event=FIRST_VIDEO_FRAME ") {
-                    $preRetryFirstFrames += $startup[$i]
+                if ($startup[$i] -match "event=STARTUP_MEDIA_STARTED ") {
+                    $preRetryMediaStarted += $startup[$i]
                 }
             }
-            if ($preRetryFirstFrames.Count -gt 0) {
-                throw "bounded startup retry occurred after FIRST_VIDEO_FRAME"
+            if ($preRetryMediaStarted.Count -gt 0) {
+                throw "bounded startup retry occurred after media startup"
             }
         }
 
@@ -330,6 +335,26 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
         if ($finalFirstVideoFrames[0] -notmatch "boundary=video_reconfig") {
             throw "final-attempt FIRST_VIDEO_FRAME missing video-reconfig boundary attribution"
+        }
+
+        $finalMediaStarted = @()
+        $finalKeepOpenRestore = @()
+        for ($i = $finalAttemptStart; $i -lt $startup.Count; $i++) {
+            if ($startup[$i] -match "event=STARTUP_MEDIA_STARTED ") {
+                $finalMediaStarted += $startup[$i]
+            }
+            if ($startup[$i] -match "event=STARTUP_KEEP_OPEN_RESTORE ") {
+                $finalKeepOpenRestore += $startup[$i]
+            }
+        }
+        if ($finalMediaStarted.Count -lt 1) {
+            throw "final startup attempt missing STARTUP_MEDIA_STARTED"
+        }
+        if ($finalKeepOpenRestore.Count -ne 1) {
+            throw "final startup attempt must restore keep-open exactly once"
+        }
+        if ($finalKeepOpenRestore[0] -notmatch "result=0") {
+            throw "STARTUP_KEEP_OPEN_RESTORE failed"
         }
 
         $ytdlIndex = Find-StartupIndex $startup "event=YTDL_PATH_RESOLVED "
