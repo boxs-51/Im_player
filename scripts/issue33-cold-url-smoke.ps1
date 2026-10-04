@@ -129,6 +129,14 @@ function Find-LastStartupIndex([string[]]$Lines, [string]$Token) {
     return -1
 }
 
+function Find-StartupIndexAtOrAfter([string[]]$Lines, [string]$Token, [int]$StartIndex) {
+    $start = [Math]::Max(0, $StartIndex)
+    for ($i = $start; $i -lt $Lines.Count; $i++) {
+        if ($Lines[$i].Contains($Token)) { return $i }
+    }
+    return -1
+}
+
 
 for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     Assert-NoExistingImPlayer
@@ -227,24 +235,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
             throw "FILE_LOADED not observed within $StartupTimeoutSeconds seconds after START_FILE"
         }
-        $videoEvidenceArms = @($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " })
-        if ($videoEvidenceArms.Count -ne 1) {
-            throw "expected exactly one VIDEO_EVIDENCE_ARM marker, observed=$($videoEvidenceArms.Count)"
-        }
-        if ($videoEvidenceArms[0] -notmatch "boundary=video_reconfig") {
-            throw "VIDEO_EVIDENCE_ARM missing video-reconfig boundary attribution"
-        }
-
-        $firstVideoFrames = @($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " })
-        if ($firstVideoFrames.Count -ne 1) {
-            throw "expected exactly one FIRST_VIDEO_FRAME marker, observed=$($firstVideoFrames.Count)"
-        }
-        if ($firstVideoFrames[0] -notmatch "armed_before_render=1") {
-            throw "FIRST_VIDEO_FRAME missing armed-before-render proof"
-        }
-        if ($firstVideoFrames[0] -notmatch "boundary=video_reconfig") {
-            throw "FIRST_VIDEO_FRAME missing video-reconfig boundary attribution"
-        }
         $loadLine = $startup | Where-Object { $_ -match "event=LOAD_REQUEST " } | Select-Object -First 1
         if ($loadLine -notmatch "flags=replace") {
             throw "direct startup did not use replace semantics"
@@ -301,19 +291,60 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
         }
 
+        $finalAttemptStart = if ($retryIndex -ge 0) { $retryIndex + 1 } else { 0 }
+
+        if ($retryIndex -ge 0) {
+            $preRetryFirstFrames = @()
+            for ($i = 0; $i -lt $retryIndex; $i++) {
+                if ($startup[$i] -match "event=FIRST_VIDEO_FRAME ") {
+                    $preRetryFirstFrames += $startup[$i]
+                }
+            }
+            if ($preRetryFirstFrames.Count -gt 0) {
+                throw "bounded startup retry occurred after FIRST_VIDEO_FRAME"
+            }
+        }
+
+        $finalVideoEvidenceArms = @()
+        $finalFirstVideoFrames = @()
+        for ($i = $finalAttemptStart; $i -lt $startup.Count; $i++) {
+            if ($startup[$i] -match "event=VIDEO_EVIDENCE_ARM ") {
+                $finalVideoEvidenceArms += $startup[$i]
+            }
+            if ($startup[$i] -match "event=FIRST_VIDEO_FRAME ") {
+                $finalFirstVideoFrames += $startup[$i]
+            }
+        }
+
+        if ($finalVideoEvidenceArms.Count -ne 1) {
+            throw "expected exactly one VIDEO_EVIDENCE_ARM marker in final startup attempt, observed=$($finalVideoEvidenceArms.Count)"
+        }
+        if ($finalVideoEvidenceArms[0] -notmatch "boundary=video_reconfig") {
+            throw "final-attempt VIDEO_EVIDENCE_ARM missing video-reconfig boundary attribution"
+        }
+        if ($finalFirstVideoFrames.Count -ne 1) {
+            throw "expected exactly one FIRST_VIDEO_FRAME marker in final startup attempt, observed=$($finalFirstVideoFrames.Count)"
+        }
+        if ($finalFirstVideoFrames[0] -notmatch "armed_before_render=1") {
+            throw "final-attempt FIRST_VIDEO_FRAME missing armed-before-render proof"
+        }
+        if ($finalFirstVideoFrames[0] -notmatch "boundary=video_reconfig") {
+            throw "final-attempt FIRST_VIDEO_FRAME missing video-reconfig boundary attribution"
+        }
+
         $ytdlIndex = Find-StartupIndex $startup "event=YTDL_PATH_RESOLVED "
         $deferredIndex = Find-StartupIndex $startup "event=CLI_LOAD_DEFERRED "
         $idleReadyIndex = Find-StartupIndex $startup "event=MPV_IDLE_READY "
         $dispatchIndex = Find-StartupIndex $startup "event=CLI_LOAD_DISPATCH "
         $loadIndex = Find-StartupIndex $startup "event=LOAD_REQUEST "
-        $startIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $startup "event=START_FILE " } else { Find-StartupIndex $startup "event=START_FILE " }
-        $loadedIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $startup "event=FILE_LOADED " } else { Find-StartupIndex $startup "event=FILE_LOADED " }
-        $videoEvidenceArmIndex = Find-StartupIndex $startup "event=VIDEO_EVIDENCE_ARM "
-        $firstVideoIndex = Find-StartupIndex $startup "event=FIRST_VIDEO_FRAME "
-        $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
-        $configEndIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_END "
-        $configDeferIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_DEFER "
-        $formatDiscoveredIndex = Find-StartupIndex $startup "event=YTDL_FORMAT_DISCOVERED "
+        $startIndex = Find-StartupIndexAtOrAfter $startup "event=START_FILE " $finalAttemptStart
+        $loadedIndex = Find-StartupIndexAtOrAfter $startup "event=FILE_LOADED " $finalAttemptStart
+        $videoEvidenceArmIndex = Find-StartupIndexAtOrAfter $startup "event=VIDEO_EVIDENCE_ARM " $finalAttemptStart
+        $firstVideoIndex = Find-StartupIndexAtOrAfter $startup "event=FIRST_VIDEO_FRAME " $finalAttemptStart
+        $configBeginIndex = Find-StartupIndexAtOrAfter $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN " $finalAttemptStart
+        $configEndIndex = Find-StartupIndexAtOrAfter $startup "event=DYNAMIC_CONFIG_APPLY_END " $finalAttemptStart
+        $configDeferIndex = Find-StartupIndexAtOrAfter $startup "event=DYNAMIC_CONFIG_DEFER " $finalAttemptStart
+        $formatDiscoveredIndex = Find-StartupIndexAtOrAfter $startup "event=YTDL_FORMAT_DISCOVERED " $finalAttemptStart
 
         if ($ytdlIndex -lt 0 -or $deferredIndex -le $ytdlIndex -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex -or $videoEvidenceArmIndex -le $loadedIndex -or $firstVideoIndex -le $videoEvidenceArmIndex) {
             throw "startup event order is not YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> VIDEO_EVIDENCE_ARM -> FIRST_VIDEO_FRAME"
@@ -379,14 +410,16 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         # manufacture an evidence false negative while playback is active.
         $evidence = Get-EvidenceLines $logPath
         $combinedLoadIndex = Find-StartupIndex $evidence "event=LOAD_REQUEST "
-        $combinedStartIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $evidence "event=START_FILE " } else { Find-StartupIndex $evidence "event=START_FILE " }
-        $combinedLoadedIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $evidence "event=FILE_LOADED " } else { Find-StartupIndex $evidence "event=FILE_LOADED " }
-        $firstPcmIndex = Find-StartupIndex $evidence "FIRST_COMPLETE_PCM_BLOCK "
-        $firstProcessedIndex = Find-StartupIndex $evidence "FIRST_PROCESSED_BLOCK "
-        $firstSdlWriteIndex = Find-StartupIndex $evidence "FIRST_SDL_WRITE "
-        $firstNonzeroQueueIndex = Find-StartupIndex $evidence "FIRST_NONZERO_SDL_QUEUE "
-        $combinedVideoArmIndex = Find-StartupIndex $evidence "event=VIDEO_EVIDENCE_ARM "
-        $combinedFirstVideoIndex = Find-StartupIndex $evidence "event=FIRST_VIDEO_FRAME "
+        $combinedRetryIndex = Find-StartupIndex $evidence "event=LOAD_RETRY_REQUEST "
+        $combinedFinalAttemptStart = if ($combinedRetryIndex -ge 0) { $combinedRetryIndex + 1 } else { 0 }
+        $combinedStartIndex = Find-StartupIndexAtOrAfter $evidence "event=START_FILE " $combinedFinalAttemptStart
+        $combinedLoadedIndex = Find-StartupIndexAtOrAfter $evidence "event=FILE_LOADED " $combinedFinalAttemptStart
+        $firstPcmIndex = Find-StartupIndexAtOrAfter $evidence "FIRST_COMPLETE_PCM_BLOCK " $combinedFinalAttemptStart
+        $firstProcessedIndex = Find-StartupIndexAtOrAfter $evidence "FIRST_PROCESSED_BLOCK " $combinedFinalAttemptStart
+        $firstSdlWriteIndex = Find-StartupIndexAtOrAfter $evidence "FIRST_SDL_WRITE " $combinedFinalAttemptStart
+        $firstNonzeroQueueIndex = Find-StartupIndexAtOrAfter $evidence "FIRST_NONZERO_SDL_QUEUE " $combinedFinalAttemptStart
+        $combinedVideoArmIndex = Find-StartupIndexAtOrAfter $evidence "event=VIDEO_EVIDENCE_ARM " $combinedFinalAttemptStart
+        $combinedFirstVideoIndex = Find-StartupIndexAtOrAfter $evidence "event=FIRST_VIDEO_FRAME " $combinedFinalAttemptStart
 
         if ($combinedLoadIndex -lt 0 -or
             $combinedStartIndex -le $combinedLoadIndex -or
@@ -405,7 +438,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             load_request = $combinedLoadIndex
             start_file = $combinedStartIndex
             file_loaded = $combinedLoadedIndex
-            startup_retry = $retryIndex
+            startup_retry = $combinedRetryIndex
             first_complete_pcm_block = $firstPcmIndex
             first_processed_block = $firstProcessedIndex
             first_sdl_write = $firstSdlWriteIndex
