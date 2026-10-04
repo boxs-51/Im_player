@@ -46,7 +46,7 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
     }
 
     // 4. Kết nối Output Worker (Chỉ cấp quyền ĐỌC từ Processed Stream)
-    if (!m_audioOutput.Init(std::move(procConsumer), AudioBackendType::SDL2)) {
+    if (!m_audioOutput.Init(std::move(procConsumer), stateSystem, AudioBackendType::SDL2)) {
         LOG(1, LogLevel::Error, LogCategory::Audio, 
             "[Audio] Failed to initialize AudioOutputWorker.");
         m_audioProcessor.Stop();

@@ -70,6 +70,9 @@ struct AudioPipelineMetrics {
     uint64_t lastSequence    = 0;
     uint64_t currentGeneration = 0;
     uint64_t partialFrameCarryBytes = 0;
+    uint64_t firstPipeConnectedMicros = 0;
+    uint64_t firstPipeBytesMicros = 0;
+    uint64_t firstCompletePcmBlockMicros = 0;
     double   lastPTS         = 0.0;
 };
 
@@ -82,9 +85,17 @@ struct AudioOutputMetrics {
     uint64_t blocksDroppedFormatMismatch = 0;
     uint64_t queueUnderflowEvents = 0;
     uint64_t writeFailures = 0;
+    uint64_t firstProcessedBlockMicros = 0;
+    uint64_t firstSdlWriteMicros = 0;
+    uint64_t firstNonzeroQueueMicros = 0;
     uint32_t queuedBytes = 0;
     uint32_t queueHighWaterBytes = 0;
     double queuedMilliseconds = 0.0;
+    double lastWrittenPts = 0.0;
+    double lastWrittenEndPts = 0.0;
+    double mpvTimePos = 0.0;
+    double estimatedAudibleHeadPts = 0.0;
+    double estimatedAvOffsetSeconds = 0.0;
     uint32_t sampleRate = kCanonicalAudioSampleRate;
     uint16_t channels = kCanonicalAudioChannels;
 };

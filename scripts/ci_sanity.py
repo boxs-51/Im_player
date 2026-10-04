@@ -666,10 +666,34 @@ for token in (
     if token not in sdl_audio_cpp:
         fail(f"Issue #26: SDL obtained-format contract missing: {token}")
 
+for token in (
+    "[AUDIO_TIMELINE] PIPE_CONNECTED",
+    "[AUDIO_TIMELINE] FIRST_PIPE_BYTES",
+    "[AUDIO_TIMELINE] FIRST_COMPLETE_PCM_BLOCK",
+):
+    if token not in audio_capture_cpp:
+        fail(f"Issue #26: capture startup timeline marker missing: {token}")
+
+for token in (
+    "[AUDIO_TIMELINE] FIRST_PROCESSED_BLOCK",
+    "[AUDIO_TIMELINE] FIRST_SDL_WRITE",
+    "[AUDIO_TIMELINE] FIRST_NONZERO_SDL_QUEUE",
+    "estimatedAudibleHeadPts",
+    "estimatedAvOffsetSeconds",
+):
+    if token not in audio_output_cpp and token not in audio_output_h:
+        fail(f"Issue #26: output startup/sync telemetry missing: {token}")
+
+if not (ROOT / "native/src/player/audio/AudioTelemetry.h").is_file():
+    fail("Issue #26: audio telemetry helper is missing")
 if not (ROOT / "tests/pcm_frame_accumulator_test.cpp").is_file():
     fail("Issue #26: focused PCM framing test is missing")
+if not (ROOT / "tests/audio_telemetry_math_test.cpp").is_file():
+    fail("Issue #26: focused audio telemetry math test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
     fail("Issue #26: focused PCM framing CTest is not registered")
+if "issue26_audio_telemetry_math_gate" not in cmake_text:
+    fail("Issue #26: focused telemetry math CTest is not registered")
 
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 

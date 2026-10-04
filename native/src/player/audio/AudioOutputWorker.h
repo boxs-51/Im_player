@@ -23,9 +23,17 @@ struct AudioOutputMetricsAtomic {
     std::atomic<uint64_t> blocksDroppedFormatMismatch{0};
     std::atomic<uint64_t> queueUnderflowEvents{0};
     std::atomic<uint64_t> writeFailures{0};
+    std::atomic<uint64_t> firstProcessedBlockMicros{0};
+    std::atomic<uint64_t> firstSdlWriteMicros{0};
+    std::atomic<uint64_t> firstNonzeroQueueMicros{0};
     std::atomic<uint32_t> queuedBytes{0};
     std::atomic<uint32_t> queueHighWaterBytes{0};
     std::atomic<double> queuedMilliseconds{0.0};
+    std::atomic<double> lastWrittenPts{0.0};
+    std::atomic<double> lastWrittenEndPts{0.0};
+    std::atomic<double> mpvTimePos{0.0};
+    std::atomic<double> estimatedAudibleHeadPts{0.0};
+    std::atomic<double> estimatedAvOffsetSeconds{0.0};
 };
 
 /**
@@ -46,6 +54,7 @@ public:
      * @brief Khởi tạo Worker với RingBuffer và StateSystem
      */
     bool Init(SpscConsumer<AudioBlock> processedStream,
+              PlayerStateSystem* stateSystem,
               AudioBackendType backend = AudioBackendType::SDL2);
 
     void Start();
@@ -69,6 +78,7 @@ private:
 
     // --- References & Streams ---
     std::optional<SpscConsumer<AudioBlock>> m_processedStream;
+    PlayerStateSystem* m_stateSystem = nullptr;
 
     // --- Audio Backend ---
     std::unique_ptr<IAudioOutputDevice> m_audioDevice;

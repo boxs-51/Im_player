@@ -1,5 +1,6 @@
 #include "AudioCaptureManager.h"
 #include "PcmFrameAccumulator.h"
+#include "AudioTelemetry.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
 #include "threads/thread_manager.h"
@@ -93,6 +94,12 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
     snapshot.lastSequence = m_metrics.lastSequence.load(std::memory_order_relaxed);
     snapshot.currentGeneration = m_metrics.currentGeneration.load(std::memory_order_relaxed);
     snapshot.partialFrameCarryBytes = m_metrics.partialFrameCarryBytes.load(std::memory_order_relaxed);
+    snapshot.firstPipeConnectedMicros =
+        m_metrics.firstPipeConnectedMicros.load(std::memory_order_relaxed);
+    snapshot.firstPipeBytesMicros =
+        m_metrics.firstPipeBytesMicros.load(std::memory_order_relaxed);
+    snapshot.firstCompletePcmBlockMicros =
+        m_metrics.firstCompletePcmBlockMicros.load(std::memory_order_relaxed);
     snapshot.lastPTS = m_metrics.lastPTS.load(std::memory_order_relaxed);
     return snapshot;
 }
@@ -143,6 +150,9 @@ void AudioCaptureManager::StartCapture() {
     m_currentPts = 0.0;
     m_activeGeneration = 0;
     m_wasSeeking = false;
+    m_metrics.firstPipeConnectedMicros.store(0, std::memory_order_relaxed);
+    m_metrics.firstPipeBytesMicros.store(0, std::memory_order_relaxed);
+    m_metrics.firstCompletePcmBlockMicros.store(0, std::memory_order_relaxed);
 
     m_captureThread = std::thread(&AudioCaptureManager::CaptureLoop, this);
     GetThreadManager().Register(m_threadId, &m_captureThread);
@@ -237,6 +247,15 @@ void AudioCaptureManager::CaptureLoop() {
         }
 
         if (connected && m_isRunning) {
+            const std::uint64_t pipeConnectedMicros = AudioTelemetryNowMicros();
+            if (RecordFirstAudioTelemetry(
+                    m_metrics.firstPipeConnectedMicros,
+                    pipeConnectedMicros)) {
+                LOG(1, LogLevel::Info, LogCategory::Audio,
+                    "[AUDIO_TIMELINE] PIPE_CONNECTED t_us=%llu",
+                    static_cast<unsigned long long>(pipeConnectedMicros));
+            }
+
             LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] MPV connected to pipe.");
 
             PcmFrameAccumulator accumulator;
@@ -280,6 +299,16 @@ void AudioCaptureManager::CaptureLoop() {
                     }
 
                     m_metrics.bytesReceived.fetch_add(bytesRead, std::memory_order_relaxed);
+
+                    const std::uint64_t pipeBytesMicros = AudioTelemetryNowMicros();
+                    if (RecordFirstAudioTelemetry(
+                            m_metrics.firstPipeBytesMicros,
+                            pipeBytesMicros)) {
+                        LOG(1, LogLevel::Info, LogCategory::Audio,
+                            "[AUDIO_TIMELINE] FIRST_PIPE_BYTES t_us=%llu bytes=%lu",
+                            static_cast<unsigned long long>(pipeBytesMicros),
+                            static_cast<unsigned long>(bytesRead));
+                    }
 
                     if (!firstPayloadLogged) {
                         char preview[3 * 8 + 1] = {};
@@ -336,9 +365,22 @@ void AudioCaptureManager::CaptureLoop() {
                     continue;
                 }
 
+                const uint64_t carryBytes =
+                    accumulator.PendingBytes() % PcmFrameAccumulator::kFrameBytes;
                 m_metrics.partialFrameCarryBytes.store(
-                    accumulator.PendingBytes() % PcmFrameAccumulator::kFrameBytes,
+                    carryBytes,
                     std::memory_order_relaxed);
+
+                const std::uint64_t completeBlockMicros = AudioTelemetryNowMicros();
+                if (RecordFirstAudioTelemetry(
+                        m_metrics.firstCompletePcmBlockMicros,
+                        completeBlockMicros)) {
+                    LOG(1, LogLevel::Info, LogCategory::Audio,
+                        "[AUDIO_TIMELINE] FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu",
+                        static_cast<unsigned long long>(completeBlockMicros),
+                        frames,
+                        static_cast<unsigned long long>(carryBytes));
+                }
 
                 double timepos = 0.0;
                 bool isSeeking = false;

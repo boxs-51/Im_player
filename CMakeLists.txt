@@ -278,4 +278,21 @@ if(BUILD_TESTING)
         issue26_pcm_frame_accumulator_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(audio_telemetry_math_test
+        tests/audio_telemetry_math_test.cpp
+    )
+    target_include_directories(audio_telemetry_math_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_telemetry_math_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_audio_telemetry_math_gate
+        COMMAND audio_telemetry_math_test
+    )
+    set_tests_properties(
+        issue26_audio_telemetry_math_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()

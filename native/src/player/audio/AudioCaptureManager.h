@@ -28,6 +28,9 @@ struct AudioPipelineMetricsAtomic {
     std::atomic<uint64_t> lastSequence{0};
     std::atomic<uint64_t> currentGeneration{0};
     std::atomic<uint64_t> partialFrameCarryBytes{0};
+    std::atomic<uint64_t> firstPipeConnectedMicros{0};
+    std::atomic<uint64_t> firstPipeBytesMicros{0};
+    std::atomic<uint64_t> firstCompletePcmBlockMicros{0};
     std::atomic<double> lastPTS{0.0};
 };
 

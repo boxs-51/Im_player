@@ -1,5 +1,6 @@
 #include "AudioOutputWorker.h"
 #include "SdlAudioDevice.h"
+#include "AudioTelemetry.h"
 #include "log.h"
 #include "threads/thread_manager.h"
 #include "common/LifecycleEvidence.h"
@@ -42,7 +43,10 @@ std::unique_ptr<IAudioOutputDevice> AudioOutputWorker::CreateDeviceBackend(Audio
     }
 }
 
-bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBackendType backend) {
+bool AudioOutputWorker::Init(
+    SpscConsumer<AudioBlock> processedStream,
+    PlayerStateSystem* stateSystem,
+    AudioBackendType backend) {
 
     //if (!processedStream) {
     //    LOG(1, LogLevel::Error, LogCategory::Audio, 
@@ -50,7 +54,14 @@ bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBack
     //    return false;
     //}
 
+    if (!stateSystem) {
+        LOG(1, LogLevel::Error, LogCategory::Audio,
+            "[AudioOutputWorker] Init failed: PlayerStateSystem is null.");
+        return false;
+    }
+
     m_processedStream.emplace(std::move(processedStream));
+    m_stateSystem = stateSystem;
     m_threadId = "AudioOutputWorker_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
     m_currentBackendType = backend;
@@ -90,11 +101,27 @@ AudioOutputMetrics AudioOutputWorker::GetMetrics() const {
     snapshot.queueUnderflowEvents =
         m_metrics.queueUnderflowEvents.load(std::memory_order_relaxed);
     snapshot.writeFailures = m_metrics.writeFailures.load(std::memory_order_relaxed);
+    snapshot.firstProcessedBlockMicros =
+        m_metrics.firstProcessedBlockMicros.load(std::memory_order_relaxed);
+    snapshot.firstSdlWriteMicros =
+        m_metrics.firstSdlWriteMicros.load(std::memory_order_relaxed);
+    snapshot.firstNonzeroQueueMicros =
+        m_metrics.firstNonzeroQueueMicros.load(std::memory_order_relaxed);
     snapshot.queuedBytes = m_metrics.queuedBytes.load(std::memory_order_relaxed);
     snapshot.queueHighWaterBytes =
         m_metrics.queueHighWaterBytes.load(std::memory_order_relaxed);
     snapshot.queuedMilliseconds =
         m_metrics.queuedMilliseconds.load(std::memory_order_relaxed);
+    snapshot.lastWrittenPts =
+        m_metrics.lastWrittenPts.load(std::memory_order_relaxed);
+    snapshot.lastWrittenEndPts =
+        m_metrics.lastWrittenEndPts.load(std::memory_order_relaxed);
+    snapshot.mpvTimePos =
+        m_metrics.mpvTimePos.load(std::memory_order_relaxed);
+    snapshot.estimatedAudibleHeadPts =
+        m_metrics.estimatedAudibleHeadPts.load(std::memory_order_relaxed);
+    snapshot.estimatedAvOffsetSeconds =
+        m_metrics.estimatedAvOffsetSeconds.load(std::memory_order_relaxed);
     snapshot.sampleRate = kCanonicalAudioSampleRate;
     snapshot.channels = kCanonicalAudioChannels;
     return snapshot;
@@ -138,14 +165,7 @@ void AudioOutputWorker::OutputLoop() {
     const auto updateQueueMetrics = [this](uint32_t queuedBytes) {
         m_metrics.queuedBytes.store(queuedBytes, std::memory_order_relaxed);
 
-        const double bytesPerSecond =
-            static_cast<double>(kCanonicalAudioSampleRate) *
-            static_cast<double>(kCanonicalAudioChannels) *
-            static_cast<double>(sizeof(float));
-        const double queuedMs =
-            (bytesPerSecond > 0.0)
-                ? (1000.0 * static_cast<double>(queuedBytes) / bytesPerSecond)
-                : 0.0;
+        const double queuedMs = 1000.0 * CanonicalQueuedAudioSeconds(queuedBytes);
         m_metrics.queuedMilliseconds.store(queuedMs, std::memory_order_relaxed);
 
         uint32_t previousHigh =
@@ -221,6 +241,17 @@ void AudioOutputWorker::OutputLoop() {
                 continue;
             }
 
+            const std::uint64_t processedBlockMicros = AudioTelemetryNowMicros();
+            if (RecordFirstAudioTelemetry(
+                    m_metrics.firstProcessedBlockMicros,
+                    processedBlockMicros)) {
+                LOG(1, LogLevel::Info, LogCategory::Audio,
+                    "[AUDIO_TIMELINE] FIRST_PROCESSED_BLOCK t_us=%llu pts=%.6f frames=%u",
+                    static_cast<unsigned long long>(processedBlockMicros),
+                    block->pts,
+                    block->frames);
+            }
+
             if (block->format.sampleRate != kCanonicalAudioSampleRate ||
                 block->format.channels != kCanonicalAudioChannels ||
                 block->format.format != AudioSampleFormat::Float32) {
@@ -266,7 +297,62 @@ void AudioOutputWorker::OutputLoop() {
                         hasQueuedAudio = true;
                         queueEmptyLatched = false;
                         m_metrics.blocksWritten.fetch_add(1, std::memory_order_relaxed);
-                        updateQueueMetrics(m_audioDevice->GetQueuedSizeBytes());
+
+                        const double lastWrittenPts = block->pts;
+                        const double lastWrittenEndPts =
+                            block->pts + block->duration_seconds();
+                        const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
+                        updateQueueMetrics(queuedBytes);
+
+                        double mpvTimePos = 0.0;
+                        if (m_stateSystem) {
+                            m_stateSystem->ReadPlayback([&mpvTimePos](const PlaybackModel& model) {
+                                mpvTimePos = model.timing.timePos;
+                            });
+                        }
+
+                        const double audibleHead =
+                            EstimateAudibleHeadPts(lastWrittenEndPts, queuedBytes);
+                        const double avOffset =
+                            EstimateAudioVideoOffsetSeconds(
+                                lastWrittenEndPts,
+                                queuedBytes,
+                                mpvTimePos);
+
+                        m_metrics.lastWrittenPts.store(lastWrittenPts, std::memory_order_relaxed);
+                        m_metrics.lastWrittenEndPts.store(lastWrittenEndPts, std::memory_order_relaxed);
+                        m_metrics.mpvTimePos.store(mpvTimePos, std::memory_order_relaxed);
+                        m_metrics.estimatedAudibleHeadPts.store(audibleHead, std::memory_order_relaxed);
+                        m_metrics.estimatedAvOffsetSeconds.store(avOffset, std::memory_order_relaxed);
+
+                        const std::uint64_t sdlWriteMicros = AudioTelemetryNowMicros();
+                        if (RecordFirstAudioTelemetry(
+                                m_metrics.firstSdlWriteMicros,
+                                sdlWriteMicros)) {
+                            LOG(1, LogLevel::Info, LogCategory::Audio,
+                                "[AUDIO_TIMELINE] FIRST_SDL_WRITE t_us=%llu pts=%.6f end_pts=%.6f",
+                                static_cast<unsigned long long>(sdlWriteMicros),
+                                lastWrittenPts,
+                                lastWrittenEndPts);
+                        }
+
+                        if (queuedBytes > 0) {
+                            const std::uint64_t nonzeroQueueMicros = AudioTelemetryNowMicros();
+                            if (RecordFirstAudioTelemetry(
+                                    m_metrics.firstNonzeroQueueMicros,
+                                    nonzeroQueueMicros)) {
+                                LOG(1, LogLevel::Info, LogCategory::Audio,
+                                    "[AUDIO_TIMELINE] FIRST_NONZERO_SDL_QUEUE t_us=%llu queued_bytes=%u queued_ms=%.3f last_written_pts=%.6f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
+                                    static_cast<unsigned long long>(nonzeroQueueMicros),
+                                    queuedBytes,
+                                    1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                    lastWrittenPts,
+                                    lastWrittenEndPts,
+                                    audibleHead,
+                                    mpvTimePos,
+                                    avOffset);
+                            }
+                        }
                     }
                 }
             }
