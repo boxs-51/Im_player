@@ -125,6 +125,16 @@ int PlaybackCommand::DoSeek(float targetTime) {
     if (!m_player.GetHandle()) return -1 ;
     char buffer[32];
     snprintf(buffer, sizeof(buffer), "%.2f", targetTime);
+
+    const Uint64 loadId = GetStartupLoadId();
+    LifecycleEvidence::EmitDiagnostic(
+        "STARTUP",
+        FormatString(
+            "event=APP_SEEK_COMMAND load_id=%llu ts_ms=%llu target=%.3f mode=absolute",
+            static_cast<unsigned long long>(loadId),
+            static_cast<unsigned long long>(SDL_GetTicks64()),
+            static_cast<double>(targetTime)));
+
     const char* cmd[] = { "seek", buffer, "absolute", nullptr };
     int ret = Exec(cmd);
     {
