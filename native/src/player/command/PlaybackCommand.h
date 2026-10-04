@@ -36,8 +36,10 @@ public:
     int PlaylistNext();
     int PlaylistPrev();
     Uint64 GetStartupLoadId();
+    bool RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId);
 
 private:
+    int IssueLoadFile(const std::string& url, const std::string& extraFlags, bool retryAttempt);
     void ApplyPlaybackSettings();
     int DoSeek(float targetTime);
     
@@ -51,5 +53,11 @@ private:
     bool m_isSeekPending = false;
     float m_seekTargetTime = -1.0f;
     Uint64 m_lastSeekRequestTime = 0;
+
+    std::string m_lastDirectLoadUrl;
+    std::string m_lastDirectLoadFlags = "replace";
+    Uint32 m_startupEarlyEofRetries = 0;
+
     const Uint32 SEEK_DELAY_MS = 150;
+    const Uint32 STARTUP_EARLY_EOF_RETRY_LIMIT = 1;
 };
