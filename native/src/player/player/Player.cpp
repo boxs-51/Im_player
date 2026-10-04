@@ -33,14 +33,15 @@ bool Player::Init() {
             "ytdl_hook-ytdl_path=" + ytdlpPath;
         const int ytdlOptResult = mpv_set_option_string(
             m_mpv,
-            "script-opts-append",
+            "script-opts",
             ytdlScriptOpt.c_str());
 
         LifecycleEvidence::EmitDiagnostic(
             "STARTUP",
             FormatString(
-                "event=YTDL_PATH_RESOLVED result=%d path=%s",
+                "event=YTDL_PATH_RESOLVED result=%d error_text=%s path=%s",
                 ytdlOptResult,
+                mpv_error_string(ytdlOptResult),
                 ytdlpPath.c_str()));
     } else {
         LifecycleEvidence::EmitDiagnostic(
