@@ -59,7 +59,7 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
         LOG(1, LogLevel::Error, LogCategory::Audio, "Cảnh báo: Không thể khởi tạo Audio Pipeline!");
     }
 
-    m_commander = std::make_unique<PlaybackCommand>(*m_player);
+    m_commander = std::make_unique<PlaybackCommand>(*m_player, *m_state);
     m_property = std::make_unique<PlayBackProperty>(*m_player);
 
     m_audioFilterManager = std::make_unique<AudioFilterManager>();
