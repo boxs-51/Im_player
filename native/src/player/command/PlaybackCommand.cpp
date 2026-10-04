@@ -54,6 +54,9 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         // A direct new-media transaction must never inherit a format-switch
         // seek armed for the previous media item.
         m.pendingseektime = -1.0;
+        // Source classification belongs to this load transaction. Never
+        // inherit Vio/Live/Local from the previous media item.
+        m.videoType = VideoType::None;
         m.startupRestartCount = 0;
         m.startupLoadId += 1;
         m.startupLoadedLoadId = 0;
