@@ -56,10 +56,33 @@ $summary = [ordered]@{
 
 function Get-StartupLines([string]$Path) {
     if (-not (Test-Path $Path)) { return @() }
-    return @(
-        Get-Content -Path $Path |
-            Where-Object { $_ -match "^\[BRG5-DIAG\] category=STARTUP " }
-    )
+
+    # The application opens IM_PLAYER_LIFECYCLE_LOG for append on every
+    # diagnostic marker. Use an explicitly shared reader so polling cannot
+    # transiently block fopen_s("ab") and silently drop startup evidence.
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite
+        )
+        $reader = [System.IO.StreamReader]::new($stream)
+        $lines = @()
+        while (-not $reader.EndOfStream) {
+            $line = $reader.ReadLine()
+            if ($line -match "^\[BRG5-DIAG\] category=STARTUP ") {
+                $lines += $line
+            }
+        }
+        return @($lines)
+    }
+    finally {
+        if ($reader) { $reader.Dispose() }
+        elseif ($stream) { $stream.Dispose() }
+    }
 }
 
 function Find-StartupIndex([string[]]$Lines, [string]$Token) {
