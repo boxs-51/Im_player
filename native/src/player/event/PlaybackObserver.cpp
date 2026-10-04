@@ -12,6 +12,7 @@
 #include <thread>
 #include <iostream>
 #include <unordered_map>
+#include <SDL.h>
 
 static std::mutex g_retry_mutex;
 static std::unordered_map<int, int> g_retryCount;
@@ -556,10 +557,19 @@ void PlaybackObserver::ProcessEvents() {
         case MPV_EVENT_SET_PROPERTY_REPLY: break;
         case MPV_EVENT_COMMAND_REPLY: break;
         case MPV_EVENT_START_FILE: {
+            Uint64 loadId = 0;
+            double pendingSeek = -1.0;
             m_state.WritePlayback([&](auto& m) {
                 //m.flags.isIdleActive = false;
                 m.isLoadingMedia = true;
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                pendingSeek = m.pendingseektime;
             });
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=START_FILE load_id=%llu ts_ms=%llu pending_seek=%.3f",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                pendingSeek);
             break;
         }
         case MPV_EVENT_END_FILE: {
@@ -605,16 +615,33 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_FILE_LOADED:{
-
+            Uint64 loadId = 0;
+            VideoType videotype = VideoType::None;
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
-            });
-            VideoType videotype;
-            m_state.ReadPlayback([&videotype](auto const& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
                 videotype = m.videoType;
             });
 
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=FILE_LOADED load_id=%llu ts_ms=%llu video_type=%d",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                static_cast<int>(videotype));
+
+            // #33 keeps the existing behavior intentionally, but makes the
+            // timing observable: source-specific MPV config is applied only
+            // after FILE_LOADED. Runtime evidence decides whether a later
+            // issue should move this boundary.
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()));
             ApplyDynamicMPVConfig(m_mpv, videotype);
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()));
 
             m_commander.Play();
  
@@ -639,6 +666,10 @@ void PlaybackObserver::ProcessEvents() {
 //            m_state.WritePlayback([&](auto& m) {
 //                m.flags.isSeeking = true;
 //            });
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=SEEK load_id=%llu ts_ms=%llu source=mpv_event",
+                static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                static_cast<unsigned long long>(SDL_GetTicks64()));
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
@@ -646,23 +677,45 @@ void PlaybackObserver::ProcessEvents() {
         {   
             double targetSeek = -1.0;
             double duration = 0.0;
+            double pendingSeekBefore = -1.0;
+            Uint64 loadId = 0;
+            uint32_t restartCount = 0;
 
-            // Đọc đồng thời gán reset pendingseektime trong 1 lần lock duy nhất
+            // Read + consume the explicitly armed format-switch seek under one
+            // state lock. A fresh/direct load starts at -1 and cannot enter
+            // this path unless an explicit action armed a seek.
             m_state.WritePlayback([&](PlaybackModel& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                restartCount = ++m.startupRestartCount;
+                pendingSeekBefore = m.pendingseektime;
                 if (m.pendingseektime >= 0.0) {
                     targetSeek = m.pendingseektime;
                     duration = m.timing.duration;
-                    m.pendingseektime = -1.0; // Reset ngay sau khi lấy ra
+                    m.pendingseektime = -1.0;
                 }
             });
 
-            // Thực thi lệnh Seek bên ngoài Lock (Tránh Deadlock)
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=PLAYBACK_RESTART load_id=%llu ts_ms=%llu count=%u pending_seek_before=%.3f",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                restartCount,
+                pendingSeekBefore);
+
+            // Execute the explicitly armed seek outside the state lock.
             if (targetSeek >= 0.0) {
+                bool shouldSeek = false;
                 m_state.ReadPlayback([&](PlaybackModel const& m) {
-                    if (m.videoType != VideoType::Live) {
-                        m_commander.Seek(targetSeek, duration);
-                    }
+                    shouldSeek = m.videoType != VideoType::Live;
                 });
+                if (shouldSeek) {
+                    LOG(1, LogLevel::Info, LogCategory::System,
+                        "[STARTUP] event=SEEK_REQUEST load_id=%llu ts_ms=%llu source=pending_format_switch target=%.3f",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        targetSeek);
+                    m_commander.Seek(targetSeek, duration);
+                }
                 LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Performing pending seek to %.2f seconds", targetSeek);
             }
 
