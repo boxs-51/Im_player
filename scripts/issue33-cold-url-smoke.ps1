@@ -278,22 +278,26 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
         $run.startup_retry_count = $retryLines.Count
 
-        $retryExhausted = @($startup | Where-Object { $_ -match "event=EARLY_EOF_RETRY_EXHAUSTED " })
+        $retryExhausted = @($startup | Where-Object { $_ -match "event=EARLY_TERMINAL_RETRY_EXHAUSTED " })
         if ($retryExhausted.Count -gt 0) {
-            throw "EARLY_EOF_RETRY_EXHAUSTED is a startup failure"
+            throw "EARLY_TERMINAL_RETRY_EXHAUSTED is a startup failure"
         }
 
         $retryIndex = Find-StartupIndex $startup "event=LOAD_RETRY_REQUEST "
         if ($retryLines.Count -eq 1) {
             if ($retryLines[0] -notmatch "load_id=$loadId\b" -or
                 $retryLines[0] -notmatch "attempt=2" -or
-                $retryLines[0] -notmatch "reason=early_eof_before_first_frame") {
-                throw "LOAD_RETRY_REQUEST missing bounded same-load early-EOF attribution"
+                $retryLines[0] -notmatch "reason=early_terminal_before_first_frame") {
+                throw "LOAD_RETRY_REQUEST missing bounded same-load early-terminal attribution"
             }
 
-            $earlyEofIndex = Find-StartupIndex $startup "event=EARLY_EOF_DETECTED "
-            if ($earlyEofIndex -lt 0 -or $earlyEofIndex -ge $retryIndex) {
-                throw "LOAD_RETRY_REQUEST is not preceded by EARLY_EOF_DETECTED"
+            $earlyFailureIndex = Find-StartupIndex $startup "event=EARLY_TERMINAL_FAILURE_DETECTED "
+            if ($earlyFailureIndex -lt 0 -or $earlyFailureIndex -ge $retryIndex) {
+                throw "LOAD_RETRY_REQUEST is not preceded by EARLY_TERMINAL_FAILURE_DETECTED"
+            }
+            $earlyFailureLine = $startup[$earlyFailureIndex]
+            if ($earlyFailureLine -notmatch "cause=(eof|nothing_to_play)") {
+                throw "EARLY_TERMINAL_FAILURE_DETECTED has unsupported cause attribution"
             }
         }
 
