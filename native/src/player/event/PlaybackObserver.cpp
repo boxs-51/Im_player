@@ -160,6 +160,13 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
 
                 if (doRetry) {
                     LOG(1, LogLevel::Warning, LogCategory::System,"[WARNING] [MPV] Retrying playback for index %d...", idx);
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=LEGACY_PLAYLIST_RETRY ts_ms=%llu playlist_index=%d error=%d",
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            idx,
+                            err));
                     auto* commanderPtr = &m_commander;
                     std::thread([idx,commanderPtr]() {
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -619,24 +626,23 @@ void PlaybackObserver::ProcessEvents() {
             if (!data) break;
 
             const Uint64 loadId = m_commander.GetStartupLoadId();
-            bool firstFramePublished = false;
+            bool mediaStarted = false;
             m_state.ReadPlayback([&](PlaybackModel const& m) {
-                firstFramePublished =
+                mediaStarted =
                     m.startupLoadId == loadId &&
-                    m.startupVideoEvidenceLoadId == loadId &&
-                    !m.startupVideoEvidenceArmed;
+                    m.startupMediaStartedLoadId == loadId;
             });
 
             LifecycleEvidence::EmitDiagnostic(
                 "STARTUP",
                 FormatString(
-                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s first_frame_published=%d",
+                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s startup_media_started=%d",
                     static_cast<unsigned long long>(loadId),
                     static_cast<unsigned long long>(SDL_GetTicks64()),
                     static_cast<int>(data->reason),
                     data->error,
                     mpv_error_string(data->error),
-                    firstFramePublished ? 1 : 0));
+                    mediaStarted ? 1 : 0));
 
             const bool earlyEof =
                 data->reason == MPV_END_FILE_REASON_EOF;
@@ -646,14 +652,14 @@ void PlaybackObserver::ProcessEvents() {
             const bool retryableEarlyFailure =
                 (earlyEof || earlyNoData) &&
                 loadId > 0 &&
-                !firstFramePublished;
+                !mediaStarted;
 
             if (retryableEarlyFailure) {
                 const char* cause = earlyNoData ? "nothing_to_play" : "eof";
                 LifecycleEvidence::EmitDiagnostic(
                     "STARTUP",
                     FormatString(
-                        "event=EARLY_TERMINAL_FAILURE_DETECTED load_id=%llu ts_ms=%llu cause=%s boundary=before_first_frame reason=%d error=%d",
+                        "event=EARLY_TERMINAL_FAILURE_DETECTED load_id=%llu ts_ms=%llu cause=%s boundary=before_any_media reason=%d error=%d",
                         static_cast<unsigned long long>(loadId),
                         static_cast<unsigned long long>(SDL_GetTicks64()),
                         cause,
@@ -697,7 +703,18 @@ void PlaybackObserver::ProcessEvents() {
 
                 std::string errStr = mpv_error_string(err);
                 LOG(1,  LogLevel::Info, LogCategory::System,  "Playback error occurred: %s", errStr);
-                HandleMpvError(err, errStr.c_str());
+
+                if (retryableEarlyFailure && err == MPV_ERROR_NOTHING_TO_PLAY) {
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=LEGACY_ERROR_RETRY_SUPPRESSED load_id=%llu ts_ms=%llu error=%d authority=bounded_startup_retry",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            err));
+                } else {
+                    HandleMpvError(err, errStr.c_str());
+                }
                 break;
             }
 
