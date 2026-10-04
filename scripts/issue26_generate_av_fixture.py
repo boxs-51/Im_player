@@ -16,13 +16,6 @@ from pathlib import Path
 from typing import BinaryIO
 
 
-def fourcc(text: str) -> bytes:
-    data = text.encode("ascii")
-    if len(data) != 4:
-        raise ValueError(f"fourcc must be 4 bytes: {text!r}")
-    return data
-
-
 def write_chunk(stream: BinaryIO, chunk_id: bytes, payload: bytes) -> int:
     start = stream.tell()
     stream.write(chunk_id)
@@ -98,8 +91,8 @@ def main() -> int:
     parser.add_argument("--frequency", type=float, default=440.0)
     args = parser.parse_args()
 
-    if args.seconds < 30:
-        parser.error("seconds must be at least 30")
+    if args.seconds < 5:
+        parser.error("seconds must be at least 5")
     if args.fps <= 0:
         parser.error("fps must be positive")
     if args.width <= 0 or args.height <= 0:
@@ -220,6 +213,10 @@ def main() -> int:
 
         movi_size_pos = start_list(stream, b"movi")
         movi_data_start = stream.tell()
+        # AVI idx1 offsets are relative to the start of the movi list payload,
+        # including the four-byte "movi" list type. Therefore the first media
+        # chunk has offset 4, not 0.
+        movi_index_base = movi_data_start - 4
         index_entries: list[tuple[bytes, int, int, int]] = []
 
         for frame_index in range(total_frames):
@@ -233,7 +230,7 @@ def main() -> int:
                 (
                     b"00db",
                     0x10,  # AVIIF_KEYFRAME
-                    video_chunk_start - movi_data_start,
+                    video_chunk_start - movi_index_base,
                     len(video_payload),
                 )
             )
@@ -243,7 +240,7 @@ def main() -> int:
                 (
                     b"01wb",
                     0,
-                    audio_chunk_start - movi_data_start,
+                    audio_chunk_start - movi_index_base,
                     len(audio_chunk),
                 )
             )

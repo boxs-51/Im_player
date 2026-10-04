@@ -755,6 +755,37 @@ else:
         if token not in issue26_av_fixture:
             fail(f"Issue #26: A/V fixture contract missing: {token}")
 
+    av_fixture_selftest_path = REPORT_DIR / "issue26-av-fixture-selftest.avi"
+    av_fixture_selftest = subprocess.run(
+        [
+            sys.executable,
+            str(issue26_av_fixture_path),
+            str(av_fixture_selftest_path),
+            "--seconds",
+            "5",
+        ],
+        text=True,
+        capture_output=True,
+    )
+    if av_fixture_selftest.returncode != 0:
+        detail = (
+            av_fixture_selftest.stderr or av_fixture_selftest.stdout
+        ).strip()
+        fail("Issue #26: A/V fixture self-test generation failed: " + detail)
+    elif not av_fixture_selftest_path.is_file():
+        fail("Issue #26: A/V fixture self-test output missing")
+    else:
+        fixture_prefix = av_fixture_selftest_path.read_bytes()[:65536]
+        if fixture_prefix[:4] != b"RIFF" or fixture_prefix[8:12] != b"AVI ":
+            fail("Issue #26: A/V fixture self-test RIFF/AVI signature invalid")
+        for marker in (b"vids", b"auds", b"movi"):
+            if marker not in fixture_prefix:
+                fail(
+                    "Issue #26: A/V fixture self-test missing marker: "
+                    + marker.decode("ascii")
+                )
+        av_fixture_selftest_path.unlink(missing_ok=True)
+
 issue26_longrun_harness_path = ROOT / "scripts/issue26-av-drift-longrun.ps1"
 if not issue26_longrun_harness_path.is_file():
     fail("Issue #26: >=10-minute A/V drift harness is missing")
