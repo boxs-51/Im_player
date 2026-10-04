@@ -73,7 +73,8 @@ require(
 )
 require(
     "ResolveExecutableForPlayback" in player_cpp
-    and "script-opts-append" in player_cpp
+    and '"script-opts"' in player_cpp
+    and "script-opts-append" not in player_cpp
     and "ytdl_hook-ytdl_path=" in player_cpp
     and "event=YTDL_PATH_RESOLVED" in player_cpp
     and "event=YTDL_PATH_MISSING" in player_cpp,
