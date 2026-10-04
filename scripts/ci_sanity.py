@@ -113,6 +113,7 @@ required = [
     "scripts/brg5-multi-window-smoke.ps1",
     "scripts/brg5-lifecycle-audio-stress.ps1",
     "scripts/brg5-render-callback-shutdown.ps1",
+    "scripts/issue19-event-render-stress.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -324,6 +325,72 @@ else:
         fail("BRG-5: popup hotkeys must not use timing-dependent global SDL modifier state")
 
 facts["brg4_lifecycle_contract"] = "PASS" if not errors else "FAIL"
+
+# Issue #19: per-window ImGui context/backend serialization contract.
+# Fail closed if event handling and rendering stop sharing the same per-window
+# mutex, or if the render-side lock no longer spans the complete ImGui frame.
+window_runtime_h = (ROOT / "native/src/windows/WindowRuntime.h").read_text(
+    encoding="utf-8"
+)
+window_event_cpp = (ROOT / "native/src/windows/Evevnt.cpp").read_text(
+    encoding="utf-8"
+)
+ui_render_cpp = (ROOT / "native/src/windows/UIRenderThread.cpp").read_text(
+    encoding="utf-8"
+)
+
+if "mutable std::mutex imguiMutex;" not in window_runtime_h:
+    fail("#19: per-window imguiMutex ownership boundary missing")
+
+event_body = extract_function_body(
+    window_event_cpp, "void HandleWindowRuntimeEvent(WindowRuntime *runtime, const SDL_Event *e)"
+)
+render_body = extract_function_body(ui_render_cpp, "void UIRenderThread::Run()")
+event_imgui_lock = "std::lock_guard<std::mutex> imguiLock(runtime->imguiMutex)"
+render_imgui_lock = "std::lock_guard<std::mutex> imguiLock(currentWindow->imguiMutex)"
+
+for token in (
+    "ImGui::SetCurrentContext(imguiCtx)",
+    "runtime->resource.graphicsBackend->ProcessEvent(e)",
+):
+    if not token_is_under_lock(event_body, token, event_imgui_lock):
+        fail(f"#19: event-side ImGui mutation must be under per-window imguiMutex: {token}")
+
+for token in (
+    "ImGui::SetCurrentContext(currentWindow->resource.imguiCtx)",
+    "m_graphicsBackend->BeginFrame(currentWindow->resource.sdlWindow)",
+    "currentWindow->renderer->RenderUI(currentWindow, *snapshot)",
+    "m_graphicsBackend->EndFrame(currentWindow->resource.sdlWindow)",
+    "m_graphicsBackend->SwapWindow(currentWindow->resource.sdlWindow)",
+):
+    if not token_is_under_lock(render_body, token, render_imgui_lock):
+        fail(f"#19: full ImGui frame must remain under per-window imguiMutex: {token}")
+
+facts["issue19_imgui_serialization_contract"] = "PASS" if not errors else "FAIL"
+
+# AUD-19-01: focused event/render stress harness must remain capable of driving
+# real window-targeted mouse + keyboard pressure, resize, multi-window close,
+# and lifecycle-validated shutdown on the exact local candidate.
+issue19_stress_harness = (
+    ROOT / "scripts/issue19-event-render-stress.ps1"
+).read_text(encoding="utf-8")
+
+for token in (
+    "WM_MOUSEMOVE",
+    "WM_LBUTTONDOWN",
+    "WM_LBUTTONUP",
+    "Invoke-EventBurst",
+    'cases["secondary_close_during_event_burst"]',
+    'cases["main_close_during_event_burst"]',
+    'cases["ui_render_thread_started_before_injection"]',
+    "phase=START component=UIRenderThread ",
+    "POSTMESSAGE_WINDOW_TARGETED_MOUSE_KEYBOARD",
+    "brg5_validate_lifecycle.py",
+):
+    if token not in issue19_stress_harness:
+        fail(f"#19: focused event/render stress harness contract missing: {token}")
+
+facts["issue19_event_render_stress_contract"] = "PASS" if not errors else "FAIL"
 
 # BRG-3 MPV render callback lifetime regression contract.
 # Keep callback userdata alive through detach/context destruction and ensure
