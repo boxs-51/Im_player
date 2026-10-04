@@ -1,12 +1,15 @@
 #include "player/command/PlaybackCommand.h"
 #include "player/player/Player.h"
+#include "player/PlayerStateSystem.h"
+#include "player/PlayerDataModels.h"
 
 #include "settings_manager.h"
 #include <SDL.h>
 #include <algorithm>
 #include <string>
+#include <log.h>
 
-PlaybackCommand::PlaybackCommand(Player& player) : m_player(player) {}
+PlaybackCommand::PlaybackCommand(Player& player, PlayerStateSystem& state) : m_player(player), m_state(state) {}
 
 int PlaybackCommand::Exec(const char** cmd) {
     if (m_player.GetHandle()) {
@@ -45,9 +48,49 @@ int PlaybackCommand::SetPropertyFlag(const std::string& name, bool flag) {
 }
 
 int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFlags) {
+    Uint64 loadId = 0;
+    m_state.WritePlayback([&](PlaybackModel& m) {
+        // A direct new-media transaction must never inherit a format-switch
+        // seek armed for the previous media item.
+        m.pendingseektime = -1.0;
+        m.startupRestartCount = 0;
+        m.startupLoadId += 1;
+        loadId = m.startupLoadId;
+        m.isLoadingMedia = true;
+    });
+
+    const Uint64 now = SDL_GetTicks64();
+    LOG(1, LogLevel::Info, LogCategory::System,
+        "[STARTUP] event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
+        static_cast<unsigned long long>(loadId),
+        static_cast<unsigned long long>(now),
+        extraFlags.c_str(),
+        url.c_str());
+
     PlaybackCommand::ApplyPlaybackSettings();
     const char* cmd[] = { "loadfile", url.c_str(), extraFlags.c_str(), nullptr };
-    return Exec(cmd);
+    const int ret = Exec(cmd);
+
+    LOG(1, ret >= 0 ? LogLevel::Info : LogLevel::Error, LogCategory::System,
+        "[STARTUP] event=LOAD_COMMAND_RESULT load_id=%llu ts_ms=%llu result=%d",
+        static_cast<unsigned long long>(loadId),
+        static_cast<unsigned long long>(SDL_GetTicks64()),
+        ret);
+
+    if (ret < 0) {
+        m_state.WritePlayback([](PlaybackModel& m) {
+            m.isLoadingMedia = false;
+        });
+    }
+    return ret;
+}
+
+Uint64 PlaybackCommand::GetStartupLoadId() {
+    Uint64 loadId = 0;
+    m_state.ReadPlayback([&](PlaybackModel const& m) {
+        loadId = static_cast<Uint64>(m.startupLoadId);
+    });
+    return loadId;
 }
 
 int PlaybackCommand::Play() { return SetPropertyFlag("pause", false); }
@@ -98,7 +141,7 @@ int PlaybackCommand::Seek(float targetTime, float duration, const std::string& m
 void PlaybackCommand::Update() {
     float seekTargetTime = 0.0f;
     bool isSeekPending = false;
-    bool lastSeekRequestTime = false;
+    Uint64 lastSeekRequestTime = 0;
     {
         std::lock_guard<std::mutex> lock(m_commandMutex);
         seekTargetTime = m_seekTargetTime;
