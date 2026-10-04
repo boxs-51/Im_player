@@ -656,31 +656,49 @@ void PlaybackObserver::ProcessEvents() {
                     static_cast<unsigned long long>(SDL_GetTicks64()),
                     static_cast<int>(videotype)));
 
-            // #33 keeps the existing behavior intentionally, but makes the
-            // timing observable: source-specific MPV config is applied only
-            // after FILE_LOADED. Runtime evidence decides whether a later
-            // issue should move this boundary.
-            LOG(1, LogLevel::Info, LogCategory::System,
-                "[STARTUP] event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded",
-                static_cast<unsigned long long>(loadId),
-                static_cast<unsigned long long>(SDL_GetTicks64()));
-            LifecycleEvidence::EmitDiagnostic(
-                "STARTUP",
-                FormatString(
-                    "event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded",
+            // #33 startup boundary: never apply a source-specific runtime
+            // profile while the source type is still unknown. For cold URL
+            // loads yt-dlp metadata can arrive after FILE_LOADED; mutating
+            // cache/sync/seek-sensitive properties in that gap can force an
+            // internal seek/restart on the active load.
+            if (videotype == VideoType::None) {
+                LOG(1, LogLevel::Info, LogCategory::System,
+                    "[STARTUP] event=DYNAMIC_CONFIG_DEFER load_id=%llu ts_ms=%llu reason=source_type_unknown",
                     static_cast<unsigned long long>(loadId),
-                    static_cast<unsigned long long>(SDL_GetTicks64())));
-            ApplyDynamicMPVConfig(m_mpv, videotype);
-            LOG(1, LogLevel::Info, LogCategory::System,
-                "[STARTUP] event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu",
-                static_cast<unsigned long long>(loadId),
-                static_cast<unsigned long long>(SDL_GetTicks64()));
-            LifecycleEvidence::EmitDiagnostic(
-                "STARTUP",
-                FormatString(
-                    "event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu",
+                    static_cast<unsigned long long>(SDL_GetTicks64()));
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=DYNAMIC_CONFIG_DEFER load_id=%llu ts_ms=%llu reason=source_type_unknown",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            } else {
+                LOG(1, LogLevel::Info, LogCategory::System,
+                    "[STARTUP] event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded video_type=%d",
                     static_cast<unsigned long long>(loadId),
-                    static_cast<unsigned long long>(SDL_GetTicks64())));
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(videotype));
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded video_type=%d",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        static_cast<int>(videotype)));
+                ApplyDynamicMPVConfig(m_mpv, videotype);
+                LOG(1, LogLevel::Info, LogCategory::System,
+                    "[STARTUP] event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu video_type=%d",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(videotype));
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu video_type=%d",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        static_cast<int>(videotype)));
+            }
 
             m_commander.Play();
  
