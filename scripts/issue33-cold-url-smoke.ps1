@@ -143,6 +143,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         result = "FAIL"
         load_id = $null
         playback_restart_count = $null
+        mpv_internal_seek_count = 0
         startup_retry_count = 0
         combined_trace = $null
         startup_log = $logPath
@@ -277,6 +278,11 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         }
         $run.startup_retry_count = $retryLines.Count
 
+        $retryExhausted = @($startup | Where-Object { $_ -match "event=EARLY_EOF_RETRY_EXHAUSTED " })
+        if ($retryExhausted.Count -gt 0) {
+            throw "EARLY_EOF_RETRY_EXHAUSTED is a startup failure"
+        }
+
         $retryIndex = Find-StartupIndex $startup "event=LOAD_RETRY_REQUEST "
         if ($retryLines.Count -eq 1) {
             if ($retryLines[0] -notmatch "load_id=$loadId\b" -or
@@ -348,10 +354,21 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
                 $maxRestart = [Math]::Max($maxRestart, [int]$Matches[1])
             }
         }
-        if ($maxRestart -gt 1) {
-            throw "extra PLAYBACK_RESTART loop observed count=$maxRestart"
+        $internalSeekLines = @()
+        for ($i = $restartScanStart; $i -lt $startup.Count; $i++) {
+            if ($startup[$i] -match "event=SEEK " -and $startup[$i] -match "source=mpv_event") {
+                $internalSeekLines += $startup[$i]
+            }
         }
+
+        # #33 owns app-generated startup control churn. mpv/ytdl/timeline may
+        # legitimately emit more than one PLAYBACK_RESTART while selecting and
+        # opening EDL tracks. Do not fail on the raw restart count alone:
+        # APP_SEEK_COMMAND / SEEK_REQUEST / armed pending seek remain hard
+        # failures, while final startup milestones + bounded early-EOF policy
+        # decide whether an internal restart actually broke startup.
         $run.playback_restart_count = $maxRestart
+        $run.mpv_internal_seek_count = $internalSeekLines.Count
 
         # Audio telemetry uses a separate append sink. Read the combined evidence
         # only after process exit so the harness cannot perturb writer sharing or
