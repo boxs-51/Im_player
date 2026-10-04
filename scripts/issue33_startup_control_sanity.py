@@ -17,6 +17,7 @@ session_cpp = (ROOT / "native/src/player/session/PlayerSession.cpp").read_text(e
 main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 player_cpp = (ROOT / "native/src/player/player/Player.cpp").read_text(encoding="utf-8")
 ytdlp_h = (ROOT / "native/src/YtDlpManager.h").read_text(encoding="utf-8")
+lifecycle_h = (ROOT / "native/src/common/LifecycleEvidence.h").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -81,6 +82,12 @@ require(
     "#33: libmpv startup must bind a deterministic yt-dlp executable before initialization",
 )
 require(
+    "CreateFileA(" in lifecycle_h
+    and "FILE_APPEND_DATA" in lifecycle_h
+    and "FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE" in lifecycle_h,
+    "#33: startup diagnostic evidence must use explicit shared append semantics",
+)
+require(
     "GetModuleFileNameW" in ytdlp_h
     and 'configRoot / "Debug" / "yt-dlp.exe"' in ytdlp_h
     and 'configRoot / "Release" / "yt-dlp.exe"' in ytdlp_h
@@ -139,6 +146,8 @@ if cold_url_harness.is_file():
         '^\\[BRG5-DIAG\\] category=STARTUP ',
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
+        "extra PLAYBACK_RESTART loop observed",
+        "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
         'Get-Process -Name "Im_player"',
         "[System.IO.FileShare]::ReadWrite",
