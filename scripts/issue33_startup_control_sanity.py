@@ -23,6 +23,7 @@ render_thread_cpp = (ROOT / "native/src/player/render/PlayBackRenderThread.cpp")
 render_thread_h = (ROOT / "native/src/player/render/PlayBackRenderThread.h").read_text(encoding="utf-8")
 render_h = (ROOT / "native/src/player/render/PlayBackRender.h").read_text(encoding="utf-8")
 format_ytdlp_cpp = (ROOT / "native/src/player/event/BuildFormatYTDLP.cpp").read_text(encoding="utf-8")
+player_utils_h = (ROOT / "native/src/player/PlayerUtils.h").read_text(encoding="utf-8")
 
 require(
     'extraFlags = "replace"' in command_h,
@@ -57,6 +58,27 @@ require(
     and "m.startupVideoEvidenceArmed = false;" in command_cpp,
     "#33: direct LoadFile must reset stale seek/source/evidence state and advance startup load id",
 )
+require(
+    '{"keep-open", "no"}' in player_utils_h
+    and '{"keep-open", "yes"}' not in player_utils_h,
+    "#33: startup policy must not turn EOF into an implicit last-frame seek",
+)
+require(
+    "RetryStartupLoadAfterEarlyEof" in command_h
+    and "IssueLoadFile" in command_h
+    and "STARTUP_EARLY_EOF_RETRY_LIMIT = 1" in command_h
+    and "event=LOAD_RETRY_REQUEST" in command_cpp
+    and "reason=early_eof_before_first_frame" in command_cpp,
+    "#33: bounded one-shot early-EOF reload contract missing",
+)
+require(
+    "event=EARLY_EOF_DETECTED" in observer_cpp
+    and "event=EARLY_EOF_RETRY_ACCEPTED" in observer_cpp
+    and "event=EARLY_EOF_RETRY_EXHAUSTED" in observer_cpp
+    and "RetryStartupLoadAfterEarlyEof(loadId)" in observer_cpp,
+    "#33: END_FILE early-EOF recovery boundary missing",
+)
+
 require(
     "Uint64 lastSeekRequestTime = 0;" in command_cpp,
     "#33: delayed seek debounce must preserve the full Uint64 timestamp",
@@ -215,6 +237,9 @@ if cold_url_harness.is_file():
         '^\\[BRG5-DIAG\\] category=STARTUP ',
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
+        "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy",
+        "reason=early_eof_before_first_frame",
+        "Find-LastStartupIndex",
         "extra PLAYBACK_RESTART loop observed",
         "pending_seek_before=-1",
         "Assert-NoExistingImPlayer",
@@ -300,8 +325,12 @@ require(
     "event=MPV_LOG load_id=%llu" in observer_cpp
     and "event=MPV_LOG phase=preload" in observer_cpp
     and "startupLoadId > 0" in observer_cpp
+    and 'strncmp(msg->prefix, "ffmpeg", 6) == 0' in observer_cpp
+    and 'strcmp(msg->prefix, "stream") == 0' in observer_cpp
+    and 'strcmp(msg->prefix, "edl") == 0' in observer_cpp
+    and 'strcmp(msg->prefix, "timeline") == 0' in observer_cpp
     and 'prefix=%s level=%s text=%.320s' in observer_cpp,
-    "#33: startup mpv/ytdl/demux log attribution must separate preload from active load",
+    "#33: startup mpv/ytdl/ffmpeg/stream/EDL log attribution must separate preload from active load",
 )
 
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
