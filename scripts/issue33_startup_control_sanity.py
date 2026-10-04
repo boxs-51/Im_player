@@ -258,6 +258,19 @@ if build_all_start >= 0 and handle_ytdl_start > build_all_start:
         "#33: deferred ytdl-format discovery evidence contract missing",
     )
 
+require(
+    'if (videotype == VideoType::None)' in observer_cpp
+    and "event=DYNAMIC_CONFIG_DEFER" in observer_cpp
+    and "reason=source_type_unknown" in observer_cpp,
+    "#33: unknown source type must defer active-load dynamic MPV config",
+)
+none_guard = observer_cpp.find("if (videotype == VideoType::None)")
+dynamic_apply = observer_cpp.find("ApplyDynamicMPVConfig(m_mpv, videotype)", none_guard)
+require(
+    none_guard >= 0 and dynamic_apply > none_guard,
+    "#33: dynamic MPV config must remain behind the known-source guard",
+)
+
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
 seek_request_index = observer_cpp.find("event=SEEK_REQUEST")
 require(
