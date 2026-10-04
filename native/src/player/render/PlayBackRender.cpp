@@ -133,6 +133,16 @@ bool PlayBackRender::Init(Player &player, IGraphicsBackend *backend)
     return true;
 }
 
+void PlayBackRender::BindStartupState(PlayerStateSystem* state)
+{
+#ifdef RENDER_MPV_THREAD
+    if (m_renderThread)
+        m_renderThread->BindStartupState(state);
+#else
+    (void)state;
+#endif
+}
+
 void PlayBackRender::Shutdown()
 {
     std::lock_guard<std::mutex> shutdownLock(m_shutdownMutex);
