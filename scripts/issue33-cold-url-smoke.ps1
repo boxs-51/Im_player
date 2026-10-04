@@ -45,7 +45,7 @@ function Assert-NoExistingImPlayer {
 Assert-NoExistingImPlayer
 
 $summary = [ordered]@{
-    schema = "ISSUE33-COLD-URL-v1"
+    schema = "ISSUE33-COLD-URL-v2-COMBINED"
     commit = $commit
     configuration = $Configuration
     iterations_requested = $Iterations
@@ -85,6 +85,35 @@ function Get-StartupLines([string]$Path) {
     }
 }
 
+function Get-EvidenceLines([string]$Path) {
+    if (-not (Test-Path $Path)) { return @() }
+
+    $stream = $null
+    $reader = $null
+    try {
+        $stream = [System.IO.File]::Open(
+            $Path,
+            [System.IO.FileMode]::Open,
+            [System.IO.FileAccess]::Read,
+            [System.IO.FileShare]::ReadWrite
+        )
+        $reader = [System.IO.StreamReader]::new($stream)
+        $lines = @()
+        while (-not $reader.EndOfStream) {
+            $line = $reader.ReadLine()
+            if ($line -match "^\[BRG5-DIAG\] category=STARTUP " -or
+                $line -match "^\[AUDIO-TELEMETRY\] ") {
+                $lines += $line
+            }
+        }
+        return @($lines)
+    }
+    finally {
+        if ($reader) { $reader.Dispose() }
+        elseif ($stream) { $stream.Dispose() }
+    }
+}
+
 function Find-StartupIndex([string[]]$Lines, [string]$Token) {
     for ($i = 0; $i -lt $Lines.Count; $i++) {
         if ($Lines[$i].Contains($Token)) { return $i }
@@ -105,6 +134,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         result = "FAIL"
         load_id = $null
         playback_restart_count = $null
+        combined_trace = $null
         startup_log = $logPath
         failure = $null
     }
@@ -121,6 +151,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
 
             $startup = Get-StartupLines $logPath
+            $evidence = Get-EvidenceLines $logPath
             $hasDeferred = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -gt 0
             $hasIdleReady = ($startup | Where-Object { $_ -match "event=MPV_IDLE_READY " }).Count -gt 0
             $hasDispatch = ($startup | Where-Object { $_ -match "event=CLI_LOAD_DISPATCH " }).Count -gt 0
@@ -129,12 +160,17 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             $hasLoaded = ($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
             $hasVideoEvidenceArm = ($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -gt 0
             $hasFirstVideoFrame = ($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -gt 0
+            $hasFirstPcm = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_COMPLETE_PCM_BLOCK " }).Count -gt 0
+            $hasFirstProcessed = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_PROCESSED_BLOCK " }).Count -gt 0
+            $hasFirstSdlWrite = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_SDL_WRITE " }).Count -gt 0
+            $hasFirstNonzeroQueue = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_NONZERO_SDL_QUEUE " }).Count -gt 0
 
-            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasVideoEvidenceArm -and $hasFirstVideoFrame) { break }
+            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasFirstPcm -and $hasFirstProcessed -and $hasFirstSdlWrite -and $hasFirstNonzeroQueue -and $hasVideoEvidenceArm -and $hasFirstVideoFrame) { break }
             Start-Sleep -Milliseconds 100
         }
 
         $startup = Get-StartupLines $logPath
+        $evidence = Get-EvidenceLines $logPath
         $missingYtdl = @($startup | Where-Object { $_ -match "event=YTDL_PATH_MISSING" })
         if ($missingYtdl.Count -gt 0) {
             throw "yt-dlp executable was not resolved before MPV initialization"
@@ -236,6 +272,41 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "dynamic config timing markers are not post-FILE_LOADED ordered"
         }
 
+        $combinedLoadIndex = Find-StartupIndex $evidence "event=LOAD_REQUEST "
+        $combinedStartIndex = Find-StartupIndex $evidence "event=START_FILE "
+        $combinedLoadedIndex = Find-StartupIndex $evidence "event=FILE_LOADED "
+        $firstPcmIndex = Find-StartupIndex $evidence "FIRST_COMPLETE_PCM_BLOCK "
+        $firstProcessedIndex = Find-StartupIndex $evidence "FIRST_PROCESSED_BLOCK "
+        $firstSdlWriteIndex = Find-StartupIndex $evidence "FIRST_SDL_WRITE "
+        $firstNonzeroQueueIndex = Find-StartupIndex $evidence "FIRST_NONZERO_SDL_QUEUE "
+        $combinedVideoArmIndex = Find-StartupIndex $evidence "event=VIDEO_EVIDENCE_ARM "
+        $combinedFirstVideoIndex = Find-StartupIndex $evidence "event=FIRST_VIDEO_FRAME "
+
+        if ($combinedLoadIndex -lt 0 -or
+            $combinedStartIndex -le $combinedLoadIndex -or
+            $combinedLoadedIndex -le $combinedStartIndex -or
+            $firstPcmIndex -le $combinedLoadedIndex -or
+            $firstProcessedIndex -le $firstPcmIndex -or
+            $firstSdlWriteIndex -le $firstProcessedIndex -or
+            $firstNonzeroQueueIndex -le $firstSdlWriteIndex -or
+            $combinedVideoArmIndex -le $combinedLoadedIndex -or
+            $combinedFirstVideoIndex -le $combinedVideoArmIndex -or
+            $combinedFirstVideoIndex -le $firstNonzeroQueueIndex) {
+            throw "combined startup event order is not LOAD_REQUEST -> START_FILE -> FILE_LOADED -> FIRST_COMPLETE_PCM_BLOCK -> FIRST_PROCESSED_BLOCK -> FIRST_SDL_WRITE -> FIRST_NONZERO_SDL_QUEUE -> FIRST_VIDEO_FRAME with VIDEO_EVIDENCE_ARM after FILE_LOADED"
+        }
+
+        $run.combined_trace = [ordered]@{
+            load_request = $combinedLoadIndex
+            start_file = $combinedStartIndex
+            file_loaded = $combinedLoadedIndex
+            first_complete_pcm_block = $firstPcmIndex
+            first_processed_block = $firstProcessedIndex
+            first_sdl_write = $firstSdlWriteIndex
+            first_nonzero_sdl_queue = $firstNonzeroQueueIndex
+            video_evidence_arm = $combinedVideoArmIndex
+            first_video_frame = $combinedFirstVideoIndex
+        }
+
         $restartLines = @($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " })
         $maxRestart = 0
         foreach ($line in $restartLines) {
@@ -271,7 +342,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $summary | ConvertTo-Json -Depth 6 | Set-Content -Path $summaryPath -Encoding UTF8
 
         Write-Host "[ISSUE-33] $Configuration FAIL iteration=$iteration reason=$($run.failure)"
-        $tail = Get-StartupLines $logPath | Select-Object -Last 20
+        $tail = Get-EvidenceLines $logPath | Select-Object -Last 40
         if ($tail) { $tail | ForEach-Object { Write-Host $_ } }
         throw "[ISSUE-33] cold URL smoke failed"
     }
