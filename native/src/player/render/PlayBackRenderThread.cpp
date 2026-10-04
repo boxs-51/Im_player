@@ -5,11 +5,13 @@
 #include "player/render/PlayBackRenderThread.h"
 #include "log.h" // Thêm header cho LOG
 #include "player/player/Player.h"
+#include "player/PlayerStateSystem.h"
 
 #include "mpv/render_gl.h"
 #include <gl3w.h> // Thêm header cho GLuint
 #include "utils.h"
 #include <array>
+#include <cstdio>
 #include "common/Exception.h"
 #include "common/LifecycleEvidence.h"
 #include "windows/WindowUtils.h"
@@ -197,6 +199,39 @@ try {
         uint64_t currentFrameId = ++m_frameCounter;
         this->state.fboPool->MarkAsReady(index, currentFrameId);
         m_lastRenderedFrameId.store(currentFrameId, std::memory_order_release);
+
+        // #33 acceptance marker: emit only after mpv_render_context_render()
+        // completed and the FBO was marked ready for UI consumption. This is
+        // therefore a produced/displayable frame, not merely a render wake.
+        if (auto* startupState = m_startupState.load(std::memory_order_acquire)) {
+            uint64_t loadId = 0;
+            startupState->ReadPlayback([&](PlaybackModel const& playback) {
+                loadId = playback.startupLoadId;
+            });
+
+            if (loadId > 0) {
+                uint64_t observed =
+                    m_firstVideoFrameLoadId.load(std::memory_order_acquire);
+                while (observed != loadId) {
+                    if (m_firstVideoFrameLoadId.compare_exchange_weak(
+                            observed,
+                            loadId,
+                            std::memory_order_acq_rel,
+                            std::memory_order_acquire)) {
+                        char diag[256]{};
+                        std::snprintf(
+                            diag,
+                            sizeof(diag),
+                            "event=FIRST_VIDEO_FRAME load_id=%llu ts_ms=%llu frame_id=%llu",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            static_cast<unsigned long long>(currentFrameId));
+                        LifecycleEvidence::EmitDiagnostic("STARTUP", diag);
+                        break;
+                    }
+                }
+            }
+        }
         this->state.framerender.store(framerender.getFPS());
 
         SDL_Event ev;
