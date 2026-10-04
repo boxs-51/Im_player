@@ -303,16 +303,20 @@ void PlaybackObserver::BuildAllFormats(const VideoInfoResult& info) {
 
     UpdateVideoTypeInState(info);
 
-    // #33: metadata discovery must not mutate the active load. The current
+    // #33: metadata discovery must not mutate the active mpv load. The current
     // load's ytdl-format was already selected before the loadfile command.
-    // Rewriting it here can trigger a second selection/restart/seek while
-    // decoders and the audio transport are still starting.
+    // Persist the corrected combined selector for the NEXT load/retry only;
+    // do not call SetPropertyString here while decoders/audio are starting.
     const std::string combinedFormat = BuildCombinedFormat(localFormats);
+    Cfg.UpdateVideoSettings([combinedFormat](AppSettings& s) {
+        s.selectedResolution = combinedFormat;
+    });
+
     const Uint64 loadId = m_commander.GetStartupLoadId();
     LifecycleEvidence::EmitDiagnostic(
         "STARTUP",
         FormatString(
-            "event=YTDL_FORMAT_DISCOVERED load_id=%llu ts_ms=%llu action=defer_current_load format=%s",
+            "event=YTDL_FORMAT_DISCOVERED load_id=%llu ts_ms=%llu action=defer_current_load persist_next_load=1 format=%s",
             static_cast<unsigned long long>(loadId),
             static_cast<unsigned long long>(SDL_GetTicks64()),
             combinedFormat.c_str()));
