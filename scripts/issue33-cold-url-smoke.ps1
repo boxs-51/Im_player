@@ -273,12 +273,26 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $firstVideoIndex = Find-StartupIndex $startup "event=FIRST_VIDEO_FRAME "
         $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
         $configEndIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_END "
+        $configDeferIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_DEFER "
+        $formatDiscoveredIndex = Find-StartupIndex $startup "event=YTDL_FORMAT_DISCOVERED "
 
         if ($ytdlIndex -lt 0 -or $deferredIndex -le $ytdlIndex -or $idleReadyIndex -le $deferredIndex -or $dispatchIndex -le $idleReadyIndex -or $loadIndex -le $dispatchIndex -or $startIndex -le $loadIndex -or $loadedIndex -le $startIndex -or $videoEvidenceArmIndex -le $loadedIndex -or $firstVideoIndex -le $videoEvidenceArmIndex) {
             throw "startup event order is not YTDL_PATH_RESOLVED -> CLI_LOAD_DEFERRED -> MPV_IDLE_READY -> CLI_LOAD_DISPATCH -> LOAD_REQUEST -> START_FILE -> FILE_LOADED -> VIDEO_EVIDENCE_ARM -> FIRST_VIDEO_FRAME"
         }
-        if ($configBeginIndex -le $loadedIndex -or $configEndIndex -le $configBeginIndex) {
-            throw "dynamic config timing markers are not post-FILE_LOADED ordered"
+
+        $hasConfigApply = $configBeginIndex -gt $loadedIndex -and $configEndIndex -gt $configBeginIndex
+        $hasConfigDefer = $configDeferIndex -gt $loadedIndex
+        if ($hasConfigApply -eq $hasConfigDefer) {
+            throw "dynamic config boundary must choose exactly one post-FILE_LOADED path: APPLY_BEGIN/END xor DYNAMIC_CONFIG_DEFER"
+        }
+        if ($hasConfigDefer) {
+            if ($formatDiscoveredIndex -le $configDeferIndex) {
+                throw "deferred dynamic config must be followed by YTDL_FORMAT_DISCOVERED for the cold URL load"
+            }
+            $deferLine = $startup[$configDeferIndex]
+            if ($deferLine -notmatch "reason=source_type_unknown") {
+                throw "DYNAMIC_CONFIG_DEFER missing source_type_unknown attribution"
+            }
         }
 
 
