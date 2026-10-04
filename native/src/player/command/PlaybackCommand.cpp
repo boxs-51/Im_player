@@ -53,7 +53,7 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         std::lock_guard<std::mutex> lock(m_commandMutex);
         m_lastDirectLoadUrl = url;
         m_lastDirectLoadFlags = extraFlags;
-        m_startupEarlyEofRetries = 0;
+        m_startupEarlyFailureRetries = 0;
     }
     return IssueLoadFile(url, extraFlags, false);
 }
@@ -66,7 +66,7 @@ int PlaybackCommand::IssueLoadFile(
     Uint32 retryCount = 0;
     {
         std::lock_guard<std::mutex> lock(m_commandMutex);
-        retryCount = m_startupEarlyEofRetries;
+        retryCount = m_startupEarlyFailureRetries;
     }
 
     m_state.WritePlayback([&](PlaybackModel& m) {
@@ -92,7 +92,7 @@ int PlaybackCommand::IssueLoadFile(
         LifecycleEvidence::EmitDiagnostic(
             "STARTUP",
             FormatString(
-                "event=LOAD_RETRY_REQUEST load_id=%llu ts_ms=%llu attempt=%u reason=early_eof_before_first_frame flags=%s url=%s",
+                "event=LOAD_RETRY_REQUEST load_id=%llu ts_ms=%llu attempt=%u reason=early_terminal_before_first_frame flags=%s url=%s",
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(now),
                 static_cast<unsigned int>(retryCount + 1),
@@ -138,7 +138,7 @@ int PlaybackCommand::IssueLoadFile(
     return ret;
 }
 
-bool PlaybackCommand::RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId) {
+bool PlaybackCommand::RetryStartupLoadAfterEarlyFailure(Uint64 expectedLoadId) {
     if (GetStartupLoadId() != expectedLoadId) {
         return false;
     }
@@ -149,11 +149,11 @@ bool PlaybackCommand::RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId) {
     {
         std::lock_guard<std::mutex> lock(m_commandMutex);
         if (m_lastDirectLoadUrl.empty()
-            || m_startupEarlyEofRetries >= STARTUP_EARLY_EOF_RETRY_LIMIT) {
+            || m_startupEarlyFailureRetries >= STARTUP_EARLY_FAILURE_RETRY_LIMIT) {
             return false;
         }
-        ++m_startupEarlyEofRetries;
-        retryCount = m_startupEarlyEofRetries;
+        ++m_startupEarlyFailureRetries;
+        retryCount = m_startupEarlyFailureRetries;
         retryUrl = m_lastDirectLoadUrl;
         retryFlags = m_lastDirectLoadFlags;
     }
@@ -165,7 +165,7 @@ bool PlaybackCommand::RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId) {
             static_cast<unsigned long long>(expectedLoadId),
             static_cast<unsigned long long>(SDL_GetTicks64()),
             static_cast<unsigned int>(retryCount),
-            static_cast<unsigned int>(STARTUP_EARLY_EOF_RETRY_LIMIT)));
+            static_cast<unsigned int>(STARTUP_EARLY_FAILURE_RETRY_LIMIT)));
 
     return IssueLoadFile(retryUrl, retryFlags, true) >= 0;
 }
