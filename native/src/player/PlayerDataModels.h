@@ -183,6 +183,9 @@ struct PlaybackModel {
     uint64_t startupLoadedLoadId = 0;
     uint64_t startupVideoEvidenceLoadId = 0;
     bool startupVideoEvidenceArmed = false;
+    // #33 startup success boundary: first real media payload from either
+    // audio PCM or a rendered video frame for the current load.
+    uint64_t startupMediaStartedLoadId = 0;
     uint32_t startupRestartCount = 0;
     bool startupMpvIdleReady = false;
 
