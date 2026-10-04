@@ -638,32 +638,46 @@ void PlaybackObserver::ProcessEvents() {
                     mpv_error_string(data->error),
                     firstFramePublished ? 1 : 0));
 
-            if (data->reason == MPV_END_FILE_REASON_EOF &&
+            const bool earlyEof =
+                data->reason == MPV_END_FILE_REASON_EOF;
+            const bool earlyNoData =
+                data->reason == MPV_END_FILE_REASON_ERROR &&
+                data->error == MPV_ERROR_NOTHING_TO_PLAY;
+            const bool retryableEarlyFailure =
+                (earlyEof || earlyNoData) &&
                 loadId > 0 &&
-                !firstFramePublished) {
+                !firstFramePublished;
+
+            if (retryableEarlyFailure) {
+                const char* cause = earlyNoData ? "nothing_to_play" : "eof";
                 LifecycleEvidence::EmitDiagnostic(
                     "STARTUP",
                     FormatString(
-                        "event=EARLY_EOF_DETECTED load_id=%llu ts_ms=%llu boundary=before_first_frame",
+                        "event=EARLY_TERMINAL_FAILURE_DETECTED load_id=%llu ts_ms=%llu cause=%s boundary=before_first_frame reason=%d error=%d",
                         static_cast<unsigned long long>(loadId),
-                        static_cast<unsigned long long>(SDL_GetTicks64())));
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        cause,
+                        static_cast<int>(data->reason),
+                        data->error));
 
-                if (m_commander.RetryStartupLoadAfterEarlyEof(loadId)) {
+                if (m_commander.RetryStartupLoadAfterEarlyFailure(loadId)) {
                     LifecycleEvidence::EmitDiagnostic(
                         "STARTUP",
                         FormatString(
-                            "event=EARLY_EOF_RETRY_ACCEPTED load_id=%llu ts_ms=%llu",
+                            "event=EARLY_TERMINAL_RETRY_ACCEPTED load_id=%llu ts_ms=%llu cause=%s",
                             static_cast<unsigned long long>(loadId),
-                            static_cast<unsigned long long>(SDL_GetTicks64())));
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            cause));
                     break;
                 }
 
                 LifecycleEvidence::EmitDiagnostic(
                     "STARTUP",
                     FormatString(
-                        "event=EARLY_EOF_RETRY_EXHAUSTED load_id=%llu ts_ms=%llu",
+                        "event=EARLY_TERMINAL_RETRY_EXHAUSTED load_id=%llu ts_ms=%llu cause=%s",
                         static_cast<unsigned long long>(loadId),
-                        static_cast<unsigned long long>(SDL_GetTicks64())));
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        cause));
             }
  
             switch (data->reason) {
