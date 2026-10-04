@@ -127,9 +127,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             $hasLoad = ($startup | Where-Object { $_ -match "event=LOAD_REQUEST " }).Count -gt 0
             $hasStart = ($startup | Where-Object { $_ -match "event=START_FILE " }).Count -gt 0
             $hasLoaded = ($startup | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
-            $hasRestart = ($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " }).Count -gt 0
 
-            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasRestart) { break }
+            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded) { break }
             Start-Sleep -Milliseconds 100
         }
 
@@ -168,10 +167,6 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
             throw "FILE_LOADED not observed within $StartupTimeoutSeconds seconds after START_FILE"
         }
-        if (($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " }).Count -eq 0) {
-            throw "PLAYBACK_RESTART marker not observed"
-        }
-
         Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
         $startup = Get-StartupLines $logPath
 
@@ -222,9 +217,15 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         $restartLines = @($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " })
         $maxRestart = 0
         foreach ($line in $restartLines) {
+            if ($line -notmatch "pending_seek_before=-1\.000") {
+                throw "PLAYBACK_RESTART observed with an armed startup seek: $line"
+            }
             if ($line -match "count=(\d+)") {
                 $maxRestart = [Math]::Max($maxRestart, [int]$Matches[1])
             }
+        }
+        if ($maxRestart -gt 1) {
+            throw "extra PLAYBACK_RESTART loop observed count=$maxRestart"
         }
         $run.playback_restart_count = $maxRestart
 
