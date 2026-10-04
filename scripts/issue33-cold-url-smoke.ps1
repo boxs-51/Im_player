@@ -169,11 +169,23 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             }
             throw "FILE_LOADED not observed within $StartupTimeoutSeconds seconds after START_FILE"
         }
-        if (($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -eq 0) {
-            throw "VIDEO_EVIDENCE_ARM marker not observed after FILE_LOADED"
+        $videoEvidenceArms = @($startup | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " })
+        if ($videoEvidenceArms.Count -ne 1) {
+            throw "expected exactly one VIDEO_EVIDENCE_ARM marker, observed=$($videoEvidenceArms.Count)"
         }
-        if (($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -eq 0) {
-            throw "FIRST_VIDEO_FRAME marker not observed after VIDEO_EVIDENCE_ARM"
+        if ($videoEvidenceArms[0] -notmatch "boundary=video_reconfig") {
+            throw "VIDEO_EVIDENCE_ARM missing video-reconfig boundary attribution"
+        }
+
+        $firstVideoFrames = @($startup | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " })
+        if ($firstVideoFrames.Count -ne 1) {
+            throw "expected exactly one FIRST_VIDEO_FRAME marker, observed=$($firstVideoFrames.Count)"
+        }
+        if ($firstVideoFrames[0] -notmatch "armed_before_render=1") {
+            throw "FIRST_VIDEO_FRAME missing armed-before-render proof"
+        }
+        if ($firstVideoFrames[0] -notmatch "boundary=video_reconfig") {
+            throw "FIRST_VIDEO_FRAME missing video-reconfig boundary attribution"
         }
         Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
         $startup = Get-StartupLines $logPath

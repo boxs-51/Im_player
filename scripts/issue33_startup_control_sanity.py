@@ -84,8 +84,31 @@ require(
     and "startupVideoEvidenceArmed" in render_thread_cpp
     and "mpv_render_context_render" in render_thread_cpp
     and "MarkAsReady" in render_thread_cpp
+    and "armed_before_render=1" in render_thread_cpp
+    and "boundary=video_reconfig" in render_thread_cpp
     and "playback.startupVideoEvidenceArmed = false;" in render_thread_cpp,
     "#33: first video-frame evidence must pre-arm, revalidate, publish, and disarm the exact load",
+)
+
+arm_snapshot_index = render_thread_cpp.find("uint64_t armedLoadIdBeforeRender = 0;")
+render_call_index = render_thread_cpp.find(
+    "mpv_render_context_render(this->state.render_ctx, params.data());",
+    arm_snapshot_index,
+)
+ready_index = render_thread_cpp.find(
+    "MarkAsReady(index, currentFrameId);",
+    render_call_index,
+)
+first_video_marker_index = render_thread_cpp.find(
+    "event=FIRST_VIDEO_FRAME",
+    ready_index,
+)
+require(
+    arm_snapshot_index >= 0
+    and render_call_index > arm_snapshot_index
+    and ready_index > render_call_index
+    and first_video_marker_index > ready_index,
+    "#33: AUD-33-VIDEO-01 requires arm snapshot before render and FIRST_VIDEO_FRAME only after FBO publication",
 )
 require(
     "event=CLI_LOAD_DEFERRED" in main_cpp
