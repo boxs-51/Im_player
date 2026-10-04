@@ -63,6 +63,7 @@ for marker in (
     "event=SEEK_REQUEST",
     "event=SEEK",
     "event=DYNAMIC_CONFIG_APPLY_BEGIN",
+    "event=END_FILE",
     "timing=post_file_loaded",
 ):
     require(marker in observer_cpp, f"#33: startup observer marker missing: {marker}")
@@ -91,6 +92,8 @@ if cold_url_harness.is_file():
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",
         '^\\[BRG5-DIAG\\] category=STARTUP ',
+        "-WorkingDirectory $root",
+        "StartupTimeoutSeconds = 60",
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
