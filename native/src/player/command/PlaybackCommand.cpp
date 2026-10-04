@@ -93,7 +93,7 @@ int PlaybackCommand::IssueLoadFile(
         LifecycleEvidence::EmitDiagnostic(
             "STARTUP",
             FormatString(
-                "event=LOAD_RETRY_REQUEST load_id=%llu ts_ms=%llu attempt=%u reason=early_terminal_before_first_frame flags=%s url=%s",
+                "event=LOAD_RETRY_REQUEST load_id=%llu ts_ms=%llu attempt=%u reason=early_terminal_before_any_media flags=%s url=%s",
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(now),
                 static_cast<unsigned int>(retryCount + 1),
