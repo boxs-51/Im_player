@@ -170,8 +170,7 @@ int main(int argc, char **argv)
         // before dispatching the same LoadFile path used by the popup.
         std::string deferredStartupUrl;
         bool startupUrlPending = false;
-        uint32_t completedStartupCycles = 0;
-        if (argc >= 2)
+         if (argc >= 2)
         {
             deferredStartupUrl = argv[1];
             startupUrlPending = true;
@@ -229,20 +228,30 @@ int main(int argc, char **argv)
                 }
             }
 
-            if (startupUrlPending && completedStartupCycles > 0)
+            if (startupUrlPending)
             {
                 if (auto* session = mainWin->resource.GetPlayerSession())
                 {
-                    if (auto* commander = session->GetCommander())
+                    bool mpvIdleReady = false;
+                    if (auto* state = session->GetState())
                     {
-                        LifecycleEvidence::EmitDiagnostic(
-                            "STARTUP",
-                            FormatString(
-                                "event=CLI_LOAD_DISPATCH ts_ms=%llu completed_cycles=%u",
-                                static_cast<unsigned long long>(SDL_GetTicks64()),
-                                completedStartupCycles));
-                        commander->LoadFile(deferredStartupUrl);
-                        startupUrlPending = false;
+                        state->ReadPlayback([&](PlaybackModel const& m) {
+                            mpvIdleReady = m.startupMpvIdleReady;
+                        });
+                    }
+
+                    if (mpvIdleReady)
+                    {
+                        if (auto* commander = session->GetCommander())
+                        {
+                            LifecycleEvidence::EmitDiagnostic(
+                                "STARTUP",
+                                FormatString(
+                                    "event=CLI_LOAD_DISPATCH ts_ms=%llu readiness=mpv_idle",
+                                    static_cast<unsigned long long>(SDL_GetTicks64())));
+                            commander->LoadFile(deferredStartupUrl);
+                            startupUrlPending = false;
+                        }
                     }
                 }
             }
@@ -317,9 +326,6 @@ int main(int argc, char **argv)
 
             main_loop_rate = mainloop.getFPS();
             mainloop.endFrame();
-
-            if (startupUrlPending)
-                ++completedStartupCycles;
         }
 
         if (hMutex)
