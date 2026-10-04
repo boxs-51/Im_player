@@ -36,7 +36,7 @@ public:
     int PlaylistNext();
     int PlaylistPrev();
     Uint64 GetStartupLoadId();
-    bool RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId);
+    bool RetryStartupLoadAfterEarlyFailure(Uint64 expectedLoadId);
 
 private:
     int IssueLoadFile(const std::string& url, const std::string& extraFlags, bool retryAttempt);
@@ -56,8 +56,8 @@ private:
 
     std::string m_lastDirectLoadUrl;
     std::string m_lastDirectLoadFlags = "replace";
-    Uint32 m_startupEarlyEofRetries = 0;
+    Uint32 m_startupEarlyFailureRetries = 0;
 
     const Uint32 SEEK_DELAY_MS = 150;
-    const Uint32 STARTUP_EARLY_EOF_RETRY_LIMIT = 1;
+    const Uint32 STARTUP_EARLY_FAILURE_RETRY_LIMIT = 1;
 };
