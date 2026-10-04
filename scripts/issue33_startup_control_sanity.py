@@ -67,6 +67,32 @@ for marker in (
 ):
     require(marker in observer_cpp, f"#33: startup observer marker missing: {marker}")
 
+require(
+    command_cpp.count('EmitDiagnostic(\n        "STARTUP"') >= 2,
+    "#33: startup command markers must persist to the lifecycle evidence sink",
+)
+require(
+    observer_cpp.count('EmitDiagnostic(\n                "STARTUP"') >= 6,
+    "#33: startup observer markers must persist to the lifecycle evidence sink",
+)
+cold_url_harness = ROOT / "scripts/issue33-cold-url-smoke.ps1"
+require(
+    cold_url_harness.is_file(),
+    "#33: repeated cold URL startup harness is missing",
+)
+if cold_url_harness.is_file():
+    harness_text = cold_url_harness.read_text(encoding="utf-8")
+    for token in (
+        "Iterations = 20",
+        "flags=replace",
+        "pending_seek=-1",
+        "event=SEEK_REQUEST",
+        "LOAD_REQUEST -> START_FILE -> FILE_LOADED",
+        "DYNAMIC_CONFIG_APPLY_BEGIN",
+        "issue33-summary.json",
+    ):
+        require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
+
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
 seek_request_index = observer_cpp.find("event=SEEK_REQUEST")
 require(
