@@ -716,6 +716,10 @@ for token in (
     "48000-stereo",
     "FIRST_NONZERO_SDL_QUEUE",
     "startup timeline order invalid",
+    "effective property mismatch",
+    "WAVE RIFF header reached raw PCM consumer",
+    "published block violates canonical contract",
+    "runtime summary reports loss/error",
     "telemetry_error_count",
 ):
     if token not in issue26_runtime_harness:
@@ -723,6 +727,18 @@ for token in (
 
 if not (ROOT / "scripts/issue26_generate_pcm_fixture.py").is_file():
     fail("Issue #26: normalization fixture generator is missing")
+
+audio_cpp = (ROOT / "native/src/player/audio/Audio.cpp").read_text(
+    encoding="utf-8"
+)
+if "[AUDIO-TELEMETRY]" not in (
+    ROOT / "native/src/player/audio/AudioTelemetry.h"
+).read_text(encoding="utf-8"):
+    fail("Issue #26: audio telemetry evidence prefix missing")
+if "SUMMARY capture_blocks=" not in audio_cpp:
+    fail("Issue #26: end-of-run audio telemetry summary missing")
+if "sample_rate=%u channels=%u format=float32" not in audio_capture_cpp:
+    fail("Issue #26: runtime AudioBlock format evidence missing")
 
 facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
 

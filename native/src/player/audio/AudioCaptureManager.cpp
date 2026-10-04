@@ -405,10 +405,12 @@ void AudioCaptureManager::CaptureLoop() {
                         frames,
                         static_cast<unsigned long long>(carryBytes));
                     EmitAudioTelemetryEvidence(
-                        "FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu",
+                        "FIRST_COMPLETE_PCM_BLOCK t_us=%llu frames=%u carry_bytes=%llu sample_rate=%u channels=%u format=float32",
                         static_cast<unsigned long long>(completeBlockMicros),
                         frames,
-                        static_cast<unsigned long long>(carryBytes));
+                        static_cast<unsigned long long>(carryBytes),
+                        static_cast<unsigned int>(kCanonicalAudioSampleRate),
+                        static_cast<unsigned int>(kCanonicalAudioChannels));
                 }
 
                 double timepos = 0.0;

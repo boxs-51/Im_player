@@ -1,4 +1,5 @@
 #include "Audio.h"
+#include "AudioTelemetry.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
 
@@ -82,6 +83,28 @@ void Audio::Shutdown() {
 
     LOG(1, LogLevel::Info, LogCategory::Audio, 
         "[Audio] Shutting down pipeline...");
+
+    const AudioPipelineMetrics captureMetrics = m_audioCapture.GetMetrics();
+    const AudioOutputMetrics outputMetrics = m_audioOutput.GetMetrics();
+    EmitAudioTelemetryEvidence(
+        "SUMMARY capture_blocks=%llu capture_dropped=%llu capture_bytes=%llu ring_overflows=%llu carry_bytes=%llu generation=%llu output_blocks=%llu format_mismatch=%llu underflows=%llu write_failures=%llu queued_bytes=%u queued_ms=%.3f queue_high_water_bytes=%u last_written_end_pts=%.6f mpv_time_pos=%.6f audible_head_pts=%.6f av_offset_s=%.6f",
+        static_cast<unsigned long long>(captureMetrics.blocksReceived),
+        static_cast<unsigned long long>(captureMetrics.blocksDropped),
+        static_cast<unsigned long long>(captureMetrics.bytesReceived),
+        static_cast<unsigned long long>(captureMetrics.ringOverflows),
+        static_cast<unsigned long long>(captureMetrics.partialFrameCarryBytes),
+        static_cast<unsigned long long>(captureMetrics.currentGeneration),
+        static_cast<unsigned long long>(outputMetrics.blocksWritten),
+        static_cast<unsigned long long>(outputMetrics.blocksDroppedFormatMismatch),
+        static_cast<unsigned long long>(outputMetrics.queueUnderflowEvents),
+        static_cast<unsigned long long>(outputMetrics.writeFailures),
+        outputMetrics.queuedBytes,
+        outputMetrics.queuedMilliseconds,
+        outputMetrics.queueHighWaterBytes,
+        outputMetrics.lastWrittenEndPts,
+        outputMetrics.mpvTimePos,
+        outputMetrics.estimatedAudibleHeadPts,
+        outputMetrics.estimatedAvOffsetSeconds);
 
     // Dừng theo thứ tự ngược lại của Pipeline: Consumer -> Intermediate -> Producer
     
