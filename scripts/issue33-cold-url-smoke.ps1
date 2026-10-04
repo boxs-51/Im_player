@@ -13,9 +13,6 @@ param(
     [ValidateRange(5, 180)]
     [int]$StartupTimeoutSeconds = 60,
 
-    [ValidateRange(3, 60)]
-    [int]$EvidenceObserveSeconds = 10,
-
     [ValidateRange(100, 5000)]
     [int]$PostStartupObserveMilliseconds = 1000
 )
@@ -88,7 +85,7 @@ function Get-StartupLines([string]$Path) {
     }
 }
 
-# All startup/audio/video evidence is intentionally read only after clean process exit.
+# STARTUP/audio/video evidence may be polled live because every writer uses explicit shared Win32 append semantics.
 function Get-EvidenceLines([string]$Path) {
     if (-not (Test-Path $Path)) { return @() }
 
@@ -146,20 +143,33 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     try {
         $quotedMediaUrl = '"' + $MediaUrl + '"'
         $process = Start-Process -FilePath $exe -ArgumentList $quotedMediaUrl -WorkingDirectory $root -PassThru
-        # Do not read the shared evidence file while playback is active.
-        # STARTUP uses a Win32 shared append sink, but canonical #26
-        # AUDIO-TELEMETRY still uses fopen_s("ab"). A live reader can therefore
-        # perturb the audio writer's sharing contract and selectively drop
-        # first-milestone evidence. Observe only process liveness here; consume
-        # all STARTUP + AUDIO evidence after clean process exit.
-        $observeSeconds = [Math]::Min($StartupTimeoutSeconds, $EvidenceObserveSeconds)
-        $deadline = [DateTime]::UtcNow.AddSeconds($observeSeconds)
+        $deadline = [DateTime]::UtcNow.AddSeconds($StartupTimeoutSeconds)
+        $evidence = @()
         while ([DateTime]::UtcNow -lt $deadline) {
             if ($process.HasExited) {
-                throw "process exited during startup observation, exitCode=$($process.ExitCode)"
+                throw "process exited during startup, exitCode=$($process.ExitCode)"
+            }
+
+            $evidence = Get-EvidenceLines $logPath
+            $hasDeferred = ($evidence | Where-Object { $_ -match "event=CLI_LOAD_DEFERRED " }).Count -gt 0
+            $hasIdleReady = ($evidence | Where-Object { $_ -match "event=MPV_IDLE_READY " }).Count -gt 0
+            $hasDispatch = ($evidence | Where-Object { $_ -match "event=CLI_LOAD_DISPATCH " }).Count -gt 0
+            $hasLoad = ($evidence | Where-Object { $_ -match "event=LOAD_REQUEST " }).Count -gt 0
+            $hasStart = ($evidence | Where-Object { $_ -match "event=START_FILE " }).Count -gt 0
+            $hasLoaded = ($evidence | Where-Object { $_ -match "event=FILE_LOADED " }).Count -gt 0
+            $hasFirstPcm = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_COMPLETE_PCM_BLOCK " }).Count -gt 0
+            $hasFirstProcessed = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_PROCESSED_BLOCK " }).Count -gt 0
+            $hasFirstSdlWrite = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_SDL_WRITE " }).Count -gt 0
+            $hasFirstNonzeroQueue = ($evidence | Where-Object { $_ -match "^\[AUDIO-TELEMETRY\] FIRST_NONZERO_SDL_QUEUE " }).Count -gt 0
+            $hasVideoEvidenceArm = ($evidence | Where-Object { $_ -match "event=VIDEO_EVIDENCE_ARM " }).Count -gt 0
+            $hasFirstVideoFrame = ($evidence | Where-Object { $_ -match "event=FIRST_VIDEO_FRAME " }).Count -gt 0
+
+            if ($hasDeferred -and $hasIdleReady -and $hasDispatch -and $hasLoad -and $hasStart -and $hasLoaded -and $hasFirstPcm -and $hasFirstProcessed -and $hasFirstSdlWrite -and $hasFirstNonzeroQueue -and $hasVideoEvidenceArm -and $hasFirstVideoFrame) {
+                break
             }
             Start-Sleep -Milliseconds 100
         }
+
         Start-Sleep -Milliseconds $PostStartupObserveMilliseconds
 
         if (-not $process.CloseMainWindow()) {

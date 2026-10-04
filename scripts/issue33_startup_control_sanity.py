@@ -18,6 +18,7 @@ main_cpp = (ROOT / "native/src/main1.cpp").read_text(encoding="utf-8")
 player_cpp = (ROOT / "native/src/player/player/Player.cpp").read_text(encoding="utf-8")
 ytdlp_h = (ROOT / "native/src/YtDlpManager.h").read_text(encoding="utf-8")
 lifecycle_h = (ROOT / "native/src/common/LifecycleEvidence.h").read_text(encoding="utf-8")
+audio_telemetry_h = (ROOT / "native/src/player/audio/AudioTelemetry.h").read_text(encoding="utf-8")
 render_thread_cpp = (ROOT / "native/src/player/render/PlayBackRenderThread.cpp").read_text(encoding="utf-8")
 render_thread_h = (ROOT / "native/src/player/render/PlayBackRenderThread.h").read_text(encoding="utf-8")
 render_h = (ROOT / "native/src/player/render/PlayBackRender.h").read_text(encoding="utf-8")
@@ -217,23 +218,25 @@ if cold_url_harness.is_file():
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
-start_process_index = harness_text.find("Start-Process -FilePath $exe")
-close_window_index = harness_text.find("CloseMainWindow()", start_process_index)
 require(
-    start_process_index >= 0 and close_window_index > start_process_index,
-    "#33: harness process/close boundaries must remain discoverable",
+    "CreateFileA(" in audio_telemetry_h
+    and "FILE_APPEND_DATA" in audio_telemetry_h
+    and "FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE" in audio_telemetry_h
+    and 'fopen_s(&file, path, "ab")' not in audio_telemetry_h,
+    "#33: canonical audio evidence sink must use explicit shared Win32 append semantics",
 )
-if start_process_index >= 0 and close_window_index > start_process_index:
-    live_window = harness_text[start_process_index:close_window_index]
-    require(
-        "Get-StartupLines $logPath" not in live_window
-        and "Get-EvidenceLines $logPath" not in live_window,
-        "#33: acceptance harness must not read shared evidence while playback is active",
-    )
 require(
-    "EvidenceObserveSeconds = 10" in harness_text
-    and "Do not read the shared evidence file while playback is active." in harness_text,
-    "#33: no-read startup observation window contract missing",
+    lifecycle_h.count("FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE") >= 2
+    and 'fopen_s(&file, path, "ab")' not in lifecycle_h,
+    "#33: lifecycle/startup evidence sinks must use compatible shared append semantics",
+)
+require(
+    "Get-EvidenceLines $logPath" in harness_text
+    and "FIRST_COMPLETE_PCM_BLOCK" in harness_text
+    and "FIRST_PROCESSED_BLOCK" in harness_text
+    and "FIRST_SDL_WRITE" in harness_text
+    and "FIRST_NONZERO_SDL_QUEUE" in harness_text,
+    "#33: combined live evidence polling contract missing",
 )
 
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")

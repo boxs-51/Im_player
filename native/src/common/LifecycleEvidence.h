@@ -50,14 +50,22 @@ inline void Emit(
 
     std::lock_guard<std::mutex> lock(EvidenceMutex());
 
-    FILE* file = nullptr;
-    if (fopen_s(&file, path, "ab") != 0 || !file)
+    HANDLE file = CreateFileA(
+        path,
+        FILE_APPEND_DATA,
+        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+        nullptr,
+        OPEN_ALWAYS,
+        FILE_ATTRIBUTE_NORMAL,
+        nullptr);
+    if (file == INVALID_HANDLE_VALUE)
         return;
 
-    const size_t length = static_cast<size_t>(
+    const DWORD length = static_cast<DWORD>(
         written < static_cast<int>(sizeof(line)) ? written : sizeof(line) - 1);
-    std::fwrite(line, 1, length, file);
-    std::fclose(file);
+    DWORD bytesWritten = 0;
+    WriteFile(file, line, length, &bytesWritten, nullptr);
+    CloseHandle(file);
 }
 
 inline void EmitDiagnostic(
