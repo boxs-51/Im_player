@@ -184,7 +184,7 @@ bool PlaybackCommand::RetryStartupLoadAfterEarlyFailure(Uint64 expectedLoadId) {
     LifecycleEvidence::EmitDiagnostic(
         "STARTUP",
         FormatString(
-            "event=EARLY_EOF_RETRY_DISPATCH load_id=%llu ts_ms=%llu retry=%u limit=%u",
+            "event=EARLY_TERMINAL_RETRY_DISPATCH load_id=%llu ts_ms=%llu retry=%u limit=%u",
             static_cast<unsigned long long>(expectedLoadId),
             static_cast<unsigned long long>(SDL_GetTicks64()),
             static_cast<unsigned int>(retryCount),
