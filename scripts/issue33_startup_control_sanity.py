@@ -175,7 +175,8 @@ require(
     "#33: startup command markers must persist to the lifecycle evidence sink",
 )
 require(
-    observer_cpp.count('EmitDiagnostic(\n                "STARTUP"') >= 6,
+    observer_cpp.count("LifecycleEvidence::EmitDiagnostic(") >= 8
+    and observer_cpp.count('"STARTUP"') >= 8,
     "#33: startup observer markers must persist to the lifecycle evidence sink",
 )
 cold_url_harness = ROOT / "scripts/issue33-cold-url-smoke.ps1"
