@@ -4,6 +4,7 @@
 #include "player/PlayerDataModels.h"
 #include "player/PlayerUtils.h"
 #include "player/command/PlaybackCommand.h"
+#include "common/LifecycleEvidence.h"
 #include "globals.h"
 #include "settings_manager.h"
 
@@ -570,6 +571,13 @@ void PlaybackObserver::ProcessEvents() {
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(SDL_GetTicks64()),
                 pendingSeek);
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=START_FILE load_id=%llu ts_ms=%llu pending_seek=%.3f",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    pendingSeek));
             break;
         }
         case MPV_EVENT_END_FILE: {
@@ -628,6 +636,13 @@ void PlaybackObserver::ProcessEvents() {
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(SDL_GetTicks64()),
                 static_cast<int>(videotype));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=FILE_LOADED load_id=%llu ts_ms=%llu video_type=%d",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(videotype)));
 
             // #33 keeps the existing behavior intentionally, but makes the
             // timing observable: source-specific MPV config is applied only
@@ -637,11 +652,23 @@ void PlaybackObserver::ProcessEvents() {
                 "[STARTUP] event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded",
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(SDL_GetTicks64()));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=DYNAMIC_CONFIG_APPLY_BEGIN load_id=%llu ts_ms=%llu timing=post_file_loaded",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
             ApplyDynamicMPVConfig(m_mpv, videotype);
             LOG(1, LogLevel::Info, LogCategory::System,
                 "[STARTUP] event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu",
                 static_cast<unsigned long long>(loadId),
                 static_cast<unsigned long long>(SDL_GetTicks64()));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=DYNAMIC_CONFIG_APPLY_END load_id=%llu ts_ms=%llu",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
 
             m_commander.Play();
  
@@ -670,6 +697,12 @@ void PlaybackObserver::ProcessEvents() {
                 "[STARTUP] event=SEEK load_id=%llu ts_ms=%llu source=mpv_event",
                 static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
                 static_cast<unsigned long long>(SDL_GetTicks64()));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=SEEK load_id=%llu ts_ms=%llu source=mpv_event",
+                    static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
@@ -701,6 +734,14 @@ void PlaybackObserver::ProcessEvents() {
                 static_cast<unsigned long long>(SDL_GetTicks64()),
                 restartCount,
                 pendingSeekBefore);
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=PLAYBACK_RESTART load_id=%llu ts_ms=%llu count=%u pending_seek_before=%.3f",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    restartCount,
+                    pendingSeekBefore));
 
             // Execute the explicitly armed seek outside the state lock.
             if (targetSeek >= 0.0) {
@@ -714,6 +755,13 @@ void PlaybackObserver::ProcessEvents() {
                         static_cast<unsigned long long>(loadId),
                         static_cast<unsigned long long>(SDL_GetTicks64()),
                         targetSeek);
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=SEEK_REQUEST load_id=%llu ts_ms=%llu source=pending_format_switch target=%.3f",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            targetSeek));
                     m_commander.Seek(targetSeek, duration);
                 }
                 LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Performing pending seek to %.2f seconds", targetSeek);
