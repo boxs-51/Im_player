@@ -178,6 +178,7 @@ struct PlaybackModel {
     // the audio/video generation contract owned by #30.
     uint64_t startupLoadId = 0;
     uint32_t startupRestartCount = 0;
+    bool startupMpvIdleReady = false;
 
     MediaFormatsModel formats;
 
