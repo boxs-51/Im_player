@@ -297,9 +297,11 @@ require(
     "#33: every C++ app-issued seek must be attributable in startup evidence",
 )
 require(
-    "event=MPV_LOG" in observer_cpp
+    "event=MPV_LOG load_id=%llu" in observer_cpp
+    and "event=MPV_LOG phase=preload" in observer_cpp
+    and "startupLoadId > 0" in observer_cpp
     and 'prefix=%s level=%s text=%.320s' in observer_cpp,
-    "#33: startup mpv/ytdl/demux log attribution missing",
+    "#33: startup mpv/ytdl/demux log attribution must separate preload from active load",
 )
 
 restart_index = observer_cpp.find("event=PLAYBACK_RESTART")
