@@ -49,7 +49,26 @@ int PlaybackCommand::SetPropertyFlag(const std::string& name, bool flag) {
 }
 
 int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFlags) {
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        m_lastDirectLoadUrl = url;
+        m_lastDirectLoadFlags = extraFlags;
+        m_startupEarlyEofRetries = 0;
+    }
+    return IssueLoadFile(url, extraFlags, false);
+}
+
+int PlaybackCommand::IssueLoadFile(
+    const std::string& url,
+    const std::string& extraFlags,
+    bool retryAttempt) {
     Uint64 loadId = 0;
+    Uint32 retryCount = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        retryCount = m_startupEarlyEofRetries;
+    }
+
     m_state.WritePlayback([&](PlaybackModel& m) {
         // A direct new-media transaction must never inherit a format-switch
         // seek armed for the previous media item.
@@ -58,7 +77,9 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         // inherit Vio/Live/Local from the previous media item.
         m.videoType = VideoType::None;
         m.startupRestartCount = 0;
-        m.startupLoadId += 1;
+        if (!retryAttempt) {
+            m.startupLoadId += 1;
+        }
         m.startupLoadedLoadId = 0;
         m.startupVideoEvidenceLoadId = 0;
         m.startupVideoEvidenceArmed = false;
@@ -67,38 +88,46 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
     });
 
     const Uint64 now = SDL_GetTicks64();
-    LOG(1, LogLevel::Info, LogCategory::System,
-        "[STARTUP] event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
-        static_cast<unsigned long long>(loadId),
-        static_cast<unsigned long long>(now),
-        extraFlags.c_str(),
-        url.c_str());
-
-    LifecycleEvidence::EmitDiagnostic(
-        "STARTUP",
-        FormatString(
-            "event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
+    if (retryAttempt) {
+        LifecycleEvidence::EmitDiagnostic(
+            "STARTUP",
+            FormatString(
+                "event=LOAD_RETRY_REQUEST load_id=%llu ts_ms=%llu attempt=%u reason=early_eof_before_first_frame flags=%s url=%s",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(now),
+                static_cast<unsigned int>(retryCount + 1),
+                extraFlags.c_str(),
+                url.c_str()));
+    } else {
+        LOG(1, LogLevel::Info, LogCategory::System,
+            "[STARTUP] event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
             static_cast<unsigned long long>(loadId),
             static_cast<unsigned long long>(now),
             extraFlags.c_str(),
-            url.c_str()));
+            url.c_str());
+
+        LifecycleEvidence::EmitDiagnostic(
+            "STARTUP",
+            FormatString(
+                "event=LOAD_REQUEST load_id=%llu ts_ms=%llu flags=%s url=%s",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(now),
+                extraFlags.c_str(),
+                url.c_str()));
+    }
 
     PlaybackCommand::ApplyPlaybackSettings();
     const char* cmd[] = { "loadfile", url.c_str(), extraFlags.c_str(), nullptr };
     const int ret = Exec(cmd);
 
-    LOG(1, ret >= 0 ? LogLevel::Info : LogLevel::Error, LogCategory::System,
-        "[STARTUP] event=LOAD_COMMAND_RESULT load_id=%llu ts_ms=%llu result=%d",
-        static_cast<unsigned long long>(loadId),
-        static_cast<unsigned long long>(SDL_GetTicks64()),
-        ret);
-
     LifecycleEvidence::EmitDiagnostic(
         "STARTUP",
         FormatString(
-            "event=LOAD_COMMAND_RESULT load_id=%llu ts_ms=%llu result=%d",
+            "event=LOAD_COMMAND_RESULT load_id=%llu ts_ms=%llu attempt=%u retry=%d result=%d",
             static_cast<unsigned long long>(loadId),
             static_cast<unsigned long long>(SDL_GetTicks64()),
+            static_cast<unsigned int>(retryCount + 1),
+            retryAttempt ? 1 : 0,
             ret));
 
     if (ret < 0) {
@@ -107,6 +136,38 @@ int PlaybackCommand::LoadFile(const std::string& url, const std::string& extraFl
         });
     }
     return ret;
+}
+
+bool PlaybackCommand::RetryStartupLoadAfterEarlyEof(Uint64 expectedLoadId) {
+    if (GetStartupLoadId() != expectedLoadId) {
+        return false;
+    }
+
+    std::string retryUrl;
+    std::string retryFlags;
+    Uint32 retryCount = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_commandMutex);
+        if (m_lastDirectLoadUrl.empty()
+            || m_startupEarlyEofRetries >= STARTUP_EARLY_EOF_RETRY_LIMIT) {
+            return false;
+        }
+        ++m_startupEarlyEofRetries;
+        retryCount = m_startupEarlyEofRetries;
+        retryUrl = m_lastDirectLoadUrl;
+        retryFlags = m_lastDirectLoadFlags;
+    }
+
+    LifecycleEvidence::EmitDiagnostic(
+        "STARTUP",
+        FormatString(
+            "event=EARLY_EOF_RETRY_DISPATCH load_id=%llu ts_ms=%llu retry=%u limit=%u",
+            static_cast<unsigned long long>(expectedLoadId),
+            static_cast<unsigned long long>(SDL_GetTicks64()),
+            static_cast<unsigned int>(retryCount),
+            static_cast<unsigned int>(STARTUP_EARLY_EOF_RETRY_LIMIT)));
+
+    return IssueLoadFile(retryUrl, retryFlags, true) >= 0;
 }
 
 Uint64 PlaybackCommand::GetStartupLoadId() {
