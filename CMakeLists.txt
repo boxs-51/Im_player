@@ -244,4 +244,21 @@ if(BUILD_TESTING)
         brg3_render_callback_lifetime_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(audio_visualizer_snapshot_test
+        tests/audio_visualizer_snapshot_test.cpp
+    )
+    target_include_directories(audio_visualizer_snapshot_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(audio_visualizer_snapshot_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue20_audio_visualizer_snapshot_gate
+        COMMAND audio_visualizer_snapshot_test
+    )
+    set_tests_properties(
+        issue20_audio_visualizer_snapshot_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()

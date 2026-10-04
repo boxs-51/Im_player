@@ -82,16 +82,15 @@ void AudioProcessor::Stop() {
 }
 
 bool AudioProcessor::GetLatestVisualizerData(AudioVisualizerFrame& outFrame) {
-    // Đọc Lock-free snapshot mới nhất từ active buffer index
-    int activeIdx = m_writeIndex.load(std::memory_order_acquire);
-    outFrame = m_visualizerFrames[activeIdx];
+    // Copy the published snapshot under the short publication mutex.
+    m_visualizerSnapshot.Read(outFrame);
     return true;
 }
 
 void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
-    int currentIdx = m_writeIndex.load(std::memory_order_relaxed);
-    int targetIdx = 1 - currentIdx;
-    AudioVisualizerFrame& frame = m_visualizerFrames[targetIdx];
+    // This frame is owned exclusively by the processor thread. DSP/FFT work
+    // never holds the visualizer snapshot mutex.
+    AudioVisualizerFrame& frame = m_workingVisualizerFrame;
 
     frame.sequence = block.sequence;
     frame.pts = block.pts;
@@ -117,7 +116,7 @@ void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
         frame.subBassEnergy = frame.bassEnergy = frame.midEnergy = frame.trebleEnergy = 0.0f;
         std::fill(frame.spectrum.begin(), frame.spectrum.end(), 0.0f);
 
-        m_writeIndex.store(targetIdx, std::memory_order_release);
+        m_visualizerSnapshot.Publish(frame);
         return;
     }
 
@@ -335,8 +334,8 @@ void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
     frame.midEnergy     = calcEnergy(bassEnd, midEnd);
     frame.trebleEnergy  = calcEnergy(midEnd, kSpectrumBins);
 
-    // Commit Lock-Free
-    m_writeIndex.store(targetIdx, std::memory_order_release);
+    // Publish only after the complete frame is self-consistent.
+    m_visualizerSnapshot.Publish(frame);
 }
 
 void AudioProcessor::ProcessLoop() {

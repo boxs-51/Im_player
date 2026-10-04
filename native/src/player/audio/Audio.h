@@ -33,7 +33,7 @@ public:
     void Shutdown();
 
     /**
-     * @brief Cho phép UI lấy snapshot dữ liệu Spectrum/RMS (Lock-Free)
+     * @brief Cho phép UI lấy bản sao snapshot Spectrum/RMS qua boundary đồng bộ, race-free.
      */
     bool GetVisualizerData(AudioVisualizerFrame& outFrame);
 
