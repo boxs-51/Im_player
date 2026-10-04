@@ -740,6 +740,21 @@ for token in (
 if not (ROOT / "scripts/issue26_generate_pcm_fixture.py").is_file():
     fail("Issue #26: normalization fixture generator is missing")
 
+issue26_av_fixture_path = ROOT / "scripts/issue26_generate_av_fixture.py"
+if not issue26_av_fixture_path.is_file():
+    fail("Issue #26: deterministic long-run A/V fixture generator is missing")
+else:
+    issue26_av_fixture = issue26_av_fixture_path.read_text(encoding="utf-8")
+    for token in (
+        'stream.write(b"AVI ")',
+        'b"vids"',
+        'b"auds"',
+        'WAVE_FORMAT_PCM',
+        'BI_RGB',
+    ):
+        if token not in issue26_av_fixture:
+            fail(f"Issue #26: A/V fixture contract missing: {token}")
+
 issue26_longrun_harness_path = ROOT / "scripts/issue26-av-drift-longrun.ps1"
 if not issue26_longrun_harness_path.is_file():
     fail("Issue #26: >=10-minute A/V drift harness is missing")
@@ -749,9 +764,12 @@ else:
     )
     for token in (
         "PlaybackSeconds = 610",
+        "issue26_generate_av_fixture.py",
+        "fixture_container = \"AVI\"",
         "measured sync span below 600s",
         "insufficient sync samples",
         "max absolute A/V offset exceeded 500ms",
+        "per-write max absolute A/V offset exceeded 500ms",
         "10-minute A/V drift delta exceeded 250ms",
         "periodic SDL queue exceeded 150ms",
         "capture_dropped",

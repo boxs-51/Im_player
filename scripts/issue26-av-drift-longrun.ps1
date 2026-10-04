@@ -19,7 +19,7 @@ $ErrorActionPreference = "Stop"
 $root = Split-Path -Parent $PSScriptRoot
 $exe = Join-Path $root "bin\$Configuration\Im_player.exe"
 $validator = Join-Path $PSScriptRoot "brg5_validate_lifecycle.py"
-$generator = Join-Path $PSScriptRoot "issue26_generate_pcm_fixture.py"
+$generator = Join-Path $PSScriptRoot "issue26_generate_av_fixture.py"
 $artifactRoot = Join-Path $root "artifacts\issue26-longrun"
 $configKey = $Configuration.ToLowerInvariant()
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
@@ -33,14 +33,15 @@ if (-not (Test-Path $exe)) {
 
 New-Item -ItemType Directory -Force -Path $artifactRoot | Out-Null
 
-$fixture = Join-Path $artifactRoot "44100-mono-$FixtureSeconds-sec.wav"
+$fixture = Join-Path $artifactRoot "av-44100-mono-$FixtureSeconds-sec.avi"
 $log = Join-Path $artifactRoot "$configKey-drift.log"
 $json = Join-Path $artifactRoot "$configKey-drift-summary.json"
 Remove-Item $fixture, $log, $json -Force -ErrorAction SilentlyContinue
 
-# 44.1 kHz mono intentionally exercises mpv resample/remix into the canonical
-# 48 kHz stereo float32 pipe for the entire drift interval.
-& python.exe $generator $fixture --seconds $FixtureSeconds --sample-rate 44100 --channels 1
+# The AVI contains a real video timeline plus 44.1 kHz mono PCM audio.
+# This exercises mpv resample/remix into the canonical 48 kHz stereo float32
+# pipe while the video clock remains active for the entire drift interval.
+& python.exe $generator $fixture --seconds $FixtureSeconds --sample-rate 44100
 if ($LASTEXITCODE -ne 0) {
     throw "[ISSUE26-LONGRUN] fixture generation failed"
 }
@@ -230,6 +231,10 @@ $summaryFirstOffset = [double]$summary["first_sync_offset_s"]
 $summaryLastOffset = [double]$summary["last_sync_offset_s"]
 $summaryMaxAbsOffset = [double]$summary["max_abs_av_offset_s"]
 
+if ($summaryMaxAbsOffset -gt 0.500) {
+    throw "[ISSUE26-LONGRUN] per-write max absolute A/V offset exceeded 500ms actual_s=$summaryMaxAbsOffset"
+}
+
 if ($summarySyncSamples -ne [uint64]$samples.Count) {
     throw "[ISSUE26-LONGRUN] summary/sample count mismatch summary=$summarySyncSamples log=$($samples.Count)"
 }
@@ -240,14 +245,18 @@ if ([math]::Abs($summaryFirstOffset - $first.AvOffsetSeconds) -gt 0.000001 -or
     [math]::Abs($summaryLastOffset - $last.AvOffsetSeconds) -gt 0.000001) {
     throw "[ISSUE26-LONGRUN] summary/sample offset mismatch"
 }
-if ([math]::Abs($summaryMaxAbsOffset - $maxAbsOffsetSeconds) -gt 0.001) {
-    throw "[ISSUE26-LONGRUN] summary max-abs offset mismatch summary=$summaryMaxAbsOffset computed=$maxAbsOffsetSeconds"
-}
+# Per-write aggregation can legitimately observe a larger transient than the
+# 5-second periodic sample set. Both are bounded independently above.
 
 $result = [ordered]@{
     schema = "ISSUE26-AV-DRIFT-LONGRUN-v1"
     commit = $commit
     configuration = $Configuration
+    fixture_container = "AVI"
+    video_codec = "BI_RGB"
+    video_fps = 10
+    video_width = 64
+    video_height = 36
     source_sample_rate = 44100
     source_channels = 1
     requested_playback_seconds = $PlaybackSeconds
@@ -256,7 +265,8 @@ $result = [ordered]@{
     first_av_offset_seconds = $first.AvOffsetSeconds
     last_av_offset_seconds = $last.AvOffsetSeconds
     drift_delta_seconds = $driftDeltaSeconds
-    max_abs_av_offset_seconds = $maxAbsOffsetSeconds
+    max_periodic_abs_av_offset_seconds = $maxAbsOffsetSeconds
+    max_per_write_abs_av_offset_seconds = $summaryMaxAbsOffset
     max_periodic_queue_ms = $maxQueuedMs
     summary_queue_high_water_ms = $summaryQueueHighWaterMs
     capture_dropped = [uint64]$summary["capture_dropped"]
@@ -270,5 +280,5 @@ $result = [ordered]@{
 $result | ConvertTo-Json -Depth 6 | Set-Content -Path $json -Encoding UTF8
 
 Write-Host "[ISSUE26-LONGRUN] PASS commit=$commit configuration=$Configuration"
-Write-Host "[ISSUE26-LONGRUN] measured_span_s=$spanSeconds samples=$($samples.Count) first_offset_s=$($first.AvOffsetSeconds) last_offset_s=$($last.AvOffsetSeconds) drift_delta_s=$driftDeltaSeconds max_abs_offset_s=$maxAbsOffsetSeconds max_queue_ms=$maxQueuedMs summary_queue_high_water_ms=$summaryQueueHighWaterMs"
+Write-Host "[ISSUE26-LONGRUN] measured_span_s=$spanSeconds samples=$($samples.Count) first_offset_s=$($first.AvOffsetSeconds) last_offset_s=$($last.AvOffsetSeconds) drift_delta_s=$driftDeltaSeconds periodic_max_abs_offset_s=$maxAbsOffsetSeconds per_write_max_abs_offset_s=$summaryMaxAbsOffset max_queue_ms=$maxQueuedMs summary_queue_high_water_ms=$summaryQueueHighWaterMs"
 Write-Host "[ISSUE26-LONGRUN] summary=$json"
