@@ -141,6 +141,8 @@ if cold_url_harness.is_file():
         "StartupTimeoutSeconds = 60",
         "Assert-NoExistingImPlayer",
         'Get-Process -Name "Im_player"',
+        "[System.IO.FileShare]::ReadWrite",
+        "[System.IO.StreamReader]::new",
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
