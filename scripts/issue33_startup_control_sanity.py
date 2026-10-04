@@ -94,6 +94,8 @@ if cold_url_harness.is_file():
         '^\\[BRG5-DIAG\\] category=STARTUP ',
         "-WorkingDirectory $root",
         "StartupTimeoutSeconds = 60",
+        "Assert-NoExistingImPlayer",
+        'Get-Process -Name "Im_player"',
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
