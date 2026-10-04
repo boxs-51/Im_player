@@ -90,6 +90,7 @@ if cold_url_harness.is_file():
         "LOAD_REQUEST -> START_FILE -> FILE_LOADED",
         "DYNAMIC_CONFIG_APPLY_BEGIN",
         "issue33-summary.json",
+        '^\\[BRG5-DIAG\\] category=STARTUP ',
     ):
         require(token in harness_text, f"#33: cold URL harness contract missing: {token}")
 
