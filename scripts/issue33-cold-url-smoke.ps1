@@ -282,17 +282,18 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
 
         $hasConfigApply = $configBeginIndex -gt $loadedIndex -and $configEndIndex -gt $configBeginIndex
         $hasConfigDefer = $configDeferIndex -gt $loadedIndex
-        if ($hasConfigApply -eq $hasConfigDefer) {
-            throw "dynamic config boundary must choose exactly one post-FILE_LOADED path: APPLY_BEGIN/END xor DYNAMIC_CONFIG_DEFER"
+        if ($hasConfigApply) {
+            throw "cold URL active load must not apply source-specific dynamic config after FILE_LOADED"
         }
-        if ($hasConfigDefer) {
-            if ($formatDiscoveredIndex -le $configDeferIndex) {
-                throw "deferred dynamic config must be followed by YTDL_FORMAT_DISCOVERED for the cold URL load"
-            }
-            $deferLine = $startup[$configDeferIndex]
-            if ($deferLine -notmatch "reason=source_type_unknown") {
-                throw "DYNAMIC_CONFIG_DEFER missing source_type_unknown attribution"
-            }
+        if (-not $hasConfigDefer) {
+            throw "cold URL active load missing DYNAMIC_CONFIG_DEFER boundary"
+        }
+        $deferLine = $startup[$configDeferIndex]
+        if ($deferLine -notmatch "reason=active_load_frozen") {
+            throw "DYNAMIC_CONFIG_DEFER missing active_load_frozen attribution"
+        }
+        if ($formatDiscoveredIndex -lt 0) {
+            throw "cold URL load missing YTDL_FORMAT_DISCOVERED attribution"
         }
 
 
