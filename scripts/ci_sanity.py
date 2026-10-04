@@ -591,6 +591,73 @@ if "issue20_audio_visualizer_snapshot_gate" not in cmake_text:
 
 facts["issue20_visualizer_snapshot_contract"] = "PASS" if not errors else "FAIL"
 
+# Issue #26: canonical raw PCM transport/output contract.
+audio_capture_h = (ROOT / "native/src/player/audio/AudioCaptureManager.h").read_text(
+    encoding="utf-8"
+)
+audio_capture_cpp = (ROOT / "native/src/player/audio/AudioCaptureManager.cpp").read_text(
+    encoding="utf-8"
+)
+audio_output_h = (ROOT / "native/src/player/audio/AudioOutputWorker.h").read_text(
+    encoding="utf-8"
+)
+audio_output_cpp = (ROOT / "native/src/player/audio/AudioOutputWorker.cpp").read_text(
+    encoding="utf-8"
+)
+audio_types_h = (ROOT / "native/src/player/audio/AudioTypes.h").read_text(
+    encoding="utf-8"
+)
+pcm_accumulator_h = (
+    ROOT / "native/src/player/audio/PcmFrameAccumulator.h"
+).read_text(encoding="utf-8")
+
+for token in (
+    'SetRequiredMpvProperty("ao-pcm-waveheader", "no")',
+    'SetRequiredMpvProperty("audio-format", "float")',
+    'SetRequiredMpvProperty("audio-samplerate", "48000")',
+    'SetRequiredMpvProperty("audio-channels", "stereo")',
+    'SetRequiredMpvProperty("ao-pcm-file", m_pipeName.c_str())',
+    'SetRequiredMpvProperty("ao", "pcm")',
+    "PcmFrameAccumulator accumulator;",
+    "accumulator.DrainFrames(",
+    "writeSlot->format.sampleRate = kCanonicalAudioSampleRate;",
+    "writeSlot->format.channels = kCanonicalAudioChannels;",
+):
+    if token not in audio_capture_cpp:
+        fail(f"Issue #26: canonical PCM capture contract missing: {token}")
+
+for token in (
+    "kCanonicalAudioSampleRate = 48000",
+    "kCanonicalAudioChannels = 2",
+    "kCanonicalAudioBytesPerFrame",
+):
+    if token not in audio_types_h:
+        fail(f"Issue #26: canonical PCM format constant missing: {token}")
+
+for token in (
+    "ReadyFrames()",
+    "DrainFrames(",
+    "PendingBytes()",
+):
+    if token not in pcm_accumulator_h:
+        fail(f"Issue #26: PCM frame accumulator contract missing: {token}")
+
+for token in (
+    "blocksDroppedFormatMismatch",
+    "queueUnderflowEvents",
+    "GetQueuedSizeBytes()",
+    "queuedMilliseconds",
+):
+    if token not in audio_output_cpp and token not in audio_output_h:
+        fail(f"Issue #26: output telemetry/format guard missing: {token}")
+
+if not (ROOT / "tests/pcm_frame_accumulator_test.cpp").is_file():
+    fail("Issue #26: focused PCM framing test is missing")
+if "issue26_pcm_frame_accumulator_gate" not in cmake_text:
+    fail("Issue #26: focused PCM framing CTest is not registered")
+
+facts["issue26_pcm_transport_contract"] = "PASS" if not errors else "FAIL"
+
 # BRG-5 lifecycle evidence contract.
 # Run the focused coverage checker as part of the canonical static sanity gate
 # so lifecycle instrumentation cannot silently drift out of the BRG-5 matrix.

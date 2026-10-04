@@ -56,7 +56,7 @@ bool AudioOutputWorker::Init(SpscConsumer<AudioBlock> processedStream, AudioBack
     m_currentBackendType = backend;
     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
 
-    if (!m_audioDevice || !m_audioDevice->Open(48000, 2)) {
+    if (!m_audioDevice || !m_audioDevice->Open(kCanonicalAudioSampleRate, kCanonicalAudioChannels)) {
         LOG(1, LogLevel::Error, LogCategory::Audio, 
             "[AudioOutputWorker] Failed to open Audio Device Backend.");
         return false;
@@ -74,12 +74,30 @@ bool AudioOutputWorker::SwitchBackend(AudioBackendType newBackend) {
 
     m_currentBackendType = newBackend;
     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
-    bool success = m_audioDevice && m_audioDevice->Open(48000, 2);
+    bool success = m_audioDevice && m_audioDevice->Open(kCanonicalAudioSampleRate, kCanonicalAudioChannels);
 
     if (wasRunning && success) {
         Start();
     }
     return success;
+}
+
+AudioOutputMetrics AudioOutputWorker::GetMetrics() const {
+    AudioOutputMetrics snapshot;
+    snapshot.blocksWritten = m_metrics.blocksWritten.load(std::memory_order_relaxed);
+    snapshot.blocksDroppedFormatMismatch =
+        m_metrics.blocksDroppedFormatMismatch.load(std::memory_order_relaxed);
+    snapshot.queueUnderflowEvents =
+        m_metrics.queueUnderflowEvents.load(std::memory_order_relaxed);
+    snapshot.writeFailures = m_metrics.writeFailures.load(std::memory_order_relaxed);
+    snapshot.queuedBytes = m_metrics.queuedBytes.load(std::memory_order_relaxed);
+    snapshot.queueHighWaterBytes =
+        m_metrics.queueHighWaterBytes.load(std::memory_order_relaxed);
+    snapshot.queuedMilliseconds =
+        m_metrics.queuedMilliseconds.load(std::memory_order_relaxed);
+    snapshot.sampleRate = kCanonicalAudioSampleRate;
+    snapshot.channels = kCanonicalAudioChannels;
+    return snapshot;
 }
 
 void AudioOutputWorker::Start() {
@@ -114,6 +132,32 @@ void AudioOutputWorker::OutputLoop() {
     std::vector<float> volumeAdjustedBuffer;
     uint32_t deviceErrorCount = 0;
     auto lastDeviceRetryTime = std::chrono::steady_clock::now();
+    bool hasQueuedAudio = false;
+    bool queueEmptyLatched = false;
+
+    const auto updateQueueMetrics = [this](uint32_t queuedBytes) {
+        m_metrics.queuedBytes.store(queuedBytes, std::memory_order_relaxed);
+
+        const double bytesPerSecond =
+            static_cast<double>(kCanonicalAudioSampleRate) *
+            static_cast<double>(kCanonicalAudioChannels) *
+            static_cast<double>(sizeof(float));
+        const double queuedMs =
+            (bytesPerSecond > 0.0)
+                ? (1000.0 * static_cast<double>(queuedBytes) / bytesPerSecond)
+                : 0.0;
+        m_metrics.queuedMilliseconds.store(queuedMs, std::memory_order_relaxed);
+
+        uint32_t previousHigh =
+            m_metrics.queueHighWaterBytes.load(std::memory_order_relaxed);
+        while (queuedBytes > previousHigh &&
+               !m_metrics.queueHighWaterBytes.compare_exchange_weak(
+                   previousHigh,
+                   queuedBytes,
+                   std::memory_order_relaxed,
+                   std::memory_order_relaxed)) {
+        }
+    };
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
         try {
@@ -134,7 +178,7 @@ void AudioOutputWorker::OutputLoop() {
                     }
 
                     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
-                    if (m_audioDevice && m_audioDevice->Open(48000, 2)) {
+                    if (m_audioDevice && m_audioDevice->Open(kCanonicalAudioSampleRate, kCanonicalAudioChannels)) {
                         LOG(1, LogLevel::Info, LogCategory::Audio, 
                             "[AudioOutputWorker] Audio device auto-recovery SUCCESSFUL!");
                         deviceErrorCount = 0;
@@ -158,11 +202,34 @@ void AudioOutputWorker::OutputLoop() {
             const AudioBlock* block = m_processedStream->acquire_read();
 
             if (!block) {
+                if (m_audioDevice && m_audioDevice->IsReady()) {
+                    const uint32_t queuedBytes = m_audioDevice->GetQueuedSizeBytes();
+                    updateQueueMetrics(queuedBytes);
+                    if (hasQueuedAudio && queuedBytes == 0 && !queueEmptyLatched) {
+                        m_metrics.queueUnderflowEvents.fetch_add(1, std::memory_order_relaxed);
+                        queueEmptyLatched = true;
+                    } else if (queuedBytes > 0) {
+                        queueEmptyLatched = false;
+                    }
+                }
                 std::this_thread::sleep_for(std::chrono::milliseconds(1));
                 continue;
             }
 
             if (block->samples.empty() || block->sample_count() == 0) {
+                m_processedStream->release_read();
+                continue;
+            }
+
+            if (block->format.sampleRate != kCanonicalAudioSampleRate ||
+                block->format.channels != kCanonicalAudioChannels ||
+                block->format.format != AudioSampleFormat::Float32) {
+                m_metrics.blocksDroppedFormatMismatch.fetch_add(1, std::memory_order_relaxed);
+                LOG(1, LogLevel::Error, LogCategory::Audio,
+                    "[AudioOutputWorker] Dropping block with non-canonical format: rate=%u channels=%u format=%u",
+                    block->format.sampleRate,
+                    static_cast<unsigned int>(block->format.channels),
+                    static_cast<unsigned int>(block->format.format));
                 m_processedStream->release_read();
                 continue;
             }
@@ -194,11 +261,18 @@ void AudioOutputWorker::OutputLoop() {
 
                 if (m_isRunning.load(std::memory_order_relaxed)) {
                     m_audioDevice->Write(block->samples.data(), block->sample_count());
-                    writePerformed = true;
+                    writePerformed = m_audioDevice->IsReady();
+                    if (writePerformed) {
+                        hasQueuedAudio = true;
+                        queueEmptyLatched = false;
+                        m_metrics.blocksWritten.fetch_add(1, std::memory_order_relaxed);
+                        updateQueueMetrics(m_audioDevice->GetQueuedSizeBytes());
+                    }
                 }
             }
 
             if (!writePerformed) {
+                m_metrics.writeFailures.fetch_add(1, std::memory_order_relaxed);
                 deviceErrorCount++;
                 if (deviceErrorCount > 10) {
                     LOG(1, LogLevel::Error, LogCategory::Audio, 

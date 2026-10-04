@@ -1,6 +1,7 @@
 #pragma once
 
 #include <cstdint>
+#include <cstddef>
 #include <array>
 
 // Định dạng mẫu âm thanh (Mặc định Float32 để khớp với MPV f32le)
@@ -20,6 +21,12 @@ struct AudioFormat {
 constexpr size_t kMaxAudioFrames   = 2048; // ~42.67ms tại 48kHz
 constexpr size_t kMaxAudioChannels = 2;    // Stereo
 constexpr size_t kMaxAudioSamples  = kMaxAudioFrames * kMaxAudioChannels; // 4096 floats
+
+// Issue #26 canonical PCM transport/output contract.
+constexpr uint32_t kCanonicalAudioSampleRate = 48000;
+constexpr uint16_t kCanonicalAudioChannels = 2;
+constexpr size_t kCanonicalAudioBytesPerFrame =
+    sizeof(float) * static_cast<size_t>(kCanonicalAudioChannels);
 
 /**
  * @struct AudioBlock
@@ -62,5 +69,22 @@ struct AudioPipelineMetrics {
 
     uint64_t lastSequence    = 0;
     uint64_t currentGeneration = 0;
+    uint64_t partialFrameCarryBytes = 0;
     double   lastPTS         = 0.0;
+};
+
+/**
+ * @struct AudioOutputMetrics
+ * @brief Observable SDL output/queue metrics for the canonical PCM contract.
+ */
+struct AudioOutputMetrics {
+    uint64_t blocksWritten = 0;
+    uint64_t blocksDroppedFormatMismatch = 0;
+    uint64_t queueUnderflowEvents = 0;
+    uint64_t writeFailures = 0;
+    uint32_t queuedBytes = 0;
+    uint32_t queueHighWaterBytes = 0;
+    double queuedMilliseconds = 0.0;
+    uint32_t sampleRate = kCanonicalAudioSampleRate;
+    uint16_t channels = kCanonicalAudioChannels;
 };

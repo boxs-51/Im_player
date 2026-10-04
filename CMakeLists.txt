@@ -261,4 +261,21 @@ if(BUILD_TESTING)
         issue20_audio_visualizer_snapshot_gate
         PROPERTIES TIMEOUT 30
     )
+
+    add_executable(pcm_frame_accumulator_test
+        tests/pcm_frame_accumulator_test.cpp
+    )
+    target_include_directories(pcm_frame_accumulator_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+    )
+    target_compile_features(pcm_frame_accumulator_test PRIVATE cxx_std_17)
+
+    add_test(
+        NAME issue26_pcm_frame_accumulator_gate
+        COMMAND pcm_frame_accumulator_test
+    )
+    set_tests_properties(
+        issue26_pcm_frame_accumulator_gate
+        PROPERTIES TIMEOUT 30
+    )
 endif()

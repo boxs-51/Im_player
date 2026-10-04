@@ -18,6 +18,16 @@ enum class AudioBackendType {
     ASIO
 };
 
+struct AudioOutputMetricsAtomic {
+    std::atomic<uint64_t> blocksWritten{0};
+    std::atomic<uint64_t> blocksDroppedFormatMismatch{0};
+    std::atomic<uint64_t> queueUnderflowEvents{0};
+    std::atomic<uint64_t> writeFailures{0};
+    std::atomic<uint32_t> queuedBytes{0};
+    std::atomic<uint32_t> queueHighWaterBytes{0};
+    std::atomic<double> queuedMilliseconds{0.0};
+};
+
 /**
  * @class AudioOutputWorker
  * @brief Thread CONSUMER cuối cùng trong pipeline âm thanh: 
@@ -51,6 +61,8 @@ public:
      */
     bool IsRunning() const { return m_isRunning.load(std::memory_order_relaxed); }
 
+    AudioOutputMetrics GetMetrics() const;
+
 private:
     void OutputLoop();
     std::unique_ptr<IAudioOutputDevice> CreateDeviceBackend(AudioBackendType type);
@@ -67,4 +79,5 @@ private:
     std::atomic<bool> m_isRunning{false};
     uint64_t m_lastGeneration = 0;
     ThreadID m_threadId = "";
+    AudioOutputMetricsAtomic m_metrics;
 };

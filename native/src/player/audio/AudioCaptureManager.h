@@ -17,16 +17,6 @@
 class PlayerStateSystem;
 
 /**
- * @struct AudioFormatCache
- * @brief Cache local lưu cấu hình audio hiện tại
- */
-struct AudioFormatCache {
-    uint32_t sampleRate = 48000;
-    uint8_t channels = 2;
-    AudioSampleFormat format = AudioSampleFormat::Float32;
-};
-
-/**
  * @struct AudioPipelineMetricsAtomic
  * @brief Metrics được atomic hóa để UI Thread có thể đọc an toàn
  */
@@ -36,6 +26,8 @@ struct AudioPipelineMetricsAtomic {
     std::atomic<uint64_t> bytesReceived{0};
     std::atomic<uint64_t> ringOverflows{0};
     std::atomic<uint64_t> lastSequence{0};
+    std::atomic<uint64_t> currentGeneration{0};
+    std::atomic<uint64_t> partialFrameCarryBytes{0};
     std::atomic<double> lastPTS{0.0};
 };
 
@@ -67,7 +59,8 @@ private:
     void CaptureLoop();
     HANDLE CreateAudioPipe();
     void ClosePipeHandle(HANDLE hPipe);
-    void UpdateFormatCacheFromState();
+    bool ConfigureMpvPcmTransport();
+    bool SetRequiredMpvProperty(const char* name, const char* value);
 
     // --- References & Handles ---
     mpv_handle* m_mpv = nullptr;
@@ -85,9 +78,7 @@ private:
     // Yêu cầu chuyển generation từ UI thread (Thread-safe trigger)
     std::atomic<uint64_t> m_generationRequest{0};
 
-    // --- Local Caching & Metrics ---
-    AudioFormatCache m_formatCache;
-
+    // --- Local state & metrics ---
     // CHỈ CaptureThread được phép đọc/ghi các biến state nội bộ này!
     uint64_t m_activeGeneration = 0;
     uint64_t m_sequence = 0;
