@@ -122,6 +122,14 @@ function Find-StartupIndex([string[]]$Lines, [string]$Token) {
     return -1
 }
 
+function Find-LastStartupIndex([string[]]$Lines, [string]$Token) {
+    for ($i = $Lines.Count - 1; $i -ge 0; $i--) {
+        if ($Lines[$i].Contains($Token)) { return $i }
+    }
+    return -1
+}
+
+
 for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
     Assert-NoExistingImPlayer
     $logPath = Join-Path $outDir ("run-{0:D2}.log" -f $iteration)
@@ -135,6 +143,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         result = "FAIL"
         load_id = $null
         playback_restart_count = $null
+        startup_retry_count = 0
         combined_trace = $null
         startup_log = $logPath
         failure = $null
@@ -262,13 +271,33 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "default startup emitted SEEK_REQUEST"
         }
 
+        $retryLines = @($startup | Where-Object { $_ -match "event=LOAD_RETRY_REQUEST " })
+        if ($retryLines.Count -gt 1) {
+            throw "LOAD_RETRY_REQUEST count exceeded bounded startup retry policy: $($retryLines.Count)"
+        }
+        $run.startup_retry_count = $retryLines.Count
+
+        $retryIndex = Find-StartupIndex $startup "event=LOAD_RETRY_REQUEST "
+        if ($retryLines.Count -eq 1) {
+            if ($retryLines[0] -notmatch "load_id=$loadId\b" -or
+                $retryLines[0] -notmatch "attempt=2" -or
+                $retryLines[0] -notmatch "reason=early_eof_before_first_frame") {
+                throw "LOAD_RETRY_REQUEST missing bounded same-load early-EOF attribution"
+            }
+
+            $earlyEofIndex = Find-StartupIndex $startup "event=EARLY_EOF_DETECTED "
+            if ($earlyEofIndex -lt 0 -or $earlyEofIndex -ge $retryIndex) {
+                throw "LOAD_RETRY_REQUEST is not preceded by EARLY_EOF_DETECTED"
+            }
+        }
+
         $ytdlIndex = Find-StartupIndex $startup "event=YTDL_PATH_RESOLVED "
         $deferredIndex = Find-StartupIndex $startup "event=CLI_LOAD_DEFERRED "
         $idleReadyIndex = Find-StartupIndex $startup "event=MPV_IDLE_READY "
         $dispatchIndex = Find-StartupIndex $startup "event=CLI_LOAD_DISPATCH "
         $loadIndex = Find-StartupIndex $startup "event=LOAD_REQUEST "
-        $startIndex = Find-StartupIndex $startup "event=START_FILE "
-        $loadedIndex = Find-StartupIndex $startup "event=FILE_LOADED "
+        $startIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $startup "event=START_FILE " } else { Find-StartupIndex $startup "event=START_FILE " }
+        $loadedIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $startup "event=FILE_LOADED " } else { Find-StartupIndex $startup "event=FILE_LOADED " }
         $videoEvidenceArmIndex = Find-StartupIndex $startup "event=VIDEO_EVIDENCE_ARM "
         $firstVideoIndex = Find-StartupIndex $startup "event=FIRST_VIDEO_FRAME "
         $configBeginIndex = Find-StartupIndex $startup "event=DYNAMIC_CONFIG_APPLY_BEGIN "
@@ -302,7 +331,14 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             throw "unexpected C++ app-issued seek during default cold startup: $($appSeekLines -join '; ')"
         }
 
-        $restartLines = @($startup | Where-Object { $_ -match "event=PLAYBACK_RESTART " })
+        $restartLines = @()
+        $restartScanStart = if ($retryIndex -ge 0) { $retryIndex + 1 } else { 0 }
+        for ($i = $restartScanStart; $i -lt $startup.Count; $i++) {
+            if ($startup[$i] -match "event=PLAYBACK_RESTART ") {
+                $restartLines += $startup[$i]
+            }
+        }
+
         $maxRestart = 0
         foreach ($line in $restartLines) {
             if ($line -notmatch "pending_seek_before=-1\.000") {
@@ -322,8 +358,8 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
         # manufacture an evidence false negative while playback is active.
         $evidence = Get-EvidenceLines $logPath
         $combinedLoadIndex = Find-StartupIndex $evidence "event=LOAD_REQUEST "
-        $combinedStartIndex = Find-StartupIndex $evidence "event=START_FILE "
-        $combinedLoadedIndex = Find-StartupIndex $evidence "event=FILE_LOADED "
+        $combinedStartIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $evidence "event=START_FILE " } else { Find-StartupIndex $evidence "event=START_FILE " }
+        $combinedLoadedIndex = if ($retryIndex -ge 0) { Find-LastStartupIndex $evidence "event=FILE_LOADED " } else { Find-StartupIndex $evidence "event=FILE_LOADED " }
         $firstPcmIndex = Find-StartupIndex $evidence "FIRST_COMPLETE_PCM_BLOCK "
         $firstProcessedIndex = Find-StartupIndex $evidence "FIRST_PROCESSED_BLOCK "
         $firstSdlWriteIndex = Find-StartupIndex $evidence "FIRST_SDL_WRITE "
@@ -348,6 +384,7 @@ for ($iteration = 1; $iteration -le $Iterations; $iteration++) {
             load_request = $combinedLoadIndex
             start_file = $combinedStartIndex
             file_loaded = $combinedLoadedIndex
+            startup_retry = $retryIndex
             first_complete_pcm_block = $firstPcmIndex
             first_processed_block = $firstProcessedIndex
             first_sdl_write = $firstSdlWriteIndex
