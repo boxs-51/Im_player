@@ -44,15 +44,44 @@ bool AudioCaptureManager::SetRequiredMpvProperty(const char* name, const char* v
     return true;
 }
 
+void AudioCaptureManager::LogEffectiveMpvProperty(const char* name) const {
+    char* value = mpv_get_property_string(m_mpv, name);
+    if (!value) {
+        LOG(1, LogLevel::Warning, LogCategory::Audio,
+            "[AudioCaptureManager] Unable to read effective MPV property: %s", name);
+        return;
+    }
+
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioCaptureManager] Effective MPV audio property: %s=%s", name, value);
+    mpv_free(value);
+}
+
 bool AudioCaptureManager::ConfigureMpvPcmTransport() {
     // Configure the payload contract before selecting the PCM AO. The capture
     // thread consumes the pipe as raw native-endian float32 stereo frames.
-    return SetRequiredMpvProperty("ao-pcm-waveheader", "no")
+    const bool configured =
+        SetRequiredMpvProperty("ao-pcm-waveheader", "no")
         && SetRequiredMpvProperty("audio-format", "float")
         && SetRequiredMpvProperty("audio-samplerate", "48000")
         && SetRequiredMpvProperty("audio-channels", "stereo")
         && SetRequiredMpvProperty("ao-pcm-file", m_pipeName.c_str())
         && SetRequiredMpvProperty("ao", "pcm");
+
+    if (!configured)
+        return false;
+
+    for (const char* name : {
+             "ao",
+             "ao-pcm-waveheader",
+             "audio-format",
+             "audio-samplerate",
+             "audio-channels",
+             "ao-pcm-file",
+         }) {
+        LogEffectiveMpvProperty(name);
+    }
+    return true;
 }
 
 AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {

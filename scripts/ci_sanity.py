@@ -651,6 +651,21 @@ for token in (
     if token not in audio_output_cpp and token not in audio_output_h:
         fail(f"Issue #26: output telemetry/format guard missing: {token}")
 
+if "mpv_get_property_string" not in audio_capture_cpp or "Effective MPV audio property" not in audio_capture_cpp:
+    fail("Issue #26: effective MPV transport properties must be recorded")
+
+sdl_audio_cpp = (ROOT / "native/src/player/audio/SdlAudioDevice.cpp").read_text(
+    encoding="utf-8"
+)
+for token in (
+    "obtainedSpec.freq != desiredSpec.freq",
+    "obtainedSpec.format != AUDIO_F32SYS",
+    "obtainedSpec.channels != desiredSpec.channels",
+    "Obtained format violates canonical contract",
+):
+    if token not in sdl_audio_cpp:
+        fail(f"Issue #26: SDL obtained-format contract missing: {token}")
+
 if not (ROOT / "tests/pcm_frame_accumulator_test.cpp").is_file():
     fail("Issue #26: focused PCM framing test is missing")
 if "issue26_pcm_frame_accumulator_gate" not in cmake_text:

@@ -41,12 +41,28 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
 
     if (devId == 0) {
         LOG(1, LogLevel::Error, LogCategory::Audio,
-            "[SdlAudioDevice] Failed to open default audio device: %S", SDL_GetError());
+            "[SdlAudioDevice] Failed to open default audio device: %s", SDL_GetError());
         m_isReady.store(false, std::memory_order_release);
         return false;
     }
 
-    // Unpause thiết bị
+    if (obtainedSpec.freq != desiredSpec.freq ||
+        obtainedSpec.format != AUDIO_F32SYS ||
+        obtainedSpec.channels != desiredSpec.channels) {
+        LOG(1, LogLevel::Error, LogCategory::Audio,
+            "[SdlAudioDevice] Obtained format violates canonical contract: expected=%dHz/%uch/0x%04X obtained=%dHz/%uch/0x%04X",
+            desiredSpec.freq,
+            static_cast<unsigned int>(desiredSpec.channels),
+            static_cast<unsigned int>(AUDIO_F32SYS),
+            obtainedSpec.freq,
+            static_cast<unsigned int>(obtainedSpec.channels),
+            static_cast<unsigned int>(obtainedSpec.format));
+        SDL_CloseAudioDevice(devId);
+        m_isReady.store(false, std::memory_order_release);
+        return false;
+    }
+
+    // Unpause thiết bị only after the obtained format is proven canonical.
     SDL_PauseAudioDevice(devId, 0);
 
     // Atomic store để luồng Worker thấy Device ID và trạng thái sẵn sàng
@@ -54,7 +70,11 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     m_isReady.store(true, std::memory_order_release);
 
     LOG(1, LogLevel::Info, LogCategory::Audio,
-        "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch)", devId, obtainedSpec.freq, obtainedSpec.channels);
+        "[SdlAudioDevice] Opened SDL Audio Device. ID: %d (%dHz, %dch, format=0x%04X)",
+        devId,
+        obtainedSpec.freq,
+        obtainedSpec.channels,
+        static_cast<unsigned int>(obtainedSpec.format));
 
     return true;
 }

@@ -61,6 +61,7 @@ private:
     void ClosePipeHandle(HANDLE hPipe);
     bool ConfigureMpvPcmTransport();
     bool SetRequiredMpvProperty(const char* name, const char* value);
+    void LogEffectiveMpvProperty(const char* name) const;
 
     // --- References & Handles ---
     mpv_handle* m_mpv = nullptr;
