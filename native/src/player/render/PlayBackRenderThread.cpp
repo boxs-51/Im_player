@@ -5,11 +5,13 @@
 #include "player/render/PlayBackRenderThread.h"
 #include "log.h" // Thêm header cho LOG
 #include "player/player/Player.h"
+#include "player/PlayerStateSystem.h"
 
 #include "mpv/render_gl.h"
 #include <gl3w.h> // Thêm header cho GLuint
 #include "utils.h"
 #include <array>
+#include <cstdio>
 #include "common/Exception.h"
 #include "common/LifecycleEvidence.h"
 #include "windows/WindowUtils.h"
@@ -191,12 +193,81 @@ try {
         params.push_back({MPV_RENDER_PARAM_SKIP_RENDERING, &skip_render});
         params.push_back({MPV_RENDER_PARAM_INVALID, nullptr});
 
+        // #33 generation-safe evidence boundary. Snapshot the explicitly
+        // armed load identity before rendering. A render that started before
+        // VIDEO_RECONFIG cannot retroactively claim the newly armed load.
+        PlayerStateSystem* startupState =
+            m_startupState.load(std::memory_order_acquire);
+        uint64_t armedLoadIdBeforeRender = 0;
+        if (startupState) {
+            startupState->ReadPlayback([&](PlaybackModel const& playback) {
+                if (playback.startupVideoEvidenceArmed
+                    && playback.startupVideoEvidenceLoadId > 0
+                    && playback.startupVideoEvidenceLoadId == playback.startupLoadedLoadId
+                    && playback.startupLoadedLoadId == playback.startupLoadId) {
+                    armedLoadIdBeforeRender = playback.startupVideoEvidenceLoadId;
+                }
+            });
+        }
+
         // Gọi Render MPV
         mpv_render_context_render(this->state.render_ctx, params.data());
 
         uint64_t currentFrameId = ++m_frameCounter;
         this->state.fboPool->MarkAsReady(index, currentFrameId);
         m_lastRenderedFrameId.store(currentFrameId, std::memory_order_release);
+
+        // Revalidate the same arm after publication. This rejects a frame if a
+        // new LoadFile transaction raced with mpv_render_context_render().
+        if (startupState && armedLoadIdBeforeRender > 0) {
+            bool stillArmedForSameLoad = false;
+            startupState->ReadPlayback([&](PlaybackModel const& playback) {
+                stillArmedForSameLoad =
+                    playback.startupVideoEvidenceArmed
+                    && playback.startupVideoEvidenceLoadId == armedLoadIdBeforeRender
+                    && playback.startupLoadedLoadId == armedLoadIdBeforeRender
+                    && playback.startupLoadId == armedLoadIdBeforeRender;
+            });
+
+            if (stillArmedForSameLoad) {
+                uint64_t observed =
+                    m_firstVideoFrameLoadId.load(std::memory_order_acquire);
+                while (observed != armedLoadIdBeforeRender) {
+                    if (m_firstVideoFrameLoadId.compare_exchange_weak(
+                            observed,
+                            armedLoadIdBeforeRender,
+                            std::memory_order_acq_rel,
+                            std::memory_order_acquire)) {
+                        char diag[320]{};
+                        std::snprintf(
+                            diag,
+                            sizeof(diag),
+                            "event=FIRST_VIDEO_FRAME load_id=%llu ts_ms=%llu frame_id=%llu armed_before_render=1 boundary=video_reconfig",
+                            static_cast<unsigned long long>(armedLoadIdBeforeRender),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            static_cast<unsigned long long>(currentFrameId));
+                        LifecycleEvidence::EmitDiagnostic("STARTUP", diag);
+
+                        startupState->WritePlayback([&](PlaybackModel& playback) {
+                            if (playback.startupVideoEvidenceLoadId == armedLoadIdBeforeRender
+                                && playback.startupLoadedLoadId == armedLoadIdBeforeRender
+                                && playback.startupLoadId == armedLoadIdBeforeRender) {
+                                playback.startupVideoEvidenceArmed = false;
+                                playback.startupMediaStartedLoadId =
+                                    armedLoadIdBeforeRender;
+                            }
+                        });
+                        LifecycleEvidence::EmitDiagnostic(
+                            "STARTUP",
+                            FormatString(
+                                "event=STARTUP_MEDIA_STARTED load_id=%llu ts_ms=%llu source=video_frame",
+                                static_cast<unsigned long long>(armedLoadIdBeforeRender),
+                                static_cast<unsigned long long>(SDL_GetTicks64())));
+                        break;
+                    }
+                }
+            }
+        }
         this->state.framerender.store(framerender.getFPS());
 
         SDL_Event ev;

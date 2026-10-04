@@ -8,6 +8,8 @@
 #include "PlayBackRenderThreadState.h"
 #include "WindowTemplate.h"
 
+class PlayerStateSystem;
+
 class PlayBackRenderThread {
 public:
     PlayBackRenderThread();
@@ -18,6 +20,9 @@ public:
     void RequestRender();
     void Notify(); // Hàm mới không khóa mutex
     void SetVideoSize(int w, int h);
+    void BindStartupState(PlayerStateSystem* state) {
+        m_startupState.store(state, std::memory_order_release);
+    }
 
     // Các hàm kiểm tra trạng thái render
     uint64_t GetLastRenderedFrameId() const { return m_lastRenderedFrameId.load(std::memory_order_acquire); }
@@ -43,4 +48,6 @@ private:
     std::atomic<uint64_t> m_lastRenderedFrameId{0};
     std::atomic<int> m_lastAcquiredBufferId{-1};
     std::atomic<uint32_t> m_droppedFrames{0};
+    std::atomic<PlayerStateSystem*> m_startupState{nullptr};
+    std::atomic<uint64_t> m_firstVideoFrameLoadId{0};
 };

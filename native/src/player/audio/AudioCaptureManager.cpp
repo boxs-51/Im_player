@@ -451,6 +451,27 @@ void AudioCaptureManager::CaptureLoop() {
                     carryBytes,
                     std::memory_order_relaxed);
 
+                Uint64 startupMediaLoadId = 0;
+                if (m_stateSystem) {
+                    m_stateSystem->WritePlayback([&](PlaybackModel& model) {
+                        if (model.startupLoadId > 0
+                            && model.startupLoadedLoadId == model.startupLoadId
+                            && model.startupMediaStartedLoadId != model.startupLoadId) {
+                            model.startupMediaStartedLoadId = model.startupLoadId;
+                            startupMediaLoadId =
+                                static_cast<Uint64>(model.startupLoadId);
+                        }
+                    });
+                }
+                if (startupMediaLoadId > 0) {
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=STARTUP_MEDIA_STARTED load_id=%llu ts_ms=%llu source=audio_pcm",
+                            static_cast<unsigned long long>(startupMediaLoadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64())));
+                }
+
                 const std::uint64_t completeBlockMicros = AudioTelemetryNowMicros();
                 if (RecordFirstAudioTelemetry(
                         m_metrics.firstCompletePcmBlockMicros,

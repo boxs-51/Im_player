@@ -4,6 +4,7 @@
 #include <vector>
 #include <unordered_map>
 #include <optional>
+#include <cstdint>
 
 enum class  VideoType{
     None,
@@ -169,7 +170,24 @@ struct PlaybackModel {
     PlaybackState state = PlaybackState::NoFile; 
     VideoType videoType = VideoType::None;
     bool isLoadingMedia = false; // Trạng thái loading của ứng dụng
-    double pendingseektime = 0.0;
+    // No pending seek is armed on a fresh/new media load. Only an explicit
+    // format/user action may set this to a non-negative target.
+    double pendingseektime = -1.0;
+
+    // #33 startup transaction identity. This is intentionally separate from
+    // the audio/video generation contract owned by #30.
+    uint64_t startupLoadId = 0;
+    // #33 rendered-frame evidence is armed only after the matching load has
+    // crossed FILE_LOADED + VIDEO_RECONFIG. Keep this separate from #30's
+    // future media generation contract.
+    uint64_t startupLoadedLoadId = 0;
+    uint64_t startupVideoEvidenceLoadId = 0;
+    bool startupVideoEvidenceArmed = false;
+    // #33 startup success boundary: first real media payload from either
+    // audio PCM or a rendered video frame for the current load.
+    uint64_t startupMediaStartedLoadId = 0;
+    uint32_t startupRestartCount = 0;
+    bool startupMpvIdleReady = false;
 
     MediaFormatsModel formats;
 

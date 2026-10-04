@@ -4,6 +4,7 @@
 #include "player/PlayerDataModels.h"
 #include "player/PlayerUtils.h"
 #include "player/command/PlaybackCommand.h"
+#include "common/LifecycleEvidence.h"
 #include "globals.h"
 #include "settings_manager.h"
 
@@ -12,6 +13,7 @@
 #include <thread>
 #include <iostream>
 #include <unordered_map>
+#include <SDL.h>
 
 static std::mutex g_retry_mutex;
 static std::unordered_map<int, int> g_retryCount;
@@ -158,6 +160,13 @@ void PlaybackObserver::HandleMpvError(int err , const char* msgText)
 
                 if (doRetry) {
                     LOG(1, LogLevel::Warning, LogCategory::System,"[WARNING] [MPV] Retrying playback for index %d...", idx);
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=LEGACY_PLAYLIST_RETRY ts_ms=%llu playlist_index=%d error=%d",
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            idx,
+                            err));
                     auto* commanderPtr = &m_commander;
                     std::thread([idx,commanderPtr]() {
                         std::this_thread::sleep_for(std::chrono::milliseconds(500));
@@ -541,6 +550,40 @@ void PlaybackObserver::ProcessEvents() {
                 if (msg->prefix && msg->text && (strcmp(msg->prefix, "cplayer") == 0)) {
                     HandleYTDLLog(msg->text);
                 }
+                if (msg && msg->prefix && msg->text) {
+                    const bool startupRelevant =
+                        strcmp(msg->prefix, "cplayer") == 0 ||
+                        strcmp(msg->prefix, "ytdl_hook") == 0 ||
+                        strncmp(msg->prefix, "ffmpeg", 6) == 0 ||
+                        strcmp(msg->prefix, "stream") == 0 ||
+                        strcmp(msg->prefix, "demux") == 0 ||
+                        strcmp(msg->prefix, "edl") == 0 ||
+                        strcmp(msg->prefix, "timeline") == 0 ||
+                        strcmp(msg->prefix, "cache") == 0;
+                    if (startupRelevant) {
+                        const Uint64 startupLoadId = m_commander.GetStartupLoadId();
+                        if (startupLoadId > 0) {
+                            LifecycleEvidence::EmitDiagnostic(
+                                "STARTUP",
+                                FormatString(
+                                    "event=MPV_LOG load_id=%llu ts_ms=%llu prefix=%s level=%s text=%.320s",
+                                    static_cast<unsigned long long>(startupLoadId),
+                                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                                    msg->prefix,
+                                    msg->level ? msg->level : "unknown",
+                                    msg->text));
+                        } else {
+                            LifecycleEvidence::EmitDiagnostic(
+                                "STARTUP",
+                                FormatString(
+                                    "event=MPV_LOG phase=preload ts_ms=%llu prefix=%s level=%s text=%.320s",
+                                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                                    msg->prefix,
+                                    msg->level ? msg->level : "unknown",
+                                    msg->text));
+                        }
+                    }
+                }
                 if (msg && msg->level) {
                     if (strcmp(msg->level, "error")  == 0) {
                         LOG(1, LogLevel::Error, LogCategory::System, msg->text);
@@ -556,15 +599,92 @@ void PlaybackObserver::ProcessEvents() {
         case MPV_EVENT_SET_PROPERTY_REPLY: break;
         case MPV_EVENT_COMMAND_REPLY: break;
         case MPV_EVENT_START_FILE: {
+            Uint64 loadId = 0;
+            double pendingSeek = -1.0;
             m_state.WritePlayback([&](auto& m) {
                 //m.flags.isIdleActive = false;
                 m.isLoadingMedia = true;
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                pendingSeek = m.pendingseektime;
             });
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=START_FILE load_id=%llu ts_ms=%llu pending_seek=%.3f",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                pendingSeek);
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=START_FILE load_id=%llu ts_ms=%llu pending_seek=%.3f",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    pendingSeek));
             break;
         }
         case MPV_EVENT_END_FILE: {
             auto* data = (mpv_event_end_file*)event->data;
             if (!data) break;
+
+            const Uint64 loadId = m_commander.GetStartupLoadId();
+            bool mediaStarted = false;
+            m_state.ReadPlayback([&](PlaybackModel const& m) {
+                mediaStarted =
+                    m.startupLoadId == loadId &&
+                    m.startupMediaStartedLoadId == loadId;
+            });
+
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=END_FILE load_id=%llu ts_ms=%llu reason=%d error=%d error_text=%s startup_media_started=%d",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(data->reason),
+                    data->error,
+                    mpv_error_string(data->error),
+                    mediaStarted ? 1 : 0));
+
+            const bool earlyEof =
+                data->reason == MPV_END_FILE_REASON_EOF;
+            const bool earlyNoData =
+                data->reason == MPV_END_FILE_REASON_ERROR &&
+                data->error == MPV_ERROR_NOTHING_TO_PLAY;
+            const bool retryableEarlyFailure =
+                (earlyEof || earlyNoData) &&
+                loadId > 0 &&
+                !mediaStarted;
+
+            if (retryableEarlyFailure) {
+                const char* cause = earlyNoData ? "nothing_to_play" : "eof";
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=EARLY_TERMINAL_FAILURE_DETECTED load_id=%llu ts_ms=%llu cause=%s boundary=before_any_media reason=%d error=%d",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        cause,
+                        static_cast<int>(data->reason),
+                        data->error));
+
+                if (m_commander.RetryStartupLoadAfterEarlyFailure(loadId)) {
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=EARLY_TERMINAL_RETRY_ACCEPTED load_id=%llu ts_ms=%llu cause=%s",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            cause));
+                    break;
+                }
+
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=EARLY_TERMINAL_RETRY_EXHAUSTED load_id=%llu ts_ms=%llu cause=%s",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        cause));
+            }
  
             switch (data->reason) {
             // --- Phát hết file bình thường ---
@@ -583,7 +703,18 @@ void PlaybackObserver::ProcessEvents() {
 
                 std::string errStr = mpv_error_string(err);
                 LOG(1,  LogLevel::Info, LogCategory::System,  "Playback error occurred: %s", errStr);
-                HandleMpvError(err, errStr.c_str());
+
+                if (retryableEarlyFailure && err == MPV_ERROR_NOTHING_TO_PLAY) {
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=LEGACY_ERROR_RETRY_SUPPRESSED load_id=%llu ts_ms=%llu error=%d authority=bounded_startup_retry",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            err));
+                } else {
+                    HandleMpvError(err, errStr.c_str());
+                }
                 break;
             }
 
@@ -605,28 +736,102 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_FILE_LOADED:{
-
+            Uint64 loadId = 0;
+            VideoType videotype = VideoType::None;
             m_state.WritePlayback([&](auto& m) {
                 m.isLoadingMedia = false;
-            });
-            VideoType videotype;
-            m_state.ReadPlayback([&videotype](auto const& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                m.startupLoadedLoadId = m.startupLoadId;
                 videotype = m.videoType;
             });
 
-            ApplyDynamicMPVConfig(m_mpv, videotype);
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=FILE_LOADED load_id=%llu ts_ms=%llu video_type=%d",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                static_cast<int>(videotype));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=FILE_LOADED load_id=%llu ts_ms=%llu video_type=%d",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(videotype)));
 
-            m_commander.Play();
+            // #33 deterministic startup boundary: yt-dlp source classification
+            // may race FILE_LOADED. Do not mutate source-specific cache/sync/
+            // seek-sensitive properties on the already active cold-load transaction.
+            // Preserve discovery for UI/diagnostics only.
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=DYNAMIC_CONFIG_DEFER load_id=%llu ts_ms=%llu reason=active_load_frozen video_type=%d",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    static_cast<int>(videotype)));
+
+            // #33: libmpv direct loads are already unpaused by default. Do not
+            // write pause=false after FILE_LOADED: that is an unnecessary
+            // active-load mutation in the same window where yt-dlp/demux
+            // stream selection may still be settling.
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=AUTOPLAY_INHERIT load_id=%llu ts_ms=%llu source=mpv_default",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
  
             break;
         }
         case MPV_EVENT_IDLE: {
+            bool firstIdleReady = false;
+            m_state.WritePlayback([&](PlaybackModel& m) {
+                if (!m.startupMpvIdleReady) {
+                    m.startupMpvIdleReady = true;
+                    firstIdleReady = true;
+                }
+            });
+
+            if (firstIdleReady) {
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=MPV_IDLE_READY ts_ms=%llu",
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            }
+
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] MPV is now idle."); 
             break;
         }
         case MPV_EVENT_TICK: break;
         case MPV_EVENT_CLIENT_MESSAGE: break;
         case MPV_EVENT_VIDEO_RECONFIG: {
+            Uint64 loadId = 0;
+            bool armed = false;
+            m_state.WritePlayback([&](PlaybackModel& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                // Arm once for the exact load only after FILE_LOADED has bound
+                // the same identity. A render must observe this arm before it
+                // starts and revalidate it after publication before claiming
+                // FIRST_VIDEO_FRAME.
+                if (m.startupLoadId > 0
+                    && m.startupLoadedLoadId == m.startupLoadId
+                    && m.startupVideoEvidenceLoadId != m.startupLoadId) {
+                    m.startupVideoEvidenceLoadId = m.startupLoadId;
+                    m.startupVideoEvidenceArmed = true;
+                    armed = true;
+                }
+            });
+
+            if (armed) {
+                LifecycleEvidence::EmitDiagnostic(
+                    "STARTUP",
+                    FormatString(
+                        "event=VIDEO_EVIDENCE_ARM load_id=%llu ts_ms=%llu boundary=video_reconfig",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64())));
+            }
+
             LOG(1, LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [VIDEO RECONFIG] Video configuration changed."); 
             break;
         }
@@ -639,6 +844,16 @@ void PlaybackObserver::ProcessEvents() {
 //            m_state.WritePlayback([&](auto& m) {
 //                m.flags.isSeeking = true;
 //            });
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=SEEK load_id=%llu ts_ms=%llu source=mpv_event",
+                static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                static_cast<unsigned long long>(SDL_GetTicks64()));
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=SEEK load_id=%llu ts_ms=%llu source=mpv_event",
+                    static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Seek operation started."); 
             break;
         }
@@ -646,23 +861,60 @@ void PlaybackObserver::ProcessEvents() {
         {   
             double targetSeek = -1.0;
             double duration = 0.0;
+            double pendingSeekBefore = -1.0;
+            Uint64 loadId = 0;
+            uint32_t restartCount = 0;
 
-            // Đọc đồng thời gán reset pendingseektime trong 1 lần lock duy nhất
+            // Read + consume the explicitly armed format-switch seek under one
+            // state lock. A fresh/direct load starts at -1 and cannot enter
+            // this path unless an explicit action armed a seek.
             m_state.WritePlayback([&](PlaybackModel& m) {
+                loadId = static_cast<Uint64>(m.startupLoadId);
+                restartCount = ++m.startupRestartCount;
+                pendingSeekBefore = m.pendingseektime;
                 if (m.pendingseektime >= 0.0) {
                     targetSeek = m.pendingseektime;
                     duration = m.timing.duration;
-                    m.pendingseektime = -1.0; // Reset ngay sau khi lấy ra
+                    m.pendingseektime = -1.0;
                 }
             });
 
-            // Thực thi lệnh Seek bên ngoài Lock (Tránh Deadlock)
+            LOG(1, LogLevel::Info, LogCategory::System,
+                "[STARTUP] event=PLAYBACK_RESTART load_id=%llu ts_ms=%llu count=%u pending_seek_before=%.3f",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(SDL_GetTicks64()),
+                restartCount,
+                pendingSeekBefore);
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=PLAYBACK_RESTART load_id=%llu ts_ms=%llu count=%u pending_seek_before=%.3f",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64()),
+                    restartCount,
+                    pendingSeekBefore));
+
+            // Execute the explicitly armed seek outside the state lock.
             if (targetSeek >= 0.0) {
+                bool shouldSeek = false;
                 m_state.ReadPlayback([&](PlaybackModel const& m) {
-                    if (m.videoType != VideoType::Live) {
-                        m_commander.Seek(targetSeek, duration);
-                    }
+                    shouldSeek = m.videoType != VideoType::Live;
                 });
+                if (shouldSeek) {
+                    LOG(1, LogLevel::Info, LogCategory::System,
+                        "[STARTUP] event=SEEK_REQUEST load_id=%llu ts_ms=%llu source=pending_format_switch target=%.3f",
+                        static_cast<unsigned long long>(loadId),
+                        static_cast<unsigned long long>(SDL_GetTicks64()),
+                        targetSeek);
+                    LifecycleEvidence::EmitDiagnostic(
+                        "STARTUP",
+                        FormatString(
+                            "event=SEEK_REQUEST load_id=%llu ts_ms=%llu source=pending_format_switch target=%.3f",
+                            static_cast<unsigned long long>(loadId),
+                            static_cast<unsigned long long>(SDL_GetTicks64()),
+                            targetSeek));
+                    m_commander.Seek(targetSeek, duration);
+                }
                 LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [MPV] Performing pending seek to %.2f seconds", targetSeek);
             }
 

@@ -10,6 +10,9 @@
 #include <future>
 #include <mutex>
 #include <atomic>
+#if defined(_WIN32)
+#include <windows.h>
+#endif
 
 namespace fs = std::filesystem;
 
@@ -131,6 +134,12 @@ public:
     std::string GetPath() const { return m_current_path; }
     bool IsBusy() const { return m_is_busy; }
 
+    // #33: synchronous, side-effect-free resolver used by libmpv startup.
+    // It never updates yt-dlp; it only selects an existing executable.
+    std::string ResolveExecutableForPlayback() {
+        return FindExecutable();
+    }
+
 private:
     YtDlpManager() = default;
 
@@ -161,17 +170,44 @@ private:
     }
 
     std::string FindExecutable() {
-        std::vector<fs::path> search_paths = {
-            fs::current_path() / "yt-dlp.exe",
-            fs::current_path() / "tools" / "yt-dlp.exe",
-            fs::current_path() / "bin" / "yt-dlp.exe"
-        };
+        std::vector<fs::path> search_paths;
+
+#if defined(_WIN32)
+        wchar_t exeBuffer[32768] = {};
+        const DWORD exeLen = GetModuleFileNameW(
+            nullptr,
+            exeBuffer,
+            static_cast<DWORD>(std::size(exeBuffer)));
+        if (exeLen > 0 && exeLen < std::size(exeBuffer)) {
+            const fs::path exeDir = fs::path(exeBuffer).parent_path();
+            search_paths.push_back(exeDir / "yt-dlp.exe");
+
+            // Development runtime fallback: Debug and Release are sibling
+            // output directories under bin/. Production packaging should put
+            // yt-dlp next to the executable, which remains the first choice.
+            const fs::path configRoot = exeDir.parent_path();
+            search_paths.push_back(configRoot / "Debug" / "yt-dlp.exe");
+            search_paths.push_back(configRoot / "Release" / "yt-dlp.exe");
+        }
+#endif
+
+        const fs::path cwd = fs::current_path();
+        search_paths.push_back(cwd / "yt-dlp.exe");
+        search_paths.push_back(cwd / "tools" / "yt-dlp.exe");
+        search_paths.push_back(cwd / "bin" / "yt-dlp.exe");
+        search_paths.push_back(cwd / "bin" / "Debug" / "yt-dlp.exe");
+        search_paths.push_back(cwd / "bin" / "Release" / "yt-dlp.exe");
 
         for (const auto& path : search_paths) {
-            if (fs::exists(path)) return path.string();
+            std::error_code ec;
+            if (fs::is_regular_file(path, ec) && !ec)
+                return fs::absolute(path, ec).string();
         }
 
-        if (ExecCmd("yt-dlp --version").find("not recognized") == std::string::npos) {
+        const std::string pathProbe = ExecCmd("yt-dlp --version 2>&1");
+        if (!pathProbe.empty()
+            && pathProbe.find("not recognized") == std::string::npos
+            && pathProbe.find("not found") == std::string::npos) {
             return "yt-dlp";
         }
 

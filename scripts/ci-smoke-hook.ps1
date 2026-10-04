@@ -28,7 +28,9 @@ $brg5Scripts = @(
     (Join-Path $PSScriptRoot "brg5-multi-window-smoke.ps1"),
     (Join-Path $PSScriptRoot "brg5-lifecycle-audio-stress.ps1"),
     (Join-Path $PSScriptRoot "brg5-render-callback-shutdown.ps1"),
-    (Join-Path $PSScriptRoot "issue19-event-render-stress.ps1")
+    (Join-Path $PSScriptRoot "issue19-event-render-stress.ps1"),
+    (Join-Path $PSScriptRoot "issue33-cold-url-smoke.ps1"),
+    (Join-Path $PSScriptRoot "issue33-audio-only-eof-smoke.ps1")
 )
 foreach ($scriptPath in $brg5Scripts) {
     if (-not (Test-Path $scriptPath)) {
