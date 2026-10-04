@@ -700,7 +700,16 @@ void PlaybackObserver::ProcessEvents() {
                         static_cast<int>(videotype)));
             }
 
-            m_commander.Play();
+            // #33: libmpv direct loads are already unpaused by default. Do not
+            // write pause=false after FILE_LOADED: that is an unnecessary
+            // active-load mutation in the same window where yt-dlp/demux
+            // stream selection may still be settling.
+            LifecycleEvidence::EmitDiagnostic(
+                "STARTUP",
+                FormatString(
+                    "event=AUTOPLAY_INHERIT load_id=%llu ts_ms=%llu source=mpv_default",
+                    static_cast<unsigned long long>(loadId),
+                    static_cast<unsigned long long>(SDL_GetTicks64())));
  
             break;
         }
