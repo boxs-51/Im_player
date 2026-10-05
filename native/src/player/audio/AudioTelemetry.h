@@ -113,3 +113,28 @@ inline void EmitAudioTelemetryEvidence(const char* format, ...)
     WriteFile(file, line, length, &bytesWritten, nullptr);
     CloseHandle(file);
 }
+
+inline bool AudioStartupBoundaryTraceEnabled() noexcept
+{
+    static const bool enabled = []() noexcept {
+        const char* value = std::getenv("IM_PLAYER_STARTUP_BOUNDARY_TRACE");
+        return value && *value && *value != '0';
+    }();
+    return enabled;
+}
+
+inline void EmitStartupBoundaryEvidence(const char* format, ...)
+{
+    if (!AudioStartupBoundaryTraceEnabled() || !format)
+        return;
+
+    char payload[1536]{};
+    va_list args;
+    va_start(args, format);
+    const int written = std::vsnprintf(payload, sizeof(payload), format, args);
+    va_end(args);
+    if (written <= 0)
+        return;
+
+    EmitAudioTelemetryEvidence("STARTUP_BOUNDARY %s", payload);
+}
