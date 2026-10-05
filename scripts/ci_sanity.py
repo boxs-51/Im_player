@@ -991,6 +991,23 @@ commit = subprocess.run(
     capture_output=True,
 ).stdout.strip()
 
+issue38_sanity = subprocess.run(
+    [sys.executable, str(ROOT / "scripts" / "issue38_startup_boundary_sanity.py")],
+    cwd=ROOT,
+    text=True,
+    capture_output=True,
+)
+facts["issue38_startup_boundary_sanity"] = {
+    "returncode": issue38_sanity.returncode,
+    "stdout": issue38_sanity.stdout.strip(),
+    "stderr": issue38_sanity.stderr.strip(),
+}
+if issue38_sanity.returncode != 0:
+    errors.append(
+        "Issue #38 startup-boundary sanity failed: "
+        + (issue38_sanity.stderr.strip() or issue38_sanity.stdout.strip())
+    )
+
 facts.update(
     {
         "commit": commit,

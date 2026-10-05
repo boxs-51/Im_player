@@ -68,6 +68,12 @@ struct AudioBlock {
     uint64_t generation = 0;   // Dùng để reset/flush audio cũ khi Seek / Track Change
     double   pts        = 0.0; // Presentation Timestamp (giây) hỗ trợ STT / Subtitle sync
 
+    // Issue #38 measurement-only startup correlation. These fields do not
+    // replace the discontinuity/generation contract owned by Issue #30.
+    uint64_t startupLoadId = 0;
+    uint64_t captureReadMicros = 0;
+    uint64_t capturePublishMicros = 0;
+
     AudioFormat format;
     uint32_t frames     = 0;   // Số frames thực tế trong block (tối đa kMaxAudioFrames)
 

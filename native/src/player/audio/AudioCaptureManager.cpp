@@ -294,6 +294,7 @@ void AudioCaptureManager::CaptureLoop() {
             std::array<std::uint8_t, PcmFrameAccumulator::kReadCapacity> readBuffer{};
             bool firstPayloadLogged = false;
             bool firstPacingDelayLogged = false;
+            std::uint64_t lastReadMicros = 0;
             m_currentPts = 0.0;
             m_metrics.partialFrameCarryBytes.store(0, std::memory_order_relaxed);
 
@@ -338,6 +339,7 @@ void AudioCaptureManager::CaptureLoop() {
                     m_metrics.bytesReceived.fetch_add(bytesRead, std::memory_order_relaxed);
 
                     const std::uint64_t pipeBytesMicros = AudioTelemetryNowMicros();
+                    lastReadMicros = pipeBytesMicros;
                     if (RecordFirstAudioTelemetry(
                             m_metrics.firstPipeBytesMicros,
                             pipeBytesMicros)) {
@@ -451,15 +453,17 @@ void AudioCaptureManager::CaptureLoop() {
                     carryBytes,
                     std::memory_order_relaxed);
 
+                Uint64 startupLoadId = 0;
                 Uint64 startupMediaLoadId = 0;
                 if (m_stateSystem) {
                     m_stateSystem->WritePlayback([&](PlaybackModel& model) {
                         if (model.startupLoadId > 0
-                            && model.startupLoadedLoadId == model.startupLoadId
-                            && model.startupMediaStartedLoadId != model.startupLoadId) {
-                            model.startupMediaStartedLoadId = model.startupLoadId;
-                            startupMediaLoadId =
-                                static_cast<Uint64>(model.startupLoadId);
+                            && model.startupLoadedLoadId == model.startupLoadId) {
+                            startupLoadId = static_cast<Uint64>(model.startupLoadId);
+                            if (model.startupMediaStartedLoadId != model.startupLoadId) {
+                                model.startupMediaStartedLoadId = model.startupLoadId;
+                                startupMediaLoadId = startupLoadId;
+                            }
                         }
                     });
                 }
@@ -517,6 +521,15 @@ void AudioCaptureManager::CaptureLoop() {
                         "AUDIO_MEDIA_CLOCK_ANCHOR generation=%llu anchor_pts=%.6f reference=mpv_time_pos advancement=canonical_frame_count",
                         static_cast<unsigned long long>(m_activeGeneration),
                         mediaClock.AnchorPts());
+                    if (startupLoadId > 0) {
+                        EmitStartupBoundaryEvidence(
+                            "stage=AUDIO_MEDIA_CLOCK_ANCHOR load_id=%llu t_us=%llu generation=%llu anchor_pts=%.6f mpv_time_pos=%.6f",
+                            static_cast<unsigned long long>(startupLoadId),
+                            static_cast<unsigned long long>(completeBlockMicros),
+                            static_cast<unsigned long long>(m_activeGeneration),
+                            mediaClock.AnchorPts(),
+                            timepos);
+                    }
                 }
 
                 m_currentPts = mediaClock.CurrentPosition();
@@ -528,6 +541,9 @@ void AudioCaptureManager::CaptureLoop() {
                 writeSlot->sequence = m_sequence++;
                 writeSlot->generation = m_activeGeneration;
                 writeSlot->pts = m_currentPts;
+                writeSlot->startupLoadId = static_cast<std::uint64_t>(startupLoadId);
+                writeSlot->captureReadMicros = lastReadMicros;
+                writeSlot->capturePublishMicros = AudioTelemetryNowMicros();
 
                 mediaClock.Advance(writeSlot->frames);
                 m_currentPts = mediaClock.CurrentPosition();
@@ -537,7 +553,37 @@ void AudioCaptureManager::CaptureLoop() {
                 m_metrics.currentGeneration.store(writeSlot->generation, std::memory_order_relaxed);
                 m_metrics.lastPTS.store(writeSlot->pts, std::memory_order_relaxed);
 
+                const std::uint64_t publishedSequence = writeSlot->sequence;
+                const std::uint64_t publishedGeneration = writeSlot->generation;
+                const double publishedPts = writeSlot->pts;
+                const std::uint64_t captureReadMicros = writeSlot->captureReadMicros;
+                const std::uint64_t capturePublishMicros = writeSlot->capturePublishMicros;
+                const std::uint64_t publishedLoadId = writeSlot->startupLoadId;
+
                 m_producer->commit_write();
+
+                if (publishedLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                    EmitStartupBoundaryEvidence(
+                        "stage=CAPTURE_READ_COMPLETE load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u carry_bytes=%llu",
+                        static_cast<unsigned long long>(publishedLoadId),
+                        static_cast<unsigned long long>(captureReadMicros),
+                        static_cast<unsigned long long>(publishedSequence),
+                        static_cast<unsigned long long>(publishedGeneration),
+                        publishedPts,
+                        frames,
+                        static_cast<unsigned long long>(carryBytes));
+                    EmitStartupBoundaryEvidence(
+                        "stage=CAPTURE_PUBLISH_RAW load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u raw_ring_size=%zu raw_ring_capacity=%zu",
+                        static_cast<unsigned long long>(publishedLoadId),
+                        static_cast<unsigned long long>(capturePublishMicros),
+                        static_cast<unsigned long long>(publishedSequence),
+                        static_cast<unsigned long long>(publishedGeneration),
+                        publishedPts,
+                        frames,
+                        m_producer->size(),
+                        m_producer->capacity());
+                }
+
                 realtimePacer.OnPublished(frames);
             }
         }

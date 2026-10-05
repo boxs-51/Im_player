@@ -156,6 +156,15 @@ public:
         m_core->m_head.store(next_head, std::memory_order_release);
     }
 
+    // Measurement-only occupancy snapshot. Producer remains the sole writer.
+    size_t size() const noexcept {
+        const size_t head = m_core->m_head.load(std::memory_order_relaxed);
+        const size_t tail = m_core->m_tail.load(std::memory_order_acquire);
+        return (head >= tail) ? (head - tail) : (m_core->m_capacity + head - tail);
+    }
+
+    size_t capacity() const noexcept { return m_core->capacity(); }
+
 private:
     std::shared_ptr<SpscRingBufferCore<T>> m_core;
     #ifndef NDEBUG
