@@ -123,6 +123,15 @@ inline bool AudioStartupBoundaryTraceEnabled() noexcept
     return enabled;
 }
 
+inline bool AudioStartupClockReleaseExperimentEnabled() noexcept
+{
+    static const bool enabled = []() noexcept {
+        const char* value = std::getenv("IM_PLAYER_STARTUP_CLOCK_RELEASE_EXPERIMENT");
+        return value && *value && *value != '0';
+    }();
+    return enabled;
+}
+
 inline void EmitStartupBoundaryEvidence(const char* format, ...)
 {
     if (!AudioStartupBoundaryTraceEnabled() || !format)
