@@ -184,6 +184,16 @@ void AudioOutputWorker::OutputLoop() {
     std::uint64_t lastSuccessfulSequence = 0;
     std::uint64_t lastSuccessfulGeneration = 0;
     double lastSuccessfulPts = 0.0;
+    double lastSuccessfulEndPts = 0.0;
+
+    const bool startupClockReleaseExperiment =
+        AudioStartupClockReleaseExperimentEnabled();
+    constexpr double kStartupClockReleaseAdvanceSeconds = 0.080;
+    std::uint64_t startupClockGateLoadId = 0;
+    std::uint64_t startupClockGateArmedMicros = 0;
+    std::uint64_t startupClockGateLastEvidenceMicros = 0;
+    double startupClockGateBaselineTimePos = 0.0;
+    bool startupClockGateArmed = false;
 
     std::uint64_t startupPlaybackLoadId = 0;
     std::uint64_t startupPlaybackStartMicros = 0;
@@ -342,9 +352,108 @@ void AudioOutputWorker::OutputLoop() {
                     }
                     m_audioDevice->FlushBuffers();
                     playbackStartedObserved = false;
+                    startupClockGateArmed = false;
                     underflowDetector.Reset();
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
+                }
+
+                if (startupClockReleaseExperiment &&
+                    !playbackStartedObserved &&
+                    queuedBytes >= kAudioOutputTargetQueueBytes &&
+                    lastSuccessfulLoadId > 0) {
+                    const auto playbackSnapshot = readStartupPlaybackSnapshot();
+
+                    if (!startupClockGateArmed ||
+                        startupClockGateLoadId != lastSuccessfulLoadId) {
+                        startupClockGateArmed = true;
+                        startupClockGateLoadId = lastSuccessfulLoadId;
+                        startupClockGateBaselineTimePos = playbackSnapshot.timePos;
+                        startupClockGateArmedMicros = queueObservationMicros;
+                        startupClockGateLastEvidenceMicros = 0;
+                        EmitStartupBoundaryEvidence(
+                            "stage=STARTUP_CLOCK_RELEASE_GATE_ARM load_id=%llu t_us=%llu baseline_mpv_time_pos=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu",
+                            static_cast<unsigned long long>(startupClockGateLoadId),
+                            static_cast<unsigned long long>(queueObservationMicros),
+                            startupClockGateBaselineTimePos,
+                            queuedBytes,
+                            1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                            m_processedStream->size());
+                    }
+
+                    const double clockAdvance =
+                        playbackSnapshot.timePos - startupClockGateBaselineTimePos;
+
+                    if (clockAdvance >= kStartupClockReleaseAdvanceSeconds) {
+                        auto* sdlDevice =
+                            dynamic_cast<SdlAudioDevice*>(m_audioDevice.get());
+                        if (sdlDevice && sdlDevice->StartPlaybackIfPrebuffered()) {
+                            playbackStartedObserved = true;
+                            startupPlaybackLoadId = lastSuccessfulLoadId;
+                            startupPlaybackStartMicros = queueObservationMicros;
+                            startupCheckpoint1sEmitted = false;
+                            startupCheckpoint5sEmitted = false;
+                            startupCheckpoint10sEmitted = false;
+
+                            const double audibleHead =
+                                EstimateAudibleHeadPts(
+                                    lastSuccessfulEndPts,
+                                    queuedBytes);
+                            const double avOffset =
+                                audibleHead - playbackSnapshot.timePos;
+
+                            EmitStartupBoundaryEvidence(
+                                "stage=STARTUP_CLOCK_RELEASE_GATE_GRANTED load_id=%llu t_us=%llu wait_us=%llu baseline_mpv_time_pos=%.6f mpv_time_pos=%.6f clock_advance_s=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu",
+                                static_cast<unsigned long long>(startupPlaybackLoadId),
+                                static_cast<unsigned long long>(queueObservationMicros),
+                                static_cast<unsigned long long>(
+                                    queueObservationMicros - startupClockGateArmedMicros),
+                                startupClockGateBaselineTimePos,
+                                playbackSnapshot.timePos,
+                                clockAdvance,
+                                queuedBytes,
+                                1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                m_processedStream->size());
+
+                            EmitStartupBoundaryEvidence(
+                                "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d release_gate=clock_advance",
+                                static_cast<unsigned long long>(startupPlaybackLoadId),
+                                static_cast<unsigned long long>(queueObservationMicros),
+                                static_cast<unsigned long long>(lastSuccessfulSequence),
+                                static_cast<unsigned long long>(lastSuccessfulGeneration),
+                                lastSuccessfulPts,
+                                queuedBytes,
+                                1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                audibleHead,
+                                playbackSnapshot.timePos,
+                                playbackSnapshot.playbackTime,
+                                avOffset,
+                                playbackSnapshot.isPaused ? 1 : 0,
+                                playbackSnapshot.isCoreIdle ? 1 : 0,
+                                playbackSnapshot.isIdleActive ? 1 : 0,
+                                playbackSnapshot.isSeeking ? 1 : 0,
+                                playbackSnapshot.pauseForCache ? 1 : 0,
+                                playbackSnapshot.cacheBufferingState);
+
+                            startupClockGateArmed = false;
+                        }
+                    } else if (
+                        startupClockGateLastEvidenceMicros == 0 ||
+                        queueObservationMicros -
+                                startupClockGateLastEvidenceMicros >= 100000ULL) {
+                        startupClockGateLastEvidenceMicros =
+                            queueObservationMicros;
+                        EmitStartupBoundaryEvidence(
+                            "stage=STARTUP_CLOCK_RELEASE_GATE_WAIT load_id=%llu t_us=%llu baseline_mpv_time_pos=%.6f mpv_time_pos=%.6f clock_advance_s=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu",
+                            static_cast<unsigned long long>(startupClockGateLoadId),
+                            static_cast<unsigned long long>(queueObservationMicros),
+                            startupClockGateBaselineTimePos,
+                            playbackSnapshot.timePos,
+                            clockAdvance,
+                            queuedBytes,
+                            1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                            m_processedStream->size());
+                    }
                 }
 
                 if (queuedBytes >= kAudioOutputTargetQueueBytes) {
@@ -595,7 +704,8 @@ void AudioOutputWorker::OutputLoop() {
                             break;
                         }
 
-                        if (!playbackStartedObserved &&
+                        if (!startupClockReleaseExperiment &&
+                            !playbackStartedObserved &&
                             finalQueuedBytes >=
                                 kAudioOutputTargetQueueBytes) {
                             playbackStartedObserved = true;
@@ -712,6 +822,7 @@ void AudioOutputWorker::OutputLoop() {
                         lastSuccessfulSequence = block->sequence;
                         lastSuccessfulGeneration = block->generation;
                         lastSuccessfulPts = block->pts;
+                        lastSuccessfulEndPts = lastWrittenEndPts;
 
                         if (block->startupLoadId > 0 &&
                             block->startupLoadId == startupPlaybackLoadId &&
