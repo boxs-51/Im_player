@@ -21,10 +21,17 @@ public:
     void SetReady(bool ready) override;
     void Shutdown() override;
 
+    // Issue #38 opt-in experiment: queue the canonical reservoir while keeping
+    // SDL paused, then let AudioOutputWorker release it after MPV clock advance.
+    void SetAutoPlaybackStart(bool enabled);
+    bool StartPlaybackIfPrebuffered();
+    bool IsPlaybackStarted() const;
+
 private:
     std::atomic<SDL_AudioDeviceID> m_deviceId{0};
     std::atomic<bool> m_isSdlAudioInitialized{false};
     std::atomic<bool> m_isReady{false};
     std::atomic<bool> m_playbackStarted{false};
+    std::atomic<bool> m_autoPlaybackStart{true};
     mutable std::mutex m_lifecycleMutex;
 };
