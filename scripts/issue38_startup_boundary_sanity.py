@@ -20,6 +20,16 @@ checks = {
     "native/src/player/event/PlaybackObserver.cpp": [
         "m.flags.pauseForCache = value",
     ],
+    "native/src/player/audio/SdlAudioDevice.h": [
+        "SetAutoPlaybackStart",
+        "StartPlaybackIfPrebuffered",
+        "IsPlaybackStarted",
+        "m_autoPlaybackStart",
+    ],
+    "native/src/player/audio/SdlAudioDevice.cpp": [
+        "m_autoPlaybackStart.store(true",
+        "StartPlaybackIfPrebuffered",
+    ],
     "native/src/player/audio/AudioCaptureManager.cpp": [
         "stage=CAPTURE_READ_COMPLETE",
         "stage=CAPTURE_PUBLISH_RAW",
@@ -38,6 +48,14 @@ checks = {
         "stage=SDL_SEGMENT_WRITE",
         "stage=SDL_PLAYBACK_STARTED",
         "stage=SDL_QUEUE_UNDERFLOW",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_PRIMED",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_ARM",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_WAIT",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_GRANTED",
+        "STARTUP_CLOCK_RELEASE_LIVENESS_FALLBACK",
+        "reason=clock_transition",
+        "kStartupClockTransitionEpsilon = 0.000001",
+        "kStartupClockGateHeadroomReserveBlocks = 4",
         "pause_for_cache=%d",
         "cache_buffering_state=%d",
         "playback_time=%.6f",
@@ -60,6 +78,10 @@ if "kAudioOutputTargetQueueMilliseconds = 120" not in audio_types:
     errors.append("Issue #38 measurement slice must not change the 120ms queue target")
 if "kAudioOutputDesignMaxQueueMilliseconds = 150" not in audio_types:
     errors.append("Issue #38 measurement slice must not change the 150ms queue hard cap")
+
+output_worker = (ROOT / "native/src/player/audio/AudioOutputWorker.cpp").read_text(encoding="utf-8")
+if "kStartupClockReleaseAdvanceSeconds" in output_worker:
+    errors.append("Issue #38 production gate must use semantic MPV clock transition, not a fixed media-time threshold")
 
 if errors:
     for item in errors:
