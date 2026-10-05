@@ -1016,7 +1016,7 @@ void PlaybackObserver::HandleFlagProperty(const char* name, bool value) {
     else if (strcmp(name, "demuxer-via-network") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_via_network = value; });
     else if (strcmp(name, "vo-configured") == 0);
     else if (strcmp(name, "display-sync-active") == 0);
-    else if (strcmp(name, "pause-for-cache") == 0);
+    else if (strcmp(name, "pause-for-cache") == 0) m_state.WritePlayback([&](auto& m) { m.flags.pauseForCache = value; });
 }
 
 void PlaybackObserver::HandleInt64Property(const char* name, int64_t value) {
