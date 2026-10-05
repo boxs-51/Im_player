@@ -6,6 +6,8 @@ ROOT = Path(__file__).resolve().parents[1]
 checks = {
     "native/src/player/audio/AudioTelemetry.h": [
         "IM_PLAYER_STARTUP_BOUNDARY_TRACE",
+        "IM_PLAYER_STARTUP_CLOCK_RELEASE_EXPERIMENT",
+        "AudioStartupClockReleaseExperimentEnabled",
         "EmitStartupBoundaryEvidence",
         "STARTUP_BOUNDARY %s",
     ],
@@ -19,6 +21,15 @@ checks = {
     ],
     "native/src/player/event/PlaybackObserver.cpp": [
         "m.flags.pauseForCache = value",
+    ],
+    "native/src/player/audio/SdlAudioDevice.h": [
+        "SetAutoPlaybackStart",
+        "StartPlaybackIfPrebuffered",
+        "m_autoPlaybackStart",
+    ],
+    "native/src/player/audio/SdlAudioDevice.cpp": [
+        "AudioStartupClockReleaseExperimentEnabled",
+        "StartPlaybackIfPrebuffered",
     ],
     "native/src/player/audio/AudioCaptureManager.cpp": [
         "stage=CAPTURE_READ_COMPLETE",
@@ -41,6 +52,11 @@ checks = {
         "pause_for_cache=%d",
         "cache_buffering_state=%d",
         "playback_time=%.6f",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_ARM",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_WAIT",
+        "stage=STARTUP_CLOCK_RELEASE_GATE_GRANTED",
+        "release_gate=clock_advance",
+        "kStartupClockReleaseAdvanceSeconds = 0.080",
         "stage=STARTUP_SYNC_SAMPLE checkpoint_s=%llu",
         "emitCheckpoint(1, startupCheckpoint1sEmitted)",
         "emitCheckpoint(5, startupCheckpoint5sEmitted)",
