@@ -82,6 +82,9 @@ bool SdlAudioDevice::Open(uint32_t sampleRate, uint8_t channels) {
     // the Issue #26 target, otherwise a just-in-time first block makes the
     // external device vulnerable to scheduler jitter and repeated starvation.
     m_playbackStarted.store(false, std::memory_order_relaxed);
+    m_autoPlaybackStart.store(
+        !AudioStartupClockReleaseExperimentEnabled(),
+        std::memory_order_relaxed);
 
     // Atomic store để luồng Worker thấy Device ID và trạng thái sẵn sàng
     m_deviceId.store(devId, std::memory_order_release);
