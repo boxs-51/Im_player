@@ -14,6 +14,12 @@ checks = {
         "captureReadMicros",
         "capturePublishMicros",
     ],
+    "native/src/player/PlayerDataModels.h": [
+        "pauseForCache",
+    ],
+    "native/src/player/event/PlaybackObserver.cpp": [
+        "m.flags.pauseForCache = value",
+    ],
     "native/src/player/audio/AudioCaptureManager.cpp": [
         "stage=CAPTURE_READ_COMPLETE",
         "stage=CAPTURE_PUBLISH_RAW",
@@ -32,6 +38,9 @@ checks = {
         "stage=SDL_SEGMENT_WRITE",
         "stage=SDL_PLAYBACK_STARTED",
         "stage=SDL_QUEUE_UNDERFLOW",
+        "pause_for_cache=%d",
+        "cache_buffering_state=%d",
+        "playback_time=%.6f",
         "stage=STARTUP_SYNC_SAMPLE checkpoint_s=%llu",
         "emitCheckpoint(1, startupCheckpoint1sEmitted)",
         "emitCheckpoint(5, startupCheckpoint5sEmitted)",
