@@ -2,6 +2,7 @@
 #include "log.h"
 #include "threads/thread_manager.h"
 #include "common/LifecycleEvidence.h"
+#include "AudioTelemetry.h"
 
 #include <cmath>
 #include <algorithm>
@@ -343,23 +344,55 @@ void AudioProcessor::ProcessLoop() {
         "[AudioProcessor] Processing thread started.");
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
-        //if (!m_inputStream-> || !m_outputStrea->) break;
-
-        // 1. ĐỌC TỪ CAPTURE RING BUFFER (Input Stream)
         const AudioBlock* inSlot = m_inputStream->acquire_read();
         if (!inSlot) {
             std::this_thread::sleep_for(std::chrono::milliseconds(1));
             continue;
         }
 
-        // 2. Phân tích dữ liệu âm thanh cho UI / Visualizer
+        const std::uint64_t acquireMicros = AudioTelemetryNowMicros();
+        const size_t rawRingSize = m_inputStream->size();
+        if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_ACQUIRE_RAW load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f raw_ring_size=%zu raw_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu",
+                static_cast<unsigned long long>(inSlot->startupLoadId),
+                static_cast<unsigned long long>(acquireMicros),
+                static_cast<unsigned long long>(inSlot->sequence),
+                static_cast<unsigned long long>(inSlot->generation),
+                inSlot->pts,
+                rawRingSize,
+                m_inputStream->capacity(),
+                static_cast<unsigned long long>(inSlot->captureReadMicros),
+                static_cast<unsigned long long>(inSlot->capturePublishMicros));
+        }
+
+        const std::uint64_t analyzeBeginMicros = AudioTelemetryNowMicros();
+        if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_ANALYZE_BEGIN load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f",
+                static_cast<unsigned long long>(inSlot->startupLoadId),
+                static_cast<unsigned long long>(analyzeBeginMicros),
+                static_cast<unsigned long long>(inSlot->sequence),
+                static_cast<unsigned long long>(inSlot->generation),
+                inSlot->pts);
+        }
+
         AnalyzeBlock(*inSlot);
 
-        // 3. GHI SANG OUTPUT WORKER RING BUFFER (Output Stream)
-        // Nếu output buffer đầy, chờ tối đa vài ms trước khi drop để tránh block pipeline quá lâu
+        const std::uint64_t analyzeEndMicros = AudioTelemetryNowMicros();
+        if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_ANALYZE_END load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu",
+                static_cast<unsigned long long>(inSlot->startupLoadId),
+                static_cast<unsigned long long>(analyzeEndMicros),
+                static_cast<unsigned long long>(inSlot->sequence),
+                static_cast<unsigned long long>(inSlot->generation),
+                inSlot->pts,
+                static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros));
+        }
+
         AudioBlock* outSlot = m_outputStream->acquire_write();
         int retryCount = 0;
-        
         while (!outSlot && m_isRunning.load(std::memory_order_relaxed) && retryCount < 10) {
             std::this_thread::sleep_for(std::chrono::microseconds(500));
             outSlot = m_outputStream->acquire_write();
@@ -367,11 +400,35 @@ void AudioProcessor::ProcessLoop() {
         }
 
         if (outSlot) {
-            *outSlot = *inSlot; // Copy dữ liệu block
+            *outSlot = *inSlot;
             m_outputStream->commit_write();
+
+            if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                EmitStartupBoundaryEvidence(
+                    "stage=PROCESSOR_PUBLISH_PROCESSED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                    static_cast<unsigned long long>(inSlot->startupLoadId),
+                    static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                    static_cast<unsigned long long>(inSlot->sequence),
+                    static_cast<unsigned long long>(inSlot->generation),
+                    inSlot->pts,
+                    static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros),
+                    retryCount,
+                    m_outputStream->size(),
+                    m_outputStream->capacity());
+            }
+        } else if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_PUBLISH_DROP load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                static_cast<unsigned long long>(inSlot->startupLoadId),
+                static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                static_cast<unsigned long long>(inSlot->sequence),
+                static_cast<unsigned long long>(inSlot->generation),
+                inSlot->pts,
+                retryCount,
+                m_outputStream->size(),
+                m_outputStream->capacity());
         }
 
-        // 4. Giải phóng Read Slot ở Input Stream
         m_inputStream->release_read();
     }
 
