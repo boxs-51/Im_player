@@ -21,10 +21,17 @@ public:
     void SetReady(bool ready) override;
     void Shutdown() override;
 
+    // #38 initial-startup release control. Normal refill behavior remains
+    // automatic after the one-time semantic release has been granted.
+    void SetAutoPlaybackStart(bool enabled);
+    bool StartPlaybackIfPrebuffered();
+    bool IsPlaybackStarted() const;
+
 private:
     std::atomic<SDL_AudioDeviceID> m_deviceId{0};
     std::atomic<bool> m_isSdlAudioInitialized{false};
     std::atomic<bool> m_isReady{false};
     std::atomic<bool> m_playbackStarted{false};
+    std::atomic<bool> m_autoPlaybackStart{true};
     mutable std::mutex m_lifecycleMutex;
 };
