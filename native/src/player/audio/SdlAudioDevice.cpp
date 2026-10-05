@@ -155,24 +155,46 @@ void SdlAudioDevice::Write(const float* samples, size_t sampleCount) {
         return;
     }
 
-    if (!m_playbackStarted.load(std::memory_order_relaxed)) {
-        const uint32_t queuedBytes = SDL_GetQueuedAudioSize(devId);
-        if (queuedBytes >= kAudioOutputTargetQueueBytes) {
-            bool expected = false;
-            if (m_playbackStarted.compare_exchange_strong(
-                    expected,
-                    true,
-                    std::memory_order_acq_rel,
-                    std::memory_order_relaxed)) {
-                SDL_PauseAudioDevice(devId, 0);
-                EmitAudioTelemetryEvidence(
-                    "SDL_PLAYBACK_STARTED queued_bytes=%u queued_ms=%.3f target_ms=%u",
-                    queuedBytes,
-                    1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
-                    kAudioOutputTargetQueueMilliseconds);
-            }
-        }
+    if (m_autoPlaybackStart.load(std::memory_order_relaxed)) {
+        StartPlaybackIfPrebuffered();
     }
+}
+
+void SdlAudioDevice::SetAutoPlaybackStart(bool enabled) {
+    m_autoPlaybackStart.store(enabled, std::memory_order_release);
+}
+
+bool SdlAudioDevice::StartPlaybackIfPrebuffered() {
+    SDL_AudioDeviceID devId = m_deviceId.load(std::memory_order_acquire);
+    if (devId == 0 || !m_isReady.load(std::memory_order_relaxed))
+        return false;
+
+    if (m_playbackStarted.load(std::memory_order_acquire))
+        return true;
+
+    const uint32_t queuedBytes = SDL_GetQueuedAudioSize(devId);
+    if (queuedBytes < kAudioOutputTargetQueueBytes)
+        return false;
+
+    bool expected = false;
+    if (m_playbackStarted.compare_exchange_strong(
+            expected,
+            true,
+            std::memory_order_acq_rel,
+            std::memory_order_relaxed)) {
+        SDL_PauseAudioDevice(devId, 0);
+        EmitAudioTelemetryEvidence(
+            "SDL_PLAYBACK_STARTED queued_bytes=%u queued_ms=%.3f target_ms=%u",
+            queuedBytes,
+            1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+            kAudioOutputTargetQueueMilliseconds);
+    }
+
+    return m_playbackStarted.load(std::memory_order_acquire);
+}
+
+bool SdlAudioDevice::IsPlaybackStarted() const {
+    return m_playbackStarted.load(std::memory_order_acquire);
 }
 
 void SdlAudioDevice::FlushBuffers() {
