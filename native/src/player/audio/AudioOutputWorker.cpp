@@ -191,6 +191,36 @@ void AudioOutputWorker::OutputLoop() {
     bool startupCheckpoint5sEmitted = false;
     bool startupCheckpoint10sEmitted = false;
 
+    struct StartupPlaybackSnapshot {
+        double timePos = 0.0;
+        double playbackTime = 0.0;
+        bool isPaused = true;
+        bool isCoreIdle = true;
+        bool isIdleActive = true;
+        bool isSeeking = false;
+        bool pauseForCache = false;
+        int cacheBufferingState = 0;
+    };
+
+    const auto readStartupPlaybackSnapshot = [this]() {
+        StartupPlaybackSnapshot snapshot;
+        if (m_stateSystem) {
+            m_stateSystem->ReadPlayback([&snapshot](const PlaybackModel& model) {
+                snapshot.timePos = model.timing.timePos;
+                snapshot.playbackTime = model.timing.playbackTime;
+                snapshot.isPaused = model.flags.isPaused;
+                snapshot.isCoreIdle = model.flags.isCoreIdle;
+                snapshot.isIdleActive = model.flags.isIdleActive;
+                snapshot.isSeeking = model.flags.isSeeking;
+                snapshot.pauseForCache = model.flags.pauseForCache;
+            });
+            m_stateSystem->ReadNetwork([&snapshot](const NetworkModel& model) {
+                snapshot.cacheBufferingState = model.cache_buffering_state;
+            });
+        }
+        return snapshot;
+    };
+
     const auto updateQueueMetrics = [this](uint32_t queuedBytes) {
         m_metrics.queuedBytes.store(queuedBytes, std::memory_order_relaxed);
 
@@ -288,8 +318,9 @@ void AudioOutputWorker::OutputLoop() {
                         static_cast<unsigned long long>(
                             kAudioOutputUnderflowGraceMicros));
                     if (lastSuccessfulLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                        const auto playbackSnapshot = readStartupPlaybackSnapshot();
                         EmitStartupBoundaryEvidence(
-                            "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu last_sequence=%llu last_generation=%llu last_pts=%.6f source=idle_observer",
+                            "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu last_sequence=%llu last_generation=%llu last_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=idle_observer",
                             static_cast<unsigned long long>(lastSuccessfulLoadId),
                             static_cast<unsigned long long>(queueObservationMicros),
                             static_cast<unsigned long long>(underflowIndex),
@@ -299,7 +330,15 @@ void AudioOutputWorker::OutputLoop() {
                             static_cast<unsigned long long>(lastSuccessfulWriteMicros),
                             static_cast<unsigned long long>(lastSuccessfulSequence),
                             static_cast<unsigned long long>(lastSuccessfulGeneration),
-                            lastSuccessfulPts);
+                            lastSuccessfulPts,
+                            playbackSnapshot.timePos,
+                            playbackSnapshot.playbackTime,
+                            playbackSnapshot.isPaused ? 1 : 0,
+                            playbackSnapshot.isCoreIdle ? 1 : 0,
+                            playbackSnapshot.isIdleActive ? 1 : 0,
+                            playbackSnapshot.isSeeking ? 1 : 0,
+                            playbackSnapshot.pauseForCache ? 1 : 0,
+                            playbackSnapshot.cacheBufferingState);
                     }
                     m_audioDevice->FlushBuffers();
                     playbackStartedObserved = false;
@@ -464,8 +503,9 @@ void AudioOutputWorker::OutputLoop() {
                                 static_cast<unsigned long long>(
                                     kAudioOutputUnderflowGraceMicros));
                             if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                                const auto playbackSnapshot = readStartupPlaybackSnapshot();
                                 EmitStartupBoundaryEvidence(
-                                    "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu sequence=%llu generation=%llu pts=%.6f empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu source=segment",
+                                    "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu sequence=%llu generation=%llu pts=%.6f empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=segment",
                                     static_cast<unsigned long long>(block->startupLoadId),
                                     static_cast<unsigned long long>(segmentObservationMicros),
                                     static_cast<unsigned long long>(underflowIndex),
@@ -475,7 +515,15 @@ void AudioOutputWorker::OutputLoop() {
                                     static_cast<unsigned long long>(segmentDecision.emptyDurationMicros),
                                     queuedBefore,
                                     m_processedStream->size(),
-                                    static_cast<unsigned long long>(lastSuccessfulWriteMicros));
+                                    static_cast<unsigned long long>(lastSuccessfulWriteMicros),
+                                    playbackSnapshot.timePos,
+                                    playbackSnapshot.playbackTime,
+                                    playbackSnapshot.isPaused ? 1 : 0,
+                                    playbackSnapshot.isCoreIdle ? 1 : 0,
+                                    playbackSnapshot.isIdleActive ? 1 : 0,
+                                    playbackSnapshot.isSeeking ? 1 : 0,
+                                    playbackSnapshot.pauseForCache ? 1 : 0,
+                                    playbackSnapshot.cacheBufferingState);
                             }
                             m_audioDevice->FlushBuffers();
                             playbackStartedObserved = false;
@@ -560,13 +608,10 @@ void AudioOutputWorker::OutputLoop() {
                                 startupCheckpoint10sEmitted = false;
 
                                 if (AudioStartupBoundaryTraceEnabled()) {
-                                    double playbackStartMpvTimePos = 0.0;
-                                    if (m_stateSystem) {
-                                        m_stateSystem->ReadPlayback(
-                                            [&playbackStartMpvTimePos](const PlaybackModel& model) {
-                                                playbackStartMpvTimePos = model.timing.timePos;
-                                            });
-                                    }
+                                    const auto playbackSnapshot =
+                                        readStartupPlaybackSnapshot();
+                                    const double playbackStartMpvTimePos =
+                                        playbackSnapshot.timePos;
 
                                     const double segmentEndPts =
                                         block->pts +
@@ -578,7 +623,7 @@ void AudioOutputWorker::OutputLoop() {
                                         audibleHead - playbackStartMpvTimePos;
 
                                     EmitStartupBoundaryEvidence(
-                                        "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
+                                        "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d",
                                         static_cast<unsigned long long>(block->startupLoadId),
                                         static_cast<unsigned long long>(segmentWriteMicros),
                                         static_cast<unsigned long long>(block->sequence),
@@ -588,7 +633,14 @@ void AudioOutputWorker::OutputLoop() {
                                         1000.0 * CanonicalQueuedAudioSeconds(finalQueuedBytes),
                                         audibleHead,
                                         playbackStartMpvTimePos,
-                                        avOffset);
+                                        playbackSnapshot.playbackTime,
+                                        avOffset,
+                                        playbackSnapshot.isPaused ? 1 : 0,
+                                        playbackSnapshot.isCoreIdle ? 1 : 0,
+                                        playbackSnapshot.isIdleActive ? 1 : 0,
+                                        playbackSnapshot.isSeeking ? 1 : 0,
+                                        playbackSnapshot.pauseForCache ? 1 : 0,
+                                        playbackSnapshot.cacheBufferingState);
                                 }
                             }
                         }
@@ -674,8 +726,10 @@ void AudioOutputWorker::OutputLoop() {
                                         checkpointSeconds * 1'000'000ULL;
                                     if (!emitted && elapsedMicros >= thresholdMicros) {
                                         emitted = true;
+                                        const auto playbackSnapshot =
+                                            readStartupPlaybackSnapshot();
                                         EmitStartupBoundaryEvidence(
-                                            "stage=STARTUP_SYNC_SAMPLE checkpoint_s=%llu load_id=%llu t_us=%llu elapsed_us=%llu sequence=%llu generation=%llu queued_bytes=%u queued_ms=%.3f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f processed_ring_size=%zu",
+                                            "stage=STARTUP_SYNC_SAMPLE checkpoint_s=%llu load_id=%llu t_us=%llu elapsed_us=%llu sequence=%llu generation=%llu queued_bytes=%u queued_ms=%.3f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f processed_ring_size=%zu paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d",
                                             static_cast<unsigned long long>(checkpointSeconds),
                                             static_cast<unsigned long long>(block->startupLoadId),
                                             static_cast<unsigned long long>(sdlWriteMicros),
@@ -686,9 +740,16 @@ void AudioOutputWorker::OutputLoop() {
                                             1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
                                             lastWrittenEndPts,
                                             audibleHead,
-                                            mpvTimePos,
-                                            avOffset,
-                                            m_processedStream->size());
+                                            playbackSnapshot.timePos,
+                                            playbackSnapshot.playbackTime,
+                                            audibleHead - playbackSnapshot.timePos,
+                                            m_processedStream->size(),
+                                            playbackSnapshot.isPaused ? 1 : 0,
+                                            playbackSnapshot.isCoreIdle ? 1 : 0,
+                                            playbackSnapshot.isIdleActive ? 1 : 0,
+                                            playbackSnapshot.isSeeking ? 1 : 0,
+                                            playbackSnapshot.pauseForCache ? 1 : 0,
+                                            playbackSnapshot.cacheBufferingState);
                                     }
                                 };
 
