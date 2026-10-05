@@ -146,7 +146,8 @@ struct MpvFlagsModel {
     bool isSeeking = false;
     bool eofReached = false;
     bool isCoreIdle = true;
-    bool isIdleActive = true; 
+    bool isIdleActive = true;
+    bool pauseForCache = false; // #38 measurement: MPV startup/cache hold state.
     bool seekable = false;
 };
 
