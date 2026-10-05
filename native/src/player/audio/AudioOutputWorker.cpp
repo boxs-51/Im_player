@@ -179,6 +179,18 @@ void AudioOutputWorker::OutputLoop() {
     std::uint64_t syncSampleIndex = 0;
     constexpr std::uint64_t kSyncEvidenceIntervalMicros = 5'000'000ULL;
 
+    std::uint64_t lastSuccessfulWriteMicros = 0;
+    std::uint64_t lastSuccessfulLoadId = 0;
+    std::uint64_t lastSuccessfulSequence = 0;
+    std::uint64_t lastSuccessfulGeneration = 0;
+    double lastSuccessfulPts = 0.0;
+
+    std::uint64_t startupPlaybackLoadId = 0;
+    std::uint64_t startupPlaybackStartMicros = 0;
+    bool startupCheckpoint1sEmitted = false;
+    bool startupCheckpoint5sEmitted = false;
+    bool startupCheckpoint10sEmitted = false;
+
     const auto updateQueueMetrics = [this](uint32_t queuedBytes) {
         m_metrics.queuedBytes.store(queuedBytes, std::memory_order_relaxed);
 
@@ -275,6 +287,20 @@ void AudioOutputWorker::OutputLoop() {
                             queueDecision.emptyDurationMicros),
                         static_cast<unsigned long long>(
                             kAudioOutputUnderflowGraceMicros));
+                    if (lastSuccessfulLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                        EmitStartupBoundaryEvidence(
+                            "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu last_sequence=%llu last_generation=%llu last_pts=%.6f source=idle_observer",
+                            static_cast<unsigned long long>(lastSuccessfulLoadId),
+                            static_cast<unsigned long long>(queueObservationMicros),
+                            static_cast<unsigned long long>(underflowIndex),
+                            static_cast<unsigned long long>(queueDecision.emptyDurationMicros),
+                            queuedBytes,
+                            m_processedStream->size(),
+                            static_cast<unsigned long long>(lastSuccessfulWriteMicros),
+                            static_cast<unsigned long long>(lastSuccessfulSequence),
+                            static_cast<unsigned long long>(lastSuccessfulGeneration),
+                            lastSuccessfulPts);
+                    }
                     m_audioDevice->FlushBuffers();
                     playbackStartedObserved = false;
                     underflowDetector.Reset();
@@ -303,7 +329,25 @@ void AudioOutputWorker::OutputLoop() {
                 continue;
             }
 
-            const std::uint64_t processedBlockMicros = AudioTelemetryNowMicros();
+            const std::uint64_t outputAcquireMicros = AudioTelemetryNowMicros();
+            const size_t processedRingSizeAtAcquire = m_processedStream->size();
+            if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                EmitStartupBoundaryEvidence(
+                    "stage=OUTPUT_ACQUIRE_PROCESSED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu processed_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu queued_bytes=%u",
+                    static_cast<unsigned long long>(block->startupLoadId),
+                    static_cast<unsigned long long>(outputAcquireMicros),
+                    static_cast<unsigned long long>(block->sequence),
+                    static_cast<unsigned long long>(block->generation),
+                    block->pts,
+                    block->frames,
+                    processedRingSizeAtAcquire,
+                    m_processedStream->capacity(),
+                    static_cast<unsigned long long>(block->captureReadMicros),
+                    static_cast<unsigned long long>(block->capturePublishMicros),
+                    m_audioDevice ? m_audioDevice->GetQueuedSizeBytes() : 0);
+            }
+
+            const std::uint64_t processedBlockMicros = outputAcquireMicros;
             if (RecordFirstAudioTelemetry(
                     m_metrics.firstProcessedBlockMicros,
                     processedBlockMicros)) {
@@ -419,6 +463,20 @@ void AudioOutputWorker::OutputLoop() {
                                     segmentDecision.emptyDurationMicros),
                                 static_cast<unsigned long long>(
                                     kAudioOutputUnderflowGraceMicros));
+                            if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                                EmitStartupBoundaryEvidence(
+                                    "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu sequence=%llu generation=%llu pts=%.6f empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu source=segment",
+                                    static_cast<unsigned long long>(block->startupLoadId),
+                                    static_cast<unsigned long long>(segmentObservationMicros),
+                                    static_cast<unsigned long long>(underflowIndex),
+                                    static_cast<unsigned long long>(block->sequence),
+                                    static_cast<unsigned long long>(block->generation),
+                                    block->pts,
+                                    static_cast<unsigned long long>(segmentDecision.emptyDurationMicros),
+                                    queuedBefore,
+                                    m_processedStream->size(),
+                                    static_cast<unsigned long long>(lastSuccessfulWriteMicros));
+                            }
                             m_audioDevice->FlushBuffers();
                             playbackStartedObserved = false;
                             underflowDetector.Reset();
@@ -462,6 +520,23 @@ void AudioOutputWorker::OutputLoop() {
                             m_audioDevice->GetQueuedSizeBytes();
                         updateQueueMetrics(finalQueuedBytes);
 
+                        const std::uint64_t segmentWriteMicros =
+                            AudioTelemetryNowMicros();
+                        if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                            EmitStartupBoundaryEvidence(
+                                "stage=SDL_SEGMENT_WRITE load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frame_offset=%u frames=%u queued_before=%u queued_after=%u processed_ring_size=%zu",
+                                static_cast<unsigned long long>(block->startupLoadId),
+                                static_cast<unsigned long long>(segmentWriteMicros),
+                                static_cast<unsigned long long>(block->sequence),
+                                static_cast<unsigned long long>(block->generation),
+                                block->pts,
+                                framesQueuedFromBlock - writePlan.framesToWrite,
+                                writePlan.framesToWrite,
+                                queuedBefore,
+                                finalQueuedBytes,
+                                m_processedStream->size());
+                        }
+
                         if (finalQueuedBytes >
                             kAudioOutputDesignMaxQueueBytes) {
                             EmitAudioTelemetryEvidence(
@@ -476,6 +551,46 @@ void AudioOutputWorker::OutputLoop() {
                             finalQueuedBytes >=
                                 kAudioOutputTargetQueueBytes) {
                             playbackStartedObserved = true;
+
+                            if (block->startupLoadId > 0) {
+                                startupPlaybackLoadId = block->startupLoadId;
+                                startupPlaybackStartMicros = segmentWriteMicros;
+                                startupCheckpoint1sEmitted = false;
+                                startupCheckpoint5sEmitted = false;
+                                startupCheckpoint10sEmitted = false;
+
+                                if (AudioStartupBoundaryTraceEnabled()) {
+                                    double playbackStartMpvTimePos = 0.0;
+                                    if (m_stateSystem) {
+                                        m_stateSystem->ReadPlayback(
+                                            [&playbackStartMpvTimePos](const PlaybackModel& model) {
+                                                playbackStartMpvTimePos = model.timing.timePos;
+                                            });
+                                    }
+
+                                    const double segmentEndPts =
+                                        block->pts +
+                                        static_cast<double>(framesQueuedFromBlock) /
+                                            static_cast<double>(kCanonicalAudioSampleRate);
+                                    const double audibleHead =
+                                        EstimateAudibleHeadPts(segmentEndPts, finalQueuedBytes);
+                                    const double avOffset =
+                                        audibleHead - playbackStartMpvTimePos;
+
+                                    EmitStartupBoundaryEvidence(
+                                        "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f",
+                                        static_cast<unsigned long long>(block->startupLoadId),
+                                        static_cast<unsigned long long>(segmentWriteMicros),
+                                        static_cast<unsigned long long>(block->sequence),
+                                        static_cast<unsigned long long>(block->generation),
+                                        block->pts,
+                                        finalQueuedBytes,
+                                        1000.0 * CanonicalQueuedAudioSeconds(finalQueuedBytes),
+                                        audibleHead,
+                                        playbackStartMpvTimePos,
+                                        avOffset);
+                                }
+                            }
                         }
 
                         const AudioQueueEmptyDecision refillDecision =
@@ -539,6 +654,49 @@ void AudioOutputWorker::OutputLoop() {
                         }
 
                         const std::uint64_t sdlWriteMicros = AudioTelemetryNowMicros();
+
+                        lastSuccessfulWriteMicros = sdlWriteMicros;
+                        lastSuccessfulLoadId = block->startupLoadId;
+                        lastSuccessfulSequence = block->sequence;
+                        lastSuccessfulGeneration = block->generation;
+                        lastSuccessfulPts = block->pts;
+
+                        if (block->startupLoadId > 0 &&
+                            block->startupLoadId == startupPlaybackLoadId &&
+                            startupPlaybackStartMicros > 0 &&
+                            AudioStartupBoundaryTraceEnabled()) {
+                            const std::uint64_t elapsedMicros =
+                                sdlWriteMicros - startupPlaybackStartMicros;
+
+                            const auto emitCheckpoint =
+                                [&](std::uint64_t checkpointSeconds, bool& emitted) {
+                                    const std::uint64_t thresholdMicros =
+                                        checkpointSeconds * 1'000'000ULL;
+                                    if (!emitted && elapsedMicros >= thresholdMicros) {
+                                        emitted = true;
+                                        EmitStartupBoundaryEvidence(
+                                            "stage=STARTUP_SYNC_SAMPLE checkpoint_s=%llu load_id=%llu t_us=%llu elapsed_us=%llu sequence=%llu generation=%llu queued_bytes=%u queued_ms=%.3f last_written_end_pts=%.6f audible_head_pts=%.6f mpv_time_pos=%.6f av_offset_s=%.6f processed_ring_size=%zu",
+                                            static_cast<unsigned long long>(checkpointSeconds),
+                                            static_cast<unsigned long long>(block->startupLoadId),
+                                            static_cast<unsigned long long>(sdlWriteMicros),
+                                            static_cast<unsigned long long>(elapsedMicros),
+                                            static_cast<unsigned long long>(block->sequence),
+                                            static_cast<unsigned long long>(block->generation),
+                                            queuedBytes,
+                                            1000.0 * CanonicalQueuedAudioSeconds(queuedBytes),
+                                            lastWrittenEndPts,
+                                            audibleHead,
+                                            mpvTimePos,
+                                            avOffset,
+                                            m_processedStream->size());
+                                    }
+                                };
+
+                            emitCheckpoint(1, startupCheckpoint1sEmitted);
+                            emitCheckpoint(5, startupCheckpoint5sEmitted);
+                            emitCheckpoint(10, startupCheckpoint10sEmitted);
+                        }
+
                         if (RecordFirstAudioTelemetry(
                                 m_metrics.firstSdlWriteMicros,
                                 sdlWriteMicros)) {
