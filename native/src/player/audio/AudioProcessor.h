@@ -46,16 +46,26 @@ public:
 
 private:
     void ProcessLoop();
+    void AnalysisLoop();
     void AnalyzeBlock(const AudioBlock& block);
 
     // --- Stream Interfaces ---
     std::optional<SpscConsumer<AudioBlock>> m_inputStream;
     std::optional<SpscProducer<AudioBlock>> m_outputStream;
 
+    // Issue #31: audible PCM forwarding must not wait for heavy visualizer/loudness
+    // analysis. The processor thread is the sole producer; the analysis thread is
+    // the sole consumer. Full queue => drop analysis work, never PCM forwarding.
+    static constexpr size_t kAnalysisQueueCapacity = 8;
+    std::optional<SpscProducer<AudioBlock>> m_analysisProducer;
+    std::optional<SpscConsumer<AudioBlock>> m_analysisConsumer;
+
     // --- Thread Control ---
     std::thread m_processThread;
+    std::thread m_analysisThread;
     std::atomic<bool> m_isRunning{false};
     ThreadID m_threadId = "";
+    ThreadID m_analysisThreadId = "";
 
     // Context & Buffers của PFFFT
     PFFFT_Setup* m_pffftSetup = nullptr;
