@@ -114,6 +114,7 @@ required = [
     "scripts/brg5-lifecycle-audio-stress.ps1",
     "scripts/brg5-render-callback-shutdown.ps1",
     "scripts/issue19-event-render-stress.ps1",
+    "scripts/issue31-backpressure-measurement.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -404,6 +405,90 @@ if issue33_sanity.returncode != 0:
 facts["issue33_startup_control_contract"] = (
     "PASS" if issue33_sanity.returncode == 0 else "FAIL"
 )
+
+# Issue #31 measurement-first processor/backpressure evidence contract.
+issue31_harness = (
+    ROOT / "scripts/issue31-backpressure-measurement.ps1"
+).read_text(encoding="utf-8")
+audio_telemetry_h = (
+    ROOT / "native/src/player/audio/AudioTelemetry.h"
+).read_text(encoding="utf-8")
+audio_processor_cpp = (
+    ROOT / "native/src/player/audio/AudioProcessor.cpp"
+).read_text(encoding="utf-8")
+audio_output_cpp_issue31 = (
+    ROOT / "native/src/player/audio/AudioOutputWorker.cpp"
+).read_text(encoding="utf-8")
+
+for token in (
+    "IM_PLAYER_AUDIO_BACKPRESSURE_TRACE",
+    "EmitAudioBackpressureEvidence",
+):
+    if token not in audio_telemetry_h:
+        fail(f"#31: backpressure telemetry contract missing: {token}")
+
+for token in (
+    "stage=TRACE_ARMED",
+    "stage=PROCESSOR_ACQUIRE_RAW",
+    "capture_read_us=%llu",
+    "capture_publish_us=%llu",
+    "stage=PROCESSOR_ANALYZE_END",
+    "stage=PROCESSOR_PUBLISH_PROCESSED",
+    "PROCESSOR_PUBLISH_DROP reason=processed_ring_full",
+):
+    if token not in audio_processor_cpp:
+        fail(f"#31: processor evidence contract missing: {token}")
+
+for token in (
+    "IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
+    "OUTPUT_PRESSURE_ARMED",
+    "issue31PressureDelayMs",
+):
+    if token not in audio_output_cpp_issue31:
+        fail(f"#31: output pressure hook contract missing: {token}")
+
+for token in (
+    '[ValidateSet("Local", "ColdUrl", "Seek", "Pressure")]',
+    "IM_PLAYER_AUDIO_BACKPRESSURE_TRACE",
+    "IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
+    "HidePlayerWindow",
+    "WindowStyle Hidden",
+    "SW_HIDE",
+    "WM_CLOSE",
+    "hidden-window WM_CLOSE posted",
+    "player_window_hidden",
+    "exact-head incremental build",
+    "ColdUrl contains literal backslash escapes",
+    "pressure scenario did not exercise PROCESSOR_PUBLISH_DROP",
+    "pressure drop evidence missing reason/sequence/generation/pts/retries",
+    "pressure scenario did not observe publish retries",
+    "trace_armed=",
+    "processor_duration_us_p95",
+    "processor_duration_us_p99",
+    "processor_service_us_p95",
+    "processor_service_us_p99",
+    "processor_service_us_max",
+    "max_capture_publish_gap_us",
+    "capture_to_processor_acquire_us_p95",
+    "capture_to_processor_acquire_us_p99",
+    "capture_to_processor_acquire_us_max",
+    "max_raw_acquire_gap_us",
+    "publish_vs_acquire_gap_delta_us",
+    "incomplete capture->processor evidence",
+    "raw_ring_observed_high_water",
+    "processed_ring_observed_high_water",
+    "publish_retries_max",
+    "processor_publish_drop_count",
+    "processor_publish_drop_metadata_complete_count",
+    "output_pressure_armed_count",
+    "sdl_underflow_count",
+    "max_processor_publish_gap_us",
+    'root_cause = "NOT_INFERRED"',
+):
+    if token not in issue31_harness:
+        fail(f"#31: measurement harness contract missing: {token}")
+
+facts["issue31_backpressure_measurement_contract"] = "PASS" if not errors else "FAIL"
 
 # BRG-3 MPV render callback lifetime regression contract.
 # Keep callback userdata alive through detach/context destruction and ensure
