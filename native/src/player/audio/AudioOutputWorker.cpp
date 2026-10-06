@@ -184,6 +184,22 @@ void AudioOutputWorker::OutputLoop() {
     std::uint64_t lastSuccessfulSequence = 0;
     std::uint64_t lastSuccessfulGeneration = 0;
     double lastSuccessfulPts = 0.0;
+    double lastSuccessfulEndPts = 0.0;
+
+    // #38 production candidate: the canonical reservoir becoming ready is
+    // necessary but not sufficient to start the independent SDL hardware
+    // clock. The initial startup load additionally waits for a real monotonic
+    // transition of MPV's playback clock.
+    constexpr double kStartupClockTransitionEpsilon = 0.000001;
+    constexpr size_t kStartupClockGateHeadroomReserveBlocks = 4;
+    std::uint64_t startupClockGatePrimedLoadId = 0;
+    std::uint64_t startupClockGateLoadId = 0;
+    std::uint64_t startupClockGateCompletedLoadId = 0;
+    std::uint64_t startupClockGateArmedMicros = 0;
+    std::uint64_t startupClockGateLastEvidenceMicros = 0;
+    double startupClockGateBaselineTimePos = 0.0;
+    double startupClockGateBaselinePlaybackTime = 0.0;
+    bool startupClockGateArmed = false;
 
     std::uint64_t startupPlaybackLoadId = 0;
     std::uint64_t startupPlaybackStartMicros = 0;
@@ -347,6 +363,145 @@ void AudioOutputWorker::OutputLoop() {
                     continue;
                 }
 
+                if (startupClockGateArmed &&
+                    queuedBytes >= kAudioOutputTargetQueueBytes &&
+                    startupClockGateLoadId > 0 &&
+                    lastSuccessfulLoadId == startupClockGateLoadId) {
+                    const auto playbackSnapshot = readStartupPlaybackSnapshot();
+                    const size_t processedRingSize = m_processedStream->size();
+                    const size_t processedRingCapacity = m_processedStream->capacity();
+                    const size_t headroomBlocks =
+                        processedRingCapacity > processedRingSize
+                            ? processedRingCapacity - processedRingSize
+                            : 0;
+
+                    const bool clockTransitionObserved =
+                        playbackSnapshot.timePos >
+                            startupClockGateBaselineTimePos +
+                                kStartupClockTransitionEpsilon &&
+                        playbackSnapshot.playbackTime >
+                            startupClockGateBaselinePlaybackTime +
+                                kStartupClockTransitionEpsilon;
+
+                    const bool livenessFallback =
+                        processedRingCapacity > kStartupClockGateHeadroomReserveBlocks &&
+                        processedRingSize >=
+                            processedRingCapacity -
+                                kStartupClockGateHeadroomReserveBlocks;
+
+                    if (clockTransitionObserved || livenessFallback) {
+                        auto* sdlDevice =
+                            dynamic_cast<SdlAudioDevice*>(m_audioDevice.get());
+
+                        if (livenessFallback && !clockTransitionObserved) {
+                            EmitAudioTelemetryEvidence(
+                                "ERROR STARTUP_CLOCK_RELEASE_LIVENESS_FALLBACK load_id=%llu processed_ring_size=%zu processed_ring_capacity=%zu headroom_blocks=%zu reason=ring_pressure",
+                                static_cast<unsigned long long>(
+                                    startupClockGateLoadId),
+                                processedRingSize,
+                                processedRingCapacity,
+                                headroomBlocks);
+                        }
+
+                        if (sdlDevice &&
+                            sdlDevice->StartPlaybackIfPrebuffered()) {
+                            sdlDevice->SetAutoPlaybackStart(true);
+                            playbackStartedObserved = true;
+                            startupClockGateCompletedLoadId =
+                                startupClockGateLoadId;
+                            startupClockGateArmed = false;
+
+                            startupPlaybackLoadId =
+                                startupClockGateCompletedLoadId;
+                            startupPlaybackStartMicros =
+                                queueObservationMicros;
+                            startupCheckpoint1sEmitted = false;
+                            startupCheckpoint5sEmitted = false;
+                            startupCheckpoint10sEmitted = false;
+
+                            const double audibleHead =
+                                EstimateAudibleHeadPts(
+                                    lastSuccessfulEndPts,
+                                    queuedBytes);
+                            const double avOffset =
+                                audibleHead - playbackSnapshot.timePos;
+
+                            EmitStartupBoundaryEvidence(
+                                "stage=STARTUP_CLOCK_RELEASE_GATE_GRANTED load_id=%llu t_us=%llu wait_us=%llu baseline_mpv_time_pos=%.6f baseline_playback_time=%.6f mpv_time_pos=%.6f playback_time=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu processed_ring_capacity=%zu headroom_blocks=%zu reason=%s",
+                                static_cast<unsigned long long>(
+                                    startupClockGateCompletedLoadId),
+                                static_cast<unsigned long long>(
+                                    queueObservationMicros),
+                                static_cast<unsigned long long>(
+                                    queueObservationMicros -
+                                    startupClockGateArmedMicros),
+                                startupClockGateBaselineTimePos,
+                                startupClockGateBaselinePlaybackTime,
+                                playbackSnapshot.timePos,
+                                playbackSnapshot.playbackTime,
+                                queuedBytes,
+                                1000.0 *
+                                    CanonicalQueuedAudioSeconds(queuedBytes),
+                                processedRingSize,
+                                processedRingCapacity,
+                                headroomBlocks,
+                                clockTransitionObserved
+                                    ? "clock_transition"
+                                    : "ring_pressure_fallback");
+
+                            EmitStartupBoundaryEvidence(
+                                "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d release_gate=%s",
+                                static_cast<unsigned long long>(
+                                    startupPlaybackLoadId),
+                                static_cast<unsigned long long>(
+                                    queueObservationMicros),
+                                static_cast<unsigned long long>(
+                                    lastSuccessfulSequence),
+                                static_cast<unsigned long long>(
+                                    lastSuccessfulGeneration),
+                                lastSuccessfulPts,
+                                queuedBytes,
+                                1000.0 *
+                                    CanonicalQueuedAudioSeconds(queuedBytes),
+                                audibleHead,
+                                playbackSnapshot.timePos,
+                                playbackSnapshot.playbackTime,
+                                avOffset,
+                                playbackSnapshot.isPaused ? 1 : 0,
+                                playbackSnapshot.isCoreIdle ? 1 : 0,
+                                playbackSnapshot.isIdleActive ? 1 : 0,
+                                playbackSnapshot.isSeeking ? 1 : 0,
+                                playbackSnapshot.pauseForCache ? 1 : 0,
+                                playbackSnapshot.cacheBufferingState,
+                                clockTransitionObserved
+                                    ? "clock_transition"
+                                    : "ring_pressure_fallback");
+                        }
+                    } else if (
+                        startupClockGateLastEvidenceMicros == 0 ||
+                        queueObservationMicros -
+                            startupClockGateLastEvidenceMicros >= 100000ULL) {
+                        startupClockGateLastEvidenceMicros =
+                            queueObservationMicros;
+                        EmitStartupBoundaryEvidence(
+                            "stage=STARTUP_CLOCK_RELEASE_GATE_WAIT load_id=%llu t_us=%llu baseline_mpv_time_pos=%.6f baseline_playback_time=%.6f mpv_time_pos=%.6f playback_time=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu processed_ring_capacity=%zu headroom_blocks=%zu",
+                            static_cast<unsigned long long>(
+                                startupClockGateLoadId),
+                            static_cast<unsigned long long>(
+                                queueObservationMicros),
+                            startupClockGateBaselineTimePos,
+                            startupClockGateBaselinePlaybackTime,
+                            playbackSnapshot.timePos,
+                            playbackSnapshot.playbackTime,
+                            queuedBytes,
+                            1000.0 *
+                                CanonicalQueuedAudioSeconds(queuedBytes),
+                            processedRingSize,
+                            processedRingCapacity,
+                            headroomBlocks);
+                    }
+                }
+
                 if (queuedBytes >= kAudioOutputTargetQueueBytes) {
                     std::this_thread::sleep_for(std::chrono::milliseconds(1));
                     continue;
@@ -435,6 +590,24 @@ void AudioOutputWorker::OutputLoop() {
                 }
                 playbackStartedObserved = false;
                 underflowDetector.Reset();
+            }
+
+            auto* startupSdlDevice =
+                dynamic_cast<SdlAudioDevice*>(m_audioDevice.get());
+            if (block->startupLoadId > 0 &&
+                startupSdlDevice &&
+                !startupSdlDevice->IsPlaybackStarted() &&
+                startupClockGateCompletedLoadId != block->startupLoadId &&
+                startupClockGatePrimedLoadId != block->startupLoadId) {
+                startupClockGatePrimedLoadId = block->startupLoadId;
+                startupSdlDevice->SetAutoPlaybackStart(false);
+                EmitStartupBoundaryEvidence(
+                    "stage=STARTUP_CLOCK_RELEASE_GATE_PRIMED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f authority=mpv_clock_transition",
+                    static_cast<unsigned long long>(block->startupLoadId),
+                    static_cast<unsigned long long>(outputAcquireMicros),
+                    static_cast<unsigned long long>(block->sequence),
+                    static_cast<unsigned long long>(block->generation),
+                    block->pts);
             }
 
             bool writePerformed = false;
@@ -598,49 +771,105 @@ void AudioOutputWorker::OutputLoop() {
                         if (!playbackStartedObserved &&
                             finalQueuedBytes >=
                                 kAudioOutputTargetQueueBytes) {
-                            playbackStartedObserved = true;
+                            const bool semanticGateOwnsInitialRelease =
+                                block->startupLoadId > 0 &&
+                                startupClockGatePrimedLoadId ==
+                                    block->startupLoadId &&
+                                startupClockGateCompletedLoadId !=
+                                    block->startupLoadId &&
+                                startupSdlDevice &&
+                                !startupSdlDevice->IsPlaybackStarted();
 
-                            if (block->startupLoadId > 0) {
-                                startupPlaybackLoadId = block->startupLoadId;
-                                startupPlaybackStartMicros = segmentWriteMicros;
-                                startupCheckpoint1sEmitted = false;
-                                startupCheckpoint5sEmitted = false;
-                                startupCheckpoint10sEmitted = false;
-
-                                if (AudioStartupBoundaryTraceEnabled()) {
+                            if (semanticGateOwnsInitialRelease) {
+                                if (!startupClockGateArmed) {
                                     const auto playbackSnapshot =
                                         readStartupPlaybackSnapshot();
-                                    const double playbackStartMpvTimePos =
+                                    startupClockGateArmed = true;
+                                    startupClockGateLoadId =
+                                        block->startupLoadId;
+                                    startupClockGateArmedMicros =
+                                        segmentWriteMicros;
+                                    startupClockGateLastEvidenceMicros = 0;
+                                    startupClockGateBaselineTimePos =
                                         playbackSnapshot.timePos;
-
-                                    const double segmentEndPts =
-                                        block->pts +
-                                        static_cast<double>(framesQueuedFromBlock) /
-                                            static_cast<double>(kCanonicalAudioSampleRate);
-                                    const double audibleHead =
-                                        EstimateAudibleHeadPts(segmentEndPts, finalQueuedBytes);
-                                    const double avOffset =
-                                        audibleHead - playbackStartMpvTimePos;
+                                    startupClockGateBaselinePlaybackTime =
+                                        playbackSnapshot.playbackTime;
 
                                     EmitStartupBoundaryEvidence(
-                                        "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d",
-                                        static_cast<unsigned long long>(block->startupLoadId),
-                                        static_cast<unsigned long long>(segmentWriteMicros),
-                                        static_cast<unsigned long long>(block->sequence),
-                                        static_cast<unsigned long long>(block->generation),
-                                        block->pts,
+                                        "stage=STARTUP_CLOCK_RELEASE_GATE_ARM load_id=%llu t_us=%llu baseline_mpv_time_pos=%.6f baseline_playback_time=%.6f queued_bytes=%u queued_ms=%.3f processed_ring_size=%zu processed_ring_capacity=%zu",
+                                        static_cast<unsigned long long>(
+                                            startupClockGateLoadId),
+                                        static_cast<unsigned long long>(
+                                            segmentWriteMicros),
+                                        startupClockGateBaselineTimePos,
+                                        startupClockGateBaselinePlaybackTime,
                                         finalQueuedBytes,
-                                        1000.0 * CanonicalQueuedAudioSeconds(finalQueuedBytes),
-                                        audibleHead,
-                                        playbackStartMpvTimePos,
-                                        playbackSnapshot.playbackTime,
-                                        avOffset,
-                                        playbackSnapshot.isPaused ? 1 : 0,
-                                        playbackSnapshot.isCoreIdle ? 1 : 0,
-                                        playbackSnapshot.isIdleActive ? 1 : 0,
-                                        playbackSnapshot.isSeeking ? 1 : 0,
-                                        playbackSnapshot.pauseForCache ? 1 : 0,
-                                        playbackSnapshot.cacheBufferingState);
+                                        1000.0 *
+                                            CanonicalQueuedAudioSeconds(
+                                                finalQueuedBytes),
+                                        m_processedStream->size(),
+                                        m_processedStream->capacity());
+                                }
+                            } else {
+                                playbackStartedObserved = true;
+
+                                if (block->startupLoadId > 0) {
+                                    startupPlaybackLoadId =
+                                        block->startupLoadId;
+                                    startupPlaybackStartMicros =
+                                        segmentWriteMicros;
+                                    startupCheckpoint1sEmitted = false;
+                                    startupCheckpoint5sEmitted = false;
+                                    startupCheckpoint10sEmitted = false;
+
+                                    if (AudioStartupBoundaryTraceEnabled()) {
+                                        const auto playbackSnapshot =
+                                            readStartupPlaybackSnapshot();
+                                        const double playbackStartMpvTimePos =
+                                            playbackSnapshot.timePos;
+
+                                        const double segmentEndPts =
+                                            block->pts +
+                                            static_cast<double>(
+                                                framesQueuedFromBlock) /
+                                                static_cast<double>(
+                                                    kCanonicalAudioSampleRate);
+                                        const double audibleHead =
+                                            EstimateAudibleHeadPts(
+                                                segmentEndPts,
+                                                finalQueuedBytes);
+                                        const double avOffset =
+                                            audibleHead -
+                                            playbackStartMpvTimePos;
+
+                                        EmitStartupBoundaryEvidence(
+                                            "stage=SDL_PLAYBACK_STARTED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f queued_bytes=%u queued_ms=%.3f audible_head_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f av_offset_s=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d release_gate=legacy_reservoir",
+                                            static_cast<unsigned long long>(
+                                                block->startupLoadId),
+                                            static_cast<unsigned long long>(
+                                                segmentWriteMicros),
+                                            static_cast<unsigned long long>(
+                                                block->sequence),
+                                            static_cast<unsigned long long>(
+                                                block->generation),
+                                            block->pts,
+                                            finalQueuedBytes,
+                                            1000.0 *
+                                                CanonicalQueuedAudioSeconds(
+                                                    finalQueuedBytes),
+                                            audibleHead,
+                                            playbackStartMpvTimePos,
+                                            playbackSnapshot.playbackTime,
+                                            avOffset,
+                                            playbackSnapshot.isPaused ? 1 : 0,
+                                            playbackSnapshot.isCoreIdle ? 1 : 0,
+                                            playbackSnapshot.isIdleActive ? 1 : 0,
+                                            playbackSnapshot.isSeeking ? 1 : 0,
+                                            playbackSnapshot.pauseForCache
+                                                ? 1
+                                                : 0,
+                                            playbackSnapshot.cacheBufferingState);
+                                    }
                                 }
                             }
                         }
@@ -712,6 +941,7 @@ void AudioOutputWorker::OutputLoop() {
                         lastSuccessfulSequence = block->sequence;
                         lastSuccessfulGeneration = block->generation;
                         lastSuccessfulPts = block->pts;
+                        lastSuccessfulEndPts = lastWrittenEndPts;
 
                         if (block->startupLoadId > 0 &&
                             block->startupLoadId == startupPlaybackLoadId &&
