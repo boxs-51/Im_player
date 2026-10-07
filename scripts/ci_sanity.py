@@ -1113,6 +1113,7 @@ issue27_header = (ROOT / "native/src/player/audio/filter/af_m.h").read_text(enco
 issue27_core = (ROOT / "native/src/player/audio/filter/af_m_core.cpp").read_text(encoding="utf-8")
 issue27_engine = (ROOT / "native/src/player/audio/filter/af_m_engine.cpp").read_text(encoding="utf-8")
 issue27_popup = (ROOT / "native/src/popup/popup_test.cpp").read_text(encoding="utf-8")
+issue27_hotkey = (ROOT / "native/src/hotkey_handler.cpp").read_text(encoding="utf-8")
 for token in (
     "AudioFilterControlSnapshot",
     "PendingControlCommand",
@@ -1153,9 +1154,16 @@ else:
         "MinEnqueueCount",
         "apply_sequence_monotonic",
         "single_owner_thread",
+        'Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"',
+        "open-test-popup",
+        r"Ctrl\+T branch entered",
     ):
         if token not in issue27_harness:
             fail(f"Issue #27: runtime stress harness contract missing: {token}")
+if 'LifecycleEvidence::EmitDiagnostic("HOTKEY", "Ctrl+T branch entered")' not in issue27_hotkey:
+    fail("Issue #27: Ctrl+T durable popup-open marker missing")
+if 'Send-Key $mainHwnd 0x54 "T"' in issue27_harness:
+    fail("Issue #27: runtime harness regressed to T without required Ctrl modifier")
 if "DrainControlCommands();" not in issue27_engine:
     fail("Issue #27: main-thread adaptive update does not drain filter-control mailbox")
 for forbidden in (
