@@ -865,6 +865,8 @@ for token in (
     "[AUDIO-TELEMETRY]",
     "IM_PLAYER_LIFECYCLE_LOG",
     "AudioTelemetryEvidenceMutex",
+    "AudioTelemetryEvidenceState",
+    "WriteFile(state.handle",
 ):
     if token not in audio_telemetry_h:
         fail(f"Issue #26: durable audio telemetry evidence sink missing: {token}")
