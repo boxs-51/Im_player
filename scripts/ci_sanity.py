@@ -1156,7 +1156,7 @@ for required_token in (
     "manager.QueueToggleFilter(",
     "manager.QueueUpdateParam(",
     "manager.QueueSetAdaptiveMode(",
-    "manager.GetControlSnapshot()",
+    "manager->GetControlSnapshot()",
     "for (const auto& f : snapshot.filters)",
 ):
     if required_token not in issue27_popup:
