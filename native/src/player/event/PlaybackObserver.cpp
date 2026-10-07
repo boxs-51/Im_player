@@ -5,6 +5,7 @@
 #include "player/PlayerUtils.h"
 #include "player/command/PlaybackCommand.h"
 #include "common/LifecycleEvidence.h"
+#include "player/audio/AudioTelemetry.h"
 #include "globals.h"
 #include "settings_manager.h"
 
@@ -836,6 +837,33 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_AUDIO_RECONFIG: {
+            const auto loadId = m_commander.GetStartupLoadId();
+            double timePos = 0.0;
+            double playbackTime = 0.0;
+            bool seeking = false;
+            bool pauseForCache = false;
+            int cacheBufferingState = 0;
+
+            m_state.ReadPlayback([&](const PlaybackModel& m) {
+                timePos = m.timing.timePos;
+                playbackTime = m.timing.playbackTime;
+                seeking = m.flags.isSeeking;
+                pauseForCache = m.flags.pauseForCache;
+            });
+            m_state.ReadNetwork([&](const NetworkModel& m) {
+                cacheBufferingState = m.cache_buffering_state;
+            });
+
+            EmitAudioContinuityEvidence(
+                "stage=AUDIO_RECONFIG load_id=%llu t_us=%llu time_pos=%.6f playback_time=%.6f seeking=%d pause_for_cache=%d cache_buffering_state=%d",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                timePos,
+                playbackTime,
+                seeking ? 1 : 0,
+                pauseForCache ? 1 : 0,
+                cacheBufferingState);
+
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [AUDIO RECONFIG] Audio configuration changed.");
             break;
         }
