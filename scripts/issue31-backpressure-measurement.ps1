@@ -3,13 +3,13 @@ param(
     [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Debug",
 
-    [ValidateSet("Local", "ColdUrl", "Seek", "Pressure")]
+    [ValidateSet("Local", "ColdUrl", "Seek", "Pressure", "SlowAnalysis")]
     [string]$Scenario = "Local",
 
     [string]$MediaPath = "",
     [string]$MediaUrl = "",
 
-    [ValidateRange(5, 600)]
+    [ValidateRange(5, 900)]
     [int]$ObserveSeconds = 20,
 
     [ValidateRange(5, 120)]
@@ -194,7 +194,8 @@ else {
             throw "[ISSUE31] deterministic fixture generator missing: $generator"
         }
         $fixture = Join-Path $outDir "issue31-av-fixture.avi"
-        & python.exe $generator $fixture --seconds 90 --sample-rate 44100
+        $fixtureSeconds = [Math]::Max(90, $ObserveSeconds + 30)
+        & python.exe $generator $fixture --seconds $fixtureSeconds --sample-rate 44100
         if ($LASTEXITCODE -ne 0) {
             throw "[ISSUE31] deterministic A/V fixture generation failed"
         }
@@ -215,6 +216,10 @@ $previousPressureDelay = [Environment]::GetEnvironmentVariable(
     "IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
     [EnvironmentVariableTarget]::Process
 )
+$previousAnalysisDelay = [Environment]::GetEnvironmentVariable(
+    "IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS",
+    [EnvironmentVariableTarget]::Process
+)
 
 $p = $null
 $result = "FAIL"
@@ -228,6 +233,11 @@ try {
         $env:IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS = "250"
     } else {
         Remove-Item Env:IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS -ErrorAction SilentlyContinue
+    }
+    if ($Scenario -eq "SlowAnalysis") {
+        $env:IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS = "100"
+    } else {
+        Remove-Item Env:IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS -ErrorAction SilentlyContinue
     }
 
     $quotedSource = '"' + $source + '"'
@@ -312,6 +322,15 @@ try {
     $pressureArmed = @($lines | Where-Object {
         $_ -match '^\[AUDIO-TELEMETRY\] OUTPUT_PRESSURE_ARMED '
     })
+    $analysisPolicyArmed = @($lines | Where-Object {
+        $_ -match '^\[AUDIO-TELEMETRY\] ANALYSIS_POLICY_ARMED '
+    })
+    $analysisEnqueue = @($lines | Where-Object {
+        $_ -match '^\[AUDIO-TELEMETRY\] BACKPRESSURE stage=ANALYSIS_ENQUEUE '
+    })
+    $analysisDrops = @($lines | Where-Object {
+        $_ -match '^\[AUDIO-TELEMETRY\] ANALYSIS_DROP '
+    })
 
     if ($acquire.Count -lt 5 -or $analyze.Count -lt 5 -or $publish.Count -lt 5) {
         throw "[ISSUE31] insufficient processor evidence acquire=$($acquire.Count) analyze=$($analyze.Count) publish=$($publish.Count)"
@@ -386,6 +405,25 @@ try {
         }
     }
 
+    $analysisDropMetadataComplete = 0
+    $analysisQueueOccupancies = @()
+    foreach ($line in $analysisEnqueue) {
+        $kv = Parse-KeyValues $line
+        if ($kv.Contains("analysis_queue_size")) {
+            $analysisQueueOccupancies += [double]$kv["analysis_queue_size"]
+        }
+    }
+    foreach ($line in $analysisDrops) {
+        $kv = Parse-KeyValues $line
+        if ($kv.Contains("analysis_queue_size")) {
+            $analysisQueueOccupancies += [double]$kv["analysis_queue_size"]
+        }
+        if ($kv.Contains("reason") -and $kv["reason"] -eq "analysis_queue_full" -and
+            $kv.Contains("sequence") -and $kv.Contains("generation") -and $kv.Contains("pts")) {
+            $analysisDropMetadataComplete++
+        }
+    }
+
     if ($Scenario -eq "Pressure") {
         if ($pressureArmed.Count -lt 1) {
             throw "[ISSUE31] pressure scenario missing OUTPUT_PRESSURE_ARMED evidence"
@@ -401,6 +439,28 @@ try {
         }
     }
 
+    if ($Scenario -eq "SlowAnalysis") {
+        if ($analysisPolicyArmed.Count -lt 1) {
+            throw "[ISSUE31] slow-analysis scenario missing ANALYSIS_POLICY_ARMED evidence"
+        }
+        if ($analysisDrops.Count -lt 1) {
+            throw "[ISSUE31] slow-analysis scenario did not drop bounded analysis work"
+        }
+        if ($analysisDropMetadataComplete -ne $analysisDrops.Count) {
+            throw "[ISSUE31] slow-analysis drop metadata incomplete complete=$analysisDropMetadataComplete drops=$($analysisDrops.Count)"
+        }
+        if ($drops.Count -ne 0) {
+            throw "[ISSUE31] slow-analysis must not drop audible processed blocks drops=$($drops.Count)"
+        }
+        if ($publish.Count -ne $acquire.Count) {
+            throw "[ISSUE31] slow-analysis forwarding not lossless acquire=$($acquire.Count) publish=$($publish.Count)"
+        }
+    }
+
+    if ($Scenario -ne "SlowAnalysis" -and $analysisDrops.Count -ne 0) {
+        throw "[ISSUE31] normal scenario unexpectedly dropped analysis work scenario=$Scenario drops=$($analysisDrops.Count)"
+    }
+
     [uint64]$maxCapturePublishGapUs = Get-MaxGapUs $capturePublishTimes
     [uint64]$maxRawAcquireGapUs = Get-MaxGapUs $acquireTimes
     [uint64]$maxPublishGapUs = Get-MaxGapUs $publishTimes
@@ -411,7 +471,7 @@ try {
     }
 
     $summary = [ordered]@{
-        schema = "ISSUE31-BACKPRESSURE-MEASUREMENT-v1"
+        schema = "ISSUE31-BACKPRESSURE-MEASUREMENT-v2"
         commit = $commit
         configuration = $Configuration
         scenario = $Scenario
@@ -424,6 +484,11 @@ try {
         seek_actions = $seekActions
         output_pressure_delay_ms = if ($Scenario -eq "Pressure") { 250 } else { 0 }
         output_pressure_armed_count = $pressureArmed.Count
+        analysis_delay_ms = if ($Scenario -eq "SlowAnalysis") { 100 } else { 0 }
+        analysis_policy_armed_count = $analysisPolicyArmed.Count
+        analysis_queue_observed_high_water = if ($analysisQueueOccupancies.Count) { ($analysisQueueOccupancies | Measure-Object -Maximum).Maximum } else { 0 }
+        analysis_drop_count = $analysisDrops.Count
+        analysis_drop_metadata_complete_count = $analysisDropMetadataComplete
         acquire_samples = $acquire.Count
         analyze_samples = $analyze.Count
         publish_samples = $publish.Count
@@ -498,5 +563,11 @@ finally {
         Remove-Item Env:IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS -ErrorAction SilentlyContinue
     } else {
         $env:IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS = $previousPressureDelay
+    }
+
+    if ($null -eq $previousAnalysisDelay) {
+        Remove-Item Env:IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS -ErrorAction SilentlyContinue
+    } else {
+        $env:IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS = $previousAnalysisDelay
     }
 }

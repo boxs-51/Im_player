@@ -115,6 +115,7 @@ required = [
     "scripts/brg5-render-callback-shutdown.ps1",
     "scripts/issue19-event-render-stress.ps1",
     "scripts/issue31-backpressure-measurement.ps1",
+    "scripts/issue31-policy-stress.ps1",
 ]
 missing_required = [p for p in required if not (ROOT / p).is_file()]
 if missing_required:
@@ -432,12 +433,29 @@ for token in (
     "stage=PROCESSOR_ACQUIRE_RAW",
     "capture_read_us=%llu",
     "capture_publish_us=%llu",
+    "void AudioProcessor::AnalysisLoop()",
+    "IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS",
+    "ANALYSIS_POLICY_ARMED",
+    "ANALYSIS_DROP reason=analysis_queue_full",
+    "policy=drop_analysis_not_audio",
+    "stage=ANALYSIS_ENQUEUE",
     "stage=PROCESSOR_ANALYZE_END",
     "stage=PROCESSOR_PUBLISH_PROCESSED",
+    "forward_duration_us=%llu",
     "PROCESSOR_PUBLISH_DROP reason=processed_ring_full",
 ):
     if token not in audio_processor_cpp:
         fail(f"#31: processor evidence contract missing: {token}")
+
+process_loop = audio_processor_cpp.split("void AudioProcessor::ProcessLoop()", 1)[-1]
+if "AnalyzeBlock(*inSlot)" in process_loop:
+    fail("#31: AnalyzeBlock must not execute on the audible forwarding ProcessLoop")
+if "m_outputStream->commit_write();" not in process_loop:
+    fail("#31: forwarding ProcessLoop missing processed-ring commit")
+if "m_analysisProducer->acquire_write()" not in process_loop:
+    fail("#31: forwarding ProcessLoop missing bounded analysis enqueue")
+if process_loop.index("m_outputStream->commit_write();") > process_loop.index("m_analysisProducer->acquire_write()"):
+    fail("#31: PCM forwarding must commit before analysis enqueue/drop policy")
 
 for token in (
     "IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
@@ -448,9 +466,15 @@ for token in (
         fail(f"#31: output pressure hook contract missing: {token}")
 
 for token in (
-    '[ValidateSet("Local", "ColdUrl", "Seek", "Pressure")]',
+    '[ValidateSet("Local", "ColdUrl", "Seek", "Pressure", "SlowAnalysis")]',
     "IM_PLAYER_AUDIO_BACKPRESSURE_TRACE",
     "IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
+    "IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS",
+    "ANALYSIS_POLICY_ARMED",
+    "analysis_drop_count",
+    "analysis_drop_metadata_complete_count",
+    "slow-analysis forwarding not lossless",
+    "ISSUE31-BACKPRESSURE-MEASUREMENT-v2",
     "HidePlayerWindow",
     "WindowStyle Hidden",
     "SW_HIDE",
@@ -487,6 +511,20 @@ for token in (
 ):
     if token not in issue31_harness:
         fail(f"#31: measurement harness contract missing: {token}")
+
+issue31_policy_stress = (
+    ROOT / "scripts/issue31-policy-stress.ps1"
+).read_text(encoding="utf-8")
+for token in (
+    '[ValidateRange(600, 900)]',
+    'LongRunSeconds = 660',
+    'Scenario "SlowAnalysis"',
+    'Scenario "Pressure"',
+    '"Debug", "Release"',
+    'issue31-policy-stress-',
+):
+    if token not in issue31_policy_stress:
+        fail(f"#31: policy stress runner contract missing: {token}")
 
 facts["issue31_backpressure_measurement_contract"] = "PASS" if not errors else "FAIL"
 
