@@ -1129,9 +1129,33 @@ for token in (
     "[FILTER-CONTROL] stage=ENQUEUE",
     "[FILTER-CONTROL] stage=APPLY",
     "std::swap(pending, m_controlQueue)",
+    'LifecycleEvidence::EmitDiagnostic("FILTER_CONTROL"',
+    "m_isDrainingControlCommands.compare_exchange_strong",
+    'EmitFilterControlEvidence("REENTRANT_DEFER")',
 ):
     if token not in issue27_core:
         fail(f"Issue #27: single-owner mailbox evidence missing: {token}")
+issue27_harness_path = ROOT / "scripts" / "issue27-filter-control-runtime-stress.ps1"
+if not issue27_harness_path.is_file():
+    fail("Issue #27: runtime stress harness missing")
+else:
+    issue27_harness = issue27_harness_path.read_text(encoding="utf-8")
+    for token in (
+        "ISSUE27-FILTER-CONTROL-STRESS-v1",
+        "ExpectedCommit",
+        "OWNER_VIOLATION",
+        "REENTRANT_DEFER",
+        "SetAdaptiveMode",
+        "SetCurrentPreset",
+        "ToggleFilter",
+        "UpdateParam",
+        "SetFilterBypassMode",
+        "MinEnqueueCount",
+        "apply_sequence_monotonic",
+        "single_owner_thread",
+    ):
+        if token not in issue27_harness:
+            fail(f"Issue #27: runtime stress harness contract missing: {token}")
 if "DrainControlCommands();" not in issue27_engine:
     fail("Issue #27: main-thread adaptive update does not drain filter-control mailbox")
 for forbidden in (

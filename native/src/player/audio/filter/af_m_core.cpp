@@ -1,12 +1,30 @@
 #include "af_m.h"
 #include "af_m_log.h"
+#include "common/LifecycleEvidence.h"
 #include <iostream>
 #include <utility>
+#include <cstdio>
 
 namespace {
 unsigned long long FilterControlThreadToken() {
     return static_cast<unsigned long long>(
         std::hash<std::thread::id>{}(std::this_thread::get_id()));
+}
+
+void EmitFilterControlEvidence(
+    const char* stage,
+    uint64_t sequence = 0,
+    const char* command = "")
+{
+    char message[384]{};
+    std::snprintf(
+        message,
+        sizeof(message),
+        "stage=%s seq=%llu command=%s",
+        stage ? stage : "UNKNOWN",
+        static_cast<unsigned long long>(sequence),
+        command ? command : "");
+    LifecycleEvidence::EmitDiagnostic("FILTER_CONTROL", message);
 }
 }
 
@@ -22,14 +40,14 @@ AudioFilterManager::~AudioFilterManager() {
 
 void AudioFilterManager::EnqueueControlCommand(const char* name, std::function<void()> apply) {
     PendingControlCommand command;
-    const uint64_t sequence =
-        m_nextControlCommandSequence.fetch_add(1, std::memory_order_relaxed);
-    command.sequence = sequence;
-    command.name = name ? name : "unknown";
-    command.apply = std::move(apply);
-
+    uint64_t sequence = 0;
     {
         std::lock_guard<std::mutex> lock(m_controlQueueMutex);
+        sequence =
+            m_nextControlCommandSequence.fetch_add(1, std::memory_order_relaxed);
+        command.sequence = sequence;
+        command.name = name ? name : "unknown";
+        command.apply = std::move(apply);
         m_controlQueue.push(std::move(command));
     }
 
@@ -38,6 +56,7 @@ void AudioFilterManager::EnqueueControlCommand(const char* name, std::function<v
         static_cast<unsigned long long>(sequence),
         FilterControlThreadToken(),
         name ? name : "unknown");
+    EmitFilterControlEvidence("ENQUEUE", sequence, name ? name : "unknown");
 }
 
 void AudioFilterManager::DrainControlCommands() {
@@ -50,14 +69,34 @@ void AudioFilterManager::DrainControlCommands() {
             LOG(1, LogLevel::Info, LogCategory::Sync,
                 "[FILTER-CONTROL] stage=OWNER_BOUND thread=%llu",
                 FilterControlThreadToken());
+            EmitFilterControlEvidence("OWNER_BOUND");
         } else if (m_controlOwnerThreadId != currentThread) {
             LOG(1, LogLevel::Error, LogCategory::Sync,
                 "[FILTER-CONTROL] stage=OWNER_VIOLATION thread=%llu",
                 FilterControlThreadToken());
+            EmitFilterControlEvidence("OWNER_VIOLATION");
             return;
         }
+
+        bool expected = false;
+        if (!m_isDrainingControlCommands.compare_exchange_strong(
+                expected,
+                true,
+                std::memory_order_acq_rel,
+                std::memory_order_acquire)) {
+            EmitFilterControlEvidence("REENTRANT_DEFER");
+            return;
+        }
+
         std::swap(pending, m_controlQueue);
     }
+
+    struct DrainGuard {
+        std::atomic_bool& flag;
+        ~DrainGuard() {
+            flag.store(false, std::memory_order_release);
+        }
+    } guard{m_isDrainingControlCommands};
 
     while (!pending.empty()) {
         PendingControlCommand command = std::move(pending.front());
@@ -67,6 +106,7 @@ void AudioFilterManager::DrainControlCommands() {
             static_cast<unsigned long long>(command.sequence),
             FilterControlThreadToken(),
             command.name.c_str());
+        EmitFilterControlEvidence("APPLY", command.sequence, command.name.c_str());
         if (command.apply) command.apply();
     }
 }

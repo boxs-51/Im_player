@@ -188,6 +188,7 @@ private:
     std::queue<PendingControlCommand> m_controlQueue;
     std::thread::id m_controlOwnerThreadId;
     std::atomic<uint64_t> m_nextControlCommandSequence{1};
+    std::atomic_bool m_isDrainingControlCommands{false};
 
     mutable std::mutex m_controlSnapshotMutex;
     AudioFilterControlSnapshot m_controlSnapshot;
