@@ -11,6 +11,26 @@
 #include <vector>
 #include <cmath>
 #include <chrono>
+#include <cstdlib>
+
+namespace {
+std::uint32_t Issue31OutputPressureDelayMs() noexcept
+{
+    static const std::uint32_t delayMs = []() noexcept {
+        const char* value = std::getenv("IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS");
+        if (!value || !*value)
+            return 0u;
+
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(value, &end, 10);
+        if (end == value || (end && *end != '\0'))
+            return 0u;
+
+        return static_cast<std::uint32_t>(parsed > 1000UL ? 1000UL : parsed);
+    }();
+    return delayMs;
+}
+}
 
 AudioOutputWorker::AudioOutputWorker()
 {
@@ -178,6 +198,12 @@ void AudioOutputWorker::OutputLoop() {
     std::uint64_t lastSyncEvidenceMicros = 0;
     std::uint64_t syncSampleIndex = 0;
     constexpr std::uint64_t kSyncEvidenceIntervalMicros = 5'000'000ULL;
+    const std::uint32_t issue31PressureDelayMs = Issue31OutputPressureDelayMs();
+    if (issue31PressureDelayMs > 0) {
+        EmitAudioTelemetryEvidence(
+            "OUTPUT_PRESSURE_ARMED delay_ms=%u source=IM_PLAYER_AUDIO_OUTPUT_PRESSURE_DELAY_MS",
+            issue31PressureDelayMs);
+    }
 
     std::uint64_t lastSuccessfulWriteMicros = 0;
     std::uint64_t lastSuccessfulLoadId = 0;
@@ -257,6 +283,13 @@ void AudioOutputWorker::OutputLoop() {
     while (m_isRunning.load(std::memory_order_relaxed)) {
         try {
             if (/*!m_processedStream ||*/ !m_isRunning.load(std::memory_order_relaxed)) break;
+
+            if (issue31PressureDelayMs > 0) {
+                std::this_thread::sleep_for(
+                    std::chrono::milliseconds(issue31PressureDelayMs));
+                if (!m_isRunning.load(std::memory_order_relaxed))
+                    break;
+            }
 
             // =========================================================================
             // 1. TỰ KHÔI PHỤC THIẾT BỊ PHẦN CỨNG (HARDWARE RECOVERY / AUTO-REINIT)

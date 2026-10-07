@@ -30,7 +30,9 @@ $brg5Scripts = @(
     (Join-Path $PSScriptRoot "brg5-render-callback-shutdown.ps1"),
     (Join-Path $PSScriptRoot "issue19-event-render-stress.ps1"),
     (Join-Path $PSScriptRoot "issue33-cold-url-smoke.ps1"),
-    (Join-Path $PSScriptRoot "issue33-audio-only-eof-smoke.ps1")
+    (Join-Path $PSScriptRoot "issue33-audio-only-eof-smoke.ps1"),
+    (Join-Path $PSScriptRoot "issue31-backpressure-measurement.ps1"),
+    (Join-Path $PSScriptRoot "issue31-policy-stress.ps1")
 )
 foreach ($scriptPath in $brg5Scripts) {
     if (-not (Test-Path $scriptPath)) {
@@ -83,6 +85,9 @@ Write-Host "[AUD-8-02] Real render-callback-active shutdown: NOT_RUN_IN_CI"
 Write-Host "[AUD-8-02] Local command: scripts/brg5-render-callback-shutdown.ps1 -Configuration $Configuration"
 Write-Host "[AUD-19-01] Focused ImGui event/render stress: NOT_RUN_IN_CI"
 Write-Host "[AUD-19-01] Local command: scripts/issue19-event-render-stress.ps1 -Configuration $Configuration"
+Write-Host "[ISSUE31] Backpressure measurement scenarios: NOT_RUN_IN_CI"
+Write-Host "[ISSUE31] Local commands: scripts/issue31-backpressure-measurement.ps1 -Configuration $Configuration -Scenario Local | ColdUrl | Seek | Pressure | SlowAnalysis [-HidePlayerWindow]"
+Write-Host "[ISSUE31] Policy/long-run matrix: scripts/issue31-policy-stress.ps1 -LongRunSeconds 660 -StressSeconds 60"
 
 $commit = (& git.exe -C $root rev-parse HEAD).Trim()
 Write-Host "[BRG-2] Smoke hook PASS commit=$commit configuration=$Configuration"

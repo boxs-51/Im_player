@@ -8,6 +8,27 @@
 #include <algorithm>
 #include <iostream>
 #include <chrono>
+#include <cstdlib>
+
+namespace {
+std::uint32_t Issue31AnalysisDelayMs() noexcept
+{
+    static const std::uint32_t delayMs = []() noexcept {
+        const char* value = std::getenv("IM_PLAYER_AUDIO_ANALYSIS_DELAY_MS");
+        if (!value || !*value)
+            return 0u;
+
+        char* end = nullptr;
+        const unsigned long parsed = std::strtoul(value, &end, 10);
+        if (end == value || (end && *end != '\0'))
+            return 0u;
+
+        return static_cast<std::uint32_t>(parsed > 250UL ? 250UL : parsed);
+    }();
+    return delayMs;
+}
+}
+
 
 
 AudioProcessor::AudioProcessor() {
@@ -53,7 +74,15 @@ bool AudioProcessor::Init(SpscConsumer<AudioBlock> inputStream, SpscProducer<Aud
 
     m_inputStream.emplace(std::move(inputStream));
     m_outputStream.emplace(std::move(outputStream));
-    m_threadId = "AudioProcessor_" + std::to_string(reinterpret_cast<uintptr_t>(this));
+
+    auto [analysisProducer, analysisConsumer] =
+        make_spsc_ring_buffer<AudioBlock>(kAnalysisQueueCapacity);
+    m_analysisProducer.emplace(std::move(analysisProducer));
+    m_analysisConsumer.emplace(std::move(analysisConsumer));
+
+    const std::string identity = std::to_string(reinterpret_cast<uintptr_t>(this));
+    m_threadId = "AudioProcessor_" + identity;
+    m_analysisThreadId = "AudioProcessorAnalysis_" + identity;
 
     return true;
 }
@@ -62,6 +91,10 @@ void AudioProcessor::Start() {
     if (m_isRunning.load(std::memory_order_relaxed)) return;
 
     m_isRunning.store(true, std::memory_order_release);
+
+    m_analysisThread = std::thread(&AudioProcessor::AnalysisLoop, this);
+    GetThreadManager().Register(m_analysisThreadId, &m_analysisThread);
+
     m_processThread = std::thread(&AudioProcessor::ProcessLoop, this);
     GetThreadManager().Register(m_threadId, &m_processThread);
     LifecycleEvidence::Emit("AudioProcessor", "START", LifecycleEvidence::PointerIdentity(this));
@@ -75,8 +108,13 @@ void AudioProcessor::Stop() {
         m_processThread.join();
         LifecycleEvidence::Emit("AudioProcessor", "JOIN", LifecycleEvidence::PointerIdentity(this));
     }
+    if (m_analysisThread.joinable()) {
+        m_analysisThread.join();
+        LifecycleEvidence::Emit("AudioProcessorAnalysis", "JOIN", LifecycleEvidence::PointerIdentity(this));
+    }
 
     GetThreadManager().Unregister(m_threadId);
+    GetThreadManager().Unregister(m_analysisThreadId);
 
     //m_inputStream-> = nullptr;
     //m_outputStrea-> = nullptr;
@@ -339,9 +377,83 @@ void AudioProcessor::AnalyzeBlock(const AudioBlock& block) {
     m_visualizerSnapshot.Publish(frame);
 }
 
+void AudioProcessor::AnalysisLoop() {
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioProcessor] Analysis thread started.");
+
+    const std::uint32_t analysisDelayMs = Issue31AnalysisDelayMs();
+    if (analysisDelayMs > 0) {
+        EmitAudioTelemetryEvidence(
+            "ANALYSIS_POLICY_ARMED delay_ms=%u queue_capacity=%zu policy=drop_analysis_not_audio",
+            analysisDelayMs,
+            kAnalysisQueueCapacity);
+    }
+
+    while (m_isRunning.load(std::memory_order_relaxed)) {
+        const AudioBlock* analysisBlock =
+            m_analysisConsumer ? m_analysisConsumer->acquire_read() : nullptr;
+        if (!analysisBlock) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(1));
+            continue;
+        }
+
+        const std::uint64_t analyzeBeginMicros = AudioTelemetryNowMicros();
+        if (analysisBlock->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_ANALYZE_BEGIN load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f",
+                static_cast<unsigned long long>(analysisBlock->startupLoadId),
+                static_cast<unsigned long long>(analyzeBeginMicros),
+                static_cast<unsigned long long>(analysisBlock->sequence),
+                static_cast<unsigned long long>(analysisBlock->generation),
+                analysisBlock->pts);
+        }
+
+        if (analysisDelayMs > 0) {
+            std::this_thread::sleep_for(std::chrono::milliseconds(analysisDelayMs));
+        }
+
+        AnalyzeBlock(*analysisBlock);
+
+        const std::uint64_t analyzeEndMicros = AudioTelemetryNowMicros();
+        if (AudioBackpressureTraceEnabled()) {
+            EmitAudioBackpressureEvidence(
+                "stage=PROCESSOR_ANALYZE_END t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu analysis_queue_size=%zu analysis_queue_capacity=%zu delay_ms=%u",
+                static_cast<unsigned long long>(analyzeEndMicros),
+                static_cast<unsigned long long>(analysisBlock->sequence),
+                static_cast<unsigned long long>(analysisBlock->generation),
+                analysisBlock->pts,
+                static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros),
+                m_analysisConsumer->size(),
+                m_analysisConsumer->capacity(),
+                analysisDelayMs);
+        }
+        if (analysisBlock->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+            EmitStartupBoundaryEvidence(
+                "stage=PROCESSOR_ANALYZE_END load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu",
+                static_cast<unsigned long long>(analysisBlock->startupLoadId),
+                static_cast<unsigned long long>(analyzeEndMicros),
+                static_cast<unsigned long long>(analysisBlock->sequence),
+                static_cast<unsigned long long>(analysisBlock->generation),
+                analysisBlock->pts,
+                static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros));
+        }
+
+        m_analysisConsumer->release_read();
+    }
+
+    LOG(1, LogLevel::Info, LogCategory::Audio,
+        "[AudioProcessor] Analysis thread finished.");
+}
+
 void AudioProcessor::ProcessLoop() {
     LOG(1, LogLevel::Info, LogCategory::Audio, 
         "[AudioProcessor] Processing thread started.");
+
+    if (AudioBackpressureTraceEnabled()) {
+        EmitAudioBackpressureEvidence(
+            "stage=TRACE_ARMED t_us=%llu",
+            static_cast<unsigned long long>(AudioTelemetryNowMicros()));
+    }
 
     while (m_isRunning.load(std::memory_order_relaxed)) {
         const AudioBlock* inSlot = m_inputStream->acquire_read();
@@ -352,6 +464,18 @@ void AudioProcessor::ProcessLoop() {
 
         const std::uint64_t acquireMicros = AudioTelemetryNowMicros();
         const size_t rawRingSize = m_inputStream->size();
+        if (AudioBackpressureTraceEnabled()) {
+            EmitAudioBackpressureEvidence(
+                "stage=PROCESSOR_ACQUIRE_RAW t_us=%llu sequence=%llu generation=%llu pts=%.6f raw_ring_size=%zu raw_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu",
+                static_cast<unsigned long long>(acquireMicros),
+                static_cast<unsigned long long>(inSlot->sequence),
+                static_cast<unsigned long long>(inSlot->generation),
+                inSlot->pts,
+                rawRingSize,
+                m_inputStream->capacity(),
+                static_cast<unsigned long long>(inSlot->captureReadMicros),
+                static_cast<unsigned long long>(inSlot->capturePublishMicros));
+        }
         if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
             EmitStartupBoundaryEvidence(
                 "stage=PROCESSOR_ACQUIRE_RAW load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f raw_ring_size=%zu raw_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu",
@@ -366,31 +490,7 @@ void AudioProcessor::ProcessLoop() {
                 static_cast<unsigned long long>(inSlot->capturePublishMicros));
         }
 
-        const std::uint64_t analyzeBeginMicros = AudioTelemetryNowMicros();
-        if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
-            EmitStartupBoundaryEvidence(
-                "stage=PROCESSOR_ANALYZE_BEGIN load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f",
-                static_cast<unsigned long long>(inSlot->startupLoadId),
-                static_cast<unsigned long long>(analyzeBeginMicros),
-                static_cast<unsigned long long>(inSlot->sequence),
-                static_cast<unsigned long long>(inSlot->generation),
-                inSlot->pts);
-        }
-
-        AnalyzeBlock(*inSlot);
-
-        const std::uint64_t analyzeEndMicros = AudioTelemetryNowMicros();
-        if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
-            EmitStartupBoundaryEvidence(
-                "stage=PROCESSOR_ANALYZE_END load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu",
-                static_cast<unsigned long long>(inSlot->startupLoadId),
-                static_cast<unsigned long long>(analyzeEndMicros),
-                static_cast<unsigned long long>(inSlot->sequence),
-                static_cast<unsigned long long>(inSlot->generation),
-                inSlot->pts,
-                static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros));
-        }
-
+        const std::uint64_t forwardBeginMicros = AudioTelemetryNowMicros();
         AudioBlock* outSlot = m_outputStream->acquire_write();
         int retryCount = 0;
         while (!outSlot && m_isRunning.load(std::memory_order_relaxed) && retryCount < 10) {
@@ -402,31 +502,104 @@ void AudioProcessor::ProcessLoop() {
         if (outSlot) {
             *outSlot = *inSlot;
             m_outputStream->commit_write();
+            const std::uint64_t forwardEndMicros = AudioTelemetryNowMicros();
 
-            if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
-                EmitStartupBoundaryEvidence(
-                    "stage=PROCESSOR_PUBLISH_PROCESSED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f duration_us=%llu retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
-                    static_cast<unsigned long long>(inSlot->startupLoadId),
-                    static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+            if (m_analysisProducer) {
+                AudioBlock* analysisSlot = m_analysisProducer->acquire_write();
+                if (analysisSlot) {
+                    *analysisSlot = *inSlot;
+                    m_analysisProducer->commit_write();
+                    if (AudioBackpressureTraceEnabled()) {
+                        EmitAudioBackpressureEvidence(
+                            "stage=ANALYSIS_ENQUEUE t_us=%llu sequence=%llu generation=%llu pts=%.6f analysis_queue_size=%zu analysis_queue_capacity=%zu",
+                            static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                            static_cast<unsigned long long>(inSlot->sequence),
+                            static_cast<unsigned long long>(inSlot->generation),
+                            inSlot->pts,
+                            m_analysisProducer->size(),
+                            m_analysisProducer->capacity());
+                    }
+                } else {
+                    EmitAudioTelemetryEvidence(
+                        "ANALYSIS_DROP reason=analysis_queue_full sequence=%llu generation=%llu pts=%.6f analysis_queue_size=%zu analysis_queue_capacity=%zu policy=drop_analysis_not_audio",
+                        static_cast<unsigned long long>(inSlot->sequence),
+                        static_cast<unsigned long long>(inSlot->generation),
+                        inSlot->pts,
+                        m_analysisProducer->size(),
+                        m_analysisProducer->capacity());
+                    if (AudioBackpressureTraceEnabled()) {
+                        EmitAudioBackpressureEvidence(
+                            "stage=ANALYSIS_DROP t_us=%llu sequence=%llu generation=%llu pts=%.6f analysis_queue_size=%zu analysis_queue_capacity=%zu",
+                            static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                            static_cast<unsigned long long>(inSlot->sequence),
+                            static_cast<unsigned long long>(inSlot->generation),
+                            inSlot->pts,
+                            m_analysisProducer->size(),
+                            m_analysisProducer->capacity());
+                    }
+                }
+            }
+
+            if (AudioBackpressureTraceEnabled()) {
+                EmitAudioBackpressureEvidence(
+                    "stage=PROCESSOR_PUBLISH_PROCESSED t_us=%llu sequence=%llu generation=%llu pts=%.6f forward_duration_us=%llu retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                    static_cast<unsigned long long>(forwardEndMicros),
                     static_cast<unsigned long long>(inSlot->sequence),
                     static_cast<unsigned long long>(inSlot->generation),
                     inSlot->pts,
-                    static_cast<unsigned long long>(analyzeEndMicros - analyzeBeginMicros),
+                    static_cast<unsigned long long>(forwardEndMicros - forwardBeginMicros),
                     retryCount,
                     m_outputStream->size(),
                     m_outputStream->capacity());
             }
-        } else if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
-            EmitStartupBoundaryEvidence(
-                "stage=PROCESSOR_PUBLISH_DROP load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
-                static_cast<unsigned long long>(inSlot->startupLoadId),
-                static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+
+            if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                EmitStartupBoundaryEvidence(
+                    "stage=PROCESSOR_PUBLISH_PROCESSED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f forward_duration_us=%llu retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                    static_cast<unsigned long long>(inSlot->startupLoadId),
+                    static_cast<unsigned long long>(forwardEndMicros),
+                    static_cast<unsigned long long>(inSlot->sequence),
+                    static_cast<unsigned long long>(inSlot->generation),
+                    inSlot->pts,
+                    static_cast<unsigned long long>(forwardEndMicros - forwardBeginMicros),
+                    retryCount,
+                    m_outputStream->size(),
+                    m_outputStream->capacity());
+            }
+        } else {
+            EmitAudioTelemetryEvidence(
+                "PROCESSOR_PUBLISH_DROP reason=processed_ring_full sequence=%llu generation=%llu pts=%.6f retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
                 static_cast<unsigned long long>(inSlot->sequence),
                 static_cast<unsigned long long>(inSlot->generation),
                 inSlot->pts,
                 retryCount,
                 m_outputStream->size(),
                 m_outputStream->capacity());
+
+            if (AudioBackpressureTraceEnabled()) {
+                EmitAudioBackpressureEvidence(
+                    "stage=PROCESSOR_PUBLISH_DROP t_us=%llu sequence=%llu generation=%llu pts=%.6f retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                    static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                    static_cast<unsigned long long>(inSlot->sequence),
+                    static_cast<unsigned long long>(inSlot->generation),
+                    inSlot->pts,
+                    retryCount,
+                    m_outputStream->size(),
+                    m_outputStream->capacity());
+            }
+
+            if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
+                EmitStartupBoundaryEvidence(
+                    "stage=PROCESSOR_PUBLISH_DROP load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f retries=%d processed_ring_size=%zu processed_ring_capacity=%zu",
+                    static_cast<unsigned long long>(inSlot->startupLoadId),
+                    static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                    static_cast<unsigned long long>(inSlot->sequence),
+                    static_cast<unsigned long long>(inSlot->generation),
+                    inSlot->pts,
+                    retryCount,
+                    m_outputStream->size(),
+                    m_outputStream->capacity());
+            }
         }
 
         m_inputStream->release_read();
