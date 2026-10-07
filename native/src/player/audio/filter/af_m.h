@@ -9,9 +9,24 @@
 #include <condition_variable>
 #include <queue>
 #include <vector>
+#include <functional>
+#include <atomic>
+#include <cstdint>
 
 class PlayerStateSystem;
 class Audio;
+
+struct AudioFilterControlSnapshot {
+    bool autoMode = false;
+    AudioPreset currentPreset = AudioPreset::Flat;
+    bool globalBypass = false;
+    bool outerStabilizerEnabled = true;
+    bool outerBoosterEnabled = true;
+    std::string channelMode = "stereo";
+    std::vector<AudioFilter> filters;
+    AudioContext context;
+};
+
 class AudioFilterManager {
 public:
     AudioFilterManager();
@@ -31,8 +46,8 @@ public:
     int GetActiveFilterCount();
 
     void SetAdaptiveMode(bool enabled, AudioPreset preset = AudioPreset::Flat);
-    bool IsAdaptiveMode() const { return m_autoMode; }
-    AudioPreset GetCurrentPreset() const { return m_currentPreset; }
+    bool IsAdaptiveMode() const { return GetControlSnapshot().autoMode; }
+    AudioPreset GetCurrentPreset() const { return GetControlSnapshot().currentPreset; }
     // Hàm lấy danh sách tất cả các preset hiện có
     static const std::vector<AudioPresetInfo>& GetAudioPresetList() {
         static const std::vector<AudioPresetInfo> presetList = {
@@ -53,12 +68,30 @@ public:
     void SetCurrentPreset(AudioPreset preset);
 
     void UpdateAdaptiveFilters();
-    const AudioContext& GetCurrentContext() const { return m_currentContext; }
+    AudioContext GetCurrentContext() const { return GetControlSnapshot().context; }
+    AudioFilterControlSnapshot GetControlSnapshot() const;
+
+    // UI/render threads enqueue intent only. The main-thread FilterControl owner
+    // drains these commands from UpdateAdaptiveFilters() without holding the
+    // queue mutex across filter mutation or MPV calls.
+    void QueueToggleFilter(const std::string& id, bool state);
+    void QueueSetAllFiltersState(bool enabled);
+    void QueueSetAdaptiveMode(bool enabled, AudioPreset preset);
+    void QueueSetCurrentPreset(AudioPreset preset);
+    void QueueSetFilterBypassMode(const std::string& id, bool bypassState);
+    void QueueSetGlobalBypassMode(bool bypassState);
+    void QueueSetOuterStabilizerEnabled(bool enabled);
+    void QueueSetOuterBoosterEnabled(bool enabled);
+    void QueueUpdateParam(const std::string& id, const std::string& key, float value);
+    void QueueResetFilter(const std::string& id);
+    void QueueSetChannelMode(const std::string& mode);
+    void QueueSaveToFile();
+    void QueueLoadFromFile();
 
     void SetFilterBypassMode(const std::string& id, bool bypassState);
     bool IsFilterBypassMode(const std::string& id);
     void SetGlobalBypassMode(bool bypassState);
-    bool IsGlobalBypassEnabled() const { return m_globalBypass; }
+    bool IsGlobalBypassEnabled() const { return GetControlSnapshot().globalBypass; }
 
     void SetOuterStabilizerEnabled(bool enabled);
     void SetOuterBoosterEnabled(bool enabled);
@@ -73,7 +106,7 @@ public:
     void LoadFromFile();
     
     void SetChannelMode(const std::string& mode);
-    std::string GetChannelMode() const { return m_channelMode; }
+    std::string GetChannelMode() const { return GetControlSnapshot().channelMode; }
     
     void AddAudioTrack(const std::string& trackId, const std::string& lang, const std::string& codec);
     void SelectAudioTrack(const std::string& trackId);
@@ -81,7 +114,7 @@ public:
     const std::vector<AudioTrackInfo>& GetAudioTracks() const { return m_audioTracks; }
 
     AudioFilter* FindFilter(const std::string& id);
-    const std::vector<AudioFilter>& GetFilters() const { return m_filters; }
+    std::vector<AudioFilter> GetFilters() const { return GetControlSnapshot().filters; }
 
     mpv_handle* GetMpvHandle() { return mpv; }
 
@@ -108,6 +141,16 @@ private:
     AdaptiveTargets AnalyzeContextAndCalculateTargets(const AudioContext& ctx);
 
     void DispatchParametersToMPV(bool need_sync_structure, bool parameter_changed);
+
+    struct PendingControlCommand {
+        uint64_t sequence = 0;
+        std::string name;
+        std::function<void()> apply;
+    };
+
+    void EnqueueControlCommand(const char* name, std::function<void()> apply);
+    void DrainControlCommands();
+    void PublishControlSnapshot();
 
 private:
     
@@ -140,4 +183,12 @@ private:
     std::chrono::steady_clock::time_point m_lastUpdateTime = std::chrono::steady_clock::now();
 
     AudioContext m_currentContext;
+
+    mutable std::mutex m_controlQueueMutex;
+    std::queue<PendingControlCommand> m_controlQueue;
+    std::thread::id m_controlOwnerThreadId;
+    std::atomic<uint64_t> m_nextControlCommandSequence{1};
+
+    mutable std::mutex m_controlSnapshotMutex;
+    AudioFilterControlSnapshot m_controlSnapshot;
 };
