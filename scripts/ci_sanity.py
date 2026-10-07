@@ -1115,6 +1115,19 @@ issue27_engine = (ROOT / "native/src/player/audio/filter/af_m_engine.cpp").read_
 issue27_popup = (ROOT / "native/src/popup/popup_test.cpp").read_text(encoding="utf-8")
 issue27_hotkey = (ROOT / "native/src/hotkey_handler.cpp").read_text(encoding="utf-8")
 for token in (
+    "IM_PLAYER_FILTER_CONTROL_STRESS",
+    "RunIssue27FilterControlStressDriver",
+    "stage=DRIVER_STARTED source=UIRenderThread",
+    "stage=DRIVER_DONE command_count=50",
+    "manager.QueueSetAdaptiveMode",
+    "manager.QueueSetCurrentPreset",
+    "manager.QueueToggleFilter",
+    "manager.QueueSetFilterBypassMode",
+    "manager.QueueUpdateParam",
+):
+    if token not in issue27_popup:
+        fail(f"Issue #27: deterministic UI stress driver missing: {token}")
+for token in (
     "AudioFilterControlSnapshot",
     "PendingControlCommand",
     "QueueToggleFilter",
@@ -1157,6 +1170,10 @@ else:
         'Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"',
         "open-test-popup",
         r"Ctrl\+T branch entered",
+        "IM_PLAYER_FILTER_CONTROL_STRESS",
+        "DETERMINISTIC_UI_RENDER_THREAD",
+        "stress-driver-start",
+        "stress-driver-done",
     ):
         if token not in issue27_harness:
             fail(f"Issue #27: runtime stress harness contract missing: {token}")

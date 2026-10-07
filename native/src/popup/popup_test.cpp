@@ -15,6 +15,7 @@
 #include <chrono>
 #include <type_traits>
 #include "log.h"
+#include "common/LifecycleEvidence.h"
 
 
 std::string CleanLocationString(const std::string& raw_loc) {
@@ -1063,6 +1064,92 @@ void DrawLogTab(AudioFilterManager& manager)
 }
 
 
+namespace {
+
+bool Issue27FilterControlStressEnabled()
+{
+    const char* value = std::getenv("IM_PLAYER_FILTER_CONTROL_STRESS");
+    return value && std::string(value) == "1";
+}
+
+void RunIssue27FilterControlStressDriver(
+    AudioFilterManager& manager,
+    const AudioFilterControlSnapshot& snapshot)
+{
+    static bool started = false;
+    static bool done = false;
+    static int step = 0;
+    static auto nextAction = std::chrono::steady_clock::time_point{};
+
+    if (!Issue27FilterControlStressEnabled() || done)
+        return;
+
+    if (snapshot.filters.empty())
+        return;
+
+    const AudioFilter* parameterFilter = nullptr;
+    for (const auto& filter : snapshot.filters) {
+        if (!filter.params.empty()) {
+            parameterFilter = &filter;
+            break;
+        }
+    }
+    if (!parameterFilter)
+        return;
+
+    const auto now = std::chrono::steady_clock::now();
+    if (nextAction != std::chrono::steady_clock::time_point{} && now < nextAction)
+        return;
+    nextAction = now + std::chrono::milliseconds(100);
+
+    if (!started) {
+        started = true;
+        LifecycleEvidence::EmitDiagnostic(
+            "ISSUE27_STRESS",
+            "stage=DRIVER_STARTED source=UIRenderThread");
+    }
+
+    const auto& firstFilter = snapshot.filters.front();
+    switch (step % 5) {
+    case 0:
+        manager.QueueSetAdaptiveMode(true, AudioPreset::Flat);
+        break;
+    case 1:
+        manager.QueueSetCurrentPreset(
+            ((step / 5) % 2) == 0 ? AudioPreset::Pop : AudioPreset::Rock);
+        break;
+    case 2:
+        manager.QueueToggleFilter(firstFilter.id, !firstFilter.enabled);
+        break;
+    case 3:
+        manager.QueueSetFilterBypassMode(
+            firstFilter.id,
+            !firstFilter.isBypassManagement);
+        break;
+    case 4:
+    {
+        const auto& [key, param] = *parameterFilter->params.begin();
+        const float span = param.max - param.min;
+        const float fraction = ((step / 5) % 2) == 0 ? 0.35f : 0.65f;
+        const float target = param.min + span * fraction;
+        manager.QueueUpdateParam(parameterFilter->id, key, target);
+        break;
+    }
+    default:
+        break;
+    }
+
+    ++step;
+    if (step >= 50) {
+        done = true;
+        LifecycleEvidence::EmitDiagnostic(
+            "ISSUE27_STRESS",
+            "stage=DRIVER_DONE command_count=50");
+    }
+}
+
+} // namespace
+
 void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
 {
     if (!window) return;
@@ -1073,6 +1160,8 @@ void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
 
     AudioFilterControlSnapshot snapshot = manager->GetControlSnapshot();
     AudioContext ctx = snapshot.context;
+
+    RunIssue27FilterControlStressDriver(*manager, snapshot);
 
     if (CSImGui::BeginModernTabBar("##DebugTabs"))
     {

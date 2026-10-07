@@ -305,6 +305,10 @@ $previousLog = [Environment]::GetEnvironmentVariable(
     "IM_PLAYER_LIFECYCLE_LOG",
     [EnvironmentVariableTarget]::Process
 )
+$previousStressDriver = [Environment]::GetEnvironmentVariable(
+    "IM_PLAYER_FILTER_CONTROL_STRESS",
+    [EnvironmentVariableTarget]::Process
+)
 
 $p = $null
 $result = "FAIL"
@@ -315,6 +319,7 @@ $multiWindowObserved = $false
 
 try {
     $env:IM_PLAYER_LIFECYCLE_LOG = $log
+    $env:IM_PLAYER_FILTER_CONTROL_STRESS = "1"
     $quotedSource = '"' + $source + '"'
     Write-Host "[ISSUE27] start commit=$commit configuration=$Configuration source=$source"
     $p = Start-Process -FilePath $exe -ArgumentList $quotedSource -WorkingDirectory $root -PassThru
@@ -323,10 +328,6 @@ try {
 
     $initialWindows = @(Wait-VisibleWindows $p 1 "main-window")
     $mainHwnd = $initialWindows[0]
-
-    Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"
-    Wait-LogMarker $p $log 'category=HOTKEY .*Ctrl\+T branch entered' "open-test-popup"
-    Write-Host "[ISSUE27] Test popup opened with Ctrl+T"
 
     Send-CtrlChord $mainHwnd 0x50 "Ctrl+P"
     $windows = @(Wait-VisibleWindows $p 2 "secondary-window")
@@ -337,15 +338,16 @@ try {
     $secondaryHwnd = [IntPtr]$secondary
     $multiWindowObserved = $true
 
+    Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"
+    Wait-LogMarker $p $log 'category=HOTKEY .*Ctrl\+T branch entered' "open-test-popup"
+    Wait-LogMarker $p $log 'category=ISSUE27_STRESS .*stage=DRIVER_STARTED' "stress-driver-start"
+    Write-Host "[ISSUE27] deterministic UI-render-thread stress driver started"
+
     Write-Host ""
-    Write-Host "[ISSUE27] MANUAL STRESS WINDOW = $StressSeconds seconds"
-    Write-Host "[ISSUE27] Ctrl+T Test popup marker confirmed. Repeatedly perform ALL of:"
-    Write-Host "  1) Adaptive AI OFF -> ON at least once"
-    Write-Host "  2) switch presets repeatedly while Adaptive AI is ON"
-    Write-Host "  3) toggle multiple filters"
-    Write-Host "  4) lock/unlock filter bypass"
-    Write-Host "  5) drag one or more enabled sliders rapidly"
-    Write-Host "[ISSUE27] Keep the secondary window open; this harness resizes it during stress."
+    Write-Host "[ISSUE27] AUTOMATED STRESS WINDOW = $StressSeconds seconds"
+    Write-Host "[ISSUE27] The opt-in Test-popup driver enqueues 50 commands on UIRenderThread."
+    Write-Host "[ISSUE27] Secondary window remains open and is periodically resized."
+    Write-Host "[ISSUE27] No manual tab/widget interaction is required."
     Write-Host ""
 
     $deadline = [DateTime]::UtcNow.AddSeconds($StressSeconds)
@@ -358,6 +360,8 @@ try {
         }
         ++$nudgeIteration
     }
+
+    Wait-LogMarker $p $log 'category=ISSUE27_STRESS .*stage=DRIVER_DONE command_count=50' "stress-driver-done"
 
     # Allow the main-thread owner loop to drain the final UI command burst.
     $settled = $false
@@ -469,6 +473,12 @@ finally {
     else {
         $env:IM_PLAYER_LIFECYCLE_LOG = $previousLog
     }
+    if ($null -eq $previousStressDriver) {
+        Remove-Item Env:IM_PLAYER_FILTER_CONTROL_STRESS -ErrorAction SilentlyContinue
+    }
+    else {
+        $env:IM_PLAYER_FILTER_CONTROL_STRESS = $previousStressDriver
+    }
 
     $rows = @(Get-ControlRows $log)
     $enqueues = @($rows | Where-Object { $_.Stage -eq "ENQUEUE" })
@@ -484,6 +494,7 @@ finally {
         configuration = $Configuration
         source = $source
         stress_seconds = $StressSeconds
+        stress_driver = "DETERMINISTIC_UI_RENDER_THREAD"
         min_enqueue_count = $MinEnqueueCount
         multi_window_observed = $multiWindowObserved
         main_hwnd = if ($mainHwnd -ne [IntPtr]::Zero) { $mainHwnd.ToInt64() } else { $null }
