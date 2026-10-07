@@ -11,6 +11,7 @@
 #include <cstdio>
 #include <cstdlib>
 #include <mutex>
+#include <string>
 
 inline std::uint64_t AudioTelemetryNowMicros() noexcept
 {
@@ -64,6 +65,25 @@ inline std::mutex& AudioTelemetryEvidenceMutex()
     return mutex;
 }
 
+struct AudioTelemetryEvidenceFile final {
+    HANDLE handle = INVALID_HANDLE_VALUE;
+    std::string path;
+
+    ~AudioTelemetryEvidenceFile()
+    {
+        if (handle != INVALID_HANDLE_VALUE) {
+            CloseHandle(handle);
+            handle = INVALID_HANDLE_VALUE;
+        }
+    }
+};
+
+inline AudioTelemetryEvidenceFile& AudioTelemetryEvidenceState()
+{
+    static AudioTelemetryEvidenceFile state;
+    return state;
+}
+
 inline void EmitAudioTelemetryEvidence(const char* format, ...)
 {
     if (!format)
@@ -94,24 +114,34 @@ inline void EmitAudioTelemetryEvidence(const char* format, ...)
 
     std::lock_guard<std::mutex> lock(AudioTelemetryEvidenceMutex());
 
-    HANDLE file = CreateFileA(
-        path,
-        FILE_APPEND_DATA,
-        FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
-        nullptr,
-        OPEN_ALWAYS,
-        FILE_ATTRIBUTE_NORMAL,
-        nullptr);
-    if (file == INVALID_HANDLE_VALUE)
-        return;
+    AudioTelemetryEvidenceFile& state = AudioTelemetryEvidenceState();
+    if (state.handle == INVALID_HANDLE_VALUE || state.path != path) {
+        if (state.handle != INVALID_HANDLE_VALUE) {
+            CloseHandle(state.handle);
+            state.handle = INVALID_HANDLE_VALUE;
+        }
+
+        state.handle = CreateFileA(
+            path,
+            FILE_APPEND_DATA,
+            FILE_SHARE_READ | FILE_SHARE_WRITE | FILE_SHARE_DELETE,
+            nullptr,
+            OPEN_ALWAYS,
+            FILE_ATTRIBUTE_NORMAL,
+            nullptr);
+        if (state.handle == INVALID_HANDLE_VALUE) {
+            state.path.clear();
+            return;
+        }
+        state.path = path;
+    }
 
     const DWORD length = static_cast<DWORD>(
         lineWritten < static_cast<int>(sizeof(line))
             ? lineWritten
             : sizeof(line) - 1);
     DWORD bytesWritten = 0;
-    WriteFile(file, line, length, &bytesWritten, nullptr);
-    CloseHandle(file);
+    WriteFile(state.handle, line, length, &bytesWritten, nullptr);
 }
 
 inline bool AudioStartupBoundaryTraceEnabled() noexcept
