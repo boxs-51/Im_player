@@ -169,35 +169,49 @@ function Wait-VisibleWindows(
     throw "[ISSUE27] $Case visible-window timeout expected_at_least=$AtLeast"
 }
 
-function Send-Key([IntPtr]$Hwnd, [int]$VirtualKey, [string]$Name) {
+function Send-CtrlChord([IntPtr]$Hwnd, [int]$VirtualKey, [string]$Name) {
     [Issue27.NativeWindow]::SetForegroundWindow($Hwnd) | Out-Null
     Start-Sleep -Milliseconds 80
-    if (-not [Issue27.NativeWindow]::PostKey($Hwnd, $VirtualKey)) {
-        throw "[ISSUE27] failed to send key=$Name"
-    }
-    Start-Sleep -Milliseconds 250
-}
 
-function Send-CtrlP([IntPtr]$Hwnd) {
-    [Issue27.NativeWindow]::SetForegroundWindow($Hwnd) | Out-Null
-    if (-not [Issue27.NativeWindow]::PostKey($Hwnd, 0x11)) {
-        throw "[ISSUE27] failed to send CTRL"
-    }
-    # SDL needs the modifier held across P, so send explicit down/up sequence.
     $scanCtrl = [Issue27.NativeWindow]::MapVirtualKey(0x11, 0)
-    $scanP = [Issue27.NativeWindow]::MapVirtualKey(0x50, 0)
+    $scanKey = [Issue27.NativeWindow]::MapVirtualKey([uint32]$VirtualKey, 0)
     $ctrlDown = [IntPtr](1L -bor ([int64]$scanCtrl -shl 16))
     $ctrlUp = [IntPtr]((1L -bor ([int64]$scanCtrl -shl 16)) -bor (1L -shl 30) -bor (1L -shl 31))
-    $pDown = [IntPtr](1L -bor ([int64]$scanP -shl 16))
-    $pUp = [IntPtr]((1L -bor ([int64]$scanP -shl 16)) -bor (1L -shl 30) -bor (1L -shl 31))
-    [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0100, [IntPtr]0x11, $ctrlDown) | Out-Null
+    $keyDown = [IntPtr](1L -bor ([int64]$scanKey -shl 16))
+    $keyUp = [IntPtr]((1L -bor ([int64]$scanKey -shl 16)) -bor (1L -shl 30) -bor (1L -shl 31))
+
+    if (-not [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0100, [IntPtr]0x11, $ctrlDown)) {
+        throw "[ISSUE27] failed to send CTRL_DOWN for $Name"
+    }
     Start-Sleep -Milliseconds 60
-    [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0100, [IntPtr]0x50, $pDown) | Out-Null
+    if (-not [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0100, [IntPtr]$VirtualKey, $keyDown)) {
+        throw "[ISSUE27] failed to send KEY_DOWN for $Name"
+    }
     Start-Sleep -Milliseconds 60
-    [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0101, [IntPtr]0x50, $pUp) | Out-Null
+    if (-not [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0101, [IntPtr]$VirtualKey, $keyUp)) {
+        throw "[ISSUE27] failed to send KEY_UP for $Name"
+    }
     Start-Sleep -Milliseconds 60
-    [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0101, [IntPtr]0x11, $ctrlUp) | Out-Null
-    Start-Sleep -Milliseconds 500
+    if (-not [Issue27.NativeWindow]::PostMessage($Hwnd, 0x0101, [IntPtr]0x11, $ctrlUp)) {
+        throw "[ISSUE27] failed to send CTRL_UP for $Name"
+    }
+    Start-Sleep -Milliseconds 350
+}
+
+function Wait-LogMarker(
+    [System.Diagnostics.Process]$Process,
+    [string]$Path,
+    [string]$Pattern,
+    [string]$Case
+) {
+    for ($i = 0; $i -lt 50; ++$i) {
+        Assert-Alive $Process $Case
+        foreach ($line in @(Read-SharedLines $Path)) {
+            if ($line -match $Pattern) { return }
+        }
+        Start-Sleep -Milliseconds 100
+    }
+    throw "[ISSUE27] $Case marker not observed pattern=$Pattern"
 }
 
 function Nudge-Window([IntPtr]$Hwnd, [int]$Iteration) {
@@ -310,10 +324,11 @@ try {
     $initialWindows = @(Wait-VisibleWindows $p 1 "main-window")
     $mainHwnd = $initialWindows[0]
 
-    Send-Key $mainHwnd 0x54 "T"
-    Write-Host "[ISSUE27] Test popup requested with T"
+    Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"
+    Wait-LogMarker $p $log 'category=HOTKEY .*Ctrl\+T branch entered' "open-test-popup"
+    Write-Host "[ISSUE27] Test popup opened with Ctrl+T"
 
-    Send-CtrlP $mainHwnd
+    Send-CtrlChord $mainHwnd 0x50 "Ctrl+P"
     $windows = @(Wait-VisibleWindows $p 2 "secondary-window")
     $secondary = $windows | Where-Object { $_ -ne $mainHwnd } | Select-Object -First 1
     if (-not $secondary) {
@@ -324,7 +339,7 @@ try {
 
     Write-Host ""
     Write-Host "[ISSUE27] MANUAL STRESS WINDOW = $StressSeconds seconds"
-    Write-Host "[ISSUE27] In the Test popup, repeatedly perform ALL of:"
+    Write-Host "[ISSUE27] Ctrl+T Test popup marker confirmed. Repeatedly perform ALL of:"
     Write-Host "  1) Adaptive AI OFF -> ON at least once"
     Write-Host "  2) switch presets repeatedly while Adaptive AI is ON"
     Write-Host "  3) toggle multiple filters"
