@@ -298,6 +298,10 @@ void AudioOutputWorker::OutputLoop() {
                 auto now = std::chrono::steady_clock::now();
                 if (std::chrono::duration_cast<std::chrono::milliseconds>(now - lastDeviceRetryTime).count() > 1000) {
                     lastDeviceRetryTime = now;
+                    EmitAudioContinuityEvidence(
+                        "stage=OUTPUT_DEVICE_RECOVERY_ATTEMPT t_us=%llu processed_ring_size=%zu",
+                        static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                        m_processedStream->size());
                     LOG(1, LogLevel::Warning, LogCategory::Audio, 
                         "[AudioOutputWorker] Audio device unavailable. Attempting auto-recovery...");
 
@@ -307,10 +311,16 @@ void AudioOutputWorker::OutputLoop() {
 
                     m_audioDevice = CreateDeviceBackend(m_currentBackendType);
                     if (m_audioDevice && m_audioDevice->Open(kCanonicalAudioSampleRate, kCanonicalAudioChannels)) {
+                        EmitAudioContinuityEvidence(
+                            "stage=OUTPUT_DEVICE_RECOVERY_RESULT t_us=%llu result=success",
+                            static_cast<unsigned long long>(AudioTelemetryNowMicros()));
                         LOG(1, LogLevel::Info, LogCategory::Audio, 
                             "[AudioOutputWorker] Audio device auto-recovery SUCCESSFUL!");
                         deviceErrorCount = 0;
                     } else {
+                        EmitAudioContinuityEvidence(
+                            "stage=OUTPUT_DEVICE_RECOVERY_RESULT t_us=%llu result=failure",
+                            static_cast<unsigned long long>(AudioTelemetryNowMicros()));
                         LOG(1, LogLevel::Error, LogCategory::Audio, 
                             "[AudioOutputWorker] Audio device auto-recovery failed. Will retry...");
                     }
@@ -318,6 +328,14 @@ void AudioOutputWorker::OutputLoop() {
 
                 // Xóa bớt block tồn đọng duy nhất từ luồng OutputWorker khi mất thiết bị
                 if (const AudioBlock* dummy = m_processedStream->acquire_read()) {
+                    EmitAudioContinuityEvidence(
+                        "stage=OUTPUT_DEVICE_OFFLINE_DROP t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu reason=device_unavailable",
+                        static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                        static_cast<unsigned long long>(dummy->sequence),
+                        static_cast<unsigned long long>(dummy->generation),
+                        dummy->pts,
+                        dummy->frames,
+                        m_processedStream->size());
                     m_processedStream->release_read();
                 }
                 std::this_thread::sleep_for(std::chrono::milliseconds(10));
