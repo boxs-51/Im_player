@@ -56,7 +56,7 @@ private:
     // Issue #31: audible PCM forwarding must not wait for heavy visualizer/loudness
     // analysis. The processor thread is the sole producer; the analysis thread is
     // the sole consumer. Full queue => drop analysis work, never PCM forwarding.
-    static constexpr size_t kAnalysisQueueCapacity = 8;
+    static constexpr size_t kAnalysisQueueCapacity = 32;
     std::optional<SpscProducer<AudioBlock>> m_analysisProducer;
     std::optional<SpscConsumer<AudioBlock>> m_analysisConsumer;
 
