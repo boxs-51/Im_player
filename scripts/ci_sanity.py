@@ -1107,6 +1107,111 @@ if "PASS_PRE_CLOSE_GT_FIRST" not in render_shutdown_harness:
 if "callback_count_first_observed" not in render_shutdown_harness:
     fail("BRG-5: AUD-8-02 must record the first observed callback count")
 
+
+# Issue #27 filter-control ownership contract.
+issue27_header = (ROOT / "native/src/player/audio/filter/af_m.h").read_text(encoding="utf-8")
+issue27_core = (ROOT / "native/src/player/audio/filter/af_m_core.cpp").read_text(encoding="utf-8")
+issue27_engine = (ROOT / "native/src/player/audio/filter/af_m_engine.cpp").read_text(encoding="utf-8")
+issue27_popup = (ROOT / "native/src/popup/popup_test.cpp").read_text(encoding="utf-8")
+issue27_hotkey = (ROOT / "native/src/hotkey_handler.cpp").read_text(encoding="utf-8")
+for token in (
+    "IM_PLAYER_FILTER_CONTROL_STRESS",
+    "RunIssue27FilterControlStressDriver",
+    "stage=DRIVER_STARTED source=UIRenderThread",
+    "stage=DRIVER_DONE command_count=50",
+    "manager.QueueSetAdaptiveMode",
+    "manager.QueueSetCurrentPreset",
+    "manager.QueueToggleFilter",
+    "manager.QueueSetFilterBypassMode",
+    "manager.QueueUpdateParam",
+):
+    if token not in issue27_popup:
+        fail(f"Issue #27: deterministic UI stress driver missing: {token}")
+for token in (
+    "AudioFilterControlSnapshot",
+    "PendingControlCommand",
+    "QueueToggleFilter",
+    "QueueUpdateParam",
+    "QueueSetAdaptiveMode",
+    "QueueSetGlobalBypassMode",
+    "QueueLoadFromFile",
+):
+    if token not in issue27_header:
+        fail(f"Issue #27: filter-control API missing: {token}")
+for token in (
+    "[FILTER-CONTROL] stage=OWNER_BOUND",
+    "[FILTER-CONTROL] stage=ENQUEUE",
+    "[FILTER-CONTROL] stage=APPLY",
+    "std::swap(pending, m_controlQueue)",
+    'LifecycleEvidence::EmitDiagnostic("FILTER_CONTROL"',
+    "m_isDrainingControlCommands.compare_exchange_strong",
+    'EmitFilterControlEvidence("REENTRANT_DEFER")',
+):
+    if token not in issue27_core:
+        fail(f"Issue #27: single-owner mailbox evidence missing: {token}")
+issue27_harness_path = ROOT / "scripts" / "issue27-filter-control-runtime-stress.ps1"
+if not issue27_harness_path.is_file():
+    fail("Issue #27: runtime stress harness missing")
+else:
+    issue27_harness = issue27_harness_path.read_text(encoding="utf-8")
+    for token in (
+        "ISSUE27-FILTER-CONTROL-STRESS-v1",
+        "ExpectedCommit",
+        "OWNER_VIOLATION",
+        "REENTRANT_DEFER",
+        "SetAdaptiveMode",
+        "SetCurrentPreset",
+        "ToggleFilter",
+        "UpdateParam",
+        "SetFilterBypassMode",
+        "MinEnqueueCount",
+        "apply_sequence_monotonic",
+        "single_owner_thread",
+        'Send-CtrlChord $mainHwnd 0x54 "Ctrl+T"',
+        "open-test-popup",
+        r"Ctrl\+T branch entered",
+        "IM_PLAYER_FILTER_CONTROL_STRESS",
+        "DETERMINISTIC_UI_RENDER_THREAD",
+        "stress-driver-start",
+        "stress-driver-done",
+    ):
+        if token not in issue27_harness:
+            fail(f"Issue #27: runtime stress harness contract missing: {token}")
+if 'LifecycleEvidence::EmitDiagnostic("HOTKEY", "Ctrl+T branch entered")' not in issue27_hotkey:
+    fail("Issue #27: Ctrl+T durable popup-open marker missing")
+if 'Send-Key $mainHwnd 0x54 "T"' in issue27_harness:
+    fail("Issue #27: runtime harness regressed to T without required Ctrl modifier")
+if "DrainControlCommands();" not in issue27_engine:
+    fail("Issue #27: main-thread adaptive update does not drain filter-control mailbox")
+for forbidden in (
+    "manager.ToggleFilter(",
+    "manager.UpdateParam(",
+    "manager.SetAdaptiveMode(",
+    "manager.SetCurrentPreset(",
+    "manager.SetFilterBypassMode(",
+    "manager.SetGlobalBypassMode(",
+    "manager.SetOuterStabilizerEnabled(",
+    "manager.SetOuterBoosterEnabled(",
+    "manager.SetAllFiltersState(",
+    "manager.ResetFilter(",
+    "manager.SetChannelMode(",
+    "&manager.m_enableOuterStabilizer",
+    "&manager.m_enableOuterBooster",
+    "manager.FindFilter(",
+):
+    if forbidden in issue27_popup:
+        fail(f"Issue #27: UI still directly touches manager-owned filter state: {forbidden}")
+for required_token in (
+    "manager.QueueToggleFilter(",
+    "manager.QueueUpdateParam(",
+    "manager.QueueSetAdaptiveMode(",
+    "manager->GetControlSnapshot()",
+    "for (const auto& f : snapshot.filters)",
+):
+    if required_token not in issue27_popup:
+        fail(f"Issue #27: UI mailbox/snapshot contract missing: {required_token}")
+facts["issue27_filter_control_contract"] = "PASS" if not errors else "FAIL"
+
 commit = subprocess.run(
     ["git", "-C", str(ROOT), "rev-parse", "HEAD"],
     check=True,

@@ -408,6 +408,7 @@ bool HandlePopupHotkeys(const SDL_Event *e)
         }
         case SDLK_t:
         {
+            LifecycleEvidence::EmitDiagnostic("HOTKEY", "Ctrl+T branch entered");
             if (TestPopup.IsOpen())
             {
                 TestPopup.Close();

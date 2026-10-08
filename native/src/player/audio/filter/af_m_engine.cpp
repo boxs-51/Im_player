@@ -62,6 +62,7 @@ void AudioFilterManager::SetAdaptiveMode(bool enabled, AudioPreset preset) {
 }
 
 void AudioFilterManager::UpdateAdaptiveFilters() {
+    DrainControlCommands();
 
     AudioContext newCtx = ExtractCurrentContext();
     bool macroEnvChanged = CheckEnvironmentHysteresis(newCtx);
@@ -70,11 +71,17 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
     // 1. Giới hạn tần suất xử lý chu kỳ real-time (Throttling) để bảo vệ IPC pipe của MPV
     auto currentTime = std::chrono::steady_clock::now();
     auto elapsed = std::chrono::duration_cast<std::chrono::milliseconds>(currentTime - m_lastUpdateTime).count();
-    if (!macroEnvChanged && elapsed < 150) return;
+    if (!macroEnvChanged && elapsed < 150) {
+        PublishControlSnapshot();
+        return;
+    }
 
     m_lastUpdateTime = currentTime;
 
-    if (!m_autoMode || !mpv || m_globalBypass) return;
+    if (!m_autoMode || !mpv || m_globalBypass) {
+        PublishControlSnapshot();
+        return;
+    }
 
     // Lấy mục tiêu đã được lọc trung bình động (EMA) từ tầng phân tích
     AdaptiveTargets targets = AnalyzeContextAndCalculateTargets(m_currentContext);
@@ -279,4 +286,6 @@ void AudioFilterManager::UpdateAdaptiveFilters() {
     if (need_sync_structure || parameter_changed) {
         DispatchParametersToMPV(need_sync_structure, parameter_changed);
     }
+
+    PublishControlSnapshot();
 }

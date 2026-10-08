@@ -15,6 +15,7 @@
 #include <chrono>
 #include <type_traits>
 #include "log.h"
+#include "common/LifecycleEvidence.h"
 
 
 std::string CleanLocationString(const std::string& raw_loc) {
@@ -361,8 +362,9 @@ static void DrawAudioVisualizer(
 
 void DrawCoreMonitor(
     AudioFilterManager& manager,
-    const AudioContext& ctx)
+    const AudioFilterControlSnapshot& snapshot)
 {
+    const AudioContext& ctx = snapshot.context;
     if (!CSImGui::ModernCollapsingHeader(
             "1. Giám sát hệ thống Core & Phân tích Track Audio",
             ImGuiTreeNodeFlags_DefaultOpen))
@@ -412,17 +414,21 @@ void DrawCoreMonitor(
         CSImGui::InfoRow(
             "Kênh Output",
             "%s",
-            manager.GetChannelMode().c_str());
+            snapshot.channelMode.c_str());
 
+        int activeFilterCount = 0;
+        for (const auto& filter : snapshot.filters) {
+            if (filter.enabled) ++activeFilterCount;
+        }
         CSImGui::InfoRow(
             "Filter Hoạt Động",
             "%d",
-            manager.GetActiveFilterCount());
+            activeFilterCount);
 
         CSImGui::InfoRow(
             "Quản Lý An Toàn",
             "%s",
-            manager.IsGlobalBypassEnabled()
+            snapshot.globalBypass
                 ? "BYPASS"
                 : "ACTIVE");
 
@@ -454,7 +460,7 @@ void DrawCoreMonitor(
     // 4. Filter Rows
     // ============================================================
 
-    for (const auto& f : manager.GetFilters())
+    for (const auto& f : snapshot.filters)
     {
         bool is_row_selected = false; // Hoặc bind với biến state của bạn
 
@@ -514,15 +520,16 @@ void DrawCoreMonitor(
 
 void DrawAdaptiveControl(
     AudioFilterManager& manager,
-    const AudioContext& ctx)
+    const AudioFilterControlSnapshot& snapshot)
 {   
+    const AudioContext& ctx = snapshot.context;
     if (CSImGui::ModernCollapsingHeader("2. Trợ lý AI & Điều khiển Vượt tuyến (Adaptive Matrix)")) {
         
         // --- KHỐI ĐIỀU KHIỂN BIÊN ĐỘ QUẢN LÝ (GLOBAL BYPASS) ---
-        bool globalBypass = manager.IsGlobalBypassEnabled();
+        bool globalBypass = snapshot.globalBypass;
         ImGui::PushStyleColor(ImGuiCol_FrameBgActive, ImVec4(1.0f, 0.4f, 0.0f, 0.4f));
         if (ImGui::Checkbox("HỦY BỎ TOÀN BỘ HỆ THỐNG QUẢN LÝ (Global Bypass Security & Conflicts)", &globalBypass)) {
-            manager.SetGlobalBypassMode(globalBypass);
+            manager.QueueSetGlobalBypassMode(globalBypass);
         }
         ImGui::PopStyleColor();
         
@@ -532,15 +539,17 @@ void DrawAdaptiveControl(
         ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.0f, 1.0f), "Cơ cấu Bảo vệ & Kích âm Ngoại vi độc lập:");
         ImGui::Indent(10.0f);
         
-        if (ImGui::Checkbox("Kích hoạt bộ Ổn định ngoại vi độc lập (f_out_compressor & f_out_limiter)", &manager.m_enableOuterStabilizer)) {
-            manager.SetOuterStabilizerEnabled(manager.m_enableOuterStabilizer);
+        bool outerStabilizerEnabled = snapshot.outerStabilizerEnabled;
+        if (ImGui::Checkbox("Kích hoạt bộ Ổn định ngoại vi độc lập (f_out_compressor & f_out_limiter)", &outerStabilizerEnabled)) {
+            manager.QueueSetOuterStabilizerEnabled(outerStabilizerEnabled);
         }
         
         ImGui::SameLine();
         ImGui::Spacing(); ImGui::SameLine();
 
-        if (ImGui::Checkbox("Kích hoạt mạch Kích âm độc lập (f_vol_booster)", &manager.m_enableOuterBooster)) {
-            manager.SetOuterBoosterEnabled(manager.m_enableOuterBooster);
+        bool outerBoosterEnabled = snapshot.outerBoosterEnabled;
+        if (ImGui::Checkbox("Kích hoạt mạch Kích âm độc lập (f_vol_booster)", &outerBoosterEnabled)) {
+            manager.QueueSetOuterBoosterEnabled(outerBoosterEnabled);
         }
         ImGui::Unindent(10.0f);
 
@@ -549,7 +558,7 @@ void DrawAdaptiveControl(
         ImGui::Spacing();
 
         // --- KHỐI ĐIỀU KHIỂN TRỢ LÝ THÔNG MINH (ADAPTIVE AI) ---
-        bool autoMode = manager.IsAdaptiveMode();
+        bool autoMode = snapshot.autoMode;
         bool wasAutoMode = autoMode; 
 
         if (wasAutoMode) {
@@ -558,7 +567,7 @@ void DrawAdaptiveControl(
         }
 
         if (ImGui::Checkbox("KÍCH HOẠT ĐIỀU CHỈNH CHẤT ÂM TỰ ĐỘNG (Adaptive AI Engine)", &autoMode)) {
-            manager.SetAdaptiveMode(autoMode, manager.GetCurrentPreset());
+            manager.QueueSetAdaptiveMode(autoMode, snapshot.currentPreset);
         }
 
         if (wasAutoMode) {
@@ -568,7 +577,7 @@ void DrawAdaptiveControl(
         if (autoMode) {
             ImGui::Indent(25.0f);
             const auto& presets = manager.GetAudioPresetList();
-            AudioPreset currentPreset = manager.GetCurrentPreset();
+            AudioPreset currentPreset = snapshot.currentPreset;
 
             // Tìm nhãn (label) của preset hiện tại để hiển thị làm preview trong Combo
             const char* currentPresetName = "Chưa chọn";
@@ -584,7 +593,7 @@ void DrawAdaptiveControl(
                 for (const auto& item : presets) {
                     const bool isSelected = (currentPreset == item.preset);
                     if (ImGui::Selectable(item.name, isSelected)) {
-                        manager.SetCurrentPreset(item.preset);
+                        manager.QueueSetCurrentPreset(item.preset);
                     }
 
                     if (isSelected) {
@@ -608,69 +617,66 @@ void DrawAdaptiveControl(
 
         // --- DANH SÁCH CHI TIẾT TỪNG FILTER VÀ CÁC NÚT KHÓA TAY TỪNG PHẦN ---
         if (ImGui::Button("Bật toàn bộ hệ thống")) {
-            manager.SetAllFiltersState(true);
+            manager.QueueSetAllFiltersState(true);
         }
         ImGui::SameLine();
         if (ImGui::Button("Tắt toàn bộ hệ thống")) {
-            manager.SetAllFiltersState(false);
+            manager.QueueSetAllFiltersState(false);
         }
 
         ImGui::Spacing();
 
-        for (const auto& filterRef : manager.GetFilters()) {
-            auto* f = manager.FindFilter(filterRef.id);
-            if (!f) continue;
-
-            ImGui::PushID(f->id.c_str());
+        for (const auto& f : snapshot.filters) {
+            ImGui::PushID(f.id.c_str());
 
             // Checkbox điều khiển cơ bản từng node
-            bool isEnabled = f->enabled;
+            bool isEnabled = f.enabled;
             if (ImGui::Checkbox("##toggle", &isEnabled)) {
-                manager.ToggleFilter(f->id, isEnabled);
+                manager.QueueToggleFilter(f.id, isEnabled);
             }
             
             ImGui::SameLine();
             
             // Nút Quản lý Vượt tuyến (Bypass Node) - Cho phép giành lại quyền điều khiển từ AI
-            if (f->isBypassManagement) {
+            if (f.isBypassManagement) {
                 ImGui::PushStyleColor(ImGuiCol_Button, ImVec4(0.8f, 0.4f, 0.0f, 1.0f));
                 if (ImGui::Button("Mở Khóa AI")) {
-                    manager.SetFilterBypassMode(f->id, false);
+                    manager.QueueSetFilterBypassMode(f.id, false);
                 }
                 ImGui::PopStyleColor();
             } else {
                 if (ImGui::Button(" Khóa Tay ")) {
-                    manager.SetFilterBypassMode(f->id, true);
+                    manager.QueueSetFilterBypassMode(f.id, true);
                 }
             }
 
             ImGui::SameLine();
             
             // Đổi màu hiển thị tiêu đề node dựa theo trạng thái
-            if (f->enabled) {
-                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "[%s] Node %s (Group: %s)", f->id.c_str(), f->name.c_str(), f->group.c_str());
+            if (f.enabled) {
+                ImGui::TextColored(ImVec4(1.0f, 0.85f, 0.3f, 1.0f), "[%s] Node %s (Group: %s)", f.id.c_str(), f.name.c_str(), f.group.c_str());
             } else {
-                ImGui::TextDisabled("[%s] Node %s", f->id.c_str(), f->name.c_str());
+                ImGui::TextDisabled("[%s] Node %s", f.id.c_str(), f.name.c_str());
             }
 
             // Vùng vẽ Slider tinh chỉnh cho từng tham số bên trong Filter
-            if (!f->params.empty()) {
+            if (!f.params.empty()) {
                 ImGui::Indent(35.0f);
                 
                 // Nếu đang bật Adaptive AI điều khiển tự động và node này KHÔNG được chọn khóa tay -> Khóa các thanh kéo Slider
-                bool lockWidgets = autoMode && !f->isBypassManagement;
+                bool lockWidgets = autoMode && !f.isBypassManagement;
                 if (lockWidgets) ImGui::BeginDisabled();
 
-                for (auto& [key, param] : f->params) {
+                for (auto& [key, param] : f.params) {
                     float val = param.current;
-                    std::string label = key + "##" + f->id;
+                    std::string label = key + "##" + f.id;
                     
                     const char* format = "%.2f";
                     if (param.max > 1000.0f) format = "%.0f Hz";
                     else if (key == "g" || key == "volume" || key == "threshold") format = "%.1f dB";
 
                     if (ImGui::SliderFloat(label.c_str(), &val, param.min, param.max, format)) {
-                        manager.UpdateParam(f->id, key, val);
+                        manager.QueueUpdateParam(f.id, key, val);
                     }
                 }
 
@@ -679,7 +685,7 @@ void DrawAdaptiveControl(
                 if (!lockWidgets) {
                     ImGui::SameLine();
                     if (ImGui::Button("Reset Node")) {
-                        manager.ResetFilter(f->id);
+                        manager.QueueResetFilter(f.id);
 
                     }
                 }
@@ -696,18 +702,18 @@ void DrawAdaptiveControl(
         const char* modes[] = { "stereo", "mono", "surround" };
         for (int n = 0; n < 3; n++) {
             if (ImGui::Button(modes[n])) {
-                manager.SetChannelMode(modes[n]);
+                manager.QueueSetChannelMode(modes[n]);
             }
             if (n < 2) ImGui::SameLine();
         }
 
         ImGui::Spacing();
         if (ImGui::Button("Lưu Cấu Hình (Save To Disk)")) {
-            manager.SaveToFile();
+            manager.QueueSaveToFile();
         }
         ImGui::SameLine();
         if (ImGui::Button("Tải Cấu Hình (Load From Disk)")) {
-            manager.LoadFromFile();
+            manager.QueueLoadFromFile();
         }
     }
 }
@@ -1058,6 +1064,92 @@ void DrawLogTab(AudioFilterManager& manager)
 }
 
 
+namespace {
+
+bool Issue27FilterControlStressEnabled()
+{
+    const char* value = std::getenv("IM_PLAYER_FILTER_CONTROL_STRESS");
+    return value && std::string(value) == "1";
+}
+
+void RunIssue27FilterControlStressDriver(
+    AudioFilterManager& manager,
+    const AudioFilterControlSnapshot& snapshot)
+{
+    static bool started = false;
+    static bool done = false;
+    static int step = 0;
+    static auto nextAction = std::chrono::steady_clock::time_point{};
+
+    if (!Issue27FilterControlStressEnabled() || done)
+        return;
+
+    if (snapshot.filters.empty())
+        return;
+
+    const AudioFilter* parameterFilter = nullptr;
+    for (const auto& filter : snapshot.filters) {
+        if (!filter.params.empty()) {
+            parameterFilter = &filter;
+            break;
+        }
+    }
+    if (!parameterFilter)
+        return;
+
+    const auto now = std::chrono::steady_clock::now();
+    if (nextAction != std::chrono::steady_clock::time_point{} && now < nextAction)
+        return;
+    nextAction = now + std::chrono::milliseconds(100);
+
+    if (!started) {
+        started = true;
+        LifecycleEvidence::EmitDiagnostic(
+            "ISSUE27_STRESS",
+            "stage=DRIVER_STARTED source=UIRenderThread");
+    }
+
+    const auto& firstFilter = snapshot.filters.front();
+    switch (step % 5) {
+    case 0:
+        manager.QueueSetAdaptiveMode(true, AudioPreset::Flat);
+        break;
+    case 1:
+        manager.QueueSetCurrentPreset(
+            ((step / 5) % 2) == 0 ? AudioPreset::Pop : AudioPreset::Rock);
+        break;
+    case 2:
+        manager.QueueToggleFilter(firstFilter.id, !firstFilter.enabled);
+        break;
+    case 3:
+        manager.QueueSetFilterBypassMode(
+            firstFilter.id,
+            !firstFilter.isBypassManagement);
+        break;
+    case 4:
+    {
+        const auto& [key, param] = *parameterFilter->params.begin();
+        const float span = param.max - param.min;
+        const float fraction = ((step / 5) % 2) == 0 ? 0.35f : 0.65f;
+        const float target = param.min + span * fraction;
+        manager.QueueUpdateParam(parameterFilter->id, key, target);
+        break;
+    }
+    default:
+        break;
+    }
+
+    ++step;
+    if (step >= 50) {
+        done = true;
+        LifecycleEvidence::EmitDiagnostic(
+            "ISSUE27_STRESS",
+            "stage=DRIVER_DONE command_count=50");
+    }
+}
+
+} // namespace
+
 void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
 {
     if (!window) return;
@@ -1066,19 +1158,22 @@ void ShowTestPopup(bool& closePopup_Test, WindowRuntime* window)
     auto* manager = session->GetAudioFilterManager();
     if(!manager) return;
 
-    AudioContext ctx = manager->GetCurrentContext();
+    AudioFilterControlSnapshot snapshot = manager->GetControlSnapshot();
+    AudioContext ctx = snapshot.context;
+
+    RunIssue27FilterControlStressDriver(*manager, snapshot);
 
     if (CSImGui::BeginModernTabBar("##DebugTabs"))
     {
         if (CSImGui::ModernTabItem("Core"))
         {
-            DrawCoreMonitor(*manager, ctx);
+            DrawCoreMonitor(*manager, snapshot);
             CSImGui::EndModernTabItem();
         }
 
         if (CSImGui::ModernTabItem("Adaptive"))
         {
-            DrawAdaptiveControl(*manager, ctx);
+            DrawAdaptiveControl(*manager, snapshot);
             CSImGui::EndModernTabItem();
         }
 
