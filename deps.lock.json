@@ -37,5 +37,6 @@
   },
   "sourceGraph": {
     "native/src/api/api_manager.cpp": "EXCLUDED-PROTOTYPE"
-  }
+  },
+  "_audit57_e1_cache_invalidation_probe": "metadata-only-no-pin-or-toolchain-change"
 }
