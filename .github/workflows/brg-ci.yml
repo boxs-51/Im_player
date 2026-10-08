@@ -179,24 +179,6 @@ jobs:
               "cache_source=$env:VCPKG_BINARY_SOURCES"
           ) | Set-Content artifacts/ci/cache-${{ matrix.configuration }}.txt -Encoding UTF8
 
-      # AUD-57-E2 disposable corrupted-archive probe. NEVER MERGE THIS EVIDENCE BRANCH.
-      - name: AUD-57-E2 Corrupt one restored vcpkg archive (evidence only)
-        shell: pwsh
-        run: |
-          $ErrorActionPreference = 'Stop'
-          $hit = "${{ steps.vcpkg-cache.outputs.cache-hit }}"
-          if ($hit -ne 'true') { throw "[AUD-57-E2] ABORT: no primary cache HIT ($hit); cannot test corruption" }
-          $dir = Join-Path $env:RUNNER_TEMP 'vcpkg-binary-archives'
-          $zips = @(Get-ChildItem -Path $dir -File -Filter '*.zip' -Recurse | Sort-Object Length -Descending)
-          if ($zips.Count -eq 0) { throw '[AUD-57-E2] ABORT: no restored ZIP files to corrupt' }
-          $zip = $zips[0]
-          $hash = (Get-FileHash $zip.FullName -Algorithm SHA256).Hash
-          $originalSize = $zip.Length
-          [IO.File]::WriteAllBytes($zip.FullName, [byte[]](0x42,0x41,0x44,0x2D,0x5A,0x49,0x50))
-          $info = "[AUD-57-E2] INJECTED_CORRUPT_ZIP path=$($zip.FullName) original_size=$originalSize original_sha256=$hash new_size=7 zip_count=$($zips.Count) cache_hit=$hit"
-          Write-Host $info
-          $info | Set-Content -Path "artifacts/ci/aud57-e2-${{ matrix.configuration }}.txt" -Encoding UTF8
-
       - name: Configure
         shell: pwsh
         run: |
