@@ -451,6 +451,23 @@ for token in (
     if token not in playback_observer_cpp_issue42:
         fail(f"#42: AUDIO_RECONFIG continuity evidence missing: {token}")
 
+# Issue #42 URL audio first-load and in-play source state instrumentation.
+# Never mistake property/cache health for direct remote URL reachability.
+for token in (
+    'stage=URL_AUDIO_STATE',
+    'stage=URL_AUDIO_PARAMS',
+    'stage=URL_AUDIO_SOURCE_ERROR',
+    'component=unattributed',
+    'source_reachability=unverified',
+    '"start_file"',
+    '"file_loaded"',
+    '"playback_5s_sample"',
+    '"track_list_changed"',
+    '"network_cache_changed"',
+):
+    if token not in playback_observer_cpp_issue42:
+        fail(f"#42: URL audio lifecycle evidence missing: {token}")
+
 for token in (
     "stage=PIPE_CREATE_FAILED",
     "stage=PIPE_CONNECTED",
