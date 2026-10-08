@@ -51,3 +51,5 @@ imgui.ini
 mpv/
 
 *.log
+
+artifacts/

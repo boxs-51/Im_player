@@ -1,6 +1,32 @@
 #include "af_m.h"
 #include "af_m_log.h"
+#include "common/LifecycleEvidence.h"
 #include <iostream>
+#include <utility>
+#include <cstdio>
+
+namespace {
+unsigned long long FilterControlThreadToken() {
+    return static_cast<unsigned long long>(
+        std::hash<std::thread::id>{}(std::this_thread::get_id()));
+}
+
+void EmitFilterControlEvidence(
+    const char* stage,
+    uint64_t sequence = 0,
+    const char* command = "")
+{
+    char message[384]{};
+    std::snprintf(
+        message,
+        sizeof(message),
+        "stage=%s seq=%llu command=%s",
+        stage ? stage : "UNKNOWN",
+        static_cast<unsigned long long>(sequence),
+        command ? command : "");
+    LifecycleEvidence::EmitDiagnostic("FILTER_CONTROL", message);
+}
+}
 
 AudioFilterManager::AudioFilterManager() 
     : mpv(nullptr), m_channelMode("stereo"), m_autoMode(false), 
@@ -10,6 +36,139 @@ AudioFilterManager::AudioFilterManager()
 
 AudioFilterManager::~AudioFilterManager() {
     DetachPlayer();
+}
+
+void AudioFilterManager::EnqueueControlCommand(const char* name, std::function<void()> apply) {
+    PendingControlCommand command;
+    uint64_t sequence = 0;
+    {
+        std::lock_guard<std::mutex> lock(m_controlQueueMutex);
+        sequence =
+            m_nextControlCommandSequence.fetch_add(1, std::memory_order_relaxed);
+        command.sequence = sequence;
+        command.name = name ? name : "unknown";
+        command.apply = std::move(apply);
+        m_controlQueue.push(std::move(command));
+    }
+
+    LOG(1, LogLevel::Debug, LogCategory::Sync,
+        "[FILTER-CONTROL] stage=ENQUEUE seq=%llu thread=%llu command=%s",
+        static_cast<unsigned long long>(sequence),
+        FilterControlThreadToken(),
+        name ? name : "unknown");
+    EmitFilterControlEvidence("ENQUEUE", sequence, name ? name : "unknown");
+}
+
+void AudioFilterManager::DrainControlCommands() {
+    std::queue<PendingControlCommand> pending;
+    {
+        std::lock_guard<std::mutex> lock(m_controlQueueMutex);
+        const auto currentThread = std::this_thread::get_id();
+        if (m_controlOwnerThreadId == std::thread::id{}) {
+            m_controlOwnerThreadId = currentThread;
+            LOG(1, LogLevel::Info, LogCategory::Sync,
+                "[FILTER-CONTROL] stage=OWNER_BOUND thread=%llu",
+                FilterControlThreadToken());
+            EmitFilterControlEvidence("OWNER_BOUND");
+        } else if (m_controlOwnerThreadId != currentThread) {
+            LOG(1, LogLevel::Error, LogCategory::Sync,
+                "[FILTER-CONTROL] stage=OWNER_VIOLATION thread=%llu",
+                FilterControlThreadToken());
+            EmitFilterControlEvidence("OWNER_VIOLATION");
+            return;
+        }
+
+        bool expected = false;
+        if (!m_isDrainingControlCommands.compare_exchange_strong(
+                expected,
+                true,
+                std::memory_order_acq_rel,
+                std::memory_order_acquire)) {
+            EmitFilterControlEvidence("REENTRANT_DEFER");
+            return;
+        }
+
+        std::swap(pending, m_controlQueue);
+    }
+
+    struct DrainGuard {
+        std::atomic_bool& flag;
+        ~DrainGuard() {
+            flag.store(false, std::memory_order_release);
+        }
+    } guard{m_isDrainingControlCommands};
+
+    while (!pending.empty()) {
+        PendingControlCommand command = std::move(pending.front());
+        pending.pop();
+        LOG(1, LogLevel::Debug, LogCategory::Sync,
+            "[FILTER-CONTROL] stage=APPLY seq=%llu thread=%llu command=%s",
+            static_cast<unsigned long long>(command.sequence),
+            FilterControlThreadToken(),
+            command.name.c_str());
+        EmitFilterControlEvidence("APPLY", command.sequence, command.name.c_str());
+        if (command.apply) command.apply();
+    }
+}
+
+void AudioFilterManager::PublishControlSnapshot() {
+    AudioFilterControlSnapshot snapshot;
+    snapshot.autoMode = m_autoMode;
+    snapshot.currentPreset = m_currentPreset;
+    snapshot.globalBypass = m_globalBypass;
+    snapshot.outerStabilizerEnabled = m_enableOuterStabilizer;
+    snapshot.outerBoosterEnabled = m_enableOuterBooster;
+    snapshot.channelMode = m_channelMode;
+    snapshot.filters = m_filters;
+    snapshot.context = m_currentContext;
+
+    std::lock_guard<std::mutex> lock(m_controlSnapshotMutex);
+    m_controlSnapshot = std::move(snapshot);
+}
+
+AudioFilterControlSnapshot AudioFilterManager::GetControlSnapshot() const {
+    std::lock_guard<std::mutex> lock(m_controlSnapshotMutex);
+    return m_controlSnapshot;
+}
+
+void AudioFilterManager::QueueToggleFilter(const std::string& id, bool state) {
+    EnqueueControlCommand("ToggleFilter", [this, id, state]() { ToggleFilter(id, state); });
+}
+void AudioFilterManager::QueueSetAllFiltersState(bool enabled) {
+    EnqueueControlCommand("SetAllFiltersState", [this, enabled]() { SetAllFiltersState(enabled); });
+}
+void AudioFilterManager::QueueSetAdaptiveMode(bool enabled, AudioPreset preset) {
+    EnqueueControlCommand("SetAdaptiveMode", [this, enabled, preset]() { SetAdaptiveMode(enabled, preset); });
+}
+void AudioFilterManager::QueueSetCurrentPreset(AudioPreset preset) {
+    EnqueueControlCommand("SetCurrentPreset", [this, preset]() { SetCurrentPreset(preset); });
+}
+void AudioFilterManager::QueueSetFilterBypassMode(const std::string& id, bool bypassState) {
+    EnqueueControlCommand("SetFilterBypassMode", [this, id, bypassState]() { SetFilterBypassMode(id, bypassState); });
+}
+void AudioFilterManager::QueueSetGlobalBypassMode(bool bypassState) {
+    EnqueueControlCommand("SetGlobalBypassMode", [this, bypassState]() { SetGlobalBypassMode(bypassState); });
+}
+void AudioFilterManager::QueueSetOuterStabilizerEnabled(bool enabled) {
+    EnqueueControlCommand("SetOuterStabilizerEnabled", [this, enabled]() { SetOuterStabilizerEnabled(enabled); });
+}
+void AudioFilterManager::QueueSetOuterBoosterEnabled(bool enabled) {
+    EnqueueControlCommand("SetOuterBoosterEnabled", [this, enabled]() { SetOuterBoosterEnabled(enabled); });
+}
+void AudioFilterManager::QueueUpdateParam(const std::string& id, const std::string& key, float value) {
+    EnqueueControlCommand("UpdateParam", [this, id, key, value]() { UpdateParam(id, key, value); });
+}
+void AudioFilterManager::QueueResetFilter(const std::string& id) {
+    EnqueueControlCommand("ResetFilter", [this, id]() { ResetFilter(id); });
+}
+void AudioFilterManager::QueueSetChannelMode(const std::string& mode) {
+    EnqueueControlCommand("SetChannelMode", [this, mode]() { SetChannelMode(mode); });
+}
+void AudioFilterManager::QueueSaveToFile() {
+    EnqueueControlCommand("SaveToFile", [this]() { SaveToFile(); });
+}
+void AudioFilterManager::QueueLoadFromFile() {
+    EnqueueControlCommand("LoadFromFile", [this]() { LoadFromFile(); });
 }
 
 void AudioFilterManager::AttachPlayer(mpv_handle* h, PlayerStateSystem* stateSystem, Audio* audio) {
@@ -126,6 +285,7 @@ void AudioFilterManager::Init(mpv_handle* h, PlayerStateSystem* stateSystem, Aud
     RegisterParam("f_out_limiter", "release", 10.0f, 1000.0f, 100.0f, false);
     RegisterParam("f_out_limiter", "makeup", 1.0f, 64.0f, 1.0f, false);     
 
+    PublishControlSnapshot();
 }
 
 void AudioFilterManager::AddFilter(const std::string& id, const std::string& name, const std::string& group, const std::string& description, bool ai_controllable) {
