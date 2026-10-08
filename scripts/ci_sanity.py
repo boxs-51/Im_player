@@ -428,6 +428,65 @@ for token in (
     if token not in audio_telemetry_h:
         fail(f"#31: backpressure telemetry contract missing: {token}")
 
+# Issue #42 measurement-only continuity boundary contract.
+playback_observer_cpp_issue42 = (
+    ROOT / "native/src/player/event/PlaybackObserver.cpp"
+).read_text(encoding="utf-8")
+audio_capture_cpp_issue42 = (
+    ROOT / "native/src/player/audio/AudioCaptureManager.cpp"
+).read_text(encoding="utf-8")
+
+for token in (
+    "IM_PLAYER_AUDIO_CONTINUITY_TRACE",
+    "EmitAudioContinuityEvidence",
+):
+    if token not in audio_telemetry_h:
+        fail(f"#42: continuity telemetry contract missing: {token}")
+
+for token in (
+    "stage=AUDIO_RECONFIG",
+    "time_pos=%.6f",
+    "cache_buffering_state=%d",
+):
+    if token not in playback_observer_cpp_issue42:
+        fail(f"#42: AUDIO_RECONFIG continuity evidence missing: {token}")
+
+# Issue #42 URL audio first-load and in-play source state instrumentation.
+# Never mistake property/cache health for direct remote URL reachability.
+for token in (
+    'stage=URL_AUDIO_STATE',
+    'stage=URL_AUDIO_PARAMS',
+    'stage=URL_AUDIO_SOURCE_ERROR',
+    'component=unattributed',
+    'source_reachability=unverified',
+    '"start_file"',
+    '"file_loaded"',
+    '"playback_5s_sample"',
+    '"track_list_changed"',
+    '"network_cache_changed"',
+):
+    if token not in playback_observer_cpp_issue42:
+        fail(f"#42: URL audio lifecycle evidence missing: {token}")
+
+for token in (
+    "stage=PIPE_CREATE_FAILED",
+    "stage=PIPE_CONNECTED",
+    "reconnect_gap_us=%llu",
+    "stage=PIPE_DISCONNECTED",
+    "gap_since_last_read_us=%llu",
+):
+    if token not in audio_capture_cpp_issue42:
+        fail(f"#42: pipe continuity evidence missing: {token}")
+
+for token in (
+    "stage=OUTPUT_DEVICE_RECOVERY_ATTEMPT",
+    "stage=OUTPUT_DEVICE_RECOVERY_RESULT",
+    "stage=OUTPUT_DEVICE_OFFLINE_DROP",
+    "reason=device_unavailable",
+):
+    if token not in audio_output_cpp_issue31:
+        fail(f"#42: output continuity evidence missing: {token}")
+
 for token in (
     "stage=TRACE_ARMED",
     "stage=PROCESSOR_ACQUIRE_RAW",

@@ -139,6 +139,31 @@ inline void EmitStartupBoundaryEvidence(const char* format, ...)
     EmitAudioTelemetryEvidence("STARTUP_BOUNDARY %s", payload);
 }
 
+inline bool AudioContinuityTraceEnabled() noexcept
+{
+    static const bool enabled = []() noexcept {
+        const char* value = std::getenv("IM_PLAYER_AUDIO_CONTINUITY_TRACE");
+        return value && *value && *value != '0';
+    }();
+    return enabled;
+}
+
+inline void EmitAudioContinuityEvidence(const char* format, ...)
+{
+    if (!AudioContinuityTraceEnabled() || !format)
+        return;
+
+    char payload[1536]{};
+    va_list args;
+    va_start(args, format);
+    const int written = std::vsnprintf(payload, sizeof(payload), format, args);
+    va_end(args);
+    if (written <= 0)
+        return;
+
+    EmitAudioTelemetryEvidence("CONTINUITY %s", payload);
+}
+
 inline bool AudioBackpressureTraceEnabled() noexcept
 {
     static const bool enabled = []() noexcept {

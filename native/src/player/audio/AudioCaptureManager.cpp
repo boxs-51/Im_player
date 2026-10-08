@@ -237,9 +237,16 @@ void AudioCaptureManager::CaptureLoop() {
     OVERLAPPED overlapped = { 0 };
     overlapped.hEvent = hEvent;
 
+    std::uint64_t lastPipeDisconnectMicros = 0;
+    std::uint64_t pipeConnectionIndex = 0;
+
     while (m_isRunning) {
         HANDLE currentPipe = CreateAudioPipe();
         if (currentPipe == INVALID_HANDLE_VALUE) {
+            EmitAudioContinuityEvidence(
+                "stage=PIPE_CREATE_FAILED t_us=%llu error=%lu",
+                static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                static_cast<unsigned long>(GetLastError()));
             std::this_thread::sleep_for(std::chrono::milliseconds(50));
             continue;
         }
@@ -275,6 +282,16 @@ void AudioCaptureManager::CaptureLoop() {
 
         if (connected && m_isRunning) {
             const std::uint64_t pipeConnectedMicros = AudioTelemetryNowMicros();
+            ++pipeConnectionIndex;
+            const std::uint64_t reconnectGapMicros =
+                lastPipeDisconnectMicros > 0 && pipeConnectedMicros >= lastPipeDisconnectMicros
+                    ? pipeConnectedMicros - lastPipeDisconnectMicros
+                    : 0;
+            EmitAudioContinuityEvidence(
+                "stage=PIPE_CONNECTED t_us=%llu connection_index=%llu reconnect_gap_us=%llu",
+                static_cast<unsigned long long>(pipeConnectedMicros),
+                static_cast<unsigned long long>(pipeConnectionIndex),
+                static_cast<unsigned long long>(reconnectGapMicros));
             if (RecordFirstAudioTelemetry(
                     m_metrics.firstPipeConnectedMicros,
                     pipeConnectedMicros)) {
@@ -310,6 +327,7 @@ void AudioCaptureManager::CaptureLoop() {
 
                 if (accumulator.ReadyFrames() == 0) {
                     DWORD bytesRead = 0;
+                    DWORD readError = ERROR_SUCCESS;
                     ResetEvent(hEvent);
 
                     BOOL success = ReadFile(
@@ -320,17 +338,36 @@ void AudioCaptureManager::CaptureLoop() {
                         &overlapped
                     );
 
-                    if (!success && GetLastError() == ERROR_IO_PENDING) {
+                    if (!success) {
+                        readError = GetLastError();
+                    }
+
+                    if (!success && readError == ERROR_IO_PENDING) {
                         while (m_isRunning) {
                             DWORD waitRes = WaitForSingleObject(hEvent, 10);
                             if (waitRes == WAIT_OBJECT_0) {
                                 success = GetOverlappedResult(currentPipe, &overlapped, &bytesRead, FALSE);
+                                readError = success ? ERROR_SUCCESS : GetLastError();
                                 break;
                             }
                         }
                     }
 
                     if (!m_isRunning || !success || bytesRead == 0) {
+                        const std::uint64_t disconnectMicros = AudioTelemetryNowMicros();
+                        EmitAudioContinuityEvidence(
+                            "stage=PIPE_DISCONNECTED t_us=%llu connection_index=%llu reason=%lu bytes_read=%lu last_read_us=%llu gap_since_last_read_us=%llu running=%d",
+                            static_cast<unsigned long long>(disconnectMicros),
+                            static_cast<unsigned long long>(pipeConnectionIndex),
+                            static_cast<unsigned long>(readError),
+                            static_cast<unsigned long>(bytesRead),
+                            static_cast<unsigned long long>(lastReadMicros),
+                            static_cast<unsigned long long>(
+                                lastReadMicros > 0 && disconnectMicros >= lastReadMicros
+                                    ? disconnectMicros - lastReadMicros
+                                    : 0),
+                            m_isRunning ? 1 : 0);
+                        lastPipeDisconnectMicros = disconnectMicros;
                         LOG(1, LogLevel::Warning, LogCategory::Audio,
                             "[AudioCaptureManager] Pipe disconnected or stream read ended.");
                         break;
