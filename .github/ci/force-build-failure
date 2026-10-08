@@ -1,0 +1,2 @@
+AUD-57-E3: disposable, isolated negative-canary CI proof for cache-enabled PR #58.
+EVIDENCE_ONLY; MUST NOT MERGE. The workflow should fail Windows matrix and BRG CI Gate intentionally.
