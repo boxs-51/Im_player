@@ -5,11 +5,13 @@
 #include "player/PlayerUtils.h"
 #include "player/command/PlaybackCommand.h"
 #include "common/LifecycleEvidence.h"
+#include "player/audio/AudioTelemetry.h"
 #include "globals.h"
 #include "settings_manager.h"
 
 #include <log.h>
 #include <mutex>
+#include <cstring>
 #include <thread>
 #include <iostream>
 #include <unordered_map>
@@ -536,6 +538,49 @@ void PlaybackObserver::UpdateLoudnessMetadata(const mpv_node* node) {
 
 void PlaybackObserver::ProcessEvents() {
     if (!m_mpv) return;
+    // #42 measurement-only: mpv exposes decoder/cache state, NOT actual HTTP
+    // reachability. Never include the raw URL or signed segment tokens here.
+    auto emitUrlAudioSnapshot = [this](const char* reason) {
+        if (!AudioContinuityTraceEnabled()) return;
+        double timePos = 0.0, playbackTime = 0.0, cacheDuration = 0.0;
+        bool paused = false, seeking = false, pauseForCache = false;
+        bool viaNetwork = false;
+        int buffering = 0, audioTracks = 0, selectedAudioId = -1;
+        int sampleRate = 0, channelCount = 0;
+        m_state.ReadPlayback([&](const PlaybackModel& p) {
+            timePos = p.timing.timePos;
+            playbackTime = p.timing.playbackTime;
+            paused = p.flags.isPaused;
+            seeking = p.flags.isSeeking;
+            pauseForCache = p.flags.pauseForCache;
+        });
+        m_state.ReadNetwork([&](const NetworkModel& n) {
+            viaNetwork = n.demuxer_via_network;
+            buffering = n.cache_buffering_state;
+            cacheDuration = n.demuxer_cache_duration;
+        });
+        m_state.ReadAudio([&](const AudioModel& a) {
+            sampleRate = a.params.asamplerate;
+            channelCount = a.params.channel_count;
+        });
+        m_state.ReadTrack([&](const TrackModel& t) {
+            for (const auto& track : t.tracks) {
+                if (track.common.type == "audio") {
+                    ++audioTracks;
+                    if (track.common.selected) selectedAudioId = track.common.id;
+                }
+            }
+        });
+        EmitAudioContinuityEvidence(
+            "stage=URL_AUDIO_STATE load_id=%llu t_us=%llu reason=%s time_pos=%.6f playback_time=%.6f audio_tracks=%d selected_audio_id=%d samplerate=%d channels=%d network=%d cache_duration=%.3f cache_buffering_state=%d pause_for_cache=%d paused=%d seeking=%d source_reachability=unverified",
+            static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+            static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+            reason, timePos, playbackTime, audioTracks, selectedAudioId,
+            sampleRate, channelCount, viaNetwork ? 1 : 0, cacheDuration,
+            buffering, pauseForCache ? 1 : 0, paused ? 1 : 0,
+            seeking ? 1 : 0);
+    };
+
     while (mpv_event* event = mpv_wait_event(m_mpv, 0)) {
         if(event->event_id == MPV_EVENT_NONE) break;
         switch (event->event_id) {
@@ -584,6 +629,25 @@ void PlaybackObserver::ProcessEvents() {
                         }
                     }
                 }
+                // #42: categorical evidence only. MPV text can contain
+                // private/signed media URLs; never copy it into this marker.
+                if (AudioContinuityTraceEnabled() && msg->prefix && msg->text &&
+                    msg->level && strcmp(msg->level, "error") == 0) {
+                    const bool openFailed = strstr(msg->text, "Failed to open") != nullptr;
+                    const bool segmentFailed = strstr(msg->text, "failed to load segment") != nullptr;
+                    if (openFailed || segmentFailed) {
+                        double mediaTime = 0.0;
+                        m_state.ReadPlayback([&](const PlaybackModel& p) {
+                            mediaTime = p.timing.timePos;
+                        });
+                        EmitAudioContinuityEvidence(
+                            "stage=URL_AUDIO_SOURCE_ERROR load_id=%llu t_us=%llu time_pos=%.6f error_class=%s component=unattributed",
+                            static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                            static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                            mediaTime,
+                            openFailed ? "stream_open_failed" : "segment_load_failed");
+                    }
+                }
                 if (msg && msg->level) {
                     if (strcmp(msg->level, "error")  == 0) {
                         LOG(1, LogLevel::Error, LogCategory::System, msg->text);
@@ -619,6 +683,7 @@ void PlaybackObserver::ProcessEvents() {
                     static_cast<unsigned long long>(loadId),
                     static_cast<unsigned long long>(SDL_GetTicks64()),
                     pendingSeek));
+            emitUrlAudioSnapshot("start_file");
             break;
         }
         case MPV_EVENT_END_FILE: {
@@ -626,6 +691,7 @@ void PlaybackObserver::ProcessEvents() {
             if (!data) break;
 
             const Uint64 loadId = m_commander.GetStartupLoadId();
+            emitUrlAudioSnapshot("end_file");
             bool mediaStarted = false;
             m_state.ReadPlayback([&](PlaybackModel const& m) {
                 mediaStarted =
@@ -757,6 +823,7 @@ void PlaybackObserver::ProcessEvents() {
                     static_cast<unsigned long long>(loadId),
                     static_cast<unsigned long long>(SDL_GetTicks64()),
                     static_cast<int>(videotype)));
+            emitUrlAudioSnapshot("file_loaded");
 
             // #33 deterministic startup boundary: yt-dlp source classification
             // may race FILE_LOADED. Do not mutate source-specific cache/sync/
@@ -836,6 +903,34 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_AUDIO_RECONFIG: {
+            const auto loadId = m_commander.GetStartupLoadId();
+            double timePos = 0.0;
+            double playbackTime = 0.0;
+            bool seeking = false;
+            bool pauseForCache = false;
+            int cacheBufferingState = 0;
+
+            m_state.ReadPlayback([&](const PlaybackModel& m) {
+                timePos = m.timing.timePos;
+                playbackTime = m.timing.playbackTime;
+                seeking = m.flags.isSeeking;
+                pauseForCache = m.flags.pauseForCache;
+            });
+            m_state.ReadNetwork([&](const NetworkModel& m) {
+                cacheBufferingState = m.cache_buffering_state;
+            });
+
+            EmitAudioContinuityEvidence(
+                "stage=AUDIO_RECONFIG load_id=%llu t_us=%llu time_pos=%.6f playback_time=%.6f seeking=%d pause_for_cache=%d cache_buffering_state=%d",
+                static_cast<unsigned long long>(loadId),
+                static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                timePos,
+                playbackTime,
+                seeking ? 1 : 0,
+                pauseForCache ? 1 : 0,
+                cacheBufferingState);
+
+            emitUrlAudioSnapshot("audio_reconfig");
             LOG(1,  LogLevel::Info, LogCategory::System, "[DEBUG] [INFO] [AUDIO RECONFIG] Audio configuration changed.");
             break;
         }
@@ -922,8 +1017,37 @@ void PlaybackObserver::ProcessEvents() {
             break;
         }
         case MPV_EVENT_PROPERTY_CHANGE: {
-            HandlePropertyChange((mpv_event_property*)event->data);
+            auto* prop = (mpv_event_property*)event->data;
+            HandlePropertyChange(prop);
             HandlePlaybackState();
+            if (AudioContinuityTraceEnabled() && prop && prop->name) {
+                if (strcmp(prop->name, "track-list") == 0) {
+                    emitUrlAudioSnapshot("track_list_changed");
+                } else if (strcmp(prop->name, "audio-params") == 0) {
+                    // A null property is an unavailable decoder, not proof of HTTP loss.
+                    EmitAudioContinuityEvidence(
+                        "stage=URL_AUDIO_PARAMS load_id=%llu t_us=%llu available=%d",
+                        static_cast<unsigned long long>(m_commander.GetStartupLoadId()),
+                        static_cast<unsigned long long>(AudioTelemetryNowMicros()),
+                        prop->data ? 1 : 0);
+                    emitUrlAudioSnapshot("audio_params_changed");
+                } else if (strcmp(prop->name, "pause-for-cache") == 0 ||
+                           strcmp(prop->name, "cache-buffering-state") == 0 ||
+                           strcmp(prop->name, "demuxer-via-network") == 0) {
+                    emitUrlAudioSnapshot("network_cache_changed");
+                } else if (strcmp(prop->name, "time-pos") == 0 && prop->data) {
+                    // No more than one snapshot every 5 seconds, regardless
+                    // of frequent time-pos notifications or media seeks.
+                    static std::atomic<std::uint64_t> lastSnapshotUs{0};
+                    const auto nowUs = AudioTelemetryNowMicros();
+                    auto lastUs = lastSnapshotUs.load(std::memory_order_relaxed);
+                    if (nowUs >= lastUs && nowUs - lastUs >= 5000000ULL &&
+                        lastSnapshotUs.compare_exchange_strong(lastUs, nowUs,
+                                                              std::memory_order_relaxed)) {
+                        emitUrlAudioSnapshot("playback_5s_sample");
+                    }
+                }
+            }
             break;
         }
         case MPV_EVENT_QUEUE_OVERFLOW: break;

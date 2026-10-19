@@ -109,6 +109,7 @@ jobs:
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
       - name: Verify VS18 / v145 runner contract
+        id: toolchain
         shell: pwsh
         run: |
           $pf86 = [Environment]::GetFolderPath([Environment+SpecialFolder]::ProgramFilesX86)
@@ -142,6 +143,7 @@ jobs:
               "cmake=$cmakeVersion"
               "configuration=${{ matrix.configuration }}"
           ) | Set-Content artifacts/ci/context-${{ matrix.configuration }}.txt -Encoding UTF8
+          "msvc_toolset=$($tool.Name)" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
 
       - name: Fresh dependency provisioning
         shell: pwsh
@@ -149,6 +151,33 @@ jobs:
           & .\scripts\bootstrap-deps.ps1 *>&1 |
               Tee-Object -FilePath artifacts/ci/bootstrap-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Prepare isolated vcpkg binary cache
+        shell: pwsh
+        run: |
+          $binaryCache = Join-Path $env:RUNNER_TEMP "vcpkg-binary-archives"
+          New-Item -ItemType Directory -Force -Path $binaryCache | Out-Null
+          "VCPKG_BINARY_SOURCES=clear;files,$binaryCache,readwrite" |
+              Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+
+      - name: Restore/save vcpkg binary archives
+        id: vcpkg-cache
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/vcpkg-binary-archives
+          key: vcpkg-bin-v1-win2025-vs2026-${{ runner.arch }}-cmake420-msvc${{ steps.toolchain.outputs.msvc_toolset }}-${{ hashFiles('deps.lock.json', 'vcpkg.json', 'CMakePresets.json', 'CMakeLists.txt', 'cmake/**/*.cmake') }}
+
+      - name: Record vcpkg cache provenance
+        shell: pwsh
+        run: |
+          @(
+              "commit=$env:CI_EXPECTED_SHA"
+              "configuration=${{ matrix.configuration }}"
+              "msvc_toolset=${{ steps.toolchain.outputs.msvc_toolset }}"
+              "cache_hit=${{ steps.vcpkg-cache.outputs.cache-hit }}"
+              "cache_path=$env:RUNNER_TEMP\\vcpkg-binary-archives"
+              "cache_source=$env:VCPKG_BINARY_SOURCES"
+          ) | Set-Content artifacts/ci/cache-${{ matrix.configuration }}.txt -Encoding UTF8
 
       - name: Configure
         shell: pwsh
