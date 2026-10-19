@@ -1,0 +1,40 @@
+name: S01 Audio Boundary Oracle
+on:
+  pull_request:
+    branches: [alpha]
+    paths:
+      - 'scripts/issue42_first_boundary.py'
+      - 'scripts/issue42_s01_physical.ps1'
+      - 'tests/test_issue42_first_boundary.py'
+      - '.github/workflows/issue42-s01.yml'
+  workflow_dispatch:
+permissions:
+  contents: read
+jobs:
+  trace-fixture:
+    name: S01 synthetic trace contract (${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-26.04, windows-2025-vs2026]
+    steps:
+      - uses: actions/checkout@v5
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+      - name: Pin exact source
+        shell: bash
+        run: |
+          test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
+      - name: Run Python stdlib trace tests
+        run: python -m unittest discover -s tests -p test_issue42_first_boundary.py -v
+      - name: Validate physical capture script syntax (not GUI E2E)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $tokens = $null; $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Join-Path $PWD 'scripts/issue42_s01_physical.ps1'),
+            [ref]$tokens, [ref]$errors) | Out-Null
+          if ($errors.Count -gt 0) { throw ($errors | ForEach-Object Message) }
+          Write-Host "PowerShell parser PASS; physical playback NOT_RUN_IN_CI"
