@@ -20,7 +20,7 @@ def packet(seq, time, gen=3, load=7):
 class FirstBoundary(unittest.TestCase):
     def test_correlated_capture_gap_is_observed_not_called_cause(self):
         trace = "\n".join([packet(1, 1_000_000), packet(2, 1_020_000),
-                          mark("SDL_QUEUE_UNDERFLOW", 1_600_000, load_id=7, index=1),
+                          mark("SDL_QUEUE_UNDERFLOW", 1_600_000, load_id=7, index=1, last_generation=3),
                           packet(3, 2_120_000)])
         r = analyze(trace)
         self.assertEqual(r["classification"], "CAPTURE_PUBLICATION_GAP_OBSERVED")
@@ -82,6 +82,18 @@ class FirstBoundary(unittest.TestCase):
                            mark("SDL_QUEUE_UNDERFLOW", 1_600_000,
                                 load_id=7, last_generation=4)])
         self.assertEqual(analyze(trace)["classification"], "INCONCLUSIVE")
+
+    def test_unknown_underflow_generation_never_correlates_capture(self):
+        trace = "\n".join([packet(1, 1_000_000), packet(2, 2_200_000),
+                           mark("SDL_QUEUE_UNDERFLOW", 1_600_000, load_id=7)])
+        self.assertEqual(analyze(trace)["classification"], "INCONCLUSIVE")
+
+    def test_segment_underflow_generation_is_respected(self):
+        trace = "\n".join([packet(1, 1_000_000), packet(2, 2_200_000),
+                           mark("SDL_QUEUE_UNDERFLOW", 1_600_000, load_id=7,
+                                generation=3, source="segment")])
+        self.assertEqual(analyze(trace)["classification"],
+                         "CAPTURE_PUBLICATION_GAP_OBSERVED")
 
     def test_reject_zero_threshold(self):
         with self.assertRaises(ValueError):

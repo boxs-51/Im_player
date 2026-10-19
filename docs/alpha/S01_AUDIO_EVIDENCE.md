@@ -3,9 +3,9 @@
 Base is `alpha@f9e0168dc46194f7dde6112ca6ebba02a5b52c9b`. The original S00 GitHub Actions run [39270848412](https://github.com/boxs-51/Im_player/actions/runs/39270848412) succeeded in all 4 jobs; Windows Debug/Release CTest each 8/8. Build CI is not physical playback proof.
 
 ## RED-first record
-An early analyzer version failed `test_correlated_capture_gap_is_observed_not_called_cause`: expected `CAPTURE_PUBLICATION_GAP_OBSERVED` on a synthetic 1,100,000us capture publication gap straddling SDL underflow, but returned `INCONCLUSIVE`. Local actual run: 1/9 failed. A targeted lookahead correction produced 11/11 passing Python stdlib tests on Linux. This RED→GREEN proves only the new telemetry analyzer, **not the C++ audio defect**.
+An early analyzer version failed `test_correlated_capture_gap_is_observed_not_called_cause`: expected `CAPTURE_PUBLICATION_GAP_OBSERVED` on a synthetic 1,100,000us capture publication gap straddling SDL underflow, but returned `INCONCLUSIVE`. Local actual run: 1/9 failed. A targeted lookahead correction produced 11/11 passing Python stdlib tests on the initial candidate, followed by a second RED-first boundary regression (1/13 failing on unknown underflow generation) and 13/13 passing tests after generation-safe correlation on Linux. This RED→GREEN proves only the new telemetry analyzer, **not the C++ audio defect**.
 
-The new S01 CI runs these 11 tests on Linux and Windows; the original BRG, canary and security oracles are unchanged. No player C++ production source was edited.
+The new S01 CI runs these 13 tests on Linux and Windows; the original BRG, canary and security oracles are unchanged. No player C++ production source was edited.
 
 ## Physical Windows protocol (requires interactive session and available audio output)
 Run in the repository at exact current S01 branch HEAD with Windows GUI, a clean startup, and affected media:

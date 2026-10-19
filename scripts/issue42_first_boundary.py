@@ -54,6 +54,12 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
             result["classification"] = classification
             result["evidence"].append(stage)
             return result
+    underflow_gen = integer(u, "generation")
+    if underflow_gen is None:
+        underflow_gen = integer(u, "last_generation")
+    if underflow_gen is None:
+        result["evidence"].append("underflow_missing_generation_identity")
+        return result
     groups = {}
     for e in scoped:
         if e["stage"] != "PROCESSOR_ACQUIRE_RAW" or not t - 2_000_000 <= e["t_us"] <= t + 2_000_000:
@@ -61,8 +67,7 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         gen, seq, pub = (integer(e, k) for k in ("generation", "sequence", "capture_publish_us"))
         if None in (gen, seq, pub):
             continue
-        underflow_gen = integer(u, "last_generation")
-        if underflow_gen is not None and gen != underflow_gen:
+        if gen != underflow_gen:
             continue
         groups.setdefault(gen, {})[seq] = pub
     candidates = []
