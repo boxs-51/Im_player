@@ -128,20 +128,18 @@ Legacy `CMakeSettings.json` is removed because it defined a conflicting path.
 VS Code must use the CMake Tools configuration provider instead of a separate
 manual toolchain definition.
 
-## Evidence status
+## Evidence status: current branch-aware interpretation (2026-10-19)
 
-Until the fresh-clone commands are executed on the exact PR head:
+The historical BRG-1 initial unverified checklist is superseded here by the
+observed CI stage evidence, without claiming unrun physical scenarios:
 
-```text
-Fresh-clone configure       = NEEDS-RUNTIME-PROOF
-Debug build                 = NEEDS-RUNTIME-PROOF
-Release build               = NEEDS-RUNTIME-PROOF
-BRG-1 runtime startup closure = NEEDS-RUNTIME-PROOF
-Full L2 Startup/Shutdown    = NOT CLAIMED BY #4 (baseline owner: #8)
-CI                          = NOT_AVAILABLE (BRG-2 #5)
-```
+| Scope | Observed evidence | Limit |
+|---|---|---|
+| Original #54 PR HEAD `b1b0085f` | BRG run 37797445347: Static sanity, Windows Debug, Release and Gate succeeded | Audio discontinuity cause / exact-media physical reproduction **UNVERIFIED** |
+| Original #58 PR HEAD `01916217` | BRG run 37784907950: same four jobs succeeded | Not a combined-alpha CI result |
+| Initial alpha integration `20e35475` | Git tree/ancestry and six-path source union compared | New exact-alpha Windows CI and playback **NOT YET VERIFIED** at documentation snapshot |
+| Fresh local interactive playback / seek / resize / shutdown at current alpha HEAD | Not executed during this documentation audit | **NOT_RUN** |
 
-Documentation or static review alone must not convert these statuses to PASS.
-A successful BRG-1 startup check proves dependency/runtime closure only; it
-must not be relabeled as full L2 unless clean shutdown is also proven by the
-issue that owns that validation gate.
+The canonical supported build commands, dependency pinning, libmpv SHA and
+Windows-only target above are unchanged. See `docs/CI.md` and
+`docs/alpha/INTEGRATION_LEDGER.md` for how to collect new exact-head evidence.

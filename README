@@ -1,0 +1,30 @@
+# Im_player
+
+Windows C++17 media player using SDL2, libmpv, OpenGL and ImGui. Canonical application build currently targets Windows x64 / MSVC, not a Linux player binary.
+
+## Branches and current state
+- `main`: stable integration baseline, preserved at `e9b72924facd816c671c52c567c9e513a24077a4` when alpha was created.
+- `alpha`: **non-production experimental engineering line**. Integrates diagnostic PR #54 and CI cache PR #58; evidence-only PR #60 is excluded. Open P1 runtime issues remain open.
+- Latest exact HEAD, CI, and issue proof must be rechecked; branch name or individual historical green does not confer runtime PASS.
+
+Read [alpha engineering index](docs/alpha/README.md), [current architecture](docs/alpha/ARCHITECTURE_CURRENT.md), [linear issue sequence](docs/alpha/ISSUE_SEQUENCE.md), and [audit/integration provenance](docs/alpha/INTEGRATION_LEDGER.md).
+
+## Build and validation
+Use [BUILDING](docs/BUILDING.md), [CI](docs/CI.md), [BRG5 runtime evidence](docs/BRG5_RUNTIME_EVIDENCE.md). Fresh Windows x64 with Visual Studio 18 (MSVC v145), CMake 4.2+ and pinned dependencies:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap-deps.ps1
+cmake --preset windows-msvc-x64
+cmake --build --preset windows-msvc-x64-debug
+cmake --build --preset windows-msvc-x64-release
+```
+
+Static verification: `python3 scripts/ci_sanity.py`. A passing static script is NOT a substitute for physical Windows playback/seek/resize/shutdown tests.
+
+## Architecture docs
+- [Current implementation](docs/alpha/ARCHITECTURE_CURRENT.md) is source-based.
+- [Master refactor plan](docs/IM_PLAYER_REFACTOR_MASTER_PLAN.md) describes **proposed** architecture/phases 0–12, not deployed features.
+- [Documentation reconciliation](docs/alpha/DOCUMENT_AUDIT.md) separates current, proposed, and historic evidence.
+- Contributing/process/build boundaries: [CONTRIBUTING](CONTRIBUTING.md), [policy docs](docs/policy/README.md).
+
+Development work is managed through [alpha S00 tracker #61](https://github.com/boxs-51/Im_player/issues/61) and existing canonical bug issues. No direct production/main merge or release is implied by alpha integration.

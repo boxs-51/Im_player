@@ -8,8 +8,8 @@ Build Policy: IP-BUILD-001 v1.0.0
 
 `.github/workflows/brg-ci.yml`
 
-The workflow runs on pull requests targeting `main`, pushes to `main`, and
-manual dispatch.
+The workflow runs on pull requests targeting `main` or non-production `alpha`,
+pushes to `main` or `alpha`, and manual dispatch. Existing `main` gates are unchanged.
 
 The canonical required aggregate context is:
 
@@ -39,13 +39,16 @@ For pushes/manual runs, the expected commit is `github.sha`.
 
 The workflow executes `scripts/bootstrap-deps.ps1` from the checked-out tree.
 
-Initial BRG-2 intentionally disables vcpkg binary caching with:
+The global default remains `VCPKG_BINARY_SOURCES=clear`. With the alpha
+#58 integration, Windows jobs enable an isolated, SHA/manifest/toolchain-keyed
+vcpkg **binary archive** cache after fresh dependency bootstrap and MSVC
+validation. The cache is an optimization, not a substitute for pinned versions,
+libmpv hash verification or fresh configure/build. Details and experiment
+provenance: #57, #58 and `docs/alpha/INTEGRATION_LEDGER.md`.
 
-`VCPKG_BINARY_SOURCES=clear`
-
-This makes the first canonical proof independent of an opaque dependency
-binary cache. A future cache may be introduced only with an explicit Issue and
-evidence that cache keys preserve dependency correctness.
+Historic BRG-2 cold-cache initial proof is not a current statement that the
+alpha workflow has no cache. Verify post-integration alpha exact-HEAD CI
+separately; isolated #54/#58 PR runs do not prove combined-head PASS.
 
 ## Failure evidence
 
