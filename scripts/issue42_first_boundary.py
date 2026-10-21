@@ -217,11 +217,14 @@ def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(content, encoding="utf-8")
     print(content)
-    if args.require_reproduction and (
-        result["classification"] in ("INCONCLUSIVE", "NO_UNDERFLOW_OBSERVED")
-        or not result["playback_context_verified"]
-    ):
-        return 2
+    if args.require_reproduction:
+        # v2 currently only validates synthetic/producer-authored structure:
+        # do not promote a correlated gap to authenticated physical evidence.
+        if result.get("schema") == "ISSUE42-S01-OBSERVATION-v2":
+            return 2
+        if (result["classification"] in ("INCONCLUSIVE", "NO_UNDERFLOW_OBSERVED")
+                or not result.get("playback_context_verified", False)):
+            return 2
     return 0
 
 

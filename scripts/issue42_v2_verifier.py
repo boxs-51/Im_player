@@ -43,6 +43,9 @@ def _new_result(events):
         "root_cause": "UNKNOWN",
         "audible_output_verified": False,
         "binding_status": "UNVERIFIED",
+        # The JSONL input is unauthenticated synthetic/producer-authored data.
+        # Consistent evidence fields are not an independent OS/host receipt.
+        "producer_attestation": "UNVERIFIED",
         "selected_event_id": None,
         "reason_codes": [],
         "underflow_count": len(underflows),

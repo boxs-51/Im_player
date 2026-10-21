@@ -158,3 +158,8 @@ Các test trong `test_issue42_telemetry_v2_redfirst.py` đính kèm gọi **API 
 - [AudioTelemetry.h](https://github.com/boxs-51/Im_player/blob/6cddc8cd47c15dee776eea99bd7c15e0d677f224/native/src/player/audio/AudioTelemetry.h#L15-L20)
 
 **Reviewer status:** SELF-DESIGN-CHECK, không có independent review. **Architectural ADR status:** PROPOSED (not approved). **Gate:** `DESIGN_DELIVERED`; `IMPLEMENTATION_NOT_STARTED`; `RUNNER_RED_NOT_RUN`; `PHYSICAL_BLOCKED`.
+## T2 CLI admission fence — 2026-10-21
+
+At the frozen test-only T2 HEAD `52fe9eae3b295f0a4eead472d6b1623b44c84559`, [S01 RED #39606265614](https://github.com/boxs-51/Im_player/actions/runs/39606265614) on **Ubuntu and Windows** independently ran **62 tests, 1 expected ERROR, 61 PASS**. This exposed the absence of `producer_attestation` for a structurally valid v2 gap and legacy v1 CLI admission logic indexing `playback_context_verified` on a v2 report. The 61 older checks remained PASS.
+
+The bounded fix reports `producer_attestation=UNVERIFIED` on **all** v2 results and returns exit code **2** for `--require-reproduction` with v2 input, whether the synthetic gap classification is positive or inconclusive. No traceback and no promotion to real audio output. The original v1 CLI evaluation remains unchanged in effect; `--require-reproduction` does not become a physical proof for v1 either. Future authenticated producer and Windows physical admission must be designed, tested and separately approved. The frozen 62 test assertions were not edited.
