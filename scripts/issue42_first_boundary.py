@@ -14,11 +14,25 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         raise ValueError("threshold must be positive")
 
     events = []
+    lifecycle_stop_seen = False
+    lifecycle_components = {"PlayerSession", "AudioOutputWorker",
+                            "AudioProcessor", "AudioCaptureManager"}
     for line in raw.splitlines():
+        # Existing native LifecycleEvidence emits these records into the same
+        # append-only trace file. It supplies no t_us or load_id, so a STOP
+        # can only impose a conservative log-order exclusion, not prove which
+        # player/load ended. Never infer a physical mid-playback event after it.
+        if line.startswith("[Lifecycle] "):
+            lifecycle = dict(re.findall(r"\b([A-Za-z_][\w]*)=([^\s]+)", line))
+            if (lifecycle.get("phase") == "STOP" and
+                    lifecycle.get("component") in lifecycle_components):
+                lifecycle_stop_seen = True
+            continue
         if "[AUDIO-TELEMETRY] " not in line:
             continue
         fields = dict(re.findall(r"\b([A-Za-z_][\w]*)=([^\s]+)",
                                  line.split("[AUDIO-TELEMETRY] ", 1)[1]))
+        fields["_after_lifecycle_stop"] = lifecycle_stop_seen
         try:
             fields["t_us"] = int(fields["t_us"])
         except (KeyError, ValueError):
@@ -33,7 +47,9 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
               "root_cause": "UNKNOWN", "audible_output_verified": False,
               "underflow_count": len(underflows), "observed_marker_count": len(events),
               "capture_gap_us": None, "evidence": [],
-              "selected_underflow_t_us": None, "examined_underflow_count": 0}
+              "selected_underflow_t_us": None, "examined_underflow_count": 0,
+              "playback_context_verified": False,
+              "playback_context": "UNKNOWN"}
     if not underflows:
         return result
 
@@ -46,7 +62,11 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
     def inspect_underflow(u):
         """One event's observed markers; cannot prove audible output or cause."""
         candidate = {"classification": "INCONCLUSIVE", "capture_gap_us": None,
-                     "evidence": []}
+                     "evidence": [], "playback_context_verified": False,
+                     "playback_context": "UNKNOWN"}
+        if u.get("_after_lifecycle_stop"):
+            candidate["evidence"].append("shutdown_lifecycle_stop_observed")
+            return candidate
         t = u["t_us"]
         load = integer(u, "load_id")
         if load is None or load <= 0:
@@ -57,6 +77,12 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         if any(integer(u, flag) == 1 for flag in inactive_flags):
             candidate["evidence"].append("underflow_nonplaying_state")
             return candidate
+        # Missing or non-boolean fields are not affirmative evidence that
+        # playback was active. Preserve observed marker association, but never
+        # allow such a candidate to satisfy the physical-reproduction gate.
+        if all(integer(u, flag) == 0 for flag in inactive_flags):
+            candidate["playback_context_verified"] = True
+            candidate["playback_context"] = "ACTIVE_FLAGS_OBSERVED"
 
         generation = integer(u, "generation")
         if generation is None:
@@ -102,19 +128,30 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
             candidate["evidence"].append("no_correlated_boundary_marker")
         return candidate
 
-    # The first SDL underflow can be a startup/paused/teardown event. Do not
-    # discard later events just because an earlier one lacks valid evidence.
-    # Select the earliest *correlated* observation in timestamp order.
+    # Sort by event clock; after native lifecycle STOP, the record's phase
+    # cannot be attributed to active playback using this instrumentation.
+    # If there is a fully-observed active candidate, prefer its earliest
+    # event to an earlier candidate with incomplete state. For legacy traces
+    # keep the earliest observed association, explicitly marked unverified.
+    weak_candidate = None
     for underflow in underflows:
         candidate = inspect_underflow(underflow)
         result["examined_underflow_count"] += 1
         if candidate["classification"] != "INCONCLUSIVE":
-            result.update(candidate)
-            result["selected_underflow_t_us"] = underflow["t_us"]
-            return result
-        for reason in candidate["evidence"]:
-            if reason not in result["evidence"]:
-                result["evidence"].append(reason)
+            if candidate["playback_context_verified"]:
+                result.update(candidate)
+                result["selected_underflow_t_us"] = underflow["t_us"]
+                return result
+            if weak_candidate is None:
+                weak_candidate = (underflow["t_us"], candidate)
+        else:
+            for reason in candidate["evidence"]:
+                if reason not in result["evidence"]:
+                    result["evidence"].append(reason)
+    if weak_candidate is not None:
+        t, candidate = weak_candidate
+        result.update(candidate)
+        result["selected_underflow_t_us"] = t
     return result
 
 
@@ -130,7 +167,12 @@ def main():
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(content, encoding="utf-8")
     print(content)
-    return 2 if args.require_reproduction and result["classification"] in ("INCONCLUSIVE", "NO_UNDERFLOW_OBSERVED") else 0
+    if args.require_reproduction and (
+        result["classification"] in ("INCONCLUSIVE", "NO_UNDERFLOW_OBSERVED")
+        or not result["playback_context_verified"]
+    ):
+        return 2
+    return 0
 
 
 if __name__ == "__main__":
