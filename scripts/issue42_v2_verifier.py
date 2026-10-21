@@ -91,6 +91,7 @@ def analyze_v2(raw, threshold_us=250000):
         reasons.add("INVALID_V2_EVENT")
 
     seen_ids = {}
+    emitter_seq_owners = {}
     emitters = defaultdict(set)
     for e in events:
         eid = e.get("event_id")
@@ -110,6 +111,14 @@ def analyze_v2(raw, threshold_us=250000):
             reasons.add("UNKNOWN_CLOCK_DOMAIN")
         if seq is not None:
             group = (e.get("run_uid"), e.get("session_uid"), e.get("emitter_id"))
+            # A single emitter sequence can never represent two distinct
+            # events within one run/session. An event_id collision is covered
+            # by the existing independent CONFLICTING_EVENT_ID oracle.
+            identity = (*group, seq)
+            if identity in emitter_seq_owners and emitter_seq_owners[identity] != eid:
+                reasons.add("DUPLICATE_EMITTER_SEQUENCE")
+            else:
+                emitter_seq_owners[identity] = eid
             emitters[group].add(seq)
 
     for seqs in emitters.values():
@@ -170,6 +179,9 @@ def analyze_v2(raw, threshold_us=250000):
                 any(_int(u.get(flag)) != 0 for flag in INACTIVE)):
             reasons.add("UNDERFLOW_UNVERIFIED")
             continue
+        if load == 0:
+            reasons.add("ZERO_LOAD_ID_UNBOUND")
+            continue
         owner_sess = sessions.get((run, sess))
         owner_load = loads.get((run, sess, load))
         owner_gen = gens.get((run, sess, load, gen))
@@ -183,6 +195,13 @@ def analyze_v2(raw, threshold_us=250000):
                         _int(o.get("event_mono_us")) < t for o in
                         (owner_sess, owner_load, owner_gen))):
             reasons.add("IDENTITY_UNVERIFIED")
+            continue
+        # Validate owner's strict causal creation chain even if each owner
+        # record individually precedes the observed underflow.
+        owner_times = tuple(_int(o.get("event_mono_us")) for o in
+                            (owner_sess, owner_load, owner_gen))
+        if not (owner_times[0] < owner_times[1] < owner_times[2] < t):
+            reasons.add("OWNER_CHRONOLOGY_INVALID")
             continue
         if attempt > 0 and not set(range(1, attempt + 1)).issubset(
             retries.get((run, sess, load), set())
@@ -198,6 +217,7 @@ def analyze_v2(raw, threshold_us=250000):
             reasons.add("LIFECYCLE_STOP_FENCE")
             continue
         bound = []
+        acquisition_lease_mismatch = False
         for a in acquisitions:
             if (_tuple(a) != (run, sess, load, gen) or
                     a.get("clock_domain") != DOMAIN or
@@ -205,12 +225,21 @@ def analyze_v2(raw, threshold_us=250000):
                     a.get("lifecycle_epoch") != epoch or
                     _int(a.get("retry_attempt")) != attempt):
                 continue
+            # Explicit stale acquisition leases must not be used as evidence
+            # for the current owner. Older structural fixture markers do not
+            # carry the optional lease and stay UNATTESTED, never physical.
+            if "active_lease" in a and a["active_lease"] != lease:
+                acquisition_lease_mismatch = True
+                continue
             at, pub, seq = (_int(a.get(k)) for k in
                             ("event_mono_us", "capture_publish_us", "block_sequence"))
             if (at is None or pub is None or seq is None or
                     abs(at - t) > 2_000_000 or pub > at):
                 continue
             bound.append((pub, at, seq))
+        if acquisition_lease_mismatch:
+            reasons.add("ACQUISITION_LEASE_MISMATCH")
+            continue
         bound.sort()
         matched = False
         for left, right in zip(bound, bound[1:]):
