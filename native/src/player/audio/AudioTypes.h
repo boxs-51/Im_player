@@ -71,6 +71,9 @@ struct AudioBlock {
     // Issue #38 measurement-only startup correlation. These fields do not
     // replace the discontinuity/generation contract owned by Issue #30.
     uint64_t startupLoadId = 0;
+    // Issue #42 measurement-only lineage; copied intact along the SPSC chain.
+    std::uint64_t telemetryRunUid = 0;
+    std::uint64_t telemetrySessionUid = 0;
     uint64_t captureReadMicros = 0;
     uint64_t capturePublishMicros = 0;
 

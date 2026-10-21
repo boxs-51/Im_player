@@ -15,6 +15,7 @@
 
 #include <memory>
 #include <string>
+#include <cstdint>
 
 
 
@@ -63,6 +64,7 @@ public:
 
 private:
     std::string m_id;
+    const std::uint64_t m_telemetrySessionUid;
     std::unique_ptr<Player> m_player;
     std::unique_ptr<PlayBackRender> m_renderer;
     std::unique_ptr<PlaybackObserver> m_observer;

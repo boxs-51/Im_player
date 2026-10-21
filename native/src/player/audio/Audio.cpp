@@ -11,7 +11,7 @@ Audio::~Audio() {
     Shutdown();
 }
 
-bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
+bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, std::uint64_t sessionUid) {
     if (m_isInitialized.load(std::memory_order_relaxed)) {
         LOG(1, LogLevel::Warning, LogCategory::Audio, 
             "[Audio] System is already initialized.");
@@ -32,7 +32,7 @@ bool Audio::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem) {
     auto [procProducer, procConsumer] = make_spsc_ring_buffer<AudioBlock>(32);
 
     // 2. Kết nối Audio Capture Manager (Chỉ cấp quyền GHI vào Raw Stream)
-    if (!m_audioCapture.Init(mpv, stateSystem, std::move(rawProducer))) {
+    if (!m_audioCapture.Init(mpv, stateSystem, std::move(rawProducer), sessionUid)) {
         LOG(1, LogLevel::Error, LogCategory::Audio, 
              "[Audio] Failed to initialize AudioCaptureManager.");
         return false;

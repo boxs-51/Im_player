@@ -207,6 +207,8 @@ void AudioOutputWorker::OutputLoop() {
 
     std::uint64_t lastSuccessfulWriteMicros = 0;
     std::uint64_t lastSuccessfulLoadId = 0;
+    std::uint64_t lastSuccessfulRunUid = 0;
+    std::uint64_t lastSuccessfulSessionUid = 0;
     std::uint64_t lastSuccessfulSequence = 0;
     std::uint64_t lastSuccessfulGeneration = 0;
     double lastSuccessfulPts = 0.0;
@@ -387,8 +389,10 @@ void AudioOutputWorker::OutputLoop() {
                     if (lastSuccessfulLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
                         const auto playbackSnapshot = readStartupPlaybackSnapshot();
                         EmitStartupBoundaryEvidence(
-                            "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu last_sequence=%llu last_generation=%llu last_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=idle_observer",
+                            "stage=SDL_QUEUE_UNDERFLOW load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu index=%llu empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu last_sequence=%llu last_generation=%llu last_pts=%.6f mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=idle_observer",
                             static_cast<unsigned long long>(lastSuccessfulLoadId),
+                            static_cast<unsigned long long>(lastSuccessfulRunUid),
+                            static_cast<unsigned long long>(lastSuccessfulSessionUid),
                             static_cast<unsigned long long>(queueObservationMicros),
                             static_cast<unsigned long long>(underflowIndex),
                             static_cast<unsigned long long>(queueDecision.emptyDurationMicros),
@@ -578,8 +582,10 @@ void AudioOutputWorker::OutputLoop() {
             const size_t processedRingSizeAtAcquire = m_processedStream->size();
             if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
                 EmitStartupBoundaryEvidence(
-                    "stage=OUTPUT_ACQUIRE_PROCESSED load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu processed_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu queued_bytes=%u",
+                    "stage=OUTPUT_ACQUIRE_PROCESSED load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu processed_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu queued_bytes=%u",
                     static_cast<unsigned long long>(block->startupLoadId),
+                    static_cast<unsigned long long>(block->telemetryRunUid),
+                    static_cast<unsigned long long>(block->telemetrySessionUid),
                     static_cast<unsigned long long>(outputAcquireMicros),
                     static_cast<unsigned long long>(block->sequence),
                     static_cast<unsigned long long>(block->generation),
@@ -729,8 +735,10 @@ void AudioOutputWorker::OutputLoop() {
                             if (block->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
                                 const auto playbackSnapshot = readStartupPlaybackSnapshot();
                                 EmitStartupBoundaryEvidence(
-                                    "stage=SDL_QUEUE_UNDERFLOW load_id=%llu t_us=%llu index=%llu sequence=%llu generation=%llu pts=%.6f empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=segment",
+                                    "stage=SDL_QUEUE_UNDERFLOW load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu index=%llu sequence=%llu generation=%llu pts=%.6f empty_us=%llu queued_bytes=%u processed_ring_size=%zu last_write_us=%llu mpv_time_pos=%.6f playback_time=%.6f paused=%d core_idle=%d idle_active=%d seeking=%d pause_for_cache=%d cache_buffering_state=%d source=segment",
                                     static_cast<unsigned long long>(block->startupLoadId),
+                                    static_cast<unsigned long long>(block->telemetryRunUid),
+                                    static_cast<unsigned long long>(block->telemetrySessionUid),
                                     static_cast<unsigned long long>(segmentObservationMicros),
                                     static_cast<unsigned long long>(underflowIndex),
                                     static_cast<unsigned long long>(block->sequence),
@@ -989,6 +997,8 @@ void AudioOutputWorker::OutputLoop() {
 
                         lastSuccessfulWriteMicros = sdlWriteMicros;
                         lastSuccessfulLoadId = block->startupLoadId;
+                    lastSuccessfulRunUid = block->telemetryRunUid;
+                    lastSuccessfulSessionUid = block->telemetrySessionUid;
                         lastSuccessfulSequence = block->sequence;
                         lastSuccessfulGeneration = block->generation;
                         lastSuccessfulPts = block->pts;

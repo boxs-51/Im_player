@@ -3,6 +3,7 @@
 #include "PcmRealtimePacer.h"
 #include "AudioMediaClock.h"
 #include "AudioTelemetry.h"
+#include "AudioSessionIdentity.h"
 #include "PlayerStateSystem.h"
 #include "log.h"
 #include "threads/thread_manager.h"
@@ -123,13 +124,14 @@ AudioPipelineMetrics AudioCaptureManager::GetMetrics() const {
     return snapshot;
 }
 
-bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer) {
+bool AudioCaptureManager::Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer, std::uint64_t sessionUid) {
     if (!mpv || !stateSystem) return false;
     LOG(1, LogLevel::Info, LogCategory::Audio, "[AudioCaptureManager] Initializing...");
     
     m_producer.emplace(std::move(producer));
     m_mpv = mpv;
     m_stateSystem = stateSystem;
+    m_telemetrySessionUid = sessionUid;
     m_threadId = "AudioCapture_" + std::to_string(reinterpret_cast<uintptr_t>(this));
 
     m_pipeName = "\\\\.\\pipe\\mpv_pcm_" + std::to_string(GetCurrentProcessId()) + "_" + std::to_string(reinterpret_cast<uintptr_t>(this));
@@ -579,6 +581,8 @@ void AudioCaptureManager::CaptureLoop() {
                 writeSlot->generation = m_activeGeneration;
                 writeSlot->pts = m_currentPts;
                 writeSlot->startupLoadId = static_cast<std::uint64_t>(startupLoadId);
+                writeSlot->telemetryRunUid = AudioTelemetryProcessRunUid();
+                writeSlot->telemetrySessionUid = m_telemetrySessionUid;
                 writeSlot->captureReadMicros = lastReadMicros;
                 writeSlot->capturePublishMicros = AudioTelemetryNowMicros();
 
@@ -596,6 +600,8 @@ void AudioCaptureManager::CaptureLoop() {
                 const std::uint64_t captureReadMicros = writeSlot->captureReadMicros;
                 const std::uint64_t capturePublishMicros = writeSlot->capturePublishMicros;
                 const std::uint64_t publishedLoadId = writeSlot->startupLoadId;
+                const std::uint64_t publishedRunUid = writeSlot->telemetryRunUid;
+                const std::uint64_t publishedSessionUid = writeSlot->telemetrySessionUid;
 
                 m_producer->commit_write();
 
@@ -610,8 +616,10 @@ void AudioCaptureManager::CaptureLoop() {
                         frames,
                         static_cast<unsigned long long>(carryBytes));
                     EmitStartupBoundaryEvidence(
-                        "stage=CAPTURE_PUBLISH_RAW load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u raw_ring_size=%zu raw_ring_capacity=%zu",
+                        "stage=CAPTURE_PUBLISH_RAW load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u raw_ring_size=%zu raw_ring_capacity=%zu",
                         static_cast<unsigned long long>(publishedLoadId),
+                        static_cast<unsigned long long>(publishedRunUid),
+                        static_cast<unsigned long long>(publishedSessionUid),
                         static_cast<unsigned long long>(capturePublishMicros),
                         static_cast<unsigned long long>(publishedSequence),
                         static_cast<unsigned long long>(publishedGeneration),

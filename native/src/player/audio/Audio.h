@@ -6,6 +6,7 @@
 #include "SpscRingBuffer.h"
 
 #include <atomic>
+#include <cstdint>
 
 class PlayerStateSystem;
 
@@ -25,7 +26,7 @@ public:
     /**
      * @brief Khởi tạo và liên kết các thành phần trong Audio Pipeline
      */
-    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem);
+    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, std::uint64_t sessionUid);
     
     /**
      * @brief Dừng và giải phóng toàn bộ tài nguyên pipeline
