@@ -154,6 +154,13 @@ jobs:
               Tee-Object -FilePath artifacts/ci/bootstrap-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 pinned libmpv cache-paused property registry probe
+        shell: pwsh
+        run: |
+          & python.exe scripts/issue42_mpv_cache_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-mpv-property-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |

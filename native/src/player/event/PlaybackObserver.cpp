@@ -96,7 +96,7 @@ void PlaybackObserver::Init() {
         {"vsync-jitter", MPV_FORMAT_DOUBLE},
         {"file-size", MPV_FORMAT_INT64},
         {"demuxer-cache-state", MPV_FORMAT_NODE},
-        {"pause-for-cache", MPV_FORMAT_FLAG}
+        {"paused-for-cache", MPV_FORMAT_FLAG}
     }, "Advanced");
     mpv_observe_property(m_mpv, 0, "af-metadata/ebur_measurer", MPV_FORMAT_NODE);
 
@@ -1031,7 +1031,7 @@ void PlaybackObserver::ProcessEvents() {
                         static_cast<unsigned long long>(AudioTelemetryNowMicros()),
                         prop->data ? 1 : 0);
                     emitUrlAudioSnapshot("audio_params_changed");
-                } else if (strcmp(prop->name, "pause-for-cache") == 0 ||
+                } else if (strcmp(prop->name, "paused-for-cache") == 0 ||
                            strcmp(prop->name, "cache-buffering-state") == 0 ||
                            strcmp(prop->name, "demuxer-via-network") == 0) {
                     emitUrlAudioSnapshot("network_cache_changed");
@@ -1140,7 +1140,7 @@ void PlaybackObserver::HandleFlagProperty(const char* name, bool value) {
     else if (strcmp(name, "demuxer-via-network") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_via_network = value; });
     else if (strcmp(name, "vo-configured") == 0);
     else if (strcmp(name, "display-sync-active") == 0);
-    else if (strcmp(name, "pause-for-cache") == 0) m_state.WritePlayback([&](auto& m) { m.flags.pauseForCache = value; });
+    else if (strcmp(name, "paused-for-cache") == 0) m_state.WritePlayback([&](auto& m) { m.flags.pauseForCache = value; });
 }
 
 void PlaybackObserver::HandleInt64Property(const char* name, int64_t value) {
