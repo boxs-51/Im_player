@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 """S01 #42: classify observed PCM boundaries, never claim an audio root cause."""
 import argparse
+from issue42_v2_verifier import analyze_v2
 import json
 import re
 from pathlib import Path
@@ -10,6 +11,8 @@ STAGES = {"PROCESSOR_ACQUIRE_RAW", "PROCESSOR_PUBLISH_DROP", "SDL_QUEUE_UNDERFLO
 
 
 def analyze(raw: str, threshold_us: int = 250000) -> dict:
+    if any(line.lstrip().startswith('{') for line in raw.splitlines()):
+        return analyze_v2(raw, threshold_us)
     if threshold_us <= 0:
         raise ValueError("threshold must be positive")
 
