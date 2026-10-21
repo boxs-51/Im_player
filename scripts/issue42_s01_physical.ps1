@@ -5,19 +5,25 @@ param(
     [string]$MediaUrl = '',
     [ValidateRange(10,900)][int]$ObserveSeconds = 180,
     [switch]$SkipBuild,
-    [switch]$RequireReproduction
+    [switch]$RequireReproduction,
+    [switch]$PlanOnly
 )
 Set-StrictMode -Version Latest
 $ErrorActionPreference = 'Stop'
 $root = Split-Path -Parent $PSScriptRoot
 $sha = (& git.exe -C $root rev-parse HEAD).Trim()
 if ($LASTEXITCODE -ne 0 -or $sha.Length -ne 40) { throw 'Cannot pin exact git HEAD' }
-if (-not [Environment]::UserInteractive -or $env:OS -ne 'Windows_NT') {
-    throw '[S01] BLOCKED: requires interactive physical Windows session, not hosted headless CI'
-}
 $useUrl = -not [string]::IsNullOrWhiteSpace($MediaUrl)
 if ($useUrl -and -not [string]::IsNullOrWhiteSpace($MediaPath)) {
     throw 'Only one of -MediaPath and -MediaUrl may be supplied'
+}
+if ($PlanOnly) {
+    $plannedScenario = if ($useUrl) { 'ColdUrl' } else { 'Local' }
+    Write-Host "[S01-PLAN] scenario=$plannedScenario configuration=$Configuration commit=$sha physical=NOT_RUN effects=NONE"
+    return
+}
+if (-not [Environment]::UserInteractive -or $env:OS -ne 'Windows_NT') {
+    throw '[S01] BLOCKED: requires interactive physical Windows session, not hosted headless CI'
 }
 if (-not $useUrl -and $MediaPath -and
     -not (Test-Path -LiteralPath $MediaPath -PathType Leaf)) {
