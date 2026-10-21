@@ -39,3 +39,18 @@ jobs:
             [ref]$tokens, [ref]$errors) | Out-Null
           if ($errors.Count -gt 0) { throw ($errors | ForEach-Object Message) }
           Write-Host "PowerShell parser PASS; physical playback NOT_RUN_IN_CI"
+      - name: Validate ColdUrl/Local route without launching Im_player
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          $script = Join-Path $PWD 'scripts/issue42_s01_physical.ps1'
+          $remote = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Configuration Debug -MediaUrl 'https://example.invalid/fixture' -PlanOnly
+          if ($LASTEXITCODE -ne 0 -or ($remote -join "`n") -notmatch 'scenario=ColdUrl.*physical=NOT_RUN') {
+            throw 'S01 remote route plan did not prove ColdUrl without effects'
+          }
+          $local = & powershell.exe -NoProfile -ExecutionPolicy Bypass -File $script -Configuration Release -PlanOnly
+          if ($LASTEXITCODE -ne 0 -or ($local -join "`n") -notmatch 'scenario=Local.*physical=NOT_RUN') {
+            throw 'S01 local route plan did not prove Local without effects'
+          }
+          Write-Host 'S01 no-effect route plans PASS; physical playback NOT_RUN_IN_CI'
+
