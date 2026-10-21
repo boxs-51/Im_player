@@ -61,14 +61,25 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
               "lifecycle_identity_binding": (
                   "UNVERIFIED" if lifecycle_stop_count else "NO_STOP_OBSERVED"
               )}
-    if not underflows:
-        return result
 
     def integer(e, key):
         try:
             return int(e[key])
         except (KeyError, ValueError, TypeError):
             return None
+
+    # The real native PIPE_DISCONNECTED and OUTPUT_DEVICE_OFFLINE_DROP
+    # continuity records carry no numeric load_id. Report their existence,
+    # but do not manufacture a load binding or a causal attribution.
+    unscoped_stages = ("PIPE_DISCONNECTED", "OUTPUT_DEVICE_OFFLINE_DROP")
+    result["unscoped_marker_counts"] = {
+        stage: sum(1 for e in events
+                   if e["stage"] == stage and
+                   (integer(e, "load_id") is None or integer(e, "load_id") <= 0))
+        for stage in unscoped_stages
+    }
+    if not underflows:
+        return result
 
     def inspect_underflow(u):
         """One event's observed markers; cannot prove audible output or cause."""
@@ -105,6 +116,17 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
                   if integer(e, "load_id") == load
                   and e.get("_lifecycle_epoch") == u.get("_lifecycle_epoch")]
         before = [e for e in scoped if t - 2_000_000 <= e["t_us"] <= t]
+        unscoped_nearby = [
+            e for e in events
+            if e["stage"] in unscoped_stages
+            and (integer(e, "load_id") is None or integer(e, "load_id") <= 0)
+            and e.get("_lifecycle_epoch") == u.get("_lifecycle_epoch")
+            and t - 2_000_000 <= e["t_us"] <= t
+        ]
+        if any(e["stage"] == "PIPE_DISCONNECTED" for e in unscoped_nearby):
+            candidate["evidence"].append("unscoped_pipe_disconnect_observed")
+        if any(e["stage"] == "OUTPUT_DEVICE_OFFLINE_DROP" for e in unscoped_nearby):
+            candidate["evidence"].append("unscoped_output_offline_drop_observed")
         for stage, classification in (
             ("PIPE_DISCONNECTED", "PIPE_DISCONNECT_OBSERVED"),
             ("OUTPUT_DEVICE_OFFLINE_DROP", "OUTPUT_DEVICE_OFFLINE_DROP_OBSERVED"),

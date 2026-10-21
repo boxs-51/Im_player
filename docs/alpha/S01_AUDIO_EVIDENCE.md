@@ -52,3 +52,13 @@ Native `LifecycleEvidence::Emit` serializes `phase/component/id/pid/tid` but doe
 The minimal correction increments a diagnostic lifecycle epoch whenever a STOP is logged for `PlayerSession`, `AudioOutputWorker`, `AudioProcessor` or `AudioCaptureManager`. All telemetry events are tagged with this epoch and comparisons require *the same load_id and the same log segment*. An underflow logged after STOP remains fail-closed even if a later START appears. JSON now reports `lifecycle_stop_count` and `lifecycle_identity_binding=UNVERIFIED` when such STOPs exist; `NO_STOP_OBSERVED` otherwise. These diagnostics are not identity attestations and do not unlock physical reproduction acceptance.
 
 **Conservative limitation:** unrelated sessions may share the same log and lifecycle IDs are not bound to PCM load IDs. A STOP could cause false negatives; log ordering across independent emitters cannot prove physical shutdown/clock order. The correct long-term fix requires an explicitly approved native instrumentation contract adding trusted session/load/timestamp correlation. No native C++ change, physical audio playback, merge or S02 opening was performed here.
+
+## Native continuity marker parity — 2026-10-21
+
+Source audit found two **unscoped real native producers**:
+- `AudioCaptureManager.cpp` emits `[AUDIO-TELEMETRY] CONTINUITY stage=PIPE_DISCONNECTED t_us=... connection_index=... reason=... running=...` **without** `load_id`.
+- `AudioOutputWorker.cpp` emits `[AUDIO-TELEMETRY] CONTINUITY stage=OUTPUT_DEVICE_OFFLINE_DROP t_us=... sequence=... generation=... reason=device_unavailable` **without** `load_id`.
+
+Prior synthetic tests used `load_id` on these stages; such an attribution was **not demonstrated with genuine source-emitted records**. RED-first test-only `cf57c58a30af4e046edd01abf43138a786bbd4d9` added four producer-shape contract cases; [S01 RED #39593202401](https://github.com/boxs-51/Im_player/actions/runs/39593202401) on **Ubuntu and Windows** produced **40 tests, 4 ERROR, 36 PASS** (missing `unscoped_marker_counts`), with all existing tests unchanged.
+
+The analyzer now always exposes `unscoped_marker_counts` for both stages and adds `unscoped_pipe_disconnect_observed` / `unscoped_output_offline_drop_observed` evidence when the stage is near an underflow in the *same conservative lifecycle log segment*. These are **unbound observations only**: they must not change `classification=INCONCLUSIVE` to a cause, grant `--require-reproduction`, or assert a load identity. A true per-load classification would need independently approved native instrumentation with a trustworthy `load_id`, timebase and session binding, plus physical playback validation. No C++ source was modified.
