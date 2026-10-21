@@ -163,13 +163,28 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
             ("PROCESSOR_PUBLISH_DROP", "PROCESSOR_DROP_OBSERVED")
         ):
             matches = [e for e in before if e["stage"] == stage]
-            # Producer/device drops from a previous seek generation cannot
-            # establish a boundary for the current underflow. Pipe connection
-            # stages remain unbound unless a valid load ID was actually logged.
-            if stage in ("PROCESSOR_PUBLISH_DROP", "OUTPUT_DEVICE_OFFLINE_DROP"):
+            # A processor drop must have a positively matching generation.
+            if stage == "PROCESSOR_PUBLISH_DROP":
                 matches = [e for e in matches if generation is not None
                            and integer(e, "generation") == generation]
+            if stage == "OUTPUT_DEVICE_OFFLINE_DROP":
+                # A native-tagged device event must have matching generation.
+                # Preserve earlier all-legacy v1 observation semantics for
+                # load-scoped events that predate generation telemetry, but
+                # NEVER use that weak fixture as verified playback evidence.
+                matches = [e for e in matches if (
+                    generation is not None and
+                    integer(e, "generation") == generation
+                ) or (
+                    native_lineage(e) is None and lineage is None and
+                    integer(e, "generation") is None
+                )]
             if matches:
+                if (stage == "OUTPUT_DEVICE_OFFLINE_DROP" and
+                        any(integer(e, "generation") is None for e in matches)):
+                    candidate["playback_context_verified"] = False
+                    candidate["playback_context"] = "UNKNOWN"
+                    candidate["evidence"].append("legacy_device_drop_missing_generation")
                 candidate["classification"] = classification
                 candidate["evidence"].append(stage)
                 return candidate
