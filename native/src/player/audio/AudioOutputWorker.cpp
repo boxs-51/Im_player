@@ -331,7 +331,10 @@ void AudioOutputWorker::OutputLoop() {
                 // Xóa bớt block tồn đọng duy nhất từ luồng OutputWorker khi mất thiết bị
                 if (const AudioBlock* dummy = m_processedStream->acquire_read()) {
                     EmitAudioContinuityEvidence(
-                        "stage=OUTPUT_DEVICE_OFFLINE_DROP t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu reason=device_unavailable",
+                        "stage=OUTPUT_DEVICE_OFFLINE_DROP load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f frames=%u processed_ring_size=%zu reason=device_unavailable",
+                        static_cast<unsigned long long>(dummy->startupLoadId),
+                        static_cast<unsigned long long>(dummy->telemetryRunUid),
+                        static_cast<unsigned long long>(dummy->telemetrySessionUid),
                         static_cast<unsigned long long>(AudioTelemetryNowMicros()),
                         static_cast<unsigned long long>(dummy->sequence),
                         static_cast<unsigned long long>(dummy->generation),

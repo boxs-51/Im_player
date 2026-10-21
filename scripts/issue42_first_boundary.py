@@ -163,7 +163,10 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
             ("PROCESSOR_PUBLISH_DROP", "PROCESSOR_DROP_OBSERVED")
         ):
             matches = [e for e in before if e["stage"] == stage]
-            if stage == "PROCESSOR_PUBLISH_DROP":
+            # Producer/device drops from a previous seek generation cannot
+            # establish a boundary for the current underflow. Pipe connection
+            # stages remain unbound unless a valid load ID was actually logged.
+            if stage in ("PROCESSOR_PUBLISH_DROP", "OUTPUT_DEVICE_OFFLINE_DROP"):
                 matches = [e for e in matches if generation is not None
                            and integer(e, "generation") == generation]
             if matches:

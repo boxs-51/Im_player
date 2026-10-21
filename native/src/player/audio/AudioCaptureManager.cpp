@@ -358,7 +358,9 @@ void AudioCaptureManager::CaptureLoop() {
                     if (!m_isRunning || !success || bytesRead == 0) {
                         const std::uint64_t disconnectMicros = AudioTelemetryNowMicros();
                         EmitAudioContinuityEvidence(
-                            "stage=PIPE_DISCONNECTED t_us=%llu connection_index=%llu reason=%lu bytes_read=%lu last_read_us=%llu gap_since_last_read_us=%llu running=%d",
+                            "stage=PIPE_DISCONNECTED run_uid=%llu session_uid=%llu t_us=%llu connection_index=%llu reason=%lu bytes_read=%lu last_read_us=%llu gap_since_last_read_us=%llu running=%d",
+                            static_cast<unsigned long long>(AudioTelemetryProcessRunUid()),
+                            static_cast<unsigned long long>(m_telemetrySessionUid),
                             static_cast<unsigned long long>(disconnectMicros),
                             static_cast<unsigned long long>(pipeConnectionIndex),
                             static_cast<unsigned long>(readError),
