@@ -8,6 +8,7 @@ on:
       - 'tests/test_issue42_first_boundary.py'
       - 'tests/test_issue42_adversarial.py'
       - 'tests/test_issue42_multi_underflow.py'
+      - 'tests/test_issue42_shutdown_ambiguity.py'
       - '.github/workflows/issue42-s01.yml'
   workflow_dispatch:
 permissions:
