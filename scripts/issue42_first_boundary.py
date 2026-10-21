@@ -14,12 +14,18 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         raise ValueError("threshold must be positive")
 
     events = []
+    raw_underflow_marker_count = 0
     lifecycle_stop_seen = False
     lifecycle_stop_count = 0
     lifecycle_epoch = 0
     lifecycle_components = {"PlayerSession", "AudioOutputWorker",
                             "AudioProcessor", "AudioCaptureManager"}
     for line in raw.splitlines():
+        # AudioOutputWorker always emits this bare error; the richer
+        # stage/load/t_us event is conditional. Retain that observation
+        # without treating it as a scoped event or duplicating a paired stage.
+        if "[AUDIO-TELEMETRY] ERROR SDL_QUEUE_UNDERFLOW " in line:
+            raw_underflow_marker_count += 1
         # Existing native LifecycleEvidence emits these records into the same
         # append-only trace file. It supplies no t_us or load_id, so a STOP
         # can only impose a conservative log-order exclusion, not prove which
@@ -48,9 +54,12 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
     underflows = sorted((e for e in events if e["stage"] == "SDL_QUEUE_UNDERFLOW"),
                         key=lambda e: e["t_us"])
     result = {"schema": "ISSUE42-S01-OBSERVATION-v1",
-              "classification": "INCONCLUSIVE" if underflows else "NO_UNDERFLOW_OBSERVED",
+              "classification": ("INCONCLUSIVE" if underflows or
+                                 raw_underflow_marker_count else "NO_UNDERFLOW_OBSERVED"),
               "root_cause": "UNKNOWN", "audible_output_verified": False,
-              "underflow_count": len(underflows), "observed_marker_count": len(events),
+              "underflow_count": len(underflows),
+              "raw_underflow_marker_count": raw_underflow_marker_count,
+              "observed_marker_count": len(events),
               "capture_gap_us": None, "evidence": [],
               "selected_underflow_t_us": None, "examined_underflow_count": 0,
               "playback_context_verified": False,
