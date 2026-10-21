@@ -15,6 +15,8 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
 
     events = []
     lifecycle_stop_seen = False
+    lifecycle_stop_count = 0
+    lifecycle_epoch = 0
     lifecycle_components = {"PlayerSession", "AudioOutputWorker",
                             "AudioProcessor", "AudioCaptureManager"}
     for line in raw.splitlines():
@@ -27,12 +29,15 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
             if (lifecycle.get("phase") == "STOP" and
                     lifecycle.get("component") in lifecycle_components):
                 lifecycle_stop_seen = True
+                lifecycle_stop_count += 1
+                lifecycle_epoch += 1
             continue
         if "[AUDIO-TELEMETRY] " not in line:
             continue
         fields = dict(re.findall(r"\b([A-Za-z_][\w]*)=([^\s]+)",
                                  line.split("[AUDIO-TELEMETRY] ", 1)[1]))
         fields["_after_lifecycle_stop"] = lifecycle_stop_seen
+        fields["_lifecycle_epoch"] = lifecycle_epoch
         try:
             fields["t_us"] = int(fields["t_us"])
         except (KeyError, ValueError):
@@ -49,7 +54,13 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
               "capture_gap_us": None, "evidence": [],
               "selected_underflow_t_us": None, "examined_underflow_count": 0,
               "playback_context_verified": False,
-              "playback_context": "UNKNOWN"}
+              "playback_context": "UNKNOWN",
+              "lifecycle_stop_count": lifecycle_stop_count,
+              # LifecycleEvidence.id is a component-local string/pointer;
+              # there is no authenticated mapping to numeric PCM load_id.
+              "lifecycle_identity_binding": (
+                  "UNVERIFIED" if lifecycle_stop_count else "NO_STOP_OBSERVED"
+              )}
     if not underflows:
         return result
 
@@ -87,7 +98,12 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         generation = integer(u, "generation")
         if generation is None:
             generation = integer(u, "last_generation")
-        scoped = [e for e in events if integer(e, "load_id") == load]
+        # Never bridge a lifecycle STOP using timestamp/sequence alone:
+        # native lifecycle records lack monotonic timestamp and load_id.
+        # Log-order segmentation is conservative, not proof of OS ordering.
+        scoped = [e for e in events
+                  if integer(e, "load_id") == load
+                  and e.get("_lifecycle_epoch") == u.get("_lifecycle_epoch")]
         before = [e for e in scoped if t - 2_000_000 <= e["t_us"] <= t]
         for stage, classification in (
             ("PIPE_DISCONNECTED", "PIPE_DISCONNECT_OBSERVED"),
