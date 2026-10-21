@@ -14,6 +14,7 @@ on:
       - 'tests/test_issue42_raw_underflow.py'
       - 'tests/test_issue42_telemetry_v2_redfirst.py'
       - 'tests/test_issue42_v2_cli_gate.py'
+      - 'tests/test_issue42_v2_strict_provenance.py'
       - 'docs/alpha/S01_TELEMETRY_CORRELATION_V2_ADR.md'
       - '.github/workflows/issue42-s01.yml'
   workflow_dispatch:
