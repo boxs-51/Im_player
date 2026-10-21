@@ -80,6 +80,19 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         except (KeyError, ValueError, TypeError):
             return None
 
+    def native_lineage(e):
+        """Native run/session pair, legacy absence, or malformed partial pair.
+
+        Both IDs are diagnostic, not authenticated. Their presence constrains
+        correlation; missing or partial lineage never borrows scoped evidence.
+        """
+        if "run_uid" not in e and "session_uid" not in e:
+            return None  # Historical v1, correlate only with other v1 events.
+        run, session = integer(e, "run_uid"), integer(e, "session_uid")
+        if run is None or session is None or run <= 0 or session <= 0:
+            return ("INVALID",)
+        return (run, session)
+
     # The real native PIPE_DISCONNECTED and OUTPUT_DEVICE_OFFLINE_DROP
     # continuity records carry no numeric load_id. Report their existence,
     # but do not manufacture a load binding or a causal attribution.
@@ -106,6 +119,10 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         if load is None or load <= 0:
             candidate["evidence"].append("underflow_missing_load_identity")
             return candidate
+        lineage = native_lineage(u)
+        if lineage == ("INVALID",):
+            candidate["evidence"].append("underflow_partial_native_identity")
+            return candidate
         inactive_flags = ("paused", "core_idle", "idle_active", "seeking",
                           "pause_for_cache")
         if any(integer(u, flag) == 1 for flag in inactive_flags):
@@ -126,7 +143,8 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
         # Log-order segmentation is conservative, not proof of OS ordering.
         scoped = [e for e in events
                   if integer(e, "load_id") == load
-                  and e.get("_lifecycle_epoch") == u.get("_lifecycle_epoch")]
+                  and e.get("_lifecycle_epoch") == u.get("_lifecycle_epoch")
+                  and native_lineage(e) == lineage]
         before = [e for e in scoped if t - 2_000_000 <= e["t_us"] <= t]
         unscoped_nearby = [
             e for e in events
