@@ -16,6 +16,7 @@ on:
       - 'tests/test_issue42_v2_cli_gate.py'
       - 'tests/test_issue42_v2_strict_provenance.py'
       - 'tests/test_issue42_native_session_correlation.py'
+      - 'tests/test_issue42_native_v1_lineage.py'
       - 'native/src/player/audio/AudioSessionIdentity.h'
       - 'native/src/player/audio/AudioTypes.h'
       - 'native/src/player/audio/Audio.h'
