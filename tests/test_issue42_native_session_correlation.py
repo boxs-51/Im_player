@@ -12,7 +12,10 @@ ROOT = Path(__file__).resolve().parents[1] / "native" / "src" / "player"
 
 
 def source(path):
-    return (ROOT / path).read_text(encoding="utf-8")
+    # Missing proposed native source is a contract failure, not an unrelated
+    # harness IOError that could be misclassified as a semantic RED.
+    candidate = ROOT / path
+    return candidate.read_text(encoding="utf-8") if candidate.is_file() else ""
 
 
 class NativeCorrelationPath(unittest.TestCase):
