@@ -6,6 +6,7 @@ on:
       - 'scripts/issue42_first_boundary.py'
       - 'scripts/issue42_s01_physical.ps1'
       - 'tests/test_issue42_first_boundary.py'
+      - 'tests/test_issue42_adversarial.py'
       - '.github/workflows/issue42-s01.yml'
   workflow_dispatch:
 permissions:
@@ -27,7 +28,7 @@ jobs:
         run: |
           test "$(git rev-parse HEAD)" = "${{ github.event.pull_request.head.sha || github.sha }}"
       - name: Run Python stdlib trace tests
-        run: python -m unittest discover -s tests -p test_issue42_first_boundary.py -v
+        run: python -m unittest discover -s tests -p 'test_issue42_*.py' -v
       - name: Validate physical capture script syntax (not GUI E2E)
         if: runner.os == 'Windows'
         shell: pwsh
