@@ -20,6 +20,7 @@ on:
       - 'tests/test_issue42_device_pipe_provenance.py'
       - 'tests/test_issue42_mpv_cache_property.py'
       - 'tests/test_issue42_mpv_cache_streams.py'
+      - 'tests/test_issue42_audio_video_http_redfirst.py'
       - 'native/src/player/event/MpvCacheStreamTelemetry.h'
       - 'native/src/player/event/PlaybackObserver.cpp'
       - 'native/src/player/audio/AudioSessionIdentity.h'
