@@ -45,18 +45,31 @@ def analyze(raw: str, threshold_us: int = 250000) -> dict:
     if load is None or load <= 0:
         result["evidence"].append("underflow_missing_load_identity")
         return result
+    # Re-arming while playback is deliberately paused, idle, seeking or
+    # buffering is not proof of a mid-playback audio interruption.
+    inactive_flags = ("paused", "core_idle", "idle_active", "seeking", "pause_for_cache")
+    if any(integer(u, flag) == 1 for flag in inactive_flags):
+        result["evidence"].append("underflow_nonplaying_state")
+        return result
+
+    underflow_gen = integer(u, "generation")
+    if underflow_gen is None:
+        underflow_gen = integer(u, "last_generation")
     scoped = [e for e in events if integer(e, "load_id") == load]
     before = [e for e in scoped if t - 2_000_000 <= e["t_us"] <= t]
     for stage, classification in (("PIPE_DISCONNECTED", "PIPE_DISCONNECT_OBSERVED"),
                                   ("OUTPUT_DEVICE_OFFLINE_DROP", "OUTPUT_DEVICE_OFFLINE_DROP_OBSERVED"),
                                   ("PROCESSOR_PUBLISH_DROP", "PROCESSOR_DROP_OBSERVED")):
-        if any(e["stage"] == stage for e in before):
+        matches = [e for e in before if e["stage"] == stage]
+        if stage == "PROCESSOR_PUBLISH_DROP":
+            # A dropped block from an earlier generation cannot explain the
+            # current underflow. An unknown generation is inconclusive.
+            matches = [e for e in matches if underflow_gen is not None
+                       and integer(e, "generation") == underflow_gen]
+        if matches:
             result["classification"] = classification
             result["evidence"].append(stage)
             return result
-    underflow_gen = integer(u, "generation")
-    if underflow_gen is None:
-        underflow_gen = integer(u, "last_generation")
     if underflow_gen is None:
         result["evidence"].append("underflow_missing_generation_identity")
         return result

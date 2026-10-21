@@ -2,6 +2,7 @@
 param(
     [Parameter(Mandatory=$true)][ValidateSet('Debug','Release')][string]$Configuration,
     [string]$MediaPath = '',
+    [string]$MediaUrl = '',
     [ValidateRange(10,900)][int]$ObserveSeconds = 180,
     [switch]$SkipBuild,
     [switch]$RequireReproduction
@@ -14,7 +15,12 @@ if ($LASTEXITCODE -ne 0 -or $sha.Length -ne 40) { throw 'Cannot pin exact git HE
 if (-not [Environment]::UserInteractive -or $env:OS -ne 'Windows_NT') {
     throw '[S01] BLOCKED: requires interactive physical Windows session, not hosted headless CI'
 }
-if ($MediaPath -and -not (Test-Path -LiteralPath $MediaPath -PathType Leaf)) {
+$useUrl = -not [string]::IsNullOrWhiteSpace($MediaUrl)
+if ($useUrl -and -not [string]::IsNullOrWhiteSpace($MediaPath)) {
+    throw 'Only one of -MediaPath and -MediaUrl may be supplied'
+}
+if (-not $useUrl -and $MediaPath -and
+    -not (Test-Path -LiteralPath $MediaPath -PathType Leaf)) {
     throw '[S01] Missing local test media input'
 }
 $oldContinuity = [Environment]::GetEnvironmentVariable('IM_PLAYER_AUDIO_CONTINUITY_TRACE','Process')
@@ -22,16 +28,22 @@ $oldStartup = [Environment]::GetEnvironmentVariable('IM_PLAYER_STARTUP_BOUNDARY_
 try {
     $env:IM_PLAYER_AUDIO_CONTINUITY_TRACE = '1'
     $env:IM_PLAYER_STARTUP_BOUNDARY_TRACE = '1'
+    $scenario = if ($useUrl) { 'ColdUrl' } else { 'Local' }
     $argsList = @('-NoProfile','-ExecutionPolicy','Bypass','-File',
         (Join-Path $PSScriptRoot 'issue31-backpressure-measurement.ps1'),
-        '-Configuration',$Configuration,'-Scenario','Local',
-        '-ObserveSeconds',[string]$ObserveSeconds)
-    if ($MediaPath) { $argsList += @('-MediaPath',$MediaPath) }
+        '-Configuration',$Configuration,'-ObserveSeconds',[string]$ObserveSeconds)
+    if ($useUrl) {
+        $argsList += @('-Scenario','ColdUrl','-MediaUrl',$MediaUrl)
+    } else {
+        $argsList += @('-Scenario','Local')
+        if ($MediaPath) { $argsList += @('-MediaPath',$MediaPath) }
+    }
     if ($SkipBuild) { $argsList += '-SkipBuild' }
     & powershell.exe @argsList
     if ($LASTEXITCODE -ne 0) { throw '[S01] Physical capture failed; do not claim E2E PASS' }
-    $outDir = Join-Path $root ('artifacts/issue31-backpressure/local-' +
-        $Configuration.ToLowerInvariant() + '-' + $sha.Substring(0,12))
+    $outDir = Join-Path $root ('artifacts/issue31-backpressure/' +
+        $scenario.ToLowerInvariant() + '-' + $Configuration.ToLowerInvariant() +
+        '-' + $sha.Substring(0,12))
     $trace = Join-Path $outDir 'trace.log'
     if (-not (Test-Path -LiteralPath $trace -PathType Leaf)) { throw '[S01] Missing trace log' }
     $report = Join-Path $outDir 's01-boundary.json'
