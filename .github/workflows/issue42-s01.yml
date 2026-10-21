@@ -11,6 +11,7 @@ on:
       - 'tests/test_issue42_shutdown_ambiguity.py'
       - 'tests/test_issue42_lifecycle_identity.py'
       - 'tests/test_issue42_native_marker_parity.py'
+      - 'tests/test_issue42_raw_underflow.py'
       - '.github/workflows/issue42-s01.yml'
   workflow_dispatch:
 permissions:
