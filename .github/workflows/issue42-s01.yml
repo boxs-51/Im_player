@@ -9,6 +9,7 @@ on:
       - 'tests/test_issue42_adversarial.py'
       - 'tests/test_issue42_multi_underflow.py'
       - 'tests/test_issue42_shutdown_ambiguity.py'
+      - 'tests/test_issue42_lifecycle_identity.py'
       - '.github/workflows/issue42-s01.yml'
   workflow_dispatch:
 permissions:
