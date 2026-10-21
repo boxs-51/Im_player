@@ -228,6 +228,21 @@ target_link_options(Im_player PRIVATE
 # BRG-3 focused lifetime regression target.
 include(CTest)
 if(BUILD_TESTING)
+    # Issue #42 F02: native typed mpv_node fixture, no media/network/SDL.
+    add_executable(mpv_cache_streams_test
+        tests/mpv_cache_streams_test.cpp
+    )
+    target_include_directories(mpv_cache_streams_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_features(mpv_cache_streams_test PRIVATE cxx_std_17)
+    add_test(
+        NAME issue42_mpv_cache_streams_gate
+        COMMAND mpv_cache_streams_test
+    )
+    set_tests_properties(issue42_mpv_cache_streams_gate PROPERTIES TIMEOUT 30)
+
     add_executable(render_callback_lifetime_test
         tests/render_callback_lifetime_test.cpp
     )
