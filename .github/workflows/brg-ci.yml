@@ -183,6 +183,14 @@ jobs:
               Tee-Object -FilePath artifacts/ci/issue42-libmpv-midplay-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 pinned libmpv real raw PCM AO baseline
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          & python.exe scripts/issue42_mpv_pcm_ao_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-pcm-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |
