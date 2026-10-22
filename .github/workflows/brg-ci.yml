@@ -167,6 +167,14 @@ jobs:
               Tee-Object -FilePath artifacts/ci/issue42-mpv-property-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 real pinned libmpv independent HTTP A/V fixture
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          & python.exe scripts/issue42_libmpv_http_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-http-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |
