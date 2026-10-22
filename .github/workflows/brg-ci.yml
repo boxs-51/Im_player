@@ -175,6 +175,14 @@ jobs:
               Tee-Object -FilePath artifacts/ci/issue42-libmpv-http-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 real pinned libmpv midplay audio socket-cut RED-first
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          & python.exe scripts/issue42_mpv_midstream_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-midplay-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |
