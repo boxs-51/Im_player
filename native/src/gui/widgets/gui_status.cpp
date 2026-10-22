@@ -210,7 +210,7 @@ namespace CSImGui
         char buffer[1024];
 
         va_list args;
-        va_start(args, fmt);
+        va_start(args, flags);
 
 #if defined(_MSC_VER)
         vsnprintf_s(buffer, sizeof(buffer), _TRUNCATE, fmt, args);

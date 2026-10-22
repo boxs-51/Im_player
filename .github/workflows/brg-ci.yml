@@ -53,6 +53,9 @@ jobs:
       - name: Run repository sanity gate
         run: python3 scripts/ci_sanity.py
 
+      - name: Issue #64 BadgeFmt variadic ABI source contract
+        run: python3 -m unittest discover -s tests -p 'test_issue64_badgefmt_abi.py' -v
+
       - name: Upload sanity evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -207,6 +210,21 @@ jobs:
           & cmake.exe --build --preset ${{ matrix.preset }} *>&1 |
               Tee-Object -FilePath artifacts/ci/build-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue #64 MSVC /WX compiled BadgeFmt runtime behavior
+        if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
+        shell: pwsh
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'issue64-badgefmt-abi'
+          & python tests/test_issue64_badgefmt_abi.py --emit-msvc $probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmake.exe -S $probe -B (Join-Path $probe 'build') -G "Visual Studio 18 2026" -A x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmake.exe --build (Join-Path $probe 'build') --config ${{ matrix.configuration }} --target issue64_probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Join-Path $probe 'build/${{ matrix.configuration }}/issue64_probe.exe'
+          & $exe
+          if ($LASTEXITCODE -ne 0) { throw "Issue #64 BadgeFmt runtime probe FAILED: $LASTEXITCODE" }
 
       - name: Smoke-test extension hook
         if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
