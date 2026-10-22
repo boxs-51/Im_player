@@ -206,6 +206,42 @@ def experiment(lib):
         if len(errors) != 1:
             raise AssertionError("MID01_MISSING_UNIQUE_AUDIO_503")
 
+        # MID02 RED-first: video track still being selected after a 503 is
+        # not evidence that its timeline continues. Sample a NEW mpv media
+        # clock baseline after the independent AUDIO 503 receipt, then require
+        # fresh post-fault advancement in this same native libmpv session.
+        # This does NOT imply an actual rendered frame or audible audio.
+        post_fault_baseline = media_time(mpv)
+        if post_fault_baseline is None:
+            raise AssertionError("MID02_POST_FAULT_MEDIA_CLOCK_UNKNOWN")
+        post_fault_progress_s = 0.0
+        observed_post_fault = 0
+        post_fault_deadline = time.monotonic() + 3.0
+        while time.monotonic() < post_fault_deadline:
+            event = mpv.lib.mpv_wait_event(mpv.handle, 0.0)
+            if event and event.contents.event_id == QUEUE_OVERFLOW:
+                raise AssertionError("MID02_NATIVE_EVENT_OVERFLOW")
+            if not selected_track(mpv.tracks(), "video"):
+                raise AssertionError("MID02_VIDEO_TRACK_LOST_AFTER_AUDIO_503")
+            sample = media_time(mpv)
+            if sample is not None:
+                observed_post_fault += 1
+                post_fault_progress_s = max(
+                    post_fault_progress_s, sample - post_fault_baseline)
+            if post_fault_progress_s >= 0.30:
+                break
+            time.sleep(0.09)
+        if observed_post_fault < 2 or post_fault_progress_s < 0.30:
+            print("I42_MID02_POST_FAULT_VIDEO_PROGRESS_RED " + json.dumps({
+                "selected_video_after_audio_error": True,
+                "audio_segment_503_receipts": len(errors),
+                "post_fault_pts_samples": observed_post_fault,
+                "post_fault_pts_advance_s": round(post_fault_progress_s, 3),
+                "root_cause": "UNKNOWN",
+                "app_pcm_verified": False,
+            }, sort_keys=True), flush=True)
+            raise AssertionError("MID02_VIDEO_TIMELINE_NOT_PROVEN_AFTER_AUDIO_503")
+
         print("I42_MIDPLAY_EXTERNAL_AUDIO_SEGMENT_503_OBSERVED " + json.dumps({
             "real_pinned_libmpv": True, "audio_selected_before_fault": True,
             "external_audio_track": True, "video_advanced_pre_fault": True,
@@ -214,6 +250,8 @@ def experiment(lib):
             "audio_failed_segment_index": FAIL_SEGMENT,
             "failed_audio_route_receipts": len(errors),
             "video_selected_after_audio_fault": True,
+            "video_pts_advanced_post_audio_fault": True,
+            "video_pts_delta_post_audio_fault_s": round(post_fault_progress_s, 3),
             "audio_add_rc": call_status.get("rc"),
             "mpv_audio_decoder_continuity_verified": False,
             "application_pcm_verified": False, "sdl_verified": False,
