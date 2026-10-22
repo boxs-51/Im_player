@@ -378,4 +378,45 @@ if(BUILD_TESTING)
         issue26_audio_queue_write_planner_gate
         PROPERTIES TIMEOUT 30
     )
+    # Issue42 NAT01: real AudioCaptureManager.cpp + Windows named pipe and
+    # raw SPSC producer. Positive localhost WAV, negative HTTP 503. No SDL
+    # output, GUI runtime or production source modifications.
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_executable(issue42_native_capture_manager_test
+        tests/issue42_native_capture_manager_test.cpp
+        native/src/player/audio/AudioCaptureManager.cpp
+        native/src/threads/thread_manager.cpp
+    )
+    target_include_directories(issue42_native_capture_manager_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/native/include"
+        "${CMAKE_SOURCE_DIR}/native/src/player"
+        "${CMAKE_SOURCE_DIR}/native/src/player/audio"
+        "${CMAKE_SOURCE_DIR}/native/src/threads"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_definitions(issue42_native_capture_manager_test PRIVATE
+        SDL_MAIN_HANDLED WIN32_LEAN_AND_MEAN NOMINMAX
+        UNICODE _UNICODE ENABLE_LOG
+    )
+    target_compile_features(issue42_native_capture_manager_test PRIVATE cxx_std_17)
+    target_link_libraries(issue42_native_capture_manager_test PRIVATE
+        mpv::mpv SDL2::SDL2
+    )
+    add_custom_command(TARGET issue42_native_capture_manager_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:mpv::mpv>"
+            "$<TARGET_FILE_DIR:issue42_native_capture_manager_test>"
+        COMMENT "Copy pinned libmpv DLL for actual capture-manager test"
+    )
+    add_test(
+        NAME issue42_native_capture_manager_http_gate
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/issue42_native_capture_manager_probe.py"
+            --binary "$<TARGET_FILE:issue42_native_capture_manager_test>"
+    )
+    set_tests_properties(
+        issue42_native_capture_manager_http_gate
+        PROPERTIES TIMEOUT 45
+    )
 endif()
