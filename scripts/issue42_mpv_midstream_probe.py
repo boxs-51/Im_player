@@ -1,213 +1,247 @@
-"""Issue42 MID01: real pinned libmpv + owned local HTTP midplay audio stream cut.
+"""Issue #42 MID01: audio-only late HLS segment failure with real pinned libmpv.
 
-Test-only native Windows probe; vo=null/ao=null; NOT physical audible PCM or SDL.
-Must see real selected external audio, owned audio HTTP prefix, and media video
-clock progression BEFORE cutting only the audio connection. No recovery behavior.
+Native hosted-Windows, local transport. The first AAC HLS segments succeed.
+A later audio segment stays HELD (no response) until libmpv has selected
+external audio and video media clock progresses, then is answered 503.
+Do not claim actual Im_player PCM/SDL, audible loss, source HTTP ownership,
+or first broken audio boundary from this fixture.
 """
+import base64
 import ctypes
 import json
 import os
 from pathlib import Path
-import socket
 import sys
 import threading
 import time
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 from issue42_libmpv_http_probe import (
-    RealMpv, y4m_bytes, wav_bytes, selected_track, FILE_LOADED, QUEUE_OVERFLOW,
+    RealMpv, y4m_bytes, selected_track, FILE_LOADED, QUEUE_OVERFLOW,
 )
 
-PREFIX = 196608
+AAC_ADTS_B64 = "//FMQArf/N4CAExhdmM2MS4xOS4xMDEAAqyaFfREFvvnXt1xqXd3JIkkb06EECekimi41fL5fKb5cflx+Xy+WX5cePHjFEUUUUUUUUUUUUURRRRRRRf/8UxAC3/8ATiM2spaI2iVspV/XF6/8a+/XF//HH344v++/v51odLxq0EhISEv/CXmt7YeOhCcNU3nm/nMeeHOKt/ABuV4hUb5KN8lD5Tj5cZwA/7VAuY4cCZu//FMQAef/AEu7Qr6M/p/0/X4111Jw4rirtcjnQZ+Y6y9/fQT/w2HfcB/4Az+4D/w2HfcDJ8AO+4GT4HA//FMQAe//AEELQb6N9v+3/0/f/93Xnq5eRU35787t27sWta0NWrVqp/M2qdIL0Wv5TJOk7U2RRn2Q3w+fP/xTEAHf/wBBC0G+jfb/8P/H7//u69taa5mlb435w7dwWtS0NWrVDBvvTet3eX+t8nZY7TWUXW2ZQ38//FMQAf//AECLQr6N9v/7P9/3//d1561VskrfXfts78sYYHWURRFc0ev16H09VbWEazIAF4Uekums6zgdYg4//FMQAff/AEGLQr6N7//2/6/v/+7z1xK4wZOO+Kt2c2MMD3ly5RRKWF1q9d3Qpo6gqcDo1rC1QnBmlgJNLz/8UxAB5/8AQgtCeKNG+f/7f7fz/+ft17Uq96Zz7FR17A5z3lddpuuoMFzrVQZq17LFLU41bol6n7R/Dj/8UxAB5/8AQgtCkJdG+f/7n7f7f/bz7cLN6rjKrVU6+dA5zsJ55542vCg55wZqg4HjpnMs4747hexQ4D/8UxAB7/8AQgtBvo32//t/t/7f+Xt5462pNVzrOqp2ZYpSk4Tnr1znG1qW/aPayn4bKiy1u7ZHZXkdmTg//FMQAcf/AEILQb6N9v/7f7f+3/l7dea0bkVecMde4KUpOM9ev4YXS0aRoWsX8osvWSjtPsXduD/8UxAB//8AUpNEgJ9G79/t+Pj2++TidVa6uWjasAARZks+2kAABi0PPrEABhx4e2+f9DP/iLb98zP/gf0JcD/8UxACX/8ATKNpsjbKWylDN/jqX/bPv1rX8f141LEoGdU7E1Bc3/q6PubP5tl0bg5/6NlMb9XkcaCSoSEhJwJayqXsA8GBgYGBnD/8UxAAZ/8ARiBtHA="
+SEGMENT_COUNT = 12
+FAIL_SEGMENT = 6
 MPV_FORMAT_DOUBLE = 5
 
 
-class CutFixture:
-    def __init__(self):
-        self.video = y4m_bytes()
-        self.audio = wav_bytes()
-        assert len(self.audio) >= PREFIX * 3
-        self.prefix_ready = threading.Event()
-        self.cut_allowed = threading.Event()
-        self.cut_done = threading.Event()
-        self.video_done = threading.Event()
-        self.receipts = []
-        self.lock = threading.Lock()
-
-    def receipt(self, role, status, sent, declared, phase):
-        with self.lock:
-            self.receipts.append(dict(role=role, status=status, sent=sent,
-                                      declared=declared, phase=phase))
-
-    def snapshot(self):
-        with self.lock:
-            return list(self.receipts)
-
-
-def video_pts(mpv):
+def media_time(mpv):
     value = ctypes.c_double()
     rc = mpv.lib.mpv_get_property(
         mpv.handle, b"time-pos", MPV_FORMAT_DOUBLE, ctypes.byref(value))
     return value.value if rc >= 0 else None
 
 
-def scenario(lib):
-    fx = CutFixture()
+class SegmentedFixture:
+    def __init__(self):
+        self.video = y4m_bytes()
+        self.audio_piece = base64.b64decode(AAC_ADTS_B64, validate=True) * 4
+        if len(self.audio_piece) < 1000:
+            raise AssertionError("MID01_AUDIO_SEGMENT_INVALID")
+        self.manifest = (
+            "#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:2\n"
+            "#EXT-X-MEDIA-SEQUENCE:0\n"
+            + "".join("#EXTINF:1.109,\nseg%d.aac\n" % n
+                      for n in range(SEGMENT_COUNT))
+            + "#EXT-X-ENDLIST\n"
+        ).encode("ascii")
+        self.fault_requested = threading.Event()
+        self.allow_fault = threading.Event()
+        self.fault_response_sent = threading.Event()
+        self.video_complete = threading.Event()
+        self.lock = threading.Lock()
+        self.records = []
+
+    def record(self, kind, *, segment=-1, status=200, bytes_sent=0):
+        with self.lock:
+            self.records.append(dict(kind=kind, segment=segment, status=status,
+                                     bytes_sent=bytes_sent))
+
+    def snapshot(self):
+        with self.lock:
+            return list(self.records)
+
+
+def experiment(lib):
+    fx = SegmentedFixture()
 
     class Handler(BaseHTTPRequestHandler):
         def log_message(self, *_args):
-            pass
+            pass  # Never log request headers, URLs or error text.
 
         def do_GET(self):
-            if self.path not in ("/audio", "/video"):
+            path = self.path  # Exact allowlist; query strings are forbidden.
+            if path == "/video":
+                kind, content_type, data, seg = "video", "video/x-yuv4mpeg", fx.video, -1
+            elif path == "/audio.m3u8":
+                kind, content_type, data, seg = "manifest", "application/vnd.apple.mpegurl", fx.manifest, -1
+            elif path.startswith("/seg") and path.endswith(".aac") and path[4:-4].isdigit():
+                seg = int(path[4:-4])
+                if not 0 <= seg < SEGMENT_COUNT:
+                    self.send_error(404)
+                    return
+                kind, content_type, data = "audio_segment", "audio/aac", fx.audio_piece
+            else:
                 self.send_error(404)
                 return
-            role = self.path[1:]
-            blob = fx.audio if role == "audio" else fx.video
+
+            if kind == "audio_segment" and seg == FAIL_SEGMENT:
+                fx.fault_requested.set()
+                if not fx.allow_fault.wait(9):
+                    fx.record("fault_wait_timeout", segment=seg, status=0)
+                    self.close_connection = True
+                    return
+                self.send_response(503)
+                self.send_header("Content-Length", "0")
+                self.send_header("Cache-Control", "no-store")
+                self.end_headers()
+                fx.record("audio_segment", segment=seg, status=503)
+                fx.fault_response_sent.set()
+                return
+
             self.send_response(200)
-            self.send_header("Content-Length", str(len(blob)))
-            self.send_header("Content-Type", "audio/wav" if role == "audio"
-                             else "video/x-yuv4mpeg")
+            self.send_header("Content-Type", content_type)
+            self.send_header("Content-Length", str(len(data)))
             self.send_header("Cache-Control", "no-store")
             self.end_headers()
             try:
-                if role == "video":
-                    self.wfile.write(blob)
-                    self.wfile.flush()
-                    fx.receipt(role, 200, len(blob), len(blob), "COMPLETE")
-                    fx.video_done.set()
-                    return
-                self.wfile.write(blob[:PREFIX])
+                self.wfile.write(data)
                 self.wfile.flush()
-                fx.receipt(role, 200, PREFIX, len(blob), "PREFIX_DELIVERED")
-                fx.prefix_ready.set()
-                released = fx.cut_allowed.wait(6)
-                if not released:
-                    fx.receipt(role, 200, PREFIX, len(blob), "TIMEOUT_NOT_AUTHORIZED")
+                fx.record(kind, segment=seg, status=200, bytes_sent=len(data))
+                if kind == "video":
+                    fx.video_complete.set()
             except OSError:
-                fx.receipt(role, 200, 0, len(blob), "CLIENT_CLOSED")
-            finally:
-                if role == "audio":
-                    self.close_connection = True
-                    try:
-                        self.connection.shutdown(socket.SHUT_RDWR)
-                    except OSError:
-                        pass
-                    fx.cut_done.set()
+                fx.record(kind, segment=seg, status=200, bytes_sent=0)
 
-    server = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
-    server.daemon_threads = True
-    server_thread = threading.Thread(target=server.serve_forever, daemon=True)
-    server_thread.start()
-    base = "http://127.0.0.1:%d" % server.server_port
+    srv = ThreadingHTTPServer(("127.0.0.1", 0), Handler)
+    srv.daemon_threads = True
+    srv_thread = threading.Thread(target=srv.serve_forever, daemon=True)
+    srv_thread.start()
+    base = "http://127.0.0.1:%d" % srv.server_port
     mpv = None
-    add_thread = None
-    result = {}
+    worker = None
+    call_status = {}
     try:
         mpv = RealMpv(lib)
         if mpv.command("loadfile", base + "/video", "replace") < 0:
-            raise AssertionError("MID01_VIDEO_LOAD_REJECTED")
-        mpv.until(lambda ev: FILE_LOADED in ev and selected_track(mpv.tracks(), "video"))
-        pts0 = video_pts(mpv)
-        if pts0 is None:
-            raise AssertionError("MID01_VIDEO_CLOCK_UNKNOWN")
+            raise AssertionError("MID01_VIDEO_LOAD_FAILED")
+        mpv.until(lambda events: FILE_LOADED in events and
+                  selected_track(mpv.tracks(), "video"))
+        baseline = media_time(mpv)
+        if baseline is None:
+            raise AssertionError("MID01_MEDIA_CLOCK_UNAVAILABLE")
 
-        def call_audio():
+        def call_audio_add():
             try:
-                result["rc"] = mpv.command("audio-add", base + "/audio", "select")
+                call_status["rc"] = mpv.command("audio-add", base + "/audio.m3u8", "select")
             except BaseException as ex:
-                result["error"] = type(ex).__name__
+                call_status["exception"] = type(ex).__name__
 
-        # Isolate possibly blocking synchronous audio-add from the controller.
-        add_thread = threading.Thread(target=call_audio, daemon=True)
-        add_thread.start()
-        started = time.monotonic()
+        worker = threading.Thread(target=call_audio_add, daemon=True)
+        worker.start()
+        start = time.monotonic()
         selected = False
-        progressed = False
-        video_ok = False
         external = False
+        video_selected = False
+        video_progressed = False
         delta = 0.0
-        while time.monotonic() - started < 4.0:
-            event = mpv.lib.mpv_wait_event(mpv.handle, 0)
+        while time.monotonic() - start < 7.0:
+            event = mpv.lib.mpv_wait_event(mpv.handle, 0.0)
             if event and event.contents.event_id == QUEUE_OVERFLOW:
-                raise AssertionError("MID01_LIBMPV_EVENT_OVERFLOW")
+                raise AssertionError("MID01_NATIVE_EVENT_OVERFLOW")
             tracks = mpv.tracks()
-            video_ok = selected_track(tracks, "video")
             selected = selected_track(tracks, "audio")
-            external = any(t["role"] == "audio" and t["selected"] is True
-                           and t["external"] is True for t in tracks)
-            now = video_pts(mpv)
-            delta = now - pts0 if now is not None else 0.0
-            progressed = delta >= 0.35
-            if fx.video_done.is_set() and fx.prefix_ready.is_set() and video_ok and external and progressed:
+            external = any(t["role"] == "audio" and
+                           t["selected"] is True and
+                           t["external"] is True for t in tracks)
+            video_selected = selected_track(tracks, "video")
+            pts = media_time(mpv)
+            delta = pts - baseline if pts is not None else 0.0
+            video_progressed = delta >= 0.35
+            records = fx.snapshot()
+            healthy = len({r["segment"] for r in records
+                           if r["kind"] == "audio_segment"
+                           and 0 <= r["segment"] < FAIL_SEGMENT
+                           and r["status"] == 200 and r["bytes_sent"] > 1000}) >= 2
+            if fx.fault_requested.is_set() and healthy and selected and external and video_selected and video_progressed and fx.video_complete.is_set():
                 break
-            time.sleep(0.08)
+            time.sleep(0.09)
 
-        receipts = fx.snapshot()
-        partial = any(r["role"] == "audio" and r["phase"] == "PREFIX_DELIVERED"
-                      and r["sent"] == PREFIX and r["declared"] > 3 * PREFIX
-                      for r in receipts)
-        if not (fx.video_done.is_set() and partial and video_ok and selected
-                and external and progressed):
+        records = fx.snapshot()
+        healthy = len({r["segment"] for r in records
+                       if r["kind"] == "audio_segment" and
+                       0 <= r["segment"] < FAIL_SEGMENT and
+                       r["status"] == 200 and r["bytes_sent"] > 1000}) >= 2
+        ready = (fx.video_complete.is_set() and healthy and
+                 fx.fault_requested.is_set() and selected and external and
+                 video_selected and video_progressed)
+        if not ready:
             print("I42_MID01_SEMANTIC_RED " + json.dumps({
-                "video_http_complete": fx.video_done.is_set(),
-                "audio_http_prefix": partial,
-                "audio_selected": selected, "external_audio": external,
-                "video_selected": video_ok, "video_pts_advanced": progressed,
+                "video_http_complete": fx.video_complete.is_set(),
+                "healthy_audio_segments": healthy,
+                "late_segment_request_held": fx.fault_requested.is_set(),
+                "selected_audio": selected, "selected_external_audio": external,
+                "selected_video": video_selected, "video_clock_progress": video_progressed,
                 "video_pts_delta_s": round(delta, 3),
-                "audio_add_rc": result.get("rc"),
+                "audio_add_rc": call_status.get("rc"),
                 "root_cause": "UNKNOWN",
             }, sort_keys=True), flush=True)
             raise AssertionError("MID01_PRE_CUT_NATIVE_PROOF_MISSING")
 
-        fx.cut_allowed.set()
-        if not fx.cut_done.wait(3):
-            raise AssertionError("MID01_AUDIO_SOCKET_CUT_NOT_OBSERVED")
-        add_thread.join(timeout=3)
-        if add_thread.is_alive():
-            raise AssertionError("MID01_AUDIO_ADD_BLOCKED_AFTER_SOCKET_CUT")
-        if result.get("error"):
+        # The 503 is authorized only after all native in-play preconditions.
+        fx.allow_fault.set()
+        if not fx.fault_response_sent.wait(3):
+            raise AssertionError("MID01_HTTP_503_RECEIPT_NOT_OBSERVED")
+        worker.join(timeout=3)
+        if worker.is_alive():
+            raise AssertionError("MID01_AUDIO_ADD_COMMAND_NOT_FINISHED")
+        if "exception" in call_status:
             raise AssertionError("MID01_LIBMPV_CALL_EXCEPTION")
         if not selected_track(mpv.tracks(), "video"):
-            raise AssertionError("MID01_VIDEO_TRACK_LOST_AFTER_AUDIO_CUT")
+            raise AssertionError("MID01_VIDEO_TRACK_NOT_SELECTED_AFTER_503")
+        post = fx.snapshot()
+        errors = [r for r in post if r["kind"] == "audio_segment"
+                  and r["segment"] == FAIL_SEGMENT and r["status"] == 503]
+        if len(errors) != 1:
+            raise AssertionError("MID01_MISSING_UNIQUE_AUDIO_503")
 
-        print("I42_MIDSTREAM_AUDIO_SOCKET_CUT_OBSERVED " + json.dumps({
-            "real_pinned_libmpv": True,
-            "video_advanced_before_audio_cut": progressed,
-            "video_pts_delta_before_cut_s": round(delta, 3),
-            "selected_external_audio_before_cut": external,
-            "audio_http_bytes_sent": PREFIX,
-            "audio_http_declared_bytes": len(fx.audio),
-            "audio_body_incomplete": True,
-            "video_track_still_selected": True,
-            "audio_add_rc": result.get("rc"),
-            "app_pcm_verified": False, "sdl_verified": False,
+        print("I42_MIDPLAY_EXTERNAL_AUDIO_SEGMENT_503_OBSERVED " + json.dumps({
+            "real_pinned_libmpv": True, "audio_selected_before_fault": True,
+            "external_audio_track": True, "video_advanced_pre_fault": True,
+            "video_pts_delta_pre_fault_s": round(delta, 3),
+            "audio_healthy_segment_count_min": 2,
+            "audio_failed_segment_index": FAIL_SEGMENT,
+            "failed_audio_route_receipts": len(errors),
+            "video_selected_after_audio_fault": True,
+            "audio_add_rc": call_status.get("rc"),
+            "mpv_audio_decoder_continuity_verified": False,
+            "application_pcm_verified": False, "sdl_verified": False,
             "audible_output_verified": False,
-            "first_broken_boundary": "UNKNOWN", "root_cause": "UNKNOWN",
+            "root_cause": "UNKNOWN", "first_broken_boundary": "UNKNOWN",
         }, sort_keys=True), flush=True)
     finally:
-        fx.cut_allowed.set()
-        if add_thread:
-            add_thread.join(timeout=3)
+        fx.allow_fault.set()
+        if worker:
+            worker.join(timeout=3)
         if mpv:
             mpv.close()
-        server.shutdown()
-        server.server_close()
-        server_thread.join(timeout=3)
-        if server_thread.is_alive():
-            raise AssertionError("MID01_SERVER_CLEANUP_FAILED")
+        srv.shutdown()
+        srv.server_close()
+        srv_thread.join(timeout=3)
+        if srv_thread.is_alive():
+            raise AssertionError("MID01_SERVER_THREAD_LEAK")
 
 
 def main():
     if sys.platform != "win32":
-        raise SystemExit("MID01_PINNED_WINDOWS_ONLY")
-    dll_path = Path(__file__).resolve().parents[1] / "deps/mpv/libmpv-2.dll"
-    if not dll_path.is_file():
+        raise SystemExit("MID01_REQUIRES_WINDOWS_PINNED_LIBMPV")
+    path = Path(__file__).resolve().parents[1] / "deps/mpv/libmpv-2.dll"
+    if not path.is_file():
         raise SystemExit("MID01_PINNED_LIBMPV_MISSING")
-    with os.add_dll_directory(str(dll_path.parent)):
-        scenario(ctypes.WinDLL(str(dll_path)))
-    print("MID01_DONE real_libmpv=true production_app=NOT_RUN audible=NOT_RUN",
-          flush=True)
+    with os.add_dll_directory(str(path.parent)):
+        experiment(ctypes.WinDLL(str(path)))
+    print("MID01_DONE native_libmpv=true app_pcm=NOT_RUN audible=NOT_RUN", flush=True)
 
 
 if __name__ == "__main__":
