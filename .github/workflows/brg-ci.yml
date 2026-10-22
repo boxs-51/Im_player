@@ -56,6 +56,9 @@ jobs:
       - name: Issue #64 BadgeFmt variadic ABI source contract
         run: python3 -m unittest discover -s tests -p 'test_issue64_badgefmt_abi.py' -v
 
+      - name: Issue #63 notification model ownership RED-first
+        run: python3 -m unittest discover -s tests -p 'test_issue63_notification_state.py' -v
+
       - name: Upload sanity evidence
         if: always()
         uses: actions/upload-artifact@v4
@@ -225,6 +228,21 @@ jobs:
           $exe = Join-Path $probe 'build/${{ matrix.configuration }}/issue64_probe.exe'
           & $exe
           if ($LASTEXITCODE -ne 0) { throw "Issue #64 BadgeFmt runtime probe FAILED: $LASTEXITCODE" }
+
+      - name: Issue #63 MSVC real model notification runtime proof
+        if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
+        shell: pwsh
+        run: |
+          $probe = Join-Path $env:RUNNER_TEMP 'issue63-notify-state'
+          & python tests/test_issue63_notification_state.py --emit-msvc $probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmake.exe -S $probe -B (Join-Path $probe 'build') -G "Visual Studio 18 2026" -A x64
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          & cmake.exe --build (Join-Path $probe 'build') --config ${{ matrix.configuration }} --target issue63_probe
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+          $exe = Join-Path $probe 'build/${{ matrix.configuration }}/issue63_probe.exe'
+          & $exe
+          if ($LASTEXITCODE -ne 0) { throw "Issue #63 notification model probe FAILED: $LASTEXITCODE" }
 
       - name: Smoke-test extension hook
         if: ${{ hashFiles('.github/ci/force-build-failure') == '' && !inputs.negative_build_test }}
