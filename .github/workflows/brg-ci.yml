@@ -199,6 +199,14 @@ jobs:
               Tee-Object -FilePath artifacts/ci/issue42-libmpv-pcm-fault-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 pinned libmpv actual Win32 named pipe PCM during AUDIO 503
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          & python.exe scripts/issue42_mpv_namedpipe_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-win32-pipe-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |
