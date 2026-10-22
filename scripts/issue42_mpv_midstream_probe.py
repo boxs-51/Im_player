@@ -63,7 +63,7 @@ class SegmentedFixture:
             return list(self.records)
 
 
-def experiment(lib, *, pcm_output_path=None):
+def experiment(lib, *, pcm_output_path=None, before_audio_fault=None):
     fx = SegmentedFixture()
 
     class Handler(BaseHTTPRequestHandler):
@@ -212,7 +212,11 @@ def experiment(lib, *, pcm_output_path=None):
             }, sort_keys=True), flush=True)
             raise AssertionError("MID01_PRE_CUT_NATIVE_PROOF_MISSING")
 
-        # The 503 is authorized only after all native in-play preconditions.
+        # The 503 is authorized only after native in-play preconditions.
+        # Test-owned pipe observers may add STRICTER pre-fault checks.
+        # Never call on an invalid selection/HTTP/VIDEO control path.
+        if before_audio_fault is not None:
+            before_audio_fault()
         fx.allow_fault.set()
         if not fx.fault_response_sent.wait(3):
             raise AssertionError("MID01_HTTP_503_RECEIPT_NOT_OBSERVED")
