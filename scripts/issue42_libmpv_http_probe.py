@@ -294,8 +294,12 @@ def check_audio_503(lib, base, source):
             raise AssertionError("MPV_VIDEO_LOADFILE_COMMAND_REJECTED rc=%d" % rc)
         mpv.until(lambda e: FILE_LOADED in e and selected_track(mpv.tracks(), "video"))
         rc = mpv.command("audio-add", base + "/audio", "select")
-        if rc < 0:
-            raise AssertionError("MPV_AUDIO_FAIL_COMMAND_REJECTED rc=%d" % rc)
+        # The pinned libmpv returns a synchronous loading failure (-12) for
+        # some HTTP 503s. That is expected *only* if our independently owned
+        # server actually records AUDIO=503. An unrelated command failure
+        # or a VIDEO failure cannot satisfy this transport negative oracle.
+        if rc not in (0, -12):
+            raise AssertionError("UNEXPECTED_AUDIO_ADD_ERROR rc=%d" % rc)
         mpv.until(lambda _: any(r["role"] == "audio" and r["status"] == 503
                                 for r in source.snapshot()))
         tracks = mpv.tracks()
@@ -307,6 +311,7 @@ def check_audio_503(lib, base, source):
             raise AssertionError("LIBMPV_AUDIO_HTTP_503_NOT_REPRODUCED")
         print("I42_REAL_LIBMPV_AUDIO_503_OBSERVED " + json.dumps({
             "audio_503_receipts": len(failures),
+            "audio_add_rc": rc,
             "video_track_selected": selected_track(tracks, "video"),
             "audio_track_selected": selected_track(tracks, "audio"),
             "mpv_ingest_verified": False,
