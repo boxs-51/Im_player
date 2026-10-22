@@ -1,6 +1,7 @@
 #pragma once
 #include "wintoastlib.h"
 #include "notification.h"
+#include "player/PlayerStateSystem.h"
 #include "utils.h"
 
 
@@ -14,6 +15,7 @@
 
 #include <iostream>
 #include <string>
+#include <optional>
 #include <thread>
 
 #include "common/Exception.h"
@@ -116,13 +118,19 @@ void ShowNotification(const std::wstring& title, const std::wstring& content) {
 
     WinToast::instance()->showToast(templ, nullptr);
 }
-void NotifyMPV() {
-    bool paused;
-
-    std::string title = "MPV";
-    std::wstring status = paused ? L"Paused" : L"Playing";
-
-    ShowNotification(ToWString(title), status);
+void NotifyMPV(const PlayerStateSystem& state) {
+    // PlaybackModel is derived from mpv observations. Read all related flags
+    // under one lock and do not report contradictory/transitional states.
+    std::optional<std::wstring> status;
+    state.ReadPlayback([&](const PlaybackModel& model) {
+        if (model.state == PlaybackState::Paused && model.flags.isPaused) {
+            status = L"Paused";
+        } else if (model.state == PlaybackState::Playing && !model.flags.isPaused) {
+            status = L"Playing";
+        }
+    });
+    if (!status) return;
+    ShowNotification(L"MPV", *status);
 }
 
 
