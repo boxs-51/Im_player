@@ -63,7 +63,7 @@ class SegmentedFixture:
             return list(self.records)
 
 
-def experiment(lib):
+def experiment(lib, *, pcm_output_path=None):
     fx = SegmentedFixture()
 
     class Handler(BaseHTTPRequestHandler):
@@ -124,6 +124,29 @@ def experiment(lib):
     call_status = {}
     try:
         mpv = RealMpv(lib)
+        if pcm_output_path is not None:
+            # PCM02 optional data-plane probe. Retain ALL MID01/MID02 checks
+            # on the very same pinned libmpv session + AUDIO HTTP fault.
+            # Output is an isolated temp file, NEVER the application's pipe.
+            lib.mpv_set_property_string.argtypes = [
+                ctypes.c_void_p, ctypes.c_char_p, ctypes.c_char_p]
+            lib.mpv_set_property_string.restype = ctypes.c_int
+            for name, value in (
+                ("ao-pcm-waveheader", "no"),
+                ("audio-format", "float"),
+                ("audio-samplerate", "48000"),
+                ("audio-channels", "stereo"),
+                ("ao-pcm-file", str(pcm_output_path)),
+                ("ao", "pcm"),
+            ):
+                rc = lib.mpv_set_property_string(
+                    mpv.handle, name.encode("ascii"), value.encode("utf-8"))
+                if rc < 0:
+                    raise AssertionError(
+                        "PCM02_REQUIRED_PROPERTY_FAILED_" +
+                        name.upper().replace("-", "_"))
+            if mpv.string_property("ao") != "pcm":
+                raise AssertionError("PCM02_EFFECTIVE_AO_NOT_PCM")
         if mpv.command("loadfile", base + "/video", "replace") < 0:
             raise AssertionError("MID01_VIDEO_LOAD_FAILED")
         mpv.until(lambda events: FILE_LOADED in events and
@@ -258,6 +281,12 @@ def experiment(lib):
             "audible_output_verified": False,
             "root_cause": "UNKNOWN", "first_broken_boundary": "UNKNOWN",
         }, sort_keys=True), flush=True)
+        return {
+            "native_midplay_http_503_verified": True,
+            "external_audio_selected_pre_fault": True,
+            "video_timeline_advanced_after_fault": True,
+            "audio_503_receipt_count": len(errors),
+        }
     finally:
         fx.allow_fault.set()
         if worker:
