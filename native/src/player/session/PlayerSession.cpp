@@ -3,7 +3,9 @@
 #include <SDL.h>
 #include <log.h>
 #include "common/LifecycleEvidence.h"
-PlayerSession::PlayerSession(std::string id) : m_id(std::move(id)) {
+#include "player/audio/AudioSessionIdentity.h"
+PlayerSession::PlayerSession(std::string id)
+    : m_id(std::move(id)), m_telemetrySessionUid(NextAudioTelemetrySessionUid()) {
     LifecycleEvidence::Emit("PlayerSession", "CREATE", m_id);
 }
 
@@ -56,7 +58,7 @@ bool PlayerSession::Init(WindowRuntime* runtime) {
 
     // --- KÍCH HOẠT VÀ KHỞI TẠO AUDIO PIPELINE ---
     m_audio = std::make_unique<Audio>();
-    if (!m_audio->Init(m_player->GetHandle(), m_state.get())) {
+    if (!m_audio->Init(m_player->GetHandle(), m_state.get(), m_telemetrySessionUid)) {
         LOG(1, LogLevel::Error, LogCategory::Audio, "Cảnh báo: Không thể khởi tạo Audio Pipeline!");
     }
 

@@ -478,8 +478,10 @@ void AudioProcessor::ProcessLoop() {
         }
         if (inSlot->startupLoadId > 0 && AudioStartupBoundaryTraceEnabled()) {
             EmitStartupBoundaryEvidence(
-                "stage=PROCESSOR_ACQUIRE_RAW load_id=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f raw_ring_size=%zu raw_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu",
+                "stage=PROCESSOR_ACQUIRE_RAW load_id=%llu run_uid=%llu session_uid=%llu t_us=%llu sequence=%llu generation=%llu pts=%.6f raw_ring_size=%zu raw_ring_capacity=%zu capture_read_us=%llu capture_publish_us=%llu",
                 static_cast<unsigned long long>(inSlot->startupLoadId),
+                static_cast<unsigned long long>(inSlot->telemetryRunUid),
+                static_cast<unsigned long long>(inSlot->telemetrySessionUid),
                 static_cast<unsigned long long>(acquireMicros),
                 static_cast<unsigned long long>(inSlot->sequence),
                 static_cast<unsigned long long>(inSlot->generation),

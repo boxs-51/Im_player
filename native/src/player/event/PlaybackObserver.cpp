@@ -1,4 +1,5 @@
 #include "PlaybackObserver.h"
+#include "MpvCacheStreamTelemetry.h"
 
 #include "player/player/Player.h"
 #include "player/PlayerDataModels.h"
@@ -96,7 +97,7 @@ void PlaybackObserver::Init() {
         {"vsync-jitter", MPV_FORMAT_DOUBLE},
         {"file-size", MPV_FORMAT_INT64},
         {"demuxer-cache-state", MPV_FORMAT_NODE},
-        {"pause-for-cache", MPV_FORMAT_FLAG}
+        {"paused-for-cache", MPV_FORMAT_FLAG}
     }, "Advanced");
     mpv_observe_property(m_mpv, 0, "af-metadata/ebur_measurer", MPV_FORMAT_NODE);
 
@@ -1031,7 +1032,7 @@ void PlaybackObserver::ProcessEvents() {
                         static_cast<unsigned long long>(AudioTelemetryNowMicros()),
                         prop->data ? 1 : 0);
                     emitUrlAudioSnapshot("audio_params_changed");
-                } else if (strcmp(prop->name, "pause-for-cache") == 0 ||
+                } else if (strcmp(prop->name, "paused-for-cache") == 0 ||
                            strcmp(prop->name, "cache-buffering-state") == 0 ||
                            strcmp(prop->name, "demuxer-via-network") == 0) {
                     emitUrlAudioSnapshot("network_cache_changed");
@@ -1140,7 +1141,7 @@ void PlaybackObserver::HandleFlagProperty(const char* name, bool value) {
     else if (strcmp(name, "demuxer-via-network") == 0) m_state.WriteNetwork([&](auto& m) { m.demuxer_via_network = value; });
     else if (strcmp(name, "vo-configured") == 0);
     else if (strcmp(name, "display-sync-active") == 0);
-    else if (strcmp(name, "pause-for-cache") == 0) m_state.WritePlayback([&](auto& m) { m.flags.pauseForCache = value; });
+    else if (strcmp(name, "paused-for-cache") == 0) m_state.WritePlayback([&](auto& m) { m.flags.pauseForCache = value; });
 }
 
 void PlaybackObserver::HandleInt64Property(const char* name, int64_t value) {
@@ -1209,5 +1210,37 @@ void PlaybackObserver::HandleNodeProperty(const char* name, const mpv_node* node
     }
     else if (strcmp(name, "audio-device-list") == 0)          UpdateAudioDeviceList(node);
     else if (strcmp(name, "af-metadata/ebur_measurer") == 0)  UpdateLoudnessMetadata(node);
-    else if (strcmp(name, "demuxer-cache-state") == 0);
+    else if (strcmp(name, "demuxer-cache-state") == 0) {
+        // Main demuxer only: a separate external audio URL can have a
+        // different cache state. This diagnostic NEVER attests HTTP reachability.
+        if (!AudioContinuityTraceEnabled()) return;
+        const auto nowUs = AudioTelemetryNowMicros();
+        const auto loadId = m_commander.GetStartupLoadId();
+        if (m_lastCacheStreamTelemetryLoadId == loadId &&
+            m_lastCacheStreamTelemetryUs && nowUs >= m_lastCacheStreamTelemetryUs &&
+            nowUs - m_lastCacheStreamTelemetryUs < 250000ULL)
+            return;
+        m_lastCacheStreamTelemetryUs = nowUs;
+        m_lastCacheStreamTelemetryLoadId = loadId;
+        const auto observed = ParseMpvCacheStreams(node);
+        EmitAudioContinuityEvidence(
+            "stage=URL_AUDIO_STREAM_CACHE load_id=%llu t_us=%llu source_scope=main_demuxer source_reachability=unverified cache_node_valid=%d audio_entry_present=%d audio_cache_duration_known=%d audio_cache_duration_s=%.6f audio_reader_pts_known=%d audio_reader_pts_s=%.6f audio_cache_end_known=%d audio_cache_end_s=%.6f video_entry_present=%d video_cache_duration_known=%d video_cache_duration_s=%.6f video_reader_pts_known=%d video_reader_pts_s=%.6f video_cache_end_known=%d video_cache_end_s=%.6f",
+            static_cast<unsigned long long>(loadId),
+            static_cast<unsigned long long>(nowUs),
+            observed.mainDemuxerCacheValid ? 1 : 0,
+            observed.audio.present ? 1 : 0,
+            observed.audio.durationKnown ? 1 : 0,
+            observed.audio.durationSeconds,
+            observed.audio.readerPtsKnown ? 1 : 0,
+            observed.audio.readerPtsSeconds,
+            observed.audio.cacheEndKnown ? 1 : 0,
+            observed.audio.cacheEndSeconds,
+            observed.video.present ? 1 : 0,
+            observed.video.durationKnown ? 1 : 0,
+            observed.video.durationSeconds,
+            observed.video.readerPtsKnown ? 1 : 0,
+            observed.video.readerPtsSeconds,
+            observed.video.cacheEndKnown ? 1 : 0,
+            observed.video.cacheEndSeconds);
+    }
 }

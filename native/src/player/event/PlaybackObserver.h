@@ -3,6 +3,7 @@
 #include <mpv/client.h>
 #include <vector>
 #include <string>
+#include <cstdint>
 
 class Player; // Forward declaration
 class PlayerStateSystem;
@@ -59,4 +60,7 @@ private:
     PlayerStateSystem& m_state;
     PlaybackCommand& m_commander;
     mpv_handle* m_mpv;
+    // Per-instance rate bound on opt-in diagnostic node logging only.
+    std::uint64_t m_lastCacheStreamTelemetryUs = 0;
+    std::uint64_t m_lastCacheStreamTelemetryLoadId = 0;
 };

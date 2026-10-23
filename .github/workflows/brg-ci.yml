@@ -160,6 +160,53 @@ jobs:
               Tee-Object -FilePath artifacts/ci/bootstrap-${{ matrix.configuration }}.log
           if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
 
+      - name: Issue42 pinned libmpv cache-paused property registry probe
+        shell: pwsh
+        run: |
+          & python.exe scripts/issue42_mpv_cache_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-mpv-property-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue42 real pinned libmpv independent HTTP A/V fixture
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          & python.exe scripts/issue42_libmpv_http_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-http-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue42 real pinned libmpv midplay audio socket-cut RED-first
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          & python.exe scripts/issue42_mpv_midstream_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-midplay-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue42 pinned libmpv real raw PCM AO baseline
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          & python.exe scripts/issue42_mpv_pcm_ao_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-pcm-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue42 pinned libmpv PCM AO with in-play audio HTTP 503
+        shell: pwsh
+        timeout-minutes: 3
+        run: |
+          & python.exe scripts/issue42_mpv_pcm_fault_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-pcm-fault-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
+      - name: Issue42 pinned libmpv actual Win32 named pipe PCM during AUDIO 503
+        shell: pwsh
+        timeout-minutes: 4
+        run: |
+          & python.exe scripts/issue42_mpv_namedpipe_probe.py *>&1 |
+              Tee-Object -FilePath artifacts/ci/issue42-libmpv-win32-pipe-${{ matrix.configuration }}.log
+          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
+
       - name: Prepare isolated vcpkg binary cache
         shell: pwsh
         run: |

@@ -228,6 +228,21 @@ target_link_options(Im_player PRIVATE
 # BRG-3 focused lifetime regression target.
 include(CTest)
 if(BUILD_TESTING)
+    # Issue #42 F02: native typed mpv_node fixture, no media/network/SDL.
+    add_executable(mpv_cache_streams_test
+        tests/mpv_cache_streams_test.cpp
+    )
+    target_include_directories(mpv_cache_streams_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_features(mpv_cache_streams_test PRIVATE cxx_std_17)
+    add_test(
+        NAME issue42_mpv_cache_streams_gate
+        COMMAND mpv_cache_streams_test
+    )
+    set_tests_properties(issue42_mpv_cache_streams_gate PROPERTIES TIMEOUT 30)
+
     add_executable(render_callback_lifetime_test
         tests/render_callback_lifetime_test.cpp
     )
@@ -362,5 +377,132 @@ if(BUILD_TESTING)
     set_tests_properties(
         issue26_audio_queue_write_planner_gate
         PROPERTIES TIMEOUT 30
+    )
+    # Issue42 NAT01: real AudioCaptureManager.cpp + Windows named pipe and
+    # raw SPSC producer. Positive localhost WAV, negative HTTP 503. No SDL
+    # output, GUI runtime or production source modifications.
+    find_package(Python3 COMPONENTS Interpreter REQUIRED)
+    add_executable(issue42_native_capture_manager_test
+        tests/issue42_native_capture_manager_test.cpp
+        native/src/player/audio/AudioCaptureManager.cpp
+        native/src/threads/thread_manager.cpp
+    )
+    target_include_directories(issue42_native_capture_manager_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/native/include"
+        "${CMAKE_SOURCE_DIR}/native/src/player"
+        "${CMAKE_SOURCE_DIR}/native/src/player/audio"
+        "${CMAKE_SOURCE_DIR}/native/src/threads"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_definitions(issue42_native_capture_manager_test PRIVATE
+        SDL_MAIN_HANDLED WIN32_LEAN_AND_MEAN NOMINMAX
+        UNICODE _UNICODE ENABLE_LOG
+    )
+    target_compile_features(issue42_native_capture_manager_test PRIVATE cxx_std_17)
+    target_link_libraries(issue42_native_capture_manager_test PRIVATE
+        mpv::mpv SDL2::SDL2
+    )
+    add_custom_command(TARGET issue42_native_capture_manager_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:mpv::mpv>"
+            "$<TARGET_FILE_DIR:issue42_native_capture_manager_test>"
+        COMMENT "Copy pinned libmpv DLL for actual capture-manager test"
+    )
+    add_test(
+        NAME issue42_native_capture_manager_http_gate
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/issue42_native_capture_manager_probe.py"
+            --binary "$<TARGET_FILE:issue42_native_capture_manager_test>"
+    )
+    set_tests_properties(
+        issue42_native_capture_manager_http_gate
+        PROPERTIES TIMEOUT 45
+    )
+    # Issue42 NAT02: real production capture + AudioProcessor -> processed SPSC.
+    # Existing NAT01 test remains unchanged, independent and mandatory.
+    add_executable(issue42_native_capture_processor_test
+        tests/issue42_native_capture_processor_test.cpp
+        native/src/player/audio/AudioCaptureManager.cpp
+        native/src/player/audio/AudioProcessor.cpp
+        native/src/threads/thread_manager.cpp
+        native/include/pffft/pffft.c
+        native/include/pffft/pffft_common.c
+    )
+    target_include_directories(issue42_native_capture_processor_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/native/include"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft/simd"
+        "${CMAKE_SOURCE_DIR}/native/src/player"
+        "${CMAKE_SOURCE_DIR}/native/src/player/audio"
+        "${CMAKE_SOURCE_DIR}/native/src/threads"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_definitions(issue42_native_capture_processor_test PRIVATE
+        SDL_MAIN_HANDLED WIN32_LEAN_AND_MEAN NOMINMAX
+        UNICODE _UNICODE ENABLE_LOG PFFFT_EXPORTS
+    )
+    target_compile_features(issue42_native_capture_processor_test PRIVATE cxx_std_17)
+    target_link_libraries(issue42_native_capture_processor_test PRIVATE mpv::mpv SDL2::SDL2)
+    add_custom_command(TARGET issue42_native_capture_processor_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:mpv::mpv>"
+            "$<TARGET_FILE_DIR:issue42_native_capture_processor_test>"
+        COMMENT "Copy pinned libmpv DLL for NAT02 real processor test"
+    )
+    add_test(
+        NAME issue42_native_capture_processor_http_gate
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/issue42_native_capture_processor_probe.py"
+            --binary "$<TARGET_FILE:issue42_native_capture_processor_test>"
+    )
+    set_tests_properties(issue42_native_capture_processor_http_gate PROPERTIES TIMEOUT 45)
+    # NAT03 T1 RED-first: real OutputWorker + SDL2 dummy queue; pressure
+    # documents an observed processor drop, not a cured continuity fault.
+    # All NAT01/NAT02 tests and original eight S01 RED oracles stay intact.
+    add_executable(issue42_native_output_sdl_test
+        tests/issue42_native_output_sdl_test.cpp
+        native/src/player/audio/AudioCaptureManager.cpp
+        native/src/player/audio/AudioProcessor.cpp
+        native/src/player/audio/AudioOutputWorker.cpp
+        native/src/player/audio/SdlAudioDevice.cpp
+        native/src/threads/thread_manager.cpp
+        native/include/pffft/pffft.c
+        native/include/pffft/pffft_common.c
+    )
+    target_include_directories(issue42_native_output_sdl_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/native/include"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft/simd"
+        "${CMAKE_SOURCE_DIR}/native/src/player"
+        "${CMAKE_SOURCE_DIR}/native/src/player/audio"
+        "${CMAKE_SOURCE_DIR}/native/src/threads"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_definitions(issue42_native_output_sdl_test PRIVATE
+        SDL_MAIN_HANDLED WIN32_LEAN_AND_MEAN NOMINMAX
+        UNICODE _UNICODE ENABLE_LOG PFFFT_EXPORTS
+    )
+    target_compile_features(issue42_native_output_sdl_test PRIVATE cxx_std_17)
+    target_link_libraries(issue42_native_output_sdl_test PRIVATE
+        mpv::mpv SDL2::SDL2
+    )
+    add_custom_command(TARGET issue42_native_output_sdl_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:mpv::mpv>"
+            "$<TARGET_FILE_DIR:issue42_native_output_sdl_test>"
+        COMMENT "Copy pinned libmpv DLL for NAT03 original production chain"
+    )
+    add_test(
+        NAME issue42_nat03_native_output_sdl_dummy_gate
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/issue42_native_output_sdl_probe.py"
+            --binary "$<TARGET_FILE:issue42_native_output_sdl_test>"
+    )
+    set_tests_properties(
+        issue42_nat03_native_output_sdl_dummy_gate
+        PROPERTIES TIMEOUT 70
     )
 endif()

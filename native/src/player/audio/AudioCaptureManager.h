@@ -50,7 +50,7 @@ public:
     AudioCaptureManager(const AudioCaptureManager&) = delete;
     AudioCaptureManager& operator=(const AudioCaptureManager&) = delete;
 
-    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer);
+    bool Init(mpv_handle* mpv, PlayerStateSystem* stateSystem, SpscProducer<AudioBlock> producer, std::uint64_t sessionUid);
     void Shutdown();
 
     void StartCapture();
@@ -73,6 +73,7 @@ private:
     // --- References & Handles ---
     mpv_handle* m_mpv = nullptr;
     PlayerStateSystem* m_stateSystem = nullptr;
+    std::uint64_t m_telemetrySessionUid = 0; // fixed before capture thread starts
 
     std::thread m_captureThread;
     std::atomic<bool> m_isRunning{false};
