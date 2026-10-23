@@ -458,4 +458,51 @@ if(BUILD_TESTING)
             --binary "$<TARGET_FILE:issue42_native_capture_processor_test>"
     )
     set_tests_properties(issue42_native_capture_processor_http_gate PROPERTIES TIMEOUT 45)
+    # NAT03 T1 RED-first: real OutputWorker + SDL2 dummy queue; pressure
+    # documents an observed processor drop, not a cured continuity fault.
+    # All NAT01/NAT02 tests and original eight S01 RED oracles stay intact.
+    add_executable(issue42_native_output_sdl_test
+        tests/issue42_native_output_sdl_test.cpp
+        native/src/player/audio/AudioCaptureManager.cpp
+        native/src/player/audio/AudioProcessor.cpp
+        native/src/player/audio/AudioOutputWorker.cpp
+        native/src/player/audio/SdlAudioDevice.cpp
+        native/src/threads/thread_manager.cpp
+        native/include/pffft/pffft.c
+        native/include/pffft/pffft_common.c
+    )
+    target_include_directories(issue42_native_output_sdl_test PRIVATE
+        "${CMAKE_SOURCE_DIR}/native/src"
+        "${CMAKE_SOURCE_DIR}/native/include"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft"
+        "${CMAKE_SOURCE_DIR}/native/include/pffft/simd"
+        "${CMAKE_SOURCE_DIR}/native/src/player"
+        "${CMAKE_SOURCE_DIR}/native/src/player/audio"
+        "${CMAKE_SOURCE_DIR}/native/src/threads"
+        "${CMAKE_SOURCE_DIR}/deps/mpv/include"
+    )
+    target_compile_definitions(issue42_native_output_sdl_test PRIVATE
+        SDL_MAIN_HANDLED WIN32_LEAN_AND_MEAN NOMINMAX
+        UNICODE _UNICODE ENABLE_LOG PFFFT_EXPORTS
+    )
+    target_compile_features(issue42_native_output_sdl_test PRIVATE cxx_std_17)
+    target_link_libraries(issue42_native_output_sdl_test PRIVATE
+        mpv::mpv SDL2::SDL2
+    )
+    add_custom_command(TARGET issue42_native_output_sdl_test POST_BUILD
+        COMMAND "${CMAKE_COMMAND}" -E copy_if_different
+            "$<TARGET_FILE:mpv::mpv>"
+            "$<TARGET_FILE_DIR:issue42_native_output_sdl_test>"
+        COMMENT "Copy pinned libmpv DLL for NAT03 original production chain"
+    )
+    add_test(
+        NAME issue42_nat03_native_output_sdl_dummy_gate
+        COMMAND "${Python3_EXECUTABLE}"
+            "${CMAKE_SOURCE_DIR}/scripts/issue42_native_output_sdl_probe.py"
+            --binary "$<TARGET_FILE:issue42_native_output_sdl_test>"
+    )
+    set_tests_properties(
+        issue42_nat03_native_output_sdl_dummy_gate
+        PROPERTIES TIMEOUT 70
+    )
 endif()
